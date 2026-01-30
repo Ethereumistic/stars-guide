@@ -4,27 +4,34 @@ import {
     nextjsMiddlewareRedirect,
 } from "@convex-dev/auth/nextjs/server";
 
-// 1. Define public routes explicitly
+// 1. Define public routes that do not need auth session
 const isPublicPage = createRouteMatcher([
     "/sign-in",
     "/sign-up",
     "/forgot-password",
+    "/pricing",
     "/"
 ]);
 
+// 2. Define auth pages where authenticated users should be redirected from
+const isAuthPage = createRouteMatcher([
+    "/sign-in",
+    "/sign-up",
+    "/forgot-password"
+]);
+
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
-    // 2. Check if the user is authenticated using the injected client
+    // 3. Check if the user is authenticated using the injected client
     const isAuthenticated = await convexAuth.isAuthenticated();
 
-    // 3. Redirect unauthenticated users trying to access protected pages
+    // 4. Redirect unauthenticated users trying to access protected pages (like /account, /dashboard)
     if (!isPublicPage(request) && !isAuthenticated) {
         return nextjsMiddlewareRedirect(request, "/sign-in");
     }
 
-    // 4. (Optional) Redirect authenticated users away from auth pages
-    if (isPublicPage(request) && isAuthenticated && request.nextUrl.pathname !== "/") {
-        // e.g. redirect to dashboard if they are already logged in
-        // return nextjsMiddlewareRedirect(request, "/dashboard");
+    // 5. Redirect authenticated users away from auth pages to /dashboard
+    if (isAuthenticated && isAuthPage(request)) {
+        return nextjsMiddlewareRedirect(request, "/dashboard");
     }
 });
 

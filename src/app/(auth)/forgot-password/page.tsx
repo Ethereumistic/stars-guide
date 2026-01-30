@@ -19,21 +19,25 @@ export default function ForgotPasswordPage() {
         event.preventDefault()
         setIsLoading(true)
 
-        const formData = new FormData(event.currentTarget)
+        // 1. Capture the form element
+        const form = event.currentTarget
+        const formData = new FormData(form)
         const email = formData.get("email") as string
 
         try {
-            // Convex Auth flow for password reset (requires email provider setup in backend)
-            // For now, we'll simulate the success state as the UI is the priority
-            // await signIn("password", { email, flow: "reset" })
+            // 2. UNCOMMENTED: Actually trigger the Convex reset flow
+            // Note: Ensure your Convex Auth config has a password provider with "reset" flow enabled
+            await signIn("password", { email, flow: "reset" })
 
-            // Simulating a delay
-            await new Promise(resolve => setTimeout(resolve, 1000))
+            // 3. Reset the form (good practice, though the form unmounts anyway)
+            form.reset()
 
+            // 4. Update UI state to show success message
             setIsSubmitted(true)
             toast.success("Reset link sent to your email")
+
         } catch (error) {
-            toast.error("An error occurred. Please try again.")
+            toast.error("Could not send reset link. Please try again.")
             console.error(error)
         } finally {
             setIsLoading(false)

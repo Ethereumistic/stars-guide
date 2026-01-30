@@ -9,10 +9,12 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { FaGoogle } from "react-icons/fa"
 import { toast } from "sonner"
-import { Loader2, Mail, Lock } from "lucide-react"
+import { Mail, Lock, Loader2 } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 export default function SignInPage() {
     const { signIn } = useAuthActions()
+    const router = useRouter()
     const [isLoading, setIsLoading] = React.useState(false)
     const [isGoogleLoading, setIsGoogleLoading] = React.useState(false)
 
@@ -20,13 +22,25 @@ export default function SignInPage() {
         event.preventDefault()
         setIsLoading(true)
 
-        const formData = new FormData(event.currentTarget)
+        // 1. Capture the form element reference immediately
+        const form = event.currentTarget
+        const formData = new FormData(form)
         const email = formData.get("email") as string
         const password = formData.get("password") as string
 
         try {
             await signIn("password", { email, password, flow: "signIn" })
+
+            // 2. CLEAR the form state before navigating
+            // This tricks the browser into thinking there is no unsaved data to lose.
+            form.reset()
+
             toast.success("Welcome back to the stars")
+
+            // 3. Use 'replace' instead of 'push' for login
+            // (Optional) Prevents the user from clicking "Back" and landing on the login page again
+            router.replace("/dashboard")
+
         } catch (error) {
             toast.error("Invalid email or password")
             console.error(error)
@@ -39,6 +53,7 @@ export default function SignInPage() {
         setIsGoogleLoading(true)
         try {
             await signIn("google")
+            router.push("/dashboard")
         } catch (error) {
             toast.error("Failed to sign in with Google")
             console.error(error)

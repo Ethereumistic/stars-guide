@@ -10,9 +10,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { FaGoogle } from "react-icons/fa"
 import { toast } from "sonner"
 import { Loader2, Mail, Lock } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 export default function SignUpPage() {
     const { signIn } = useAuthActions()
+    const router = useRouter()
     const [isLoading, setIsLoading] = React.useState(false)
     const [isGoogleLoading, setIsGoogleLoading] = React.useState(false)
 
@@ -20,14 +22,23 @@ export default function SignUpPage() {
         event.preventDefault()
         setIsLoading(true)
 
-        const formData = new FormData(event.currentTarget)
+        // 1. Capture form reference
+        const form = event.currentTarget
+        const formData = new FormData(form)
         const email = formData.get("email") as string
         const password = formData.get("password") as string
 
         try {
-            // Using the Password provider for sign up - Name removed for lower friction
             await signIn("password", { email, password, flow: "signUp" })
+
+            // 2. CLEAR the form to prevent "Leave site?" alerts
+            form.reset()
+
             toast.success("Welcome aboard, seeker")
+
+            // 3. Use 'replace' so they can't go back to the registration page
+            router.replace("/dashboard")
+
         } catch (error) {
             toast.error("Failed to create account. Please try again.")
             console.error(error)
@@ -35,11 +46,11 @@ export default function SignUpPage() {
             setIsLoading(false)
         }
     }
-
     async function onGoogleSignIn() {
         setIsGoogleLoading(true)
         try {
             await signIn("google")
+            router.push("/dashboard")
         } catch (error) {
             toast.error("Failed to sign in with Google")
             console.error(error)
