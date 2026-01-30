@@ -1,10 +1,11 @@
-import { Button } from "@/components/ui/button";
-import { ThemeSwitch } from "@/components/ui/theme-switch";
-import Image from "next/image";
 import { Hero } from "@/components/hero/hero";
+import { HeroAlternative } from "@/components/hero/hero-alt";
 
 export default function Home() {
 	return (
-		<Hero />
+		<main>
+			<Hero />
+			<HeroAlternative />
+		</main>
 	);
 }
