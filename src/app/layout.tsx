@@ -20,29 +20,38 @@ export const metadata: Metadata = {
 	description: "Celestial horoscopes and birth charts. Discover your destiny with stars.guide.",
 };
 
+import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
+import { ConvexClientProvider } from "@/components/convex-client-provider";
+import { UserSync } from "@/components/providers/user-sync";
+
 export default function RootLayout({
 	children,
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
 	return (
-		<html lang="en" suppressHydrationWarning>
-			<body
-				className={`${inter.variable} ${cinzel.variable} antialiased font-sans`}
-			>
-				<ThemeProvider
-					attribute="class"
-					defaultTheme="dark"
-					enableSystem
-					disableTransitionOnChange
+		<ConvexAuthNextjsServerProvider>
+			<html lang="en" suppressHydrationWarning>
+				<body
+					className={`${inter.variable} ${cinzel.variable} antialiased font-sans`}
 				>
-					<div className="relative min-h-screen flex flex-col">
-						<Navbar />
-						<main className="flex-1">{children}</main>
-						<Footer />
-					</div>
-				</ThemeProvider>
-			</body>
-		</html>
+					<ConvexClientProvider>
+						<UserSync />
+						<ThemeProvider
+							attribute="class"
+							defaultTheme="dark"
+							enableSystem
+							disableTransitionOnChange
+						>
+							<div className="relative min-h-screen flex flex-col">
+								<Navbar />
+								<main className="flex-1">{children}</main>
+								<Footer />
+							</div>
+						</ThemeProvider>
+					</ConvexClientProvider>
+				</body>
+			</html>
+		</ConvexAuthNextjsServerProvider>
 	);
 }

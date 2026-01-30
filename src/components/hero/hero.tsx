@@ -17,7 +17,7 @@ export function Hero() {
     }, [])
 
     return (
-        <section className="relative min-h-[calc(100vh-5rem)] flex items-center justify-center overflow-hidden bg-gradient-to-b from-background via-background/95 to-background/90">
+        <section className="relative min-h-[calc(100vh-5rem)] flex items-center justify-center overflow-hidden">
             {/* Animated Background */}
             <ShootingStars
                 minSpeed={15}
@@ -146,7 +146,7 @@ export function Hero() {
             </div>
 
             {/* Decorative Gradient Overlay (Bottom Fade) */}
-            <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent pointer-events-none" />
+            {/* <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent pointer-events-none" /> */}
         </section>
     )
 }

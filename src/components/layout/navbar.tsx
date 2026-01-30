@@ -14,9 +14,21 @@ import {
     navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
 import { cn } from "@/lib/utils"
-import { Menu, X, LogIn } from "lucide-react"
+import { Menu, X, LogIn, LogOut, User } from "lucide-react"
 import { GiStarsStack, GiCrystalBall, GiCoins, GiAstrolabe } from "react-icons/gi"
 import { motion } from "motion/react"
+import { useConvexAuth } from "convex/react"
+import { useAuthActions } from "@convex-dev/auth/react"
+import { useUserStore } from "@/store/use-user-store"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 const navItems = [
     { title: "Horoscopes", href: "/horoscopes", icon: GiStarsStack },
@@ -46,6 +58,13 @@ export function Navbar() {
             document.body.style.overflow = "unset"
         }
     }, [isMobileMenuOpen])
+
+    const { isAuthenticated: isAuthConvex } = useConvexAuth()
+    const { signOut } = useAuthActions()
+    const { user: currentUser, isLoading } = useUserStore()
+
+    // We can use either or both, but the store is now our primary source for UI
+    const isAuthenticated = isAuthConvex && !!currentUser
 
     return (
         <header
@@ -115,7 +134,6 @@ export function Navbar() {
                 <div className="flex-1 flex items-center justify-end gap-3">
                     <div className="hidden sm:flex items-center gap-3">
 
-
                         {/* CTA - Natal Chart - ALWAYS VISIBLE ICON */}
                         <Button
                             variant="default"
@@ -124,27 +142,67 @@ export function Navbar() {
                             className="hidden font-serif sm:inline-flex uppercase tracking-wider group/cta shadow-lg hover:shadow-primary/20"
                         >
                             <Link href="/birth-chart" className="flex items-center gap-2">
-                                {/* Icon is permanent to fix spacing issues. Animates on hover. */}
                                 <GiAstrolabe className="size-5 shrink-0" />
                                 <span>Natal Chart</span>
                             </Link>
                         </Button>
                     </div>
 
-
-                    {/* Sign In - Icon Only */}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        asChild
-                        className=""
-                    >
-                        <Link href="/sign-in">
-                            <LogIn className="size-5" />
-                            <span className="sr-only">Sign In</span>
-
-                        </Link>
-                    </Button>
+                    {isAuthenticated ? (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                                    <Avatar className="h-10 w-10 border border-primary/20">
+                                        <AvatarImage src={currentUser?.image} alt={currentUser?.name ?? "User"} />
+                                        <AvatarFallback className="bg-primary/5 text-primary">
+                                            {currentUser?.name?.charAt(0) ?? <User className="size-5" />}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-56 mt-2 border-primary/20 bg-background/95 backdrop-blur-xl" align="end" forceMount>
+                                <DropdownMenuLabel className="font-normal">
+                                    <div className="flex flex-col space-y-1">
+                                        <p className="text-sm font-medium leading-none font-sans">{currentUser?.name}</p>
+                                        <p className="text-xs leading-none text-muted-foreground font-sans">
+                                            {currentUser?.email}
+                                        </p>
+                                    </div>
+                                </DropdownMenuLabel>
+                                <DropdownMenuSeparator className="bg-primary/10" />
+                                <DropdownMenuItem asChild>
+                                    <Link href="/dashboard" className="cursor-pointer font-sans italic">
+                                        Dashboard
+                                    </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                    <Link href="/settings" className="cursor-pointer font-sans italic">
+                                        Settings
+                                    </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator className="bg-primary/10" />
+                                <DropdownMenuItem
+                                    className="cursor-pointer text-destructive focus:text-destructive font-sans italic"
+                                    onClick={() => signOut()}
+                                >
+                                    <LogOut className="mr-2 h-4 w-4" />
+                                    <span>Sign Out</span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    ) : (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            asChild
+                            className="text-foreground/70 hover:text-primary transition-colors"
+                        >
+                            <Link href="/sign-in">
+                                <LogIn className="size-5" />
+                                <span className="sr-only">Sign In</span>
+                            </Link>
+                        </Button>
+                    )}
 
                     {/* Mobile Menu Toggle */}
                     <Button
