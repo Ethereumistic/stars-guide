@@ -13,7 +13,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
             profile(params: any) {
                 return {
                     email: params.email as string,
-                    name: params.name as string,
+                    name: (params.name as string) ?? null,
                 };
             },
         }),

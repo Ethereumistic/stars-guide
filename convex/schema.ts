@@ -20,9 +20,10 @@ export default defineSchema({
         // Subscription State
         tier: v.union(
             v.literal("free"),
-            v.literal("cosmic_flow"),      // Standard $9.99/mo
-            v.literal("influencer_vip"),   // OTC / Comped
-            v.literal("founder_lifetime")  // Early adopter
+            v.literal("cosmic"),      // Standard $9.99/mo
+            v.literal("astral"),      // Premium $29.99/mo
+            v.literal("vip"),   // OTC / Comped
+            v.literal("lifetime")  // Early adopter
         ),
         subscriptionStatus: v.union(
             v.literal("active"),

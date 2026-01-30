@@ -30,6 +30,7 @@ We use the **"Atomic User"** strategy. Instead of spreading user data across man
 This file configures the `@convex-dev/auth` server.
 
 - **Providers**: Configured for Google, Apple, GitHub, and Password (Email).
+- **Frictionless Sign-Up**: The password-based registration has been optimized by removing the "Full Name" requirement during the initial account creation to lower user friction.
 - **`createOrUpdateUser` Hook**: This is the "Brain" of user creation. When a user first signs in:
     1.  The hook intercepts the profile.
     2.  It initializes the user with default values (Free tier, default preferences).

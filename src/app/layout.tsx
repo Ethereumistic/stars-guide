@@ -18,6 +18,7 @@ const cinzel = Cinzel({
 export const metadata: Metadata = {
 	title: "stars.guide | Navigate your fate",
 	description: "Celestial horoscopes and birth charts. Discover your destiny with stars.guide.",
+	manifest: "/manifest.json",
 };
 
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";

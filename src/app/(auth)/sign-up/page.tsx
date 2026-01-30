@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { FaGoogle } from "react-icons/fa"
 import { toast } from "sonner"
-import { Loader2, Mail, Lock, User } from "lucide-react"
+import { Loader2, Mail, Lock } from "lucide-react"
 
 export default function SignUpPage() {
     const { signIn } = useAuthActions()
@@ -21,13 +21,12 @@ export default function SignUpPage() {
         setIsLoading(true)
 
         const formData = new FormData(event.currentTarget)
-        const name = formData.get("name") as string
         const email = formData.get("email") as string
         const password = formData.get("password") as string
 
         try {
-            // Using the Password provider for sign up
-            await signIn("password", { name, email, password, flow: "signUp" })
+            // Using the Password provider for sign up - Name removed for lower friction
+            await signIn("password", { email, password, flow: "signUp" })
             toast.success("Welcome aboard, seeker")
         } catch (error) {
             toast.error("Failed to create account. Please try again.")
@@ -87,21 +86,6 @@ export default function SignUpPage() {
                 </div>
 
                 <form onSubmit={onSubmit} className="grid gap-4">
-                    <div className="grid gap-2">
-                        <Label htmlFor="name" className="font-sans text-sm font-medium ml-1">Full Name</Label>
-                        <div className="relative">
-                            <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                id="name"
-                                name="name"
-                                type="text"
-                                placeholder="Cassini Sky"
-                                required
-                                disabled={isLoading || isGoogleLoading}
-                                className="pl-10 border-primary/10 focus-visible:ring-primary/30"
-                            />
-                        </div>
-                    </div>
                     <div className="grid gap-2">
                         <Label htmlFor="email" className="font-sans text-sm font-medium ml-1">Email</Label>
                         <div className="relative">
