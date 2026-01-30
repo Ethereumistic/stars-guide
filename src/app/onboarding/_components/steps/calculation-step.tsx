@@ -102,9 +102,9 @@ export function CalculationStep() {
                     animate={{ scale: 1, opacity: 1 }}
                     className="inline-block p-2 mb-4"
                 >
-                    <padding className="p-2 bg-primary/20 rounded-full inline-block">
+                    <div className="p-2 bg-primary/20 rounded-full inline-block">
                         <Sparkles className="size-6 text-primary" />
-                    </padding>
+                    </div>
                 </motion.div>
                 <h2 className="text-4xl font-serif">Your Cosmic Blueprint is Ready</h2>
                 <p className="text-muted-foreground text-sm">We've mapped the heavens at the moment of your birth.</p>
