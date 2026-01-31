@@ -10,13 +10,36 @@ import { BirthTimeStep } from "./_components/steps/birth-time-step"
 import { DetectiveStepOne } from "./_components/steps/detective-step-one"
 import { DetectiveStepTwo } from "./_components/steps/detective-step-two"
 import { CalculationStep } from "./_components/steps/calculation-step"
+import { EmailStep } from "./_components/steps/email-step"
+import { PasswordStep } from "./_components/steps/password-step"
 import { Progress } from "@/components/ui/progress"
 import { useOnboardingProgress } from "@/store/use-onboarding-store"
+import { useUserStore } from "@/store/use-user-store"
 import { AnimatePresence, motion } from "motion/react"
+import { useEffect } from "react"
+
+import { useRouter } from "next/navigation"
 
 export default function OnboardingPage() {
-    const { step } = useOnboardingStore()
-    const { progress, totalSteps } = useOnboardingProgress()
+    const { step, setStep } = useOnboardingStore()
+    const { progress } = useOnboardingProgress()
+    const { user, isAuthenticated, isLoading } = useUserStore()
+    const router = useRouter()
+
+    // Redirect if already has birth data or skip intro if authenticated
+    useEffect(() => {
+        if (user?.birthData) {
+            router.replace("/dashboard")
+        }
+
+        // Skip intro (step 0) if already authenticated
+        if (isAuthenticated() && step === 0) {
+            setStep(1)
+        }
+    }, [user, isAuthenticated, step, setStep, router])
+
+    // Prevent flashing content if user is already onboarded
+    if (user?.birthData) return null;
 
     const renderStep = () => {
         switch (step) {
@@ -28,6 +51,8 @@ export default function OnboardingPage() {
             case 5: return <DetectiveStepOne />
             case 6: return <DetectiveStepTwo />
             case 7: return <CalculationStep />
+            case 8: return <EmailStep />
+            case 9: return <PasswordStep />
             default: return <EarlyAccessStep />
         }
     }

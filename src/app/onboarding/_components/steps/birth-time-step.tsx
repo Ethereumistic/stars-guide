@@ -6,109 +6,202 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { useOnboardingStore } from "@/store/use-onboarding-store"
+import { motion } from "motion/react"
 import { ChevronRight, Info } from "lucide-react"
+import { cn } from "@/lib/utils"
+import {
+    Carousel,
+    CarouselContent,
+    CarouselItem,
+    type CarouselApi,
+} from "@/components/ui/carousel"
 
 export function BirthTimeStep() {
     const { birthTime, birthTimeConfidence, setBirthTime, setBirthTimeConfidence, setStep, prevStep } = useOnboardingStore()
 
     // Parse existing time if available
-    const initialHour = birthTime ? birthTime.split(':')[0] : "12"
-    const initialMinute = birthTime ? birthTime.split(':')[1].substring(0, 2) : "00"
+    const initialHour = birthTime ? parseInt(birthTime.split(':')[0]) : 12
+    const initialMinute = birthTime ? parseInt(birthTime.split(':')[1]) : 0
 
     const [hour, setHour] = React.useState(initialHour)
     const [minute, setMinute] = React.useState(initialMinute)
-    const [period, setPeriod] = React.useState("AM")
     const [confidence, setConfidence] = React.useState<any>(birthTimeConfidence || "high")
 
     const handleContinue = () => {
-        let h = parseInt(hour)
-        if (period === "PM" && h < 12) h += 12
-        if (period === "AM" && h === 12) h = 0
-        const time24 = `${h.toString().padStart(2, '0')}:${minute}`
+        const time24 = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
 
         setBirthTime(time24)
         setBirthTimeConfidence(confidence)
         setStep(7)
     }
 
+    const hours = Array.from({ length: 24 }, (_, i) => i)
+    const minutes = Array.from({ length: 60 }, (_, i) => i)
+
     return (
         <div className="max-w-md mx-auto space-y-8">
             <div className="text-center space-y-2">
-                <h2 className="text-3xl font-serif">What time were you born?</h2>
-                <p className="text-muted-foreground text-sm">Precision makes for a better blueprint.</p>
+                <h2 className="text-4xl font-serif tracking-tight">What time were you born?</h2>
+                <p className="text-muted-foreground text-sm uppercase tracking-widest font-medium">Precision makes for a better blueprint.</p>
             </div>
 
-            <div className="flex gap-4 justify-center items-center">
-                <Select value={hour} onValueChange={setHour}>
-                    <SelectTrigger className="h-16 w-24 text-2xl font-serif bg-background/50">
-                        <SelectValue placeholder="Hr" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map(h => (
-                            <SelectItem key={h} value={String(h)}>{h}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+            <div className="flex flex-col items-center space-y-8">
+                {/* 2-Column Time Picker */}
+                <div className="relative w-full max-w-[240px] flex items-center justify-center bg-background/30 backdrop-blur-xl border border-border/50 rounded-3xl overflow-hidden h-64 shadow-2xl">
+                    {/* Highlight Overlay */}
+                    <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-14 bg-primary/10 border-y border-primary/20 pointer-events-none" />
 
-                <span className="text-3xl font-serif text-primary">:</span>
+                    {/* Fading Edges */}
+                    <div className="absolute inset-x-0 top-0 h-20 bg-linear-to-b from-background via-background/50 to-transparent pointer-events-none z-10" />
+                    <div className="absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-background via-background/50 to-transparent pointer-events-none z-10" />
 
-                <Select value={minute} onValueChange={setMinute}>
-                    <SelectTrigger className="h-16 w-24 text-2xl font-serif bg-background/50">
-                        <SelectValue placeholder="Min" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map(m => (
-                            <SelectItem key={m} value={m}>{m}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                    <div className="flex w-full h-full relative z-0">
+                        {/* Hour Column */}
+                        <ScrollColumn
+                            items={hours.map(h => h.toString().padStart(2, '0'))}
+                            value={hour.toString().padStart(2, '0')}
+                            onSelect={(val) => setHour(parseInt(val as string))}
+                            className="w-1/2"
+                        />
 
-                <Select value={period} onValueChange={setPeriod}>
-                    <SelectTrigger className="h-16 w-24 text-2xl font-serif bg-background/50">
-                        <SelectValue placeholder="AM/PM" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="AM">AM</SelectItem>
-                        <SelectItem value="PM">PM</SelectItem>
-                    </SelectContent>
-                </Select>
+                        {/* Separator */}
+                        <div className="flex items-center justify-center w-4 h-full z-10">
+                            <span className="text-3xl font-serif text-primary/50 translate-y-[-2px]">:</span>
+                        </div>
+
+                        {/* Minute Column */}
+                        <ScrollColumn
+                            items={minutes.map(m => m.toString().padStart(2, '0'))}
+                            value={minute.toString().padStart(2, '0')}
+                            onSelect={(val) => setMinute(parseInt(val as string))}
+                            className="w-1/2"
+                        />
+                    </div>
+                </div>
+
+                <div className="space-y-4 w-full pt-4">
+                    <Label className="text-xs uppercase tracking-widest text-muted-foreground ml-1">Confidence Level</Label>
+                    <RadioGroup value={confidence} onValueChange={setConfidence} className="grid grid-cols-1 gap-3">
+                        <div className="flex items-center space-x-3 p-4 border bg-background/30 cursor-pointer hover:bg-primary/5 transition-colors rounded-xl">
+                            <RadioGroupItem value="high" id="high" />
+                            <Label htmlFor="high" className="cursor-pointer font-medium">Very confident (from birth certificate)</Label>
+                        </div>
+                        <div className="flex items-center space-x-3 p-4 border bg-background/30 cursor-pointer hover:bg-primary/5 transition-colors rounded-xl">
+                            <RadioGroupItem value="medium" id="medium" />
+                            <Label htmlFor="medium" className="cursor-pointer font-medium">Somewhat confident (from memory)</Label>
+                        </div>
+                        <div className="flex items-center space-x-3 p-4 border bg-background/30 cursor-pointer hover:bg-primary/5 transition-colors rounded-xl">
+                            <RadioGroupItem value="low" id="low" />
+                            <Label htmlFor="low" className="cursor-pointer font-medium">Just guessing</Label>
+                        </div>
+                    </RadioGroup>
+                </div>
             </div>
 
-            <div className="space-y-4 pt-4">
-                <Label className="text-xs uppercase tracking-widest text-muted-foreground">Confidence Level</Label>
-                <RadioGroup value={confidence} onValueChange={setConfidence} className="grid grid-cols-1 gap-3">
-                    <div className="flex items-center space-x-3 p-4 border bg-background/30 cursor-pointer hover:bg-primary/5 transition-colors">
-                        <RadioGroupItem value="high" id="high" />
-                        <Label htmlFor="high" className="cursor-pointer font-medium">Very confident (from birth certificate)</Label>
-                    </div>
-                    <div className="flex items-center space-x-3 p-4 border bg-background/30 cursor-pointer hover:bg-primary/5 transition-colors">
-                        <RadioGroupItem value="medium" id="medium" />
-                        <Label htmlFor="medium" className="cursor-pointer font-medium">Somewhat confident (from memory)</Label>
-                    </div>
-                    <div className="flex items-center space-x-3 p-4 border bg-background/30 cursor-pointer hover:bg-primary/5 transition-colors">
-                        <RadioGroupItem value="low" id="low" />
-                        <Label htmlFor="low" className="cursor-pointer font-medium">Just guessing</Label>
-                    </div>
-                </RadioGroup>
-            </div>
-
-            <div className="p-4 border bg-primary/5 flex gap-3 text-sm italic text-muted-foreground">
+            <div className="p-4 border bg-primary/5 flex gap-3 text-sm italic text-muted-foreground rounded-2xl">
                 <Info className="size-5 shrink-0 text-primary/50" />
                 <p>
                     Even a 4-minute difference can change your rising sign.
-                    If you're unsure, check your birth certificate later!
                 </p>
             </div>
 
             <div className="flex justify-between items-center pt-4">
-                <Button variant="ghost" onClick={prevStep}>
+                <Button variant="ghost" className="rounded-full px-6" onClick={prevStep}>
                     Back
                 </Button>
-                <Button size="lg" className="group" onClick={handleContinue}>
+                <Button
+                    size="lg"
+                    className="group px-8 rounded-full shadow-lg hover:shadow-primary/25 transition-all duration-300"
+                    onClick={handleContinue}
+                >
                     Continue
                     <ChevronRight className="ml-2 size-5 transition-transform group-hover:translate-x-1" />
                 </Button>
             </div>
+        </div>
+    )
+}
+
+interface ScrollColumnProps {
+    items: (string | number)[]
+    value: string | number
+    onSelect: (value: string | number) => void
+    className?: string
+}
+
+function ScrollColumn({ items, value, onSelect, className }: ScrollColumnProps) {
+    const [api, setApi] = React.useState<CarouselApi>()
+
+    React.useEffect(() => {
+        if (!api) return
+        const index = items.indexOf(value)
+        if (index !== -1 && api.selectedScrollSnap() !== index) {
+            api.scrollTo(index, true)
+        }
+    }, [api, items, value])
+
+    React.useEffect(() => {
+        if (!api) return
+
+        const handleSelect = () => {
+            const index = api.selectedScrollSnap()
+            const newValue = items[index]
+            if (newValue !== value) {
+                onSelect(newValue)
+            }
+        }
+
+        api.on("select", handleSelect)
+        return () => {
+            api.off("select", handleSelect)
+        }
+    }, [api, items, onSelect, value])
+
+    const onWheel = React.useCallback((e: React.WheelEvent) => {
+        if (!api) return
+        if (e.deltaY > 0) {
+            api.scrollNext()
+        } else {
+            api.scrollPrev()
+        }
+    }, [api])
+
+    return (
+        <div onWheel={onWheel} className={cn("h-full grow", className)}>
+            <Carousel
+                setApi={setApi}
+                orientation="vertical"
+                opts={{
+                    align: "center",
+                    containScroll: false,
+                    dragFree: true,
+                }}
+                className="w-full h-full"
+            >
+                <CarouselContent className="h-64 mt-0">
+                    {items.map((item, index) => {
+                        const isActive = item === value
+                        return (
+                            <CarouselItem
+                                key={index}
+                                className="pt-0 h-14 flex items-center justify-center grow-0 shrink-0 basis-14"
+                            >
+                                <div
+                                    className={cn(
+                                        "transition-all duration-300 select-none cursor-pointer",
+                                        isActive
+                                            ? "text-primary font-bold text-2xl scale-110"
+                                            : "text-muted-foreground/30 text-lg hover:text-muted-foreground/60"
+                                    )}
+                                    onClick={() => api?.scrollTo(index)}
+                                >
+                                    {item}
+                                </div>
+                            </CarouselItem>
+                        )
+                    })}
+                </CarouselContent>
+            </Carousel>
         </div>
     )
 }

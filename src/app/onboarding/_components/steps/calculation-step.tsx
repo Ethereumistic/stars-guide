@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { useOnboardingStore } from "@/store/use-onboarding-store"
+import { useUserStore } from "@/store/use-user-store"
 import { getZodiacSignByDate, ZODIAC_SIGNS } from "@/utils/zodiac"
 import { useMutation } from "convex/react"
 import { api } from "../../../../../convex/_generated/api"
@@ -18,9 +19,11 @@ export function CalculationStep() {
         birthLocation,
         birthTime,
         birthTimeKnown,
-        setCalculatedSigns
+        setCalculatedSigns,
+        nextStep
     } = useOnboardingStore()
 
+    const { isAuthenticated } = useUserStore()
     const [progress, setProgress] = React.useState(0)
     const [isCalculating, setIsCalculating] = React.useState(true)
     const updateBirthData = useMutation(api.users.updateBirthData)
@@ -47,22 +50,27 @@ export function CalculationStep() {
         const moonSign = ZODIAC_SIGNS[Math.floor(Math.random() * 12)].name
         const risingSign = ZODIAC_SIGNS[Math.floor(Math.random() * 12)].name
 
-        const dateStr = `${birthDate.year}-${birthDate.month.toString().padStart(2, '0')}-${birthDate.day.toString().padStart(2, '0')}`
+        setCalculatedSigns({ sunSign, moonSign, risingSign })
 
-        try {
-            await updateBirthData({
-                date: dateStr,
-                time: birthTime || "12:00",
-                location: birthLocation,
-                sunSign,
-                moonSign,
-                risingSign
-            })
+        if (isAuthenticated()) {
+            const dateStr = `${birthDate.year}-${birthDate.month.toString().padStart(2, '0')}-${birthDate.day.toString().padStart(2, '0')}`
 
-            setCalculatedSigns({ sunSign, moonSign, risingSign })
-            router.push("/dashboard")
-        } catch (error) {
-            console.error("Failed to save birth data:", error)
+            try {
+                await updateBirthData({
+                    date: dateStr,
+                    time: birthTime || "12:00",
+                    location: birthLocation,
+                    sunSign,
+                    moonSign,
+                    risingSign
+                })
+                router.push("/dashboard")
+            } catch (error) {
+                console.error("Failed to save birth data:", error)
+            }
+        } else {
+            // Not authenticated, go to email step
+            nextStep()
         }
     }
 

@@ -15,7 +15,7 @@ export interface BirthDate {
 }
 
 interface OnboardingState {
-    // Current step (0-7)
+    // Current step (0-9)
     step: number;
 
     // Birth data
@@ -28,6 +28,10 @@ interface OnboardingState {
     // Unknown time path
     timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night' | 'unknown' | null;
     detectiveAnswers: Record<string, string>;
+
+    // User Account (for non-authenticated flow)
+    email: string | null;
+    password: string | null;
 
     // Calculated results (cached from Step 7)
     calculatedSigns: {
@@ -50,6 +54,9 @@ interface OnboardingState {
     setTimeOfDay: (timeOfDay: NonNullable<OnboardingState['timeOfDay']>) => void;
     setDetectiveAnswer: (questionId: string, answer: string) => void;
 
+    setEmail: (email: string) => void;
+    setPassword: (password: string) => void;
+
     setCalculatedSigns: (signs: OnboardingState['calculatedSigns']) => void;
 
     // Utility
@@ -66,6 +73,8 @@ const initialState = {
     birthTimeConfidence: null,
     timeOfDay: null,
     detectiveAnswers: {},
+    email: null,
+    password: null,
     calculatedSigns: null,
 };
 
@@ -93,6 +102,10 @@ export const useOnboardingStore = create<OnboardingState>()(
                     detectiveAnswers: { ...state.detectiveAnswers, [questionId]: answer },
                 })),
 
+            // Account data
+            setEmail: (email) => set({ email }),
+            setPassword: (password) => set({ password }),
+
             // Calculation results
             setCalculatedSigns: (calculatedSigns) => set({ calculatedSigns }),
 
@@ -119,6 +132,8 @@ export const useOnboardingStore = create<OnboardingState>()(
                 birthTimeConfidence: state.birthTimeConfidence,
                 timeOfDay: state.timeOfDay,
                 detectiveAnswers: state.detectiveAnswers,
+                email: state.email,
+                // Don't persist password for security reasons, even in localStore it's better not to
             }),
         }
     )
@@ -129,7 +144,7 @@ export const useOnboardingProgress = () => {
     const { step, birthDate, birthLocation, birthTimeKnown, birthTime } =
         useOnboardingStore();
 
-    const totalSteps = 7;
+    const totalSteps = 9; // Increased total steps
     const completedSteps = [
         !!birthDate,
         !!birthLocation,

@@ -10,6 +10,8 @@ const isPublicPage = createRouteMatcher([
     "/sign-up",
     "/forgot-password",
     "/pricing",
+    "/onboarding",
+    "/birth-chart",
     "/"
 ]);
 

@@ -14,7 +14,7 @@ const navItems = [
     { title: "Horoscopes", href: "/horoscopes", icon: GiStarsStack },
     { title: "Readings", href: "/readings", icon: GiCrystalBall },
     { title: "Pricing", href: "/pricing", icon: GiCoins },
-    { title: "Natal Chart", href: "/birth-chart", icon: GiAstrolabe },
+    { title: "Natal Chart", href: "/onboarding", icon: GiAstrolabe },
 ]
 
 const legalItems = [

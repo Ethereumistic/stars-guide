@@ -142,7 +142,7 @@ export function Navbar() {
                             asChild
                             className="hidden font-serif sm:inline-flex uppercase tracking-wider group/cta shadow-lg hover:shadow-primary/20"
                         >
-                            <Link href="/birth-chart" className="flex items-center gap-2">
+                            <Link href="/onboarding" className="flex items-center gap-2">
                                 <GiAstrolabe className="size-5 shrink-0" />
                                 <span>Natal Chart</span>
                             </Link>
@@ -268,13 +268,13 @@ export function Navbar() {
 
                         {/* Mobile CTA Link */}
                         <Link
-                            href="/birth-chart"
+                            href="/onboarding"
                             onClick={() => setIsMobileMenuOpen(false)}
                             className="text-2xl font-serif italic text-primary font-medium hover:text-primary/80 transition-all flex items-center group/nav mt-2"
                         >
                             <div className={cn(
                                 "flex items-center justify-center transition-all duration-500 ease-in-out w-8 mr-2",
-                                pathname === "/birth-chart"
+                                pathname === "/onboarding"
                                     ? "opacity-100 translate-x-0"
                                     : "opacity-0 -translate-x-2 group-hover/nav:opacity-100 group-hover/nav:translate-x-0"
                             )}>

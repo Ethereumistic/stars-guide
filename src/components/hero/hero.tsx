@@ -60,7 +60,7 @@ export function Hero() {
                     >
                         <h1 className="font-serif text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight">
                             <span className="block text-foreground">Navigate Your</span>
-                            <span className="block bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+                            <span className="block bg-linear-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
                                 Cosmic Journey
                             </span>
                         </h1>
@@ -94,9 +94,9 @@ export function Hero() {
                             asChild
                             className="group relative overflow-hidden font-serif uppercase tracking-widest text-base px-8 py-6 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all duration-300"
                         >
-                            <Link href="/birth-chart" className="flex items-center gap-2">
+                            <Link href="/onboarding" className="flex items-center gap-2">
                                 <GiAstrolabe className="size-5 transition-transform group-hover:rotate-180 duration-700" />
-                                <span>Discover Your Chart</span>
+                                <span>Natal Chart</span>
                                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-1 duration-300" />
                             </Link>
                         </Button>
@@ -127,7 +127,7 @@ export function Hero() {
                                 {[1, 2, 3, 4].map((i) => (
                                     <div
                                         key={i}
-                                        className="size-8 rounded-full bg-gradient-to-br from-primary/60 to-primary/30 border-2 border-background"
+                                        className="size-8 rounded-full bg-linear-to-br from-primary/60 to-primary/30 border-2 border-background"
                                     />
                                 ))}
                             </div>
