@@ -92,8 +92,9 @@ export function Navbar() {
                                 const isActive = pathname === item.href
                                 return (
                                     <NavigationMenuItem key={item.title}>
-                                        <Link href={item.href} legacyBehavior passHref>
-                                            <NavigationMenuLink
+                                        <NavigationMenuLink asChild>
+                                            <Link
+                                                href={item.href}
                                                 className={cn(
                                                     navigationMenuTriggerStyle(),
                                                     "bg-transparent hover:bg-accent/40 text-foreground/70 hover:text-primary transition-all duration-500 font-sans text-sm tracking-wide lowercase italic flex items-center group/nav overflow-hidden",
@@ -121,10 +122,10 @@ export function Navbar() {
                                                         />
                                                     </span>
                                                 </div>
-                                            </NavigationMenuLink>
-                                        </Link>
+                                            </Link>
+                                        </NavigationMenuLink>
                                     </NavigationMenuItem>
-                                )
+                                );
                             })}
                         </NavigationMenuList>
                     </NavigationMenu>
@@ -219,7 +220,6 @@ export function Navbar() {
                     </Button>
                 </div>
             </div>
-
             {/* --- Mobile Menu Overlay --- */}
             <div
                 className={cn(
@@ -306,5 +306,5 @@ export function Navbar() {
                 </div>
             </div>
         </header>
-    )
+    );
 }

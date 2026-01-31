@@ -20,7 +20,7 @@ const isAuthPage = createRouteMatcher([
     "/forgot-password"
 ]);
 
-export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
+export const proxy = convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
     // 3. Check if the user is authenticated using the injected client
     const isAuthenticated = await convexAuth.isAuthenticated();
 
