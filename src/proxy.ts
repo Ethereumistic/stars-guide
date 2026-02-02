@@ -4,6 +4,9 @@ import {
     nextjsMiddlewareRedirect,
 } from "@convex-dev/auth/nextjs/server";
 
+// Use Edge Runtime for Cloudflare Workers compatibility
+export const runtime = "edge";
+
 // 1. Define public routes that do not need auth session
 const isPublicPage = createRouteMatcher([
     "/sign-in",
