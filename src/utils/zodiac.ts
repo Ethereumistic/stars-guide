@@ -13,7 +13,7 @@ import {
     TbZodiacPisces
 } from "react-icons/tb";
 import { GiWaterfall, GiTornado, GiFlame } from "react-icons/gi";
-import { FaMountain } from "react-icons/fa";
+import { TbMountain } from "react-icons/tb";
 import { IconType } from "react-icons";
 
 export type ElementType = "Fire" | "Earth" | "Air" | "Water";
@@ -29,11 +29,11 @@ export interface ZodiacSign {
     dates: string;
 }
 
-export const ELEMENTS: Record<ElementType, { name: string; icon: IconType; color: string }> = {
-    Fire: { name: "Fire", icon: GiFlame, color: "#FF4D4D" },
-    Earth: { name: "Earth", icon: FaMountain, color: "#4CAF50" },
-    Air: { name: "Air", icon: GiTornado, color: "#00BCD4" },
-    Water: { name: "Water", icon: GiWaterfall, color: "#2196F3" },
+export const ELEMENTS: Record<ElementType, { name: string; icon: IconType; }> = {
+    Fire: { name: "Fire", icon: GiFlame },
+    Earth: { name: "Earth", icon: TbMountain },
+    Air: { name: "Air", icon: GiTornado },
+    Water: { name: "Water", icon: GiWaterfall },
 };
 
 export const ZODIAC_SIGNS: ZodiacSign[] = [
@@ -53,7 +53,7 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
         symbol: "♉",
         element: "Earth",
         icon: TbZodiacTaurus,
-        elementIcon: FaMountain,
+        elementIcon: TbMountain,
         traits: "Patient, reliable, and warmhearted.",
         dates: "Apr 20 - May 20",
     },
@@ -93,7 +93,7 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
         symbol: "♍",
         element: "Earth",
         icon: TbZodiacVirgo,
-        elementIcon: FaMountain,
+        elementIcon: TbMountain,
         traits: "Modest, shy, and meticulous.",
         dates: "Aug 23 - Sep 22",
     },
@@ -133,7 +133,7 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
         symbol: "♑",
         element: "Earth",
         icon: TbZodiacCapricorn,
-        elementIcon: FaMountain,
+        elementIcon: TbMountain,
         traits: "Practical, prudent, and ambitious.",
         dates: "Dec 22 - Jan 19",
     },
@@ -233,4 +233,31 @@ export const estimateRisingSign = (
     candidates.sort((a, b) => b.score - a.score);
 
     return candidates[0].sign;
+};
+
+/**
+ * Get a zodiac sign by its name (case-insensitive)
+ */
+export const getZodiacSignByName = (name: string): ZodiacSign | undefined => {
+    return ZODIAC_SIGNS.find(s => s.name.toLowerCase() === name.toLowerCase());
+};
+
+/**
+ * Get the Tailwind class name for an element's color
+ * @param element - The element type
+ * @param prefix - The Tailwind prefix (e.g., 'bg', 'text', 'border')
+ * @returns The Tailwind class name
+ */
+export const getElementClass = (element: ElementType, prefix: 'bg' | 'text' | 'border' = 'text'): string => {
+    return `${prefix}-${element.toLowerCase()}`;
+};
+
+/**
+ * Get the element name as a CSS variable name (lowercase)
+ * For use in CSS like: var(--fire), var(--water), etc.
+ * @param element - The element type
+ * @returns The lowercase element name
+ */
+export const getElementVar = (element: ElementType): string => {
+    return element.toLowerCase();
 };

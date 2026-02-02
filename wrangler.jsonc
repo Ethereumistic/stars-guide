@@ -19,7 +19,7 @@
 		"enabled": true
 	},
 	"vars": {
-		"NEXT_PUBLIC_SITE_URL": "https://stars-guide.badjarovv.workers.dev/",
+		"NEXT_PUBLIC_SITE_URL": "https://stars.guide",
 		"NEXT_PUBLIC_CONVEX_URL": "https://aware-perch-394.convex.cloud"
 	},
 	"upload_source_maps": true

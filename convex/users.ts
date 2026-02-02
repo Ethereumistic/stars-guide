@@ -46,3 +46,54 @@ export const updateBirthData = mutation({
         });
     },
 });
+
+export const updateProfile = mutation({
+    args: {
+        name: v.optional(v.string()),
+        phone: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (userId === null) {
+            throw new Error("Not authenticated");
+        }
+
+        const updates: Record<string, string | undefined> = {};
+        if (args.name !== undefined) updates.name = args.name;
+        if (args.phone !== undefined) updates.phone = args.phone;
+
+        if (Object.keys(updates).length > 0) {
+            await ctx.db.patch(userId, updates);
+        }
+    },
+});
+
+export const updatePreferences = mutation({
+    args: {
+        notifications: v.optional(v.boolean()),
+        publicChart: v.optional(v.boolean()),
+        dailySparkTime: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (userId === null) {
+            throw new Error("Not authenticated");
+        }
+
+        const user = await ctx.db.get(userId);
+        if (!user) throw new Error("User not found");
+
+        const currentPrefs = user.preferences || {
+            dailySparkTime: "07:00",
+            notifications: true
+        };
+
+        await ctx.db.patch(userId, {
+            preferences: {
+                ...currentPrefs,
+                ...(args.notifications !== undefined && { notifications: args.notifications }),
+                ...(args.dailySparkTime !== undefined && { dailySparkTime: args.dailySparkTime }),
+            },
+        });
+    },
+});
