@@ -4,9 +4,6 @@ import {
     nextjsMiddlewareRedirect,
 } from "@convex-dev/auth/nextjs/server";
 
-// Use Edge Runtime for Cloudflare Workers compatibility
-export const runtime = "edge";
-
 // 1. Define public routes that do not need auth session
 const isPublicPage = createRouteMatcher([
     "/sign-in",
@@ -25,7 +22,8 @@ const isAuthPage = createRouteMatcher([
     "/forgot-password"
 ]);
 
-export const proxy = convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
+// Use 'middleware' export for Edge Runtime compatibility with Cloudflare Workers
+export const middleware = convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
     // 3. Check if the user is authenticated using the injected client
     const isAuthenticated = await convexAuth.isAuthenticated();
 
