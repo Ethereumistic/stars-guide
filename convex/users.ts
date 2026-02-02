@@ -23,7 +23,6 @@ export const updateBirthData = mutation({
             city: v.string(),
             country: v.string(),
             countryCode: v.optional(v.string()),
-            displayName: v.optional(v.string()),
         }),
         sunSign: v.string(),
         moonSign: v.string(),

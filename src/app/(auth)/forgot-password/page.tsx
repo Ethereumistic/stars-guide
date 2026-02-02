@@ -25,14 +25,19 @@ export default function ForgotPasswordPage() {
         const email = formData.get("email") as string
 
         try {
-            // 2. UNCOMMENTED: Actually trigger the Convex reset flow
+            // 2. BLUR active element to prevent unsaved changes alerts
+            if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur()
+            }
+
+            // 3. Actually trigger the Convex reset flow
             // Note: Ensure your Convex Auth config has a password provider with "reset" flow enabled
             await signIn("password", { email, flow: "reset" })
 
-            // 3. Reset the form (good practice, though the form unmounts anyway)
+            // 4. Reset the form
             form.reset()
 
-            // 4. Update UI state to show success message
+            // 5. Update UI state to show success message
             setIsSubmitted(true)
             toast.success("Reset link sent to your email")
 

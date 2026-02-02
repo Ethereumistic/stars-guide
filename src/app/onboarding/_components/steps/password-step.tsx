@@ -28,20 +28,17 @@ export function PasswordStep() {
     const router = useRouter()
     const [password, setPassword] = React.useState("")
     const [isLoading, setIsLoading] = React.useState(false)
+    const [error, setError] = React.useState<string | null>(null)
 
-    // 1. Update to receive the Form Event
     const handleFinalize = async (e: React.FormEvent) => {
-        e.preventDefault() // 2. Critical: Stops browser from thinking data is unsaved
+        e.preventDefault()
 
         if (!email || !password || !birthDate || !birthLocation || !calculatedSigns) return
 
         setIsLoading(true)
-        try {
-            // Optional: Manually blur the input to close mobile keyboards
-            if (document.activeElement instanceof HTMLElement) {
-                document.activeElement.blur()
-            }
+        setError(null)
 
+        try {
             const { sunSign, moonSign, risingSign } = calculatedSigns
             const dateStr = `${birthDate.year}-${birthDate.month.toString().padStart(2, '0')}-${birthDate.day.toString().padStart(2, '0')}`
 
@@ -66,10 +63,11 @@ export function PasswordStep() {
             // Reset the store explicitly before navigation
             reset()
 
-            router.replace("/dashboard")
+            router.push("/dashboard")
         } catch (error) {
             console.error("Finalization failed:", error)
-            toast.error("Something went wrong. Please try again.")
+            const errorMessage = error instanceof Error ? error.message : "Something went wrong. Please try again."
+            setError(errorMessage)
         } finally {
             setIsLoading(false)
         }
@@ -98,7 +96,6 @@ export function PasswordStep() {
                 </div>
             </div>
 
-            {/* 3. Changed <div> to <form> and added onSubmit */}
             <form onSubmit={handleFinalize} className="space-y-4">
                 <div className="space-y-2">
                     <Input
@@ -107,17 +104,21 @@ export function PasswordStep() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         className="h-12 bg-background/40 backdrop-blur-md text-lg text-center"
-                    // 4. Removed onKeyDown; <form> handles "Enter" automatically
                     />
                 </div>
+
+                {error && (
+                    <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm text-center">
+                        {error}
+                    </div>
+                )}
 
                 <div className="flex flex-col gap-3 pt-4">
                     <Button
                         size="lg"
-                        type="submit" // 5. Changed to submit type
+                        type="submit"
                         className="h-14 text-lg w-full group"
                         disabled={password.length < 6 || isLoading}
-                    // 6. Removed onClick (handled by form onSubmit)
                     >
                         {isLoading ? (
                             <Loader2 className="size-5 animate-spin" />
@@ -132,7 +133,7 @@ export function PasswordStep() {
                         <Button
                             variant="ghost"
                             size="sm"
-                            type="button" // 7. Explicit type to prevent submitting form
+                            type="button"
                             className="text-muted-foreground"
                             onClick={prevStep}
                         >

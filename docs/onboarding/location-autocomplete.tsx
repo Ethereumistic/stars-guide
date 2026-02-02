@@ -132,10 +132,10 @@ export function LocationAutocomplete({
 
                             {results.length > 0 && (
                                 <CommandGroup heading="Locations">
-                                    {results.map((result) => (
+                                    {results.map((result, idx) => (
                                         <CommandItem
-                                            key={result.displayName}
-                                            value={result.displayName}
+                                            key={`${result.city}-${result.country}-${idx}`}
+                                            value={`${result.city}, ${result.country}`}
                                             onSelect={() => {
                                                 onValueChange(result);
                                                 setOpen(false);
@@ -149,13 +149,14 @@ export function LocationAutocomplete({
                                                         {result.city}, {result.country}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground truncate">
-                                                        {result.displayName}
+                                                        {result.lat.toFixed(4)}°N, {Math.abs(result.long).toFixed(4)}°
+                                                        {result.long < 0 ? "W" : "E"}
                                                     </p>
                                                 </div>
                                                 <Check
                                                     className={cn(
                                                         "size-4 shrink-0",
-                                                        value?.displayName === result.displayName
+                                                        (value?.city === result.city && value?.country === result.country)
                                                             ? "opacity-100"
                                                             : "opacity-0"
                                                     )}

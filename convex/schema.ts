@@ -62,7 +62,6 @@ export default defineSchema({
                 city: v.string(),
                 country: v.string(),
                 countryCode: v.optional(v.string()),
-                displayName: v.optional(v.string())
             }),
             // Cached Placements (So we don't recalculate on every render)
             sunSign: v.string(),

@@ -9,6 +9,8 @@ import { Mail, Facebook, Twitter, Instagram, X } from "lucide-react"
 import { BsTwitterX, BsTiktok } from "react-icons/bs";
 import { cn } from "@/lib/utils"
 import { usePathname } from "next/navigation"
+import { useConvexAuth } from "convex/react"
+import { useUserStore } from "@/store/use-user-store"
 
 const navItems = [
     { title: "Horoscopes", href: "/horoscopes", icon: GiStarsStack },
@@ -32,6 +34,10 @@ const socialLinks = [
 
 export function Footer() {
     const pathname = usePathname()
+    const { isAuthenticated: isAuthConvex } = useConvexAuth()
+    const { user: currentUser } = useUserStore()
+    const isAuthenticated = isAuthConvex && !!currentUser
+
     return (
         <footer className="w-full border-t border-primary/10 bg-background/50 backdrop-blur-sm">
             <div className="mx-auto max-w-[90rem] px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
@@ -73,11 +79,16 @@ export function Footer() {
                                 <ul className="mt-4 space-y-4 flex flex-col items-center xl:items-start">
                                     {navItems.map((item) => {
                                         const Icon = item.icon
-                                        const isActive = pathname === item.href
+                                        const isNatalChart = item.title === "Natal Chart"
+                                        const href = isNatalChart
+                                            ? (isAuthenticated ? "/natal-chart" : "/onboarding")
+                                            : item.href
+                                        const isActive = pathname === href
+
                                         return (
                                             <li key={item.title}>
                                                 <Link
-                                                    href={item.href}
+                                                    href={href}
                                                     className={cn(
                                                         "text-sm text-muted-foreground hover:text-primary transition-colors duration-300 font-sans flex items-center group/footer overflow-hidden",
                                                         isActive && "text-primary font-medium"

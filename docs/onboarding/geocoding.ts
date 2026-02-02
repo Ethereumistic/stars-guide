@@ -9,7 +9,6 @@ export interface GeocodingResult {
     long: number;
     city: string;
     country: string;
-    displayName: string;
 }
 
 interface NominatimResponse {
@@ -78,7 +77,6 @@ export async function searchLocations(
                 long: parseFloat(result.lon),
                 city: extractCityName(result.address),
                 country: result.address.country,
-                displayName: result.display_name,
             }));
     } catch (error) {
         console.error('Geocoding error:', error);
@@ -122,7 +120,6 @@ export async function reverseGeocode(
             long: parseFloat(data.lon),
             city: extractCityName(data.address),
             country: data.address.country,
-            displayName: data.display_name,
         };
     } catch (error) {
         console.error('Reverse geocoding error:', error);
