@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { getZodiacSignByName } from "@/utils/zodiac"
 import { motion } from "motion/react"
-import { Sun, Moon, Sunrise } from "lucide-react"
 import {
     SignCard,
     BirthDetailsCard,
@@ -68,7 +67,7 @@ export default function DashboardPage() {
                     <SignCard
                         title="Sun Sign"
                         subtitle="Your Core Identity"
-                        icon={<Sun className="h-5 w-5" />}
+                        icon={<span className="text-lg">☉</span>}
                         sign={sunSign}
                         delay={0}
                     />
@@ -76,7 +75,7 @@ export default function DashboardPage() {
                     <SignCard
                         title="Moon Sign"
                         subtitle="Your Inner World"
-                        icon={<Moon className="h-5 w-5" />}
+                        icon={<span className="text-lg">☽</span>}
                         sign={moonSign}
                         delay={0.1}
                     />
@@ -84,7 +83,7 @@ export default function DashboardPage() {
                     <SignCard
                         title="Rising Sign"
                         subtitle="Your Outer Self"
-                        icon={<Sunrise className="h-5 w-5" />}
+                        icon={<span className="text-lg">↑</span>}
                         sign={risingSign}
                         delay={0.2}
                     />
