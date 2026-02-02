@@ -3,8 +3,6 @@
 import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { useOnboardingStore } from "@/store/use-onboarding-store"
-import { getZodiacSignByDate } from "@/utils/zodiac"
-import { motion, AnimatePresence } from "motion/react"
 import { ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -29,8 +27,6 @@ export function BirthDateStep() {
             setDay(daysInMonth)
         }
     }, [month, year, day, daysInMonth])
-
-    const sunSign = getZodiacSignByDate(month, day)
 
     const handleContinue = () => {
         setBirthDate({ day, month, year })
@@ -88,42 +84,11 @@ export function BirthDateStep() {
                         />
                     </div>
                 </div>
-
-                <AnimatePresence mode="wait">
-                    {sunSign && (
-                        <motion.div
-                            key={sunSign.id}
-                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                            transition={{ type: "spring", damping: 20, stiffness: 100 }}
-                            className="p-6 border border-primary/20 bg-primary/5 rounded-2xl flex items-center gap-6 w-full relative overflow-hidden group"
-                        >
-                            <div className="absolute -right-4 -bottom-4 opacity-5 transition-transform group-hover:scale-110 duration-700">
-                                <sunSign.icon size={120} />
-                            </div>
-
-                            <div className="text-6xl text-primary animate-pulse-slow">
-                                <sunSign.icon />
-                            </div>
-                            <div className="relative z-10">
-                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70 mb-1">Sun Sign Revealed</p>
-                                <p className="text-2xl font-serif">
-                                    You're a <strong>{sunSign.name} {sunSign.symbol}</strong>
-                                </p>
-                                <p className="text-sm text-muted-foreground mt-1 font-light italic leading-relaxed">
-                                    {sunSign.traits}
-                                </p>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
             </div>
 
             <div className="flex justify-end pt-4">
                 <Button
-                    size="lg"
-                    className="group px-8 rounded-full shadow-lg hover:shadow-primary/25 transition-all duration-300"
+                    className="group"
                     onClick={handleContinue}
                 >
                     Continue
@@ -197,6 +162,7 @@ function ScrollColumn({ items, value, onSelect, className }: ScrollColumnProps) 
                     align: "center",
                     containScroll: false,
                     dragFree: true, // Allows smooth momentum dragging
+                    loop: true,
                 }}
                 className="w-full h-full"
             >

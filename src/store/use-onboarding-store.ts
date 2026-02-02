@@ -6,6 +6,7 @@ export interface Location {
     long: number;
     city: string;
     country: string;
+    countryCode?: string;
 }
 
 export interface BirthDate {
@@ -23,11 +24,11 @@ interface OnboardingState {
     birthLocation: Location | null;
     birthTimeKnown: boolean | null;
     birthTime: string | null; // "14:30" format
-    birthTimeConfidence: 'high' | 'medium' | 'low' | null;
 
     // Unknown time path
     timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night' | 'unknown' | null;
     detectiveAnswers: Record<string, string>;
+    detectiveQuestionIndex: number;
 
     // User Account (for non-authenticated flow)
     email: string | null;
@@ -46,13 +47,14 @@ interface OnboardingState {
     prevStep: () => void;
 
     setBirthDate: (date: BirthDate) => void;
-    setBirthLocation: (location: Location) => void;
+    setBirthLocation: (location: Location | null) => void;
     setBirthTimeKnown: (known: boolean) => void;
     setBirthTime: (time: string) => void;
-    setBirthTimeConfidence: (confidence: 'high' | 'medium' | 'low') => void;
+
 
     setTimeOfDay: (timeOfDay: NonNullable<OnboardingState['timeOfDay']>) => void;
     setDetectiveAnswer: (questionId: string, answer: string) => void;
+    setDetectiveQuestionIndex: (index: number) => void;
 
     setEmail: (email: string) => void;
     setPassword: (password: string) => void;
@@ -65,14 +67,15 @@ interface OnboardingState {
 }
 
 const initialState = {
-    step: 0,
+    step: 1,
     birthDate: null,
     birthLocation: null,
     birthTimeKnown: null,
     birthTime: null,
-    birthTimeConfidence: null,
+
     timeOfDay: null,
     detectiveAnswers: {},
+    detectiveQuestionIndex: 0,
     email: null,
     password: null,
     calculatedSigns: null,
@@ -86,14 +89,14 @@ export const useOnboardingStore = create<OnboardingState>()(
             // Step navigation
             setStep: (step) => set({ step }),
             nextStep: () => set((state) => ({ step: state.step + 1 })),
-            prevStep: () => set((state) => ({ step: Math.max(0, state.step - 1) })),
+            prevStep: () => set((state) => ({ step: Math.max(1, state.step - 1) })),
 
             // Birth data setters
             setBirthDate: (birthDate) => set({ birthDate }),
             setBirthLocation: (birthLocation) => set({ birthLocation }),
             setBirthTimeKnown: (birthTimeKnown) => set({ birthTimeKnown }),
             setBirthTime: (birthTime) => set({ birthTime }),
-            setBirthTimeConfidence: (birthTimeConfidence) => set({ birthTimeConfidence }),
+
 
             // Unknown time path
             setTimeOfDay: (timeOfDay) => set({ timeOfDay }),
@@ -101,6 +104,7 @@ export const useOnboardingStore = create<OnboardingState>()(
                 set((state) => ({
                     detectiveAnswers: { ...state.detectiveAnswers, [questionId]: answer },
                 })),
+            setDetectiveQuestionIndex: (index) => set({ detectiveQuestionIndex: index }),
 
             // Account data
             setEmail: (email) => set({ email }),
@@ -129,7 +133,7 @@ export const useOnboardingStore = create<OnboardingState>()(
                 birthLocation: state.birthLocation,
                 birthTimeKnown: state.birthTimeKnown,
                 birthTime: state.birthTime,
-                birthTimeConfidence: state.birthTimeConfidence,
+
                 timeOfDay: state.timeOfDay,
                 detectiveAnswers: state.detectiveAnswers,
                 email: state.email,
@@ -141,20 +145,35 @@ export const useOnboardingStore = create<OnboardingState>()(
 
 // Computed helpers
 export const useOnboardingProgress = () => {
-    const { step, birthDate, birthLocation, birthTimeKnown, birthTime } =
-        useOnboardingStore();
+    const { step, birthTimeKnown, detectiveQuestionIndex } = useOnboardingStore();
 
-    const totalSteps = 9; // Increased total steps
-    const completedSteps = [
-        !!birthDate,
-        !!birthLocation,
-        birthTimeKnown !== null,
-        birthTimeKnown ? !!birthTime : (step >= 6),
-    ].filter(Boolean).length;
+    let progress = 0;
+
+    switch (step) {
+        case 1: progress = 0; break;
+        case 2: progress = 33; break;
+        case 3: progress = 66; break;
+        case 4: // Birth Time Flow (YES)
+            progress = 90;
+            break;
+        case 5: // Detective Flow (NO)
+            progress = 70;
+            break;
+        case 6: // Detective Step Two
+            if (detectiveQuestionIndex === 0) progress = 80;
+            else if (detectiveQuestionIndex === 1) progress = 90;
+            else if (detectiveQuestionIndex === 2) progress = 95;
+            break;
+        case 7:
+        case 8:
+        case 9:
+            progress = 100;
+            break;
+        default: progress = 0;
+    }
 
     return {
         currentStep: step,
-        totalSteps,
-        progress: (completedSteps / totalSteps) * 100,
+        progress,
     };
 };

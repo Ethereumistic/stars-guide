@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { useOnboardingStore } from "@/store/use-onboarding-store"
-import { EarlyAccessStep } from "./_components/steps/early-access-step"
 import { BirthDateStep } from "./_components/steps/birth-date-step"
 import { BirthLocationStep } from "./_components/steps/birth-location-step"
 import { TimeCheckStep } from "./_components/steps/time-check-step"
@@ -31,19 +30,13 @@ export default function OnboardingPage() {
         if (user?.birthData) {
             router.replace("/dashboard")
         }
-
-        // Skip intro (step 0) if already authenticated
-        if (isAuthenticated() && step === 0) {
-            setStep(1)
-        }
-    }, [user, isAuthenticated, step, setStep, router])
+    }, [user, router])
 
     // Prevent flashing content if user is already onboarded
     if (user?.birthData) return null;
 
     const renderStep = () => {
         switch (step) {
-            case 0: return <EarlyAccessStep />
             case 1: return <BirthDateStep />
             case 2: return <BirthLocationStep />
             case 3: return <TimeCheckStep />
@@ -53,14 +46,14 @@ export default function OnboardingPage() {
             case 7: return <CalculationStep />
             case 8: return <EmailStep />
             case 9: return <PasswordStep />
-            default: return <EarlyAccessStep />
+            default: return <BirthDateStep />
         }
     }
 
     return (
         <div className="space-y-8 w-full">
-            {step > 0 && (
-                <div className="space-y-2">
+            {step > 0 && step < 7 && (
+                <div className="space-y-2  max-w-xl mx-auto">
                     <div className="flex justify-between text-xs text-muted-foreground uppercase tracking-widest px-1">
                         <span>Cosmic Journey</span>
                         <span>{Math.round(progress)}%</span>

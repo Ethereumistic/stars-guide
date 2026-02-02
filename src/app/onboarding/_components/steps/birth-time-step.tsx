@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { useOnboardingStore } from "@/store/use-onboarding-store"
 import { motion } from "motion/react"
-import { ChevronRight, Info } from "lucide-react"
+import { ChevronLeft, ChevronRight, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
     Carousel,
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/carousel"
 
 export function BirthTimeStep() {
-    const { birthTime, birthTimeConfidence, setBirthTime, setBirthTimeConfidence, setStep, prevStep } = useOnboardingStore()
+    const { birthTime, setBirthTime, setStep, prevStep } = useOnboardingStore()
 
     // Parse existing time if available
     const initialHour = birthTime ? parseInt(birthTime.split(':')[0]) : 12
@@ -25,13 +25,11 @@ export function BirthTimeStep() {
 
     const [hour, setHour] = React.useState(initialHour)
     const [minute, setMinute] = React.useState(initialMinute)
-    const [confidence, setConfidence] = React.useState<any>(birthTimeConfidence || "high")
 
     const handleContinue = () => {
         const time24 = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
 
         setBirthTime(time24)
-        setBirthTimeConfidence(confidence)
         setStep(7)
     }
 
@@ -39,13 +37,10 @@ export function BirthTimeStep() {
     const minutes = Array.from({ length: 60 }, (_, i) => i)
 
     return (
-        <div className="max-w-md mx-auto space-y-8">
-            <div className="text-center space-y-2">
-                <h2 className="text-4xl font-serif tracking-tight">What time were you born?</h2>
-                <p className="text-muted-foreground text-sm uppercase tracking-widest font-medium">Precision makes for a better blueprint.</p>
-            </div>
+        <div className="max-w-md md:max-w-2xl mx-auto space-y-8">
+            <h2 className="text-4xl text-center font-serif tracking-tight">What time were you born?</h2>
 
-            <div className="flex flex-col items-center space-y-8">
+            <div className="flex  flex-col items-center space-y-8">
                 {/* 2-Column Time Picker */}
                 <div className="relative w-full max-w-[240px] flex items-center justify-center bg-background/30 backdrop-blur-xl border border-border/50 rounded-3xl overflow-hidden h-64 shadow-2xl">
                     {/* Highlight Overlay */}
@@ -79,39 +74,16 @@ export function BirthTimeStep() {
                     </div>
                 </div>
 
-                <div className="space-y-4 w-full pt-4">
-                    <Label className="text-xs uppercase tracking-widest text-muted-foreground ml-1">Confidence Level</Label>
-                    <RadioGroup value={confidence} onValueChange={setConfidence} className="grid grid-cols-1 gap-3">
-                        <div className="flex items-center space-x-3 p-4 border bg-background/30 cursor-pointer hover:bg-primary/5 transition-colors rounded-xl">
-                            <RadioGroupItem value="high" id="high" />
-                            <Label htmlFor="high" className="cursor-pointer font-medium">Very confident (from birth certificate)</Label>
-                        </div>
-                        <div className="flex items-center space-x-3 p-4 border bg-background/30 cursor-pointer hover:bg-primary/5 transition-colors rounded-xl">
-                            <RadioGroupItem value="medium" id="medium" />
-                            <Label htmlFor="medium" className="cursor-pointer font-medium">Somewhat confident (from memory)</Label>
-                        </div>
-                        <div className="flex items-center space-x-3 p-4 border bg-background/30 cursor-pointer hover:bg-primary/5 transition-colors rounded-xl">
-                            <RadioGroupItem value="low" id="low" />
-                            <Label htmlFor="low" className="cursor-pointer font-medium">Just guessing</Label>
-                        </div>
-                    </RadioGroup>
-                </div>
+
             </div>
 
-            <div className="p-4 border bg-primary/5 flex gap-3 text-sm italic text-muted-foreground rounded-2xl">
-                <Info className="size-5 shrink-0 text-primary/50" />
-                <p>
-                    Even a 4-minute difference can change your rising sign.
-                </p>
-            </div>
 
-            <div className="flex justify-between items-center pt-4">
-                <Button variant="ghost" className="rounded-full px-6" onClick={prevStep}>
-                    Back
+            <div className="flex justify-between items-center pt-4 max-w-md mx-auto">
+                <Button size="icon" variant="outline" onClick={prevStep}>
+                    <ChevronLeft className="size-5" />
                 </Button>
                 <Button
-                    size="lg"
-                    className="group px-8 rounded-full shadow-lg hover:shadow-primary/25 transition-all duration-300"
+                    className="group"
                     onClick={handleContinue}
                 >
                     Continue
@@ -175,6 +147,7 @@ function ScrollColumn({ items, value, onSelect, className }: ScrollColumnProps) 
                     align: "center",
                     containScroll: false,
                     dragFree: true,
+                    loop: true,
                 }}
                 className="w-full h-full"
             >

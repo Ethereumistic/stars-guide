@@ -1,109 +1,165 @@
 "use client"
 
+import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { useOnboardingStore } from "@/store/use-onboarding-store"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
-import { ChevronRight, Sparkles } from "lucide-react"
+import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react"
 
 const detectiveQuestions = [
     {
         id: "first_impression",
-        text: "How do people usually describe you when they first meet you?",
+        text: "What are you usually like when people first meet you?",
         options: [
-            { value: "aries_leo", label: "Energetic and assertive" },
-            { value: "taurus_capricorn", label: "Calm and grounded" },
-            { value: "gemini_sagittarius", label: "Curious and chatty" },
-            { value: "cancer_pisces", label: "Warm and nurturing" },
-            { value: "scorpio", label: "Mysterious and intense" },
+            { value: "aries", label: "Bold, direct, energetic, or ready to lead" },
+            { value: "taurus", label: "Calm, steady, sensual, or naturally reliable" },
+            { value: "gemini", label: "Quick-witted, youthful, or always curious" },
+            { value: "cancer", label: "Soft, empathetic, or emotional warmth" },
+            { value: "leo", label: "Charismatic, dramatic, or loves the spotlight" },
+            { value: "virgo", label: "Practical, detail-oriented, or helpful" },
+            { value: "libra", label: "Charming, diplomatic, or artistic/social" },
+            { value: "scorpio", label: "Intense, magnetic, or a powerful presence" },
+            { value: "sagittarius", label: "Optimistic, adventurous, or philosophical" },
+            { value: "capricorn", label: "Ambitious, serious, or a mature vibe" },
+            { value: "aquarius", label: "Unique, eccentric, or innovative" },
+            { value: "pisces", label: "Dreamy, compassionate, or artistic/elusive" },
         ]
     },
     {
-        id: "morning_routine",
-        text: "Which describes your morning routine?",
+        id: "physical_vibe",
+        text: "How would you describe your look or overall vibe?",
         options: [
-            { value: "fire", label: "Up early, ready to conquer" },
-            { value: "earth", label: "Slow, sensory (coffee, shower)" },
-            { value: "air", label: "Varied, depends on mood" },
-            { value: "water", label: "Prefer sleeping in" },
+            { value: "aries", label: "Sharp features, athletic build, or bold energy" },
+            { value: "taurus", label: "Rounded face, strong neck, or earthy style" },
+            { value: "gemini", label: "Slender, expressive face, or youthful look" },
+            { value: "cancer", label: "Soft face, big eyes, or a comforting aura" },
+            { value: "leo", label: "Striking hair, regal posture, or confident flair" },
+            { value: "virgo", label: "Neat bone structure, classic, or polished" },
+            { value: "libra", label: "Symmetrical, elegant, or harmonious" },
+            { value: "scorpio", label: "Piercing eyes, mysterious, or transformative" },
+            { value: "sagittarius", label: "Tall/open build, casual, or big smile" },
+            { value: "capricorn", label: "Edgy cheekbones, serious, or timeless style" },
+            { value: "aquarius", label: "Unusual features, futuristic, or eclectic" },
+            { value: "pisces", label: "Fluid movements, ethereal, or gentle" },
         ]
     },
     {
-        id: "stress_handle",
-        text: "How do you handle stress?",
+        id: "approach",
+        text: "How do you usually handle new situations or challenges?",
         options: [
-            { value: "cardinal", label: "Take action immediately" },
-            { value: "fixed", label: "Stay calm, ride it out" },
-            { value: "mutable", label: "Adapt and pivot" },
+            { value: "aries", label: "Dive in headfirst, action-oriented" },
+            { value: "taurus", label: "Build slowly for security, steady pace" },
+            { value: "gemini", label: "Explore options, adapt quickly, multitask" },
+            { value: "cancer", label: "Feel it emotionally, protect self & others" },
+            { value: "leo", label: "Make it creative, lead with heart & pride" },
+            { value: "virgo", label: "Analyze details, work hard & improve" },
+            { value: "libra", label: "Seek balance, compromise & harmonize" },
+            { value: "scorpio", label: "Probe deeply, strategize, transform" },
+            { value: "sagittarius", label: "Go big/optimistic, seek adventure" },
+            { value: "capricorn", label: "Plan ambitiously, climb steadily toward goals" },
+            { value: "aquarius", label: "Innovate/rebel, do it independently" },
+            { value: "pisces", label: "Flow intuitively, avoid direct conflict" },
         ]
     }
 ]
 
 export function DetectiveStepTwo() {
-    const { detectiveAnswers, setDetectiveAnswer, setStep, prevStep } = useOnboardingStore()
+    const {
+        detectiveAnswers,
+        setDetectiveAnswer,
+        setStep,
+        prevStep,
+        detectiveQuestionIndex,
+        setDetectiveQuestionIndex
+    } = useOnboardingStore()
 
-    const allAnswered = detectiveQuestions.every(q => detectiveAnswers[q.id])
+    const currentQuestion = detectiveQuestions[detectiveQuestionIndex]
+    const isLastQuestion = detectiveQuestionIndex === detectiveQuestions.length - 1
+    const currentAnswer = detectiveAnswers[currentQuestion.id]
 
-    const handleContinue = () => {
-        if (allAnswered) {
+    const handleNext = () => {
+        if (!currentAnswer) return
+
+        if (isLastQuestion) {
             setStep(7)
+        } else {
+            setDetectiveQuestionIndex(detectiveQuestionIndex + 1)
+        }
+    }
+
+    const handleBack = () => {
+        if (detectiveQuestionIndex === 0) {
+            prevStep()
+        } else {
+            setDetectiveQuestionIndex(detectiveQuestionIndex - 1)
         }
     }
 
     return (
-        <div className="max-w-md mx-auto space-y-8">
-            <div className="text-center space-y-2">
-                <h2 className="text-3xl font-serif">The Final Clues</h2>
-                <p className="text-muted-foreground text-sm">Every trait is a cosmic fingerprint.</p>
+        <div className="max-w-md md:max-w-6xl mx-auto space-y-8">
+            <div className="text-center space-y-4">
+                <h2 className="text-3xl font-serif leading-tight">
+                    {currentQuestion.text}
+                </h2>
+                <div className="flex justify-center gap-1">
+                    {detectiveQuestions.map((_, idx) => (
+                        <div
+                            key={idx}
+                            className={`h-1 w-8 rounded-full transition-colors ${idx === detectiveQuestionIndex ? 'bg-primary' : idx < detectiveQuestionIndex ? 'bg-primary/40' : 'bg-primary/10'}`}
+                        />
+                    ))}
+                </div>
             </div>
 
-            <div className="space-y-8">
-                {detectiveQuestions.map((q) => (
-                    <div key={q.id} className="space-y-4">
-                        <Label className="text-base font-medium leading-tight">{q.text}</Label>
-                        <RadioGroup
-                            value={detectiveAnswers[q.id]}
-                            onValueChange={(val) => setDetectiveAnswer(q.id, val)}
-                            className="space-y-2"
+            <div className="space-y-3">
+                <RadioGroup
+                    value={currentAnswer}
+                    onValueChange={(val) => setDetectiveAnswer(currentQuestion.id, val)}
+                    className=" grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 justify-center gap-3"
+                >
+                    {currentQuestion.options.map((opt) => (
+                        <div
+                            key={opt.value}
+                            onClick={() => setDetectiveAnswer(currentQuestion.id, opt.value)}
+                            className={`group flex items-center justify-center text-center 
+                                        px-4 py-3 border rounded-md bg-background/30 cursor-pointer 
+                                        transition-all hover:bg-primary/5 hover:border-primary/30 
+                                        ${currentAnswer === opt.value ? 'border-primary bg-primary/10 ring-1 ring-primary shadow-[0_0_25px_-5px_oklch(var(--primary)/0.4)] shadow-primary/40' : 'border-border'}`}
                         >
-                            {q.options.map((opt) => (
-                                <div
-                                    key={opt.value}
-                                    className={`flex items-center space-x-3 p-3 border bg-background/30 cursor-pointer hover:bg-primary/5 transition-colors ${detectiveAnswers[q.id] === opt.value ? 'border-primary bg-primary/10' : ''}`}
-                                >
-                                    <RadioGroupItem value={opt.value} id={`${q.id}-${opt.value}`} />
-                                    <Label htmlFor={`${q.id}-${opt.value}`} className="flex-1 cursor-pointer py-1 font-normal">
-                                        {opt.label}
-                                    </Label>
-                                </div>
-                            ))}
-                        </RadioGroup>
-                    </div>
-                ))}
+                            <RadioGroupItem
+                                value={opt.value}
+                                id={`${currentQuestion.id}-${opt.value}`}
+                                className="sr-only"
+                            />
+                            <Label
+                                htmlFor={`${currentQuestion.id}-${opt.value}`}
+                                className="cursor-pointer text-base font-normal"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {opt.label}
+                            </Label>
+                        </div>
+                    ))}
+                </RadioGroup>
             </div>
 
-            <div className="p-4 border bg-amber-500/5 flex gap-3 text-sm italic text-amber-200/60">
-                <Sparkles className="size-5 shrink-0 text-amber-500/50" />
-                <p>
-                    We'll use these answers to estimate your rising sign.
-                    It's educational, but won't be as accurate as an exact birth time.
-                </p>
-            </div>
 
-            <div className="flex justify-between items-center pt-4">
-                <Button variant="ghost" onClick={prevStep}>
-                    Back
+            <div className="flex justify-between items-center pt-4 max-w-md mx-auto">
+                <Button variant="outline" onClick={handleBack} className="text-muted-foreground">
+                    <ChevronLeft className="size-5" />
                 </Button>
                 <Button
                     size="lg"
-                    className="group"
-                    disabled={!allAnswered}
-                    onClick={handleContinue}
+                    className="group px-8"
+                    disabled={!currentAnswer}
+                    onClick={handleNext}
                 >
-                    See My Chart
+                    {isLastQuestion ? "See My Chart" : "Next Question"}
                     <ChevronRight className="ml-2 size-5 transition-transform group-hover:translate-x-1" />
                 </Button>
             </div>
         </div>
     )
 }
+

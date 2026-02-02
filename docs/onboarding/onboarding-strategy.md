@@ -95,7 +95,6 @@ typescript// Score answers against rising sign traits
         ┌──────────────────────────┐  ┌──────────────────────────┐
         │ Step 4: Time Input       │  │ Step 5: Time of Day      │
         │ Hour:Min AM/PM           │  │ Morning/Afternoon/etc    │
-        │ Confidence meter         │  └──────────┬───────────────┘
         └──────────┬───────────────┘             ↓
                    │                  ┌──────────────────────────┐
                    │                  │ Step 6: Detective Qs     │
@@ -197,7 +196,7 @@ Add progress indicator component
 
 Week 2: Known Time Path
 
-Build Step 4 (time input with confidence meter)
+Build Step 4 (time input)
 Connect to astronomy-engine for calculations
 Build Step 7 (chart reveal)
 

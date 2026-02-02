@@ -259,16 +259,6 @@
 - **Validation:** Ensure valid time format
 - **Help Text:** "Check your birth certificate if you're unsure. Most hospitals record this."
 
-**Confidence Meter:**
-- "How confident are you in this time?"
-  - Very confident (from birth certificate)
-  - Somewhat confident (from parent's memory)
-  - Just guessing
-
-**Why Confidence Meter:**
-- Signals to our system how much to "trust" the rising sign calculation
-- Future feature: Offer birth certificate upload for 100% accuracy
-
 **CTA:** "Continue"
 
 **Implementation:**
@@ -312,24 +302,7 @@
     </Select>
   </div>
   
-  {/* Confidence Meter */}
-  <div className="mt-8 space-y-3">
-    <Label>How confident are you in this time?</Label>
-    <RadioGroup value={confidence} onValueChange={setConfidence}>
-      <div className="flex items-center space-x-2">
-        <RadioGroupItem value="high" id="high" />
-        <Label htmlFor="high">Very confident (from birth certificate)</Label>
-      </div>
-      <div className="flex items-center space-x-2">
-        <RadioGroupItem value="medium" id="medium" />
-        <Label htmlFor="medium">Somewhat confident (from parent's memory)</Label>
-      </div>
-      <div className="flex items-center space-x-2">
-        <RadioGroupItem value="low" id="low" />
-        <Label htmlFor="low">Just guessing</Label>
-      </div>
-    </RadioGroup>
-  </div>
+
   
   <InfoBox className="mt-6">
     <p className="text-sm">
@@ -676,7 +649,6 @@ interface OnboardingState {
   birthLocation: Location | null;
   birthTimeKnown: boolean;
   birthTime: string | null; // "14:30" or null
-  birthTimeConfidence: "high" | "medium" | "low" | null;
   timeOfDay: "morning" | "afternoon" | "evening" | "night" | "unknown" | null;
   detectiveAnswers: Record<string, string>;
   
@@ -705,12 +677,7 @@ export const completeBirthDataOnboarding = mutation({
       city: v.string(),
       country: v.string(),
     }),
-    timeConfidence: v.optional(v.union(
-      v.literal("high"),
-      v.literal("medium"),
-      v.literal("low"),
-      v.literal("estimated")
-    )),
+
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -736,7 +703,6 @@ export const completeBirthDataOnboarding = mutation({
       },
       // Add metadata about time confidence
       metadata: {
-        birthTimeConfidence: args.timeConfidence || "high",
         onboardingCompletedAt: Date.now(),
       },
     });

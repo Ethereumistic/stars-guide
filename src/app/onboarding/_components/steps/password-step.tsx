@@ -20,7 +20,8 @@ export function PasswordStep() {
         birthLocation,
         birthTime,
         prevStep,
-        reset
+        reset,
+        calculatedSigns
     } = useOnboardingStore()
     const { signIn } = useAuthActions()
     const updateBirthData = useMutation(api.users.updateBirthData)
@@ -32,7 +33,7 @@ export function PasswordStep() {
     const handleFinalize = async (e: React.FormEvent) => {
         e.preventDefault() // 2. Critical: Stops browser from thinking data is unsaved
 
-        if (!email || !password || !birthDate || !birthLocation) return
+        if (!email || !password || !birthDate || !birthLocation || !calculatedSigns) return
 
         setIsLoading(true)
         try {
@@ -41,9 +42,7 @@ export function PasswordStep() {
                 document.activeElement.blur()
             }
 
-            const sunSign = getZodiacSignByDate(birthDate.month, birthDate.day).name
-            const moonSign = ZODIAC_SIGNS[Math.floor(Math.random() * 12)].name
-            const risingSign = ZODIAC_SIGNS[Math.floor(Math.random() * 12)].name
+            const { sunSign, moonSign, risingSign } = calculatedSigns
             const dateStr = `${birthDate.year}-${birthDate.month.toString().padStart(2, '0')}-${birthDate.day.toString().padStart(2, '0')}`
 
             const fullBirthData = {

@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { useOnboardingStore } from "@/store/use-onboarding-store"
 import { useUserStore } from "@/store/use-user-store"
-import { getZodiacSignByDate, ZODIAC_SIGNS } from "@/utils/zodiac"
+import { getZodiacSignByDate, ZODIAC_SIGNS, estimateRisingSign } from "@/utils/zodiac"
 import { useMutation } from "convex/react"
 import { api } from "../../../../../convex/_generated/api"
 import { motion } from "motion/react"
@@ -19,6 +19,8 @@ export function CalculationStep() {
         birthLocation,
         birthTime,
         birthTimeKnown,
+        timeOfDay,
+        detectiveAnswers,
         setCalculatedSigns,
         nextStep
     } = useOnboardingStore()
@@ -34,7 +36,6 @@ export function CalculationStep() {
             setProgress(prev => {
                 if (prev >= 100) {
                     clearInterval(interval)
-                    setTimeout(() => setIsCalculating(false), 500)
                     return 100
                 }
                 return prev + 2
@@ -43,12 +44,63 @@ export function CalculationStep() {
         return () => clearInterval(interval)
     }, [])
 
-    const finalize = async () => {
-        if (!birthDate || !birthLocation) return
+    const signs = React.useMemo(() => {
+        if (!birthDate) return null;
 
-        const sunSign = getZodiacSignByDate(birthDate.month, birthDate.day).name
-        const moonSign = ZODIAC_SIGNS[Math.floor(Math.random() * 12)].name
-        const risingSign = ZODIAC_SIGNS[Math.floor(Math.random() * 12)].name
+        const sunSignData = getZodiacSignByDate(birthDate.month, birthDate.day);
+
+        // Moon sign calculation (approximate)
+        const moonSignIndex = (ZODIAC_SIGNS.findIndex(s => s.id === sunSignData.id) + 4) % 12;
+        const moonSignData = ZODIAC_SIGNS[moonSignIndex];
+
+        let risingSignData;
+        if (birthTimeKnown) {
+            const [hours] = (birthTime || "12:00").split(':').map(Number);
+            let timeBucket: "morning" | "afternoon" | "evening" | "night" = "afternoon";
+            if (hours >= 6 && hours < 12) timeBucket = "morning";
+            else if (hours >= 12 && hours < 18) timeBucket = "afternoon";
+            else if (hours >= 18 && hours < 24) timeBucket = "evening";
+            else timeBucket = "night";
+            risingSignData = estimateRisingSign(sunSignData.id, timeBucket, {});
+        } else {
+            risingSignData = estimateRisingSign(sunSignData.id, timeOfDay, detectiveAnswers);
+        }
+
+        return {
+            sun: sunSignData,
+            moon: moonSignData,
+            rising: risingSignData
+        };
+    }, [birthDate, birthTime, birthTimeKnown, timeOfDay, detectiveAnswers]);
+
+    // Handle the transition after animation
+    React.useEffect(() => {
+        if (progress === 100) {
+            if (!isAuthenticated()) {
+                // For non-auth users, auto-calculate and skip to email/signup
+                if (signs) {
+                    setCalculatedSigns({
+                        sunSign: signs.sun.name,
+                        moonSign: signs.moon.name,
+                        risingSign: signs.rising.name
+                    });
+                    const timer = setTimeout(() => nextStep(), 800);
+                    return () => clearTimeout(timer);
+                }
+            } else {
+                // For auth users, show results
+                const timer = setTimeout(() => setIsCalculating(false), 500);
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [progress, isAuthenticated, nextStep, signs, setCalculatedSigns]);
+
+    const finalize = async () => {
+        if (!birthDate || !birthLocation || !signs) return
+
+        const sunSign = signs.sun.name
+        const moonSign = signs.moon.name
+        const risingSign = signs.rising.name
 
         setCalculatedSigns({ sunSign, moonSign, risingSign })
 
@@ -69,7 +121,6 @@ export function CalculationStep() {
                 console.error("Failed to save birth data:", error)
             }
         } else {
-            // Not authenticated, go to email step
             nextStep()
         }
     }
@@ -100,8 +151,6 @@ export function CalculationStep() {
         )
     }
 
-    const sunSignData = birthDate ? getZodiacSignByDate(birthDate.month, birthDate.day) : null
-
     return (
         <div className="max-w-xl mx-auto space-y-8">
             <div className="text-center space-y-2">
@@ -119,36 +168,45 @@ export function CalculationStep() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Card className="p-6 bg-background/40 backdrop-blur-md border text-center space-y-4">
+                <Card className="p-6 bg-background/40 backdrop-blur-md border text-center space-y-4 hover:border-primary/50 transition-colors">
                     <div className="text-4xl text-primary mx-auto">☉</div>
                     <div className="space-y-1">
                         <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Sun Sign</p>
-                        <p className="text-xl font-serif">{sunSignData?.name}</p>
+                        <p className="text-xl font-serif">{signs?.sun.name}</p>
                     </div>
                 </Card>
 
-                <Card className="p-6 bg-background/40 backdrop-blur-md border text-center space-y-4">
+                <Card className="p-6 bg-background/40 backdrop-blur-md border text-center space-y-4 hover:border-primary/50 transition-colors">
                     <div className="text-4xl text-primary mx-auto">☽</div>
                     <div className="space-y-1">
                         <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Moon Sign</p>
-                        <p className="text-xl font-serif">Calculated</p>
+                        <p className="text-xl font-serif">{signs?.moon.name}</p>
                     </div>
                 </Card>
 
-                <Card className="p-6 bg-background/40 backdrop-blur-md border text-center space-y-4">
+                <Card className="p-6 backdrop-blur-md border text-center space-y-4 border-primary/40 bg-primary/5">
                     <div className="text-4xl text-primary mx-auto">↑</div>
                     <div className="space-y-1">
                         <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Rising Sign</p>
-                        <p className="text-xl font-serif">{birthTimeKnown ? "Precise" : "Estimated"}</p>
+                        <p className="text-xl font-serif">{signs?.rising.name}</p>
+                        <p className="text-[10px] text-primary/60 uppercase">{birthTimeKnown ? "Precise" : "Detective Match"}</p>
                     </div>
                 </Card>
             </div>
 
             {!birthTimeKnown && (
-                <div className="p-4 border bg-amber-500/5 text-center">
-                    <p className="text-sm text-amber-200/80 italic">
-                        "Your chart is currently using an estimated birth time. Finding your exact time
-                        on a birth certificate will unlock 100% accuracy for your houses and rising sign."
+                <div className="p-5 border bg-primary/5 rounded-xl space-y-3">
+                    <div className="flex items-center gap-2 text-primary">
+                        <Sparkles className="size-4" />
+                        <span className="text-xs font-semibold uppercase tracking-wider">Detective's Report</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                        Based on your born-at-<span className="text-foreground font-medium">{timeOfDay}</span> window
+                        and your <span className="text-foreground font-medium">"{signs?.rising.name}"-like</span> personality traits,
+                        this rising sign is our strongest candidate.
+                    </p>
+                    <p className="text-[11px] text-muted-foreground/60 italic">
+                        Note: Finding your exact birth time will reveal your precise houses and degrees.
                     </p>
                 </div>
             )}
@@ -163,3 +221,4 @@ export function CalculationStep() {
         </div>
     )
 }
+

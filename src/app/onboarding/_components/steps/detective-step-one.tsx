@@ -1,8 +1,9 @@
 "use client"
 
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useOnboardingStore } from "@/store/use-onboarding-store"
-import { Sun, Sunset, Moon, CloudMoon, ChevronRight } from "lucide-react"
+import { Sun, Sunset, Moon, CloudMoon, ChevronRight, ChevronLeft } from "lucide-react"
 
 const timeOfDayOptions = [
     {
@@ -10,28 +11,28 @@ const timeOfDayOptions = [
         label: "Morning",
         timeRange: "6 AM - 12 PM",
         icon: Sun,
-        color: "text-amber-400"
+        color: "text-primary"
     },
     {
         value: "afternoon",
         label: "Afternoon",
         timeRange: "12 PM - 6 PM",
         icon: Sunset,
-        color: "text-orange-400"
+        color: "text-fire"
     },
     {
         value: "evening",
         label: "Evening",
         timeRange: "6 PM - 12 AM",
         icon: CloudMoon,
-        color: "text-indigo-400"
+        color: "text-water"
     },
     {
         value: "night",
         label: "Night",
         timeRange: "12 AM - 6 AM",
         icon: Moon,
-        color: "text-slate-400"
+        color: "text-air"
     },
 ]
 
@@ -47,27 +48,28 @@ export function DetectiveStepOne() {
     }
 
     return (
-        <div className="max-w-md mx-auto space-y-8">
-            <div className="text-center space-y-2">
-                <h2 className="text-3xl font-serif">Let's play detective! 🔍</h2>
-                <p className="text-muted-foreground text-sm">What do you remember about your birth?</p>
-            </div>
+        <div className="max-w-md md:max-w-2xl mx-auto space-y-8">
+            <h2 className="text-3xl text-center font-serif">Do you know if you were born in the:</h2>
 
-            <p className="text-muted-foreground text-center text-sm px-4">
-                Even a rough estimate helps us narrow down your rising sign.
-                Do you know what time of day it was?
-            </p>
-
-            <div className="space-y-3">
+            <div className="gap-4 grid grid-cols-2 max-w-md mx-auto">
                 {timeOfDayOptions.map((option) => (
                     <Button
                         key={option.value}
                         variant="outline"
                         size="lg"
                         onClick={() => handleSelect(option.value)}
-                        className={`w-full justify-start gap-4 h-auto py-5 px-6 border bg-background/40 hover:bg-primary/5 transition-all ${timeOfDay === option.value ? 'border-primary bg-primary/10' : ''}`}
+                        className={cn(
+                            "w-full justify-start gap-4 h-auto py-5 px-6 border transition-all hover:bg-primary/5",
+                            timeOfDay === option.value
+                                ? "border-primary bg-primary/15 ring-2 ring-primary/60 shadow-[0_0_25px_-5px_oklch(var(--primary)/0.4)] shadow-primary/40 "
+                                : "bg-background/40 border-border"
+                        )}
                     >
-                        <option.icon className={`size-8 ${option.color}`} />
+                        <option.icon className={cn(
+                            "size-8 transition-transform",
+                            option.color,
+                            timeOfDay === option.value && "scale-110"
+                        )} />
                         <div className="text-left">
                             <p className="font-medium text-lg">{option.label}</p>
                             <p className="text-xs text-muted-foreground uppercase tracking-widest">{option.timeRange}</p>
@@ -76,21 +78,21 @@ export function DetectiveStepOne() {
                 ))}
             </div>
 
-            <div className="flex flex-col gap-4 text-center">
-                <Button
-                    variant="ghost"
-                    onClick={handleUnknown}
-                    className={`w-full h-12 text-muted-foreground ${timeOfDay === 'unknown' ? 'bg-primary/5 text-primary' : ''}`}
-                >
-                    I have no idea at all
-                </Button>
+            <div className="flex flex-col gap-4 text-center max-w-md mx-auto">
+
 
                 <div className="flex justify-between items-center pt-2">
-                    <Button variant="ghost" onClick={prevStep}>
-                        Back
+                    <Button variant="outline" size="icon" onClick={prevStep}>
+                        <ChevronLeft className="size-5" />
                     </Button>
                     <Button
-                        size="lg"
+                        variant="outline"
+                        onClick={handleUnknown}
+                        className={`transition-all ${timeOfDay === 'unknown' ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary' : ''}`}
+                    >
+                        I have no idea at all
+                    </Button>
+                    <Button
                         className="group"
                         disabled={!timeOfDay}
                         onClick={nextStep}

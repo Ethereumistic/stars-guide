@@ -20,17 +20,11 @@ export function TimeCheckStep() {
     return (
         <div className="max-w-md mx-auto space-y-8">
             <div className="text-center space-y-2">
-                <h2 className="text-3xl font-serif">A Moment in Time</h2>
-                <p className="text-muted-foreground text-sm">Do you know your exact birth time?</p>
+                <h2 className="text-3xl font-serif">Do you know your exact birth time?</h2>
             </div>
 
-            <p className="text-muted-foreground text-center text-sm leading-relaxed px-4">
-                Your birth time determines your <strong>rising sign</strong> and
-                <strong> house placements</strong>. It defines how you project yourself
-                to the world and which life areas are most active.
-            </p>
 
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-2 gap-4">
                 <Button
                     size="lg"
                     variant="outline"
@@ -40,7 +34,7 @@ export function TimeCheckStep() {
                     <Clock className="size-8 text-primary" />
                     <div className="space-y-1 text-center">
                         <span className="text-lg font-medium block">Yes, I know it</span>
-                        <span className="text-xs text-muted-foreground uppercase tracking-widest">Exact birth certificate time</span>
+                        {/* <span className="text-xs text-muted-foreground uppercase tracking-widest">Exact birth certificate time</span> */}
                     </div>
                 </Button>
 
@@ -53,15 +47,14 @@ export function TimeCheckStep() {
                     <HelpCircle className="size-8 text-muted-foreground" />
                     <div className="space-y-1 text-center">
                         <span className="text-lg font-medium block">I'm not sure</span>
-                        <span className="text-xs text-muted-foreground uppercase tracking-widest">We'll help you estimate it</span>
+                        {/* <span className="text-xs text-muted-foreground uppercase tracking-widest">We'll help you estimate it</span> */}
                     </div>
                 </Button>
             </div>
 
             <div className="flex justify-start pt-4">
-                <Button variant="ghost" onClick={prevStep}>
-                    <ChevronLeft className="mr-2 size-4" />
-                    Back
+                <Button size="icon" variant="outline" onClick={prevStep}>
+                    <ChevronLeft className="size-5" />
                 </Button>
             </div>
         </div>

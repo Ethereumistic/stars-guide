@@ -4,6 +4,13 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+	--color-fire: var(--fire);
+	--color-water: var(--water);
+	--color-earth: var(--earth);
+	--color-air: var(--air);
+	--color-galactic: var(--galactic);
+	--color-galactic-dark: var(--galactic-dark);
+
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--font-sans: Inter, ui-sans-serif, sans-serif, system-ui;
@@ -72,6 +79,13 @@
 }
 
 :root {
+	--fire: oklch(0.6442 0.1431 32.3);
+	--water: oklch(0.6553 0.0664 211.29);
+	--earth: oklch(0.6198 0.0713 129.86);
+	--air: oklch(0.7534 0.0333 251.2);
+	--galactic: oklch(0.5881 0.2118 306.32);
+	--galactic-dark: oklch(0.4875 0.2135 303.58);
+
 	--background: oklch(0.9728 0.0054 95.0993);
 	--foreground: oklch(0.2273 0.0038 286.0916);
 	--card: #FFFFFF;
@@ -127,6 +141,13 @@
 }
 
 .dark {
+	--fire: oklch(0.6442 0.1431 32.3);
+	--water: oklch(0.6553 0.0664 211.29);
+	--earth: oklch(0.6198 0.0713 129.86);
+	--air: oklch(0.7534 0.0333 251.2);
+	--galactic: oklch(0.5881 0.2118 306.32);
+	--galactic-dark: oklch(0.4875 0.2135 303.58);
+
 	--background: oklch(0.1342 0.0172 262.1660);
 	--foreground: oklch(0.9337 0.0055 95.1027);
 	--card: oklch(0.2354 0.0332 263.6226);
@@ -195,3 +216,5 @@
 		@apply bg-background text-foreground;
 	}
 }
+
+/* shadow-[0_0_25px_-5px_oklch(var(--primary)/0.4)] shadow-primary/40 */
