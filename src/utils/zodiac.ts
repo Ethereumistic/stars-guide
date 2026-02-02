@@ -159,6 +159,14 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
     },
 ];
 
+/**
+ * Get zodiac sign by date using fixed date boundaries.
+ * 
+ * @deprecated Use `calculateSunSign` from `@/lib/astrology` instead.
+ * This function uses approximate date boundaries which can be off by a day
+ * near cusp dates. The astronomy-engine version calculates precise ecliptic
+ * longitude for accurate results.
+ */
 export const getZodiacSignByDate = (month: number, day: number): ZodiacSign => {
     if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) return ZODIAC_SIGNS[0];
     if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) return ZODIAC_SIGNS[1];

@@ -36,7 +36,7 @@ export function BirthDateStep() {
     // Generate years: 1920 to 2015, sorted with 2000 near the top/middle if possible
     // But mostly we just need 2000 to be easily reachable.
     const currentYear = new Date().getFullYear()
-    const years = Array.from({ length: 121 }, (_, i) => currentYear - i)
+    const years = Array.from({ length: 200 }, (_, i) => currentYear - i)
 
     // Days array
     const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)

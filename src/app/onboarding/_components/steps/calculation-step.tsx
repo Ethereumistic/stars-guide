@@ -6,7 +6,8 @@ import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { useOnboardingStore } from "@/store/use-onboarding-store"
 import { useUserStore } from "@/store/use-user-store"
-import { getZodiacSignByDate, ZODIAC_SIGNS, estimateRisingSign } from "@/utils/zodiac"
+import { ZODIAC_SIGNS, estimateRisingSign } from "@/utils/zodiac"
+import { calculateSunSign, calculateMoonSign, calculateAscendant, localBirthTimeToUTC } from "@/lib/astrology"
 import { useMutation } from "convex/react"
 import { api } from "../../../../../convex/_generated/api"
 import { motion } from "motion/react"
@@ -45,24 +46,42 @@ export function CalculationStep() {
     }, [])
 
     const signs = React.useMemo(() => {
-        if (!birthDate) return null;
+        if (!birthDate || !birthLocation) return null;
 
-        const sunSignData = getZodiacSignByDate(birthDate.month, birthDate.day);
+        // Parse birth time (default to noon if unknown for Sun/Moon calculations)
+        const [hours, minutes] = birthTimeKnown && birthTime
+            ? birthTime.split(':').map(Number)
+            : [12, 0];
 
-        // Moon sign calculation (approximate)
-        const moonSignIndex = (ZODIAC_SIGNS.findIndex(s => s.id === sunSignData.id) + 4) % 12;
-        const moonSignData = ZODIAC_SIGNS[moonSignIndex];
+        // Convert LOCAL birth time to UTC using the birth location's timezone
+        // This is crucial for accurate calculations - birth times are recorded in local time!
+        const birthDateTimeUTC = localBirthTimeToUTC(
+            birthDate.year,
+            birthDate.month,
+            birthDate.day,
+            hours,
+            minutes,
+            birthLocation.lat,
+            birthLocation.long
+        );
 
+        // Calculate Sun sign using astronomy-engine (accurate ecliptic longitude)
+        const sunSignData = calculateSunSign(birthDateTimeUTC);
+
+        // Calculate Moon sign using astronomy-engine (accurate, requires date/time)
+        const moonSignData = calculateMoonSign(birthDateTimeUTC);
+
+        // Calculate Rising sign
         let risingSignData;
-        if (birthTimeKnown) {
-            const [hours] = (birthTime || "12:00").split(':').map(Number);
-            let timeBucket: "morning" | "afternoon" | "evening" | "night" = "afternoon";
-            if (hours >= 6 && hours < 12) timeBucket = "morning";
-            else if (hours >= 12 && hours < 18) timeBucket = "afternoon";
-            else if (hours >= 18 && hours < 24) timeBucket = "evening";
-            else timeBucket = "night";
-            risingSignData = estimateRisingSign(sunSignData.id, timeBucket, {});
+        if (birthTimeKnown && birthTime) {
+            // Precise Ascendant calculation using astronomy-engine
+            risingSignData = calculateAscendant(
+                birthDateTimeUTC,
+                birthLocation.lat,
+                birthLocation.long
+            );
         } else {
+            // Fallback to estimation for unknown birth time
             risingSignData = estimateRisingSign(sunSignData.id, timeOfDay, detectiveAnswers);
         }
 
@@ -71,7 +90,7 @@ export function CalculationStep() {
             moon: moonSignData,
             rising: risingSignData
         };
-    }, [birthDate, birthTime, birthTimeKnown, timeOfDay, detectiveAnswers]);
+    }, [birthDate, birthTime, birthTimeKnown, birthLocation, timeOfDay, detectiveAnswers]);
 
     // Handle the transition after animation
     React.useEffect(() => {
