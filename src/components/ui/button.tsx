@@ -19,6 +19,11 @@ const buttonVariants = cva(
         ghost:
           "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
         link: "text-primary underline-offset-4 hover:underline",
+
+        fire: "bg-fire/10 text-white hover:bg-fire/20 border-fire/40 border uppercase tracking-[0.2em] font-serif shadow-[0_0_15px_-5px_var(--fire-glow)]",
+        earth: "bg-earth/10 text-white hover:bg-earth/20 border-earth/40 border uppercase tracking-[0.2em] font-serif shadow-[0_0_15px_-5px_var(--earth-glow)]",
+        air: "bg-air/10 text-white hover:bg-air/20 border-air/40 border uppercase tracking-[0.2em] font-serif shadow-[0_0_15px_-5px_var(--air-glow)]",
+        water: "bg-water/10 text-white hover:bg-water/20 border-water/40 border uppercase tracking-[0.2em] font-serif shadow-[0_0_15px_-5px_var(--water-glow)]",
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",

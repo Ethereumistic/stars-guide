@@ -43,7 +43,7 @@ const cardVariants: Variants = {
     }
 };
 
-export default function SignsPage2() {
+export default function SignsPage5() {
     return (
         <div className="relative min-h-screen w-full overflow-x-hidden ">
 
@@ -149,14 +149,14 @@ function SignCard({ sign }: { sign: any }) {
                         style={{ background: styles.gradient }}
                     />
 
-                    {/* Constellation watermark (Moved Down) */}
-                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    {/* Constellation watermark (Lower Third) */}
+                    <div className="absolute inset-x-0 bottom-0 h-1/2 overflow-hidden pointer-events-none">
                         <img
                             src={sign.constellation}
                             alt=""
-                            className="absolute inset-0 w-full h-full object-contain opacity-[0.09] scale-125 translate-y-12 group-hover:opacity-[0.06] group-hover:scale-110 transition-all duration-1000"
+                            className="absolute bottom-[-15%] left-1/2 -translate-x-1/2 w-[130%] h-auto object-contain opacity-50 scale-110 transition-all duration-1000 group-hover:opacity-0 group-hover:scale-100"
                             style={{
-                                filter: `drop-shadow(0 0 10px ${styles.glow})`
+                                filter: `drop-shadow(0 0 15px ${styles.glow})`
                             }}
                         />
                     </div>
@@ -168,7 +168,7 @@ function SignCard({ sign }: { sign: any }) {
                     />
 
                     {/* Card content */}
-                    <div className="relative p-8 flex flex-col items-center text-center h-full">
+                    <div className="relative p-8 flex flex-col items-center justify-center text-center h-full min-h-[500px]">
 
                         <div className="mt-8">
                             {/* Dates (Top Left) */}
@@ -198,9 +198,9 @@ function SignCard({ sign }: { sign: any }) {
                             </div>
                         </div>
 
-                        {/* Sign icon (Changes to White on Hover) */}
-                        <div className="relative mb-6 flex items-center justify-center w-48 h-48 mx-auto">
-                            {/* Element Frame PNG */}
+                        {/* Sign icon (Always visible, moves slightly on hover) */}
+                        <div className="relative mb-6 flex items-center justify-center w-32 h-32 mx-auto transition-all duration-700 translate-y-4 group-hover:translate-y-0">
+                            {/* Element Frame PNG (Appears on Hover) */}
                             <img
                                 src={sign.frame}
                                 alt=""
@@ -210,13 +210,13 @@ function SignCard({ sign }: { sign: any }) {
                                 }}
                             />
 
-                            {/* Icon glow */}
+                            {/* Icon glow (Appears on Hover) */}
                             <div
                                 className="absolute inset-0 rounded-full blur-2xl opacity-0 group-hover:opacity-30 transition-opacity duration-700"
                                 style={{ backgroundColor: styles.glow }}
                             />
 
-                            {/* Main icon */}
+                            {/* Main icon (Visible, scales on hover) */}
                             <Icon
                                 className="w-16 h-16 relative z-10 text-amber-100 group-hover:text-white group-hover:scale-110 transition-all duration-700"
                                 style={{
@@ -225,8 +225,8 @@ function SignCard({ sign }: { sign: any }) {
                             />
                         </div>
 
-                        {/* Sign name */}
-                        <div className="space-y-3 mb-6">
+                        {/* Sign name (Centered but lowered by 15%, moves to top on hover) */}
+                        <div className="space-y-3 mb-6 transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] -translate-y-[20px] group-hover:translate-y-0">
                             <h2
                                 className="text-4xl font-serif tracking-wide transition-all duration-500 group-hover:text-white!"
                                 style={{
@@ -247,10 +247,12 @@ function SignCard({ sign }: { sign: any }) {
                             {/* Dates removed from flow */}
                         </div>
 
-                        {/* Traits description */}
-                        <p className="text-lg font-sans text-amber-100/80 leading-relaxed italic px-2 flex-grow flex items-center justify-center">
-                            {sign.traits}
-                        </p>
+                        {/* Traits description (Appears on Hover) */}
+                        <div className="flex-grow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-700 translate-y-4 group-hover:translate-y-0">
+                            <p className="text-lg font-sans text-amber-100/80 leading-relaxed italic px-2">
+                                {sign.traits}
+                            </p>
+                        </div>
 
                         {/* Explore Button (Styled Button) */}
                         <div className="mt-8 pt-4 w-full flex justify-center opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0">
