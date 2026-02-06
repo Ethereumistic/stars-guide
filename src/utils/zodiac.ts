@@ -12,150 +12,202 @@ import {
     TbZodiacAquarius,
     TbZodiacPisces
 } from "react-icons/tb";
-import { GiWaterfall, GiTornado, GiFlame } from "react-icons/gi";
-import { TbMountain } from "react-icons/tb";
+import { GiWaterfall, GiTornado, GiFlame, GiStonePile } from "react-icons/gi";
 import { IconType } from "react-icons";
 
 export type ElementType = "Fire" | "Earth" | "Air" | "Water";
 
+export const CONSTELLATION_URL = "https://cdn.jsdelivr.net/gh/Ethereumistic/stars-guide-assets/signs/constellations/"
+export const ELEMENT_FRAME_URL = "https://cdn.jsdelivr.net/gh/Ethereumistic/stars-guide-assets/elements/v3/"
+
 export interface ZodiacSign {
     id: string;
     name: string;
-    symbol: string;
     element: ElementType;
     icon: IconType;
     elementIcon: IconType;
     traits: string;
     dates: string;
+    constellation: string;
+    frame: string;
 }
 
 export const ELEMENTS: Record<ElementType, { name: string; icon: IconType; }> = {
     Fire: { name: "Fire", icon: GiFlame },
-    Earth: { name: "Earth", icon: TbMountain },
+    Earth: { name: "Earth", icon: GiStonePile },
     Air: { name: "Air", icon: GiTornado },
     Water: { name: "Water", icon: GiWaterfall },
+};
+
+export const ELEMENT_STYLES: Record<ElementType, {
+    primary: string;
+    secondary: string;
+    glow: string;
+    border: string;
+    gradient: string;
+}> = {
+    Fire: {
+        primary: "var(--fire-primary)",
+        secondary: "var(--fire-secondary)",
+        glow: "var(--fire-glow)",
+        border: "var(--fire-border)",
+        gradient: "var(--fire-gradient)"
+    },
+    Earth: {
+        primary: "var(--earth-primary)",
+        secondary: "var(--earth-secondary)",
+        glow: "var(--earth-glow)",
+        border: "var(--earth-border)",
+        gradient: "var(--earth-gradient)"
+    },
+    Air: {
+        primary: "var(--air-primary)",
+        secondary: "var(--air-secondary)",
+        glow: "var(--air-glow)",
+        border: "var(--air-border)",
+        gradient: "var(--air-gradient)"
+    },
+    Water: {
+        primary: "var(--water-primary)",
+        secondary: "var(--water-secondary)",
+        glow: "var(--water-glow)",
+        border: "var(--water-border)",
+        gradient: "var(--water-gradient)"
+    }
 };
 
 export const ZODIAC_SIGNS: ZodiacSign[] = [
     {
         id: "aries",
         name: "Aries",
-        symbol: "♈",
         element: "Fire",
         icon: TbZodiacAries,
         elementIcon: GiFlame,
         traits: "Energetic, adventurous, and enthusiastic.",
         dates: "Mar 21 - Apr 19",
+        constellation: CONSTELLATION_URL + "aries.svg",
+        frame: ELEMENT_FRAME_URL + "fire.png",
     },
     {
         id: "taurus",
         name: "Taurus",
-        symbol: "♉",
         element: "Earth",
         icon: TbZodiacTaurus,
-        elementIcon: TbMountain,
+        elementIcon: GiStonePile,
         traits: "Patient, reliable, and warmhearted.",
         dates: "Apr 20 - May 20",
+        constellation: CONSTELLATION_URL + "taurus.svg",
+        frame: ELEMENT_FRAME_URL + "earth.png",
     },
     {
         id: "gemini",
         name: "Gemini",
-        symbol: "♊",
         element: "Air",
         icon: TbZodiacGemini,
         elementIcon: GiTornado,
         traits: "Adaptable, versatile, and intellectual.",
         dates: "May 21 - Jun 20",
+        constellation: CONSTELLATION_URL + "gemini.svg",
+        frame: ELEMENT_FRAME_URL + "air.png",
     },
     {
         id: "cancer",
         name: "Cancer",
-        symbol: "♋",
         element: "Water",
         icon: TbZodiacCancer,
         elementIcon: GiWaterfall,
         traits: "Emotional, loving, and intuitive.",
         dates: "Jun 21 - Jul 22",
+        constellation: CONSTELLATION_URL + "cancer.svg",
+        frame: ELEMENT_FRAME_URL + "water.png",
     },
     {
         id: "leo",
         name: "Leo",
-        symbol: "♌",
         element: "Fire",
         icon: TbZodiacLeo,
         elementIcon: GiFlame,
         traits: "Generous, warmhearted, and creative.",
         dates: "Jul 23 - Aug 22",
+        constellation: CONSTELLATION_URL + "leo.svg",
+        frame: ELEMENT_FRAME_URL + "fire.png",
     },
     {
         id: "virgo",
         name: "Virgo",
-        symbol: "♍",
         element: "Earth",
         icon: TbZodiacVirgo,
-        elementIcon: TbMountain,
+        elementIcon: GiStonePile,
         traits: "Modest, shy, and meticulous.",
         dates: "Aug 23 - Sep 22",
+        constellation: CONSTELLATION_URL + "virgo.svg",
+        frame: ELEMENT_FRAME_URL + "earth.png",
     },
     {
         id: "libra",
         name: "Libra",
-        symbol: "♎",
         element: "Air",
         icon: TbZodiacLibra,
         elementIcon: GiTornado,
         traits: "Diplomatic, urbane, and romantic.",
         dates: "Sep 23 - Oct 22",
+        constellation: CONSTELLATION_URL + "libra.svg",
+        frame: ELEMENT_FRAME_URL + "air.png",
     },
     {
         id: "scorpio",
         name: "Scorpio",
-        symbol: "♏",
         element: "Water",
         icon: TbZodiacScorpio,
         elementIcon: GiWaterfall,
         traits: "Determined, forceful, and emotional.",
         dates: "Oct 23 - Nov 21",
+        constellation: CONSTELLATION_URL + "scorpio.svg",
+        frame: ELEMENT_FRAME_URL + "water.png",
     },
     {
         id: "sagittarius",
         name: "Sagittarius",
-        symbol: "♐",
         element: "Fire",
         icon: TbZodiacSagittarius,
         elementIcon: GiFlame,
         traits: "Optimistic, freedom-loving, and honest.",
         dates: "Nov 22 - Dec 21",
+        constellation: CONSTELLATION_URL + "sagittarius.svg",
+        frame: ELEMENT_FRAME_URL + "fire.png",
     },
     {
         id: "capricorn",
         name: "Capricorn",
-        symbol: "♑",
         element: "Earth",
         icon: TbZodiacCapricorn,
-        elementIcon: TbMountain,
+        elementIcon: GiStonePile,
         traits: "Practical, prudent, and ambitious.",
         dates: "Dec 22 - Jan 19",
+        constellation: CONSTELLATION_URL + "capricorn.svg",
+        frame: ELEMENT_FRAME_URL + "earth.png",
     },
     {
         id: "aquarius",
         name: "Aquarius",
-        symbol: "♒",
         element: "Air",
         icon: TbZodiacAquarius,
         elementIcon: GiTornado,
         traits: "Friendly, humanitarian, and honest.",
         dates: "Jan 20 - Feb 18",
+        constellation: CONSTELLATION_URL + "aquarius.svg",
+        frame: ELEMENT_FRAME_URL + "air.png",
     },
     {
         id: "pisces",
         name: "Pisces",
-        symbol: "♓",
         element: "Water",
         icon: TbZodiacPisces,
         elementIcon: GiWaterfall,
         traits: "Imaginative, sensitive, and compassionate.",
         dates: "Feb 19 - Mar 20",
+        constellation: CONSTELLATION_URL + "pisces.svg",
+        frame: ELEMENT_FRAME_URL + "water.png",
     },
 ];
 
@@ -262,7 +314,8 @@ export const getElementClass = (element: ElementType, prefix: 'bg' | 'text' | 'b
 
 /**
  * Get the element name as a CSS variable name (lowercase)
- * For use in CSS like: var(--fire), var(--water), etc.
+ * For use in CSS like: var(--fire-primary), var(--water-primary), etc.
+ * OLD (Deprecated): var(--fire), var(--water), etc.
  * @param element - The element type
  * @returns The lowercase element name
  */

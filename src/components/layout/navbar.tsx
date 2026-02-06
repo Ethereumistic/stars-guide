@@ -32,6 +32,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 const navItems = [
     { title: "Horoscopes", href: "/horoscopes", icon: GiStarsStack },
+    { title: "Learn", href: "/learn", icon: GiAstrolabe },
     { title: "Readings", href: "/readings", icon: GiCrystalBall },
     { title: "Pricing", href: "/pricing", icon: GiCoins },
 ]

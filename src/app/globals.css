@@ -4,10 +4,14 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-	--color-fire: var(--fire);
-	--color-water: var(--water);
-	--color-earth: var(--earth);
-	--color-air: var(--air);
+	--color-fire: var(--fire-primary);
+	--color-water: var(--water-primary);
+	--color-earth: var(--earth-primary);
+	--color-air: var(--air-primary);
+	--color-fire-secondary: var(--fire-secondary);
+	--color-water-secondary: var(--water-secondary);
+	--color-earth-secondary: var(--earth-secondary);
+	--color-air-secondary: var(--air-secondary);
 	--color-galactic: var(--galactic);
 	--color-galactic-dark: var(--galactic-dark);
 
@@ -79,10 +83,38 @@
 }
 
 :root {
+	/* OLD COLORS
 	--fire: oklch(0.6442 0.1431 32.3);
 	--water: oklch(0.6553 0.0664 211.29);
 	--earth: oklch(0.6198 0.0713 129.86);
 	--air: oklch(0.7534 0.0333 251.2);
+	*/
+
+	/* NEW CELESTIAL ELEMENT COLORS */
+	--fire-primary: #FF6B35;
+	--fire-secondary: #FFB347;
+	--fire-glow: rgba(255, 107, 53, 0.15);
+	--fire-border: rgba(255, 107, 53, 0.15);
+	--fire-gradient: linear-gradient(135deg, rgba(255, 107, 53, 0.1) 0%, rgba(255, 179, 71, 0.05) 100%);
+
+	--earth-primary: #2D5016;
+	--earth-secondary: #6B8E23;
+	--earth-glow: rgba(107, 142, 35, 0.15);
+	--earth-border: rgba(107, 142, 35, 0.15);
+	--earth-gradient: linear-gradient(135deg, rgba(107, 142, 35, 0.1) 0%, rgba(45, 80, 22, 0.05) 100%);
+
+	--air-primary: #87CEEB;
+	--air-secondary: #B0E0E6;
+	--air-glow: rgba(135, 206, 235, 0.15);
+	--air-border: rgba(135, 206, 235, 0.15);
+	--air-gradient: linear-gradient(135deg, rgba(135, 206, 235, 0.1) 0%, rgba(176, 224, 230, 0.05) 100%);
+
+	--water-primary: #1E90FF;
+	--water-secondary: #4682B4;
+	--water-glow: rgba(30, 144, 255, 0.15);
+	--water-border: rgba(30, 144, 255, 0.15);
+	--water-gradient: linear-gradient(135deg, rgba(30, 144, 255, 0.1) 0%, rgba(70, 130, 180, 0.05) 100%);
+
 	--galactic: oklch(0.5881 0.2118 306.32);
 	--galactic-dark: oklch(0.4875 0.2135 303.58);
 
@@ -141,14 +173,16 @@
 }
 
 .dark {
+	/* OLD COLORS
 	--fire: oklch(0.6442 0.1431 32.3);
 	--water: oklch(0.6553 0.0664 211.29);
 	--earth: oklch(0.6198 0.0713 129.86);
 	--air: oklch(0.7534 0.0333 251.2);
+	*/
 	--galactic: oklch(0.5881 0.2118 306.32);
 	--galactic-dark: oklch(0.4875 0.2135 303.58);
 
-	--background: oklch(0.1342 0.0172 262.1660);
+	--background: oklch(13.416% 0.01726 262.183);
 	--foreground: oklch(0.9337 0.0055 95.1027);
 	--card: oklch(0.2354 0.0332 263.6226);
 	--card-foreground: #F5F5F5;

@@ -1,0 +1,7 @@
+I am building a web application called "stars.guide" that will help users learn about stars and constellations, get personalized horoscopes, and more.  
+
+Your task is to build an incredible 'learn' page for this app. I want it to be creative and unique. Really push the limits of your desing capabilities. In the learn page there will be different sections/cards/categories of things to learn about like zodiac signs, houses etc. I need you to currently focus on the /learn page and the /learn/signs page, which should contain all 12 zodiac signs. Currently we have a working /learn page and /learn/signs page, but they are very basic. I want you to completely redo them from scratch at /learn2/signs and also include /learn2/signs/[sign] for each having a unique page. The only things you are allowed to copy from the existing page is the colors and icons nothing else!
+
+Currently we have base zodiac information at \src\utils\zodiac.ts and I want you to use that information to create the zodiac signs visual elements and base information.
+
+Do NOT use any external libraries. Only use the libraries that are already installed in the project. Do not add any new dependencies, and do NOT use any MCP servers.
