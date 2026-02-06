@@ -64,7 +64,7 @@ const CATEGORIES = [
     }
 ];
 
-export default function Learn2Page() {
+export default function LearnPage() {
     const containerRef = useRef<HTMLDivElement>(null);
     const { scrollYProgress } = useScroll({
         target: containerRef,

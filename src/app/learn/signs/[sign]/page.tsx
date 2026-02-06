@@ -17,6 +17,14 @@ import {
     TbMountain,
     TbCompass
 } from "react-icons/tb";
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 const ELEMENT_DATA: Record<ElementType, { icon: any; color: string; desc: string; keywords: string[] }> = {
     Fire: {
@@ -89,16 +97,9 @@ export default function SignDetailPage() {
                 </motion.div>
             </div>
 
-            {/* Navigation */}
-            <nav className="fixed top-0 left-0 right-0 z-50 p-8 flex justify-between items-center mix-blend-difference">
-                <Link
-                    href="/learn2/signs"
-                    className="group flex items-center gap-2 text-white/60 hover:text-white transition-colors uppercase font-mono text-[10px] tracking-[0.3em]"
-                >
-                    <TbArrowNarrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                    Archive
-                </Link>
-                <div className="flex items-center gap-2 text-primary">
+            {/* Top Navigation */}
+            <nav className="fixed top-0 left-0 right-0 z-50 p-8 flex justify-end items-center mix-blend-difference pointer-events-none">
+                <div className="flex items-center gap-2 text-primary pointer-events-auto">
                     <TbCompass className="w-5 h-5 animate-spin-slow" />
                 </div>
             </nav>
@@ -110,8 +111,27 @@ export default function SignDetailPage() {
                         initial={{ opacity: 0, y: 50 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-                        className="flex flex-col items-center text-center space-y-8"
+                        className="flex flex-col items-center text-center space-y-12"
                     >
+                        <Breadcrumb>
+                            <BreadcrumbList className="text-primary/60">
+                                <BreadcrumbItem>
+                                    <BreadcrumbLink asChild className="hover:text-primary transition-colors font-mono text-[10px] tracking-[0.3em] uppercase">
+                                        <Link href="/learn">Learn</Link>
+                                    </BreadcrumbLink>
+                                </BreadcrumbItem>
+                                <BreadcrumbSeparator>/</BreadcrumbSeparator>
+                                <BreadcrumbItem>
+                                    <BreadcrumbLink asChild className="hover:text-primary transition-colors font-mono text-[10px] tracking-[0.3em] uppercase">
+                                        <Link href="/learn/signs">Signs</Link>
+                                    </BreadcrumbLink>
+                                </BreadcrumbItem>
+                                <BreadcrumbSeparator>/</BreadcrumbSeparator>
+                                <BreadcrumbItem>
+                                    <BreadcrumbPage className="text-primary font-mono text-[10px] tracking-[0.3em] uppercase">{sign.name}</BreadcrumbPage>
+                                </BreadcrumbItem>
+                            </BreadcrumbList>
+                        </Breadcrumb>
                         <motion.div
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
@@ -244,7 +264,7 @@ export default function SignDetailPage() {
                             {ZODIAC_SIGNS.filter(s => s.id !== signId).slice(0, 4).map(s => (
                                 <Link
                                     key={s.id}
-                                    href={`/learn2/signs/${s.id}`}
+                                    href={`/learn/signs/${s.id}`}
                                     className="px-6 py-4 rounded-full border border-white/10 bg-white/5 hover:border-primary/50 transition-all duration-500 group"
                                 >
                                     <span className="text-sm font-sans text-white/60 group-hover:text-primary transition-colors">{s.name} →</span>

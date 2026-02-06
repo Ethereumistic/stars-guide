@@ -10,6 +10,14 @@ import {
     TbSparkles
 } from "react-icons/tb";
 import { Button } from "@/components/ui/button";
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 const ELEMENT_STYLES = GLOBAL_ELEMENT_STYLES;
 
@@ -43,9 +51,10 @@ const cardVariants: Variants = {
     }
 };
 
-export default function SignsPage5() {
+export default function SignsPage() {
     return (
         <div className="relative min-h-screen w-full overflow-x-hidden ">
+
 
 
 
@@ -54,13 +63,19 @@ export default function SignsPage5() {
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-12 mb-32">
                     <div className="space-y-6">
-                        <Link
-                            href="/learn"
-                            className="inline-flex items-center gap-2 text-primary/60 hover:text-primary transition-colors font-mono text-xs uppercase tracking-widest group"
-                        >
-                            <TbArrowNarrowLeft className="group-hover:-translate-x-1 transition-transform" />
-                            Return to Archive
-                        </Link>
+                        <Breadcrumb className="mb-6">
+                            <BreadcrumbList className="text-primary/60">
+                                <BreadcrumbItem>
+                                    <BreadcrumbLink asChild className="hover:text-primary transition-colors font-mono text-xs uppercase tracking-widest">
+                                        <Link href="/learn">Learn</Link>
+                                    </BreadcrumbLink>
+                                </BreadcrumbItem>
+                                <BreadcrumbSeparator>/</BreadcrumbSeparator>
+                                <BreadcrumbItem>
+                                    <BreadcrumbPage className="text-primary font-mono text-xs uppercase tracking-widest">Signs</BreadcrumbPage>
+                                </BreadcrumbItem>
+                            </BreadcrumbList>
+                        </Breadcrumb>
                         <h1 className="text-5xl md:text-6xl font-serif font-bold text-white tracking-tighter">
                             The Twelve
                             <span className="italic text-primary drop-shadow-[0_0_15px_rgba(212,175,55,0.3)]"> Guardians</span>
@@ -118,7 +133,7 @@ function SignCard({ sign }: { sign: any }) {
     return (
         <motion.div variants={cardVariants} className="perspective-[1000px]">
             <Link
-                href={`/learn2/signs/${sign.id}`}
+                href={`/learn/signs/${sign.id}`}
                 className="group relative block h-full"
             >
 
