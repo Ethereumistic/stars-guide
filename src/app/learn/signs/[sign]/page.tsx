@@ -97,78 +97,72 @@ export default function SignDetailPage() {
                 </motion.div>
             </div>
 
-            {/* Top Navigation */}
-            <nav className="fixed top-0 left-0 right-0 z-50 p-8 flex justify-end items-center mix-blend-difference pointer-events-none">
-                <div className="flex items-center gap-2 text-primary pointer-events-auto">
-                    <TbCompass className="w-5 h-5 animate-spin-slow" />
-                </div>
-            </nav>
 
-            <main className="relative z-10 w-full pt-[35vh]">
+            <div className="relative z-10 max-w-[1600px] mx-auto px-8 pt-32">
+                <Breadcrumb className="mb-12">
+                    <BreadcrumbList className="text-primary/60">
+                        <BreadcrumbItem>
+                            <BreadcrumbLink asChild className="hover:text-primary transition-colors font-mono text-xs uppercase tracking-widest">
+                                <Link href="/learn">Learn</Link>
+                            </BreadcrumbLink>
+                        </BreadcrumbItem>
+                        <BreadcrumbSeparator>/</BreadcrumbSeparator>
+                        <BreadcrumbItem>
+                            <BreadcrumbLink asChild className="hover:text-primary transition-colors font-mono text-xs uppercase tracking-widest">
+                                <Link href="/learn/signs">Signs</Link>
+                            </BreadcrumbLink>
+                        </BreadcrumbItem>
+                        <BreadcrumbSeparator>/</BreadcrumbSeparator>
+                        <BreadcrumbItem>
+                            <BreadcrumbPage className="text-primary font-mono text-xs uppercase tracking-widest">{sign.name}</BreadcrumbPage>
+                        </BreadcrumbItem>
+                    </BreadcrumbList>
+                </Breadcrumb>
+
                 {/* Hero Section */}
-                <div className="container mx-auto px-6 mb-64">
+                <motion.div
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+                    className="flex flex-col items-center text-center space-y-12 mb-64"
+                >
+
                     <motion.div
-                        initial={{ opacity: 0, y: 50 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-                        className="flex flex-col items-center text-center space-y-12"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.5, type: "spring" }}
+                        className={`w-24 h-24 rounded-full border border-white/10 bg-white/5 flex items-center justify-center backdrop-blur-xl ${element.color}`}
                     >
-                        <Breadcrumb>
-                            <BreadcrumbList className="text-primary/60">
-                                <BreadcrumbItem>
-                                    <BreadcrumbLink asChild className="hover:text-primary transition-colors font-mono text-[10px] tracking-[0.3em] uppercase">
-                                        <Link href="/learn">Learn</Link>
-                                    </BreadcrumbLink>
-                                </BreadcrumbItem>
-                                <BreadcrumbSeparator>/</BreadcrumbSeparator>
-                                <BreadcrumbItem>
-                                    <BreadcrumbLink asChild className="hover:text-primary transition-colors font-mono text-[10px] tracking-[0.3em] uppercase">
-                                        <Link href="/learn/signs">Signs</Link>
-                                    </BreadcrumbLink>
-                                </BreadcrumbItem>
-                                <BreadcrumbSeparator>/</BreadcrumbSeparator>
-                                <BreadcrumbItem>
-                                    <BreadcrumbPage className="text-primary font-mono text-[10px] tracking-[0.3em] uppercase">{sign.name}</BreadcrumbPage>
-                                </BreadcrumbItem>
-                            </BreadcrumbList>
-                        </Breadcrumb>
-                        <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{ delay: 0.5, type: "spring" }}
-                            className={`w-24 h-24 rounded-full border border-white/10 bg-white/5 flex items-center justify-center backdrop-blur-xl ${element.color}`}
-                        >
-                            <sign.icon className="w-12 h-12" />
-                        </motion.div>
-
-                        <div className="space-y-2">
-                            <motion.h1
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ delay: 0.3 }}
-                                className="text-8xl md:text-[12rem] font-serif tracking-tighter text-white leading-none"
-                            >
-                                {sign.name}
-                            </motion.h1>
-                            <p className="text-primary font-mono tracking-[0.5em] uppercase text-sm md:text-base">
-                                {sign.dates}
-                            </p>
-                        </div>
-
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 0.8 }}
-                            className="flex items-center gap-4 text-white/40 uppercase font-mono text-xs tracking-widest"
-                        >
-                            <span>Modality: Cardinal</span>
-                            <span className="text-primary/20">/</span>
-                            <span>Element: {sign.element}</span>
-                            <span className="text-primary/20">/</span>
-                            <span>Ruler: Mars</span>
-                        </motion.div>
+                        <sign.icon className="w-12 h-12" />
                     </motion.div>
-                </div>
+
+                    <div className="space-y-2">
+                        <motion.h1
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: 0.3 }}
+                            className="text-8xl md:text-[12rem] font-serif tracking-tighter text-white leading-none"
+                        >
+                            {sign.name}
+                        </motion.h1>
+                        <p className="text-primary font-mono tracking-[0.5em] uppercase text-sm md:text-base">
+                            {sign.dates}
+                        </p>
+                    </div>
+
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.8 }}
+                        className="flex items-center gap-4 text-white/40 uppercase font-mono text-xs tracking-widest"
+                    >
+                        <span>Modality: Cardinal</span>
+                        <span className="text-primary/20">/</span>
+                        <span>Element: {sign.element}</span>
+                        <span className="text-primary/20">/</span>
+                        <span>Ruler: Mars</span>
+                    </motion.div>
+                </motion.div>
 
                 {/* Content Sections */}
                 <div className="max-w-4xl mx-auto px-6 space-y-64 pb-64">
@@ -273,7 +267,7 @@ export default function SignDetailPage() {
                         </div>
                     </div>
                 </section>
-            </main>
+            </div>
 
             <style jsx global>{`
                 @keyframes spin-slow {
