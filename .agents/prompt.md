@@ -1,10 +1,8 @@
-I am building a web application called "stars.guide" that will help users learn about stars and constellations, get personalized horoscopes, and more.  
+Lets refine these: 
+Elemental pathway:
+Currently I am a big fan of the formulas for the elemental pathways but you are
+'shooting' random trendy catch phrases referring to people today and stuff regarding them,
+this is something unacceptable that we cannot do in stars.guide. Instead of writing in volatile times you bought bitcoin at 100$ .... write something that EVERYONE will relate to, yes EVERYONE even a person with another sign or a total astrology sceptic, or a flat earther or the biggest fan of astrology!
 
-Your task is to build an incredible marketing homepage for this app. I want it to be creative and unique. Really push the limits of your desing capabilities.
+Output ONLY the fully rewritten Elemental Pathways section in the same grouped format. No introductions, no explanations, no additional commentary — just the clean, fixed content ready for stars.guide.
 
-Currently we have that C:\Users\badja\Documents\Projects_Developement\stars.guide\stars-guide\src\components\hero
-hero folder, with the current hero component.
-
-Once analyzed and observed I want you to create FIVE different designs. Each design should be creative and unique from all the others that you create. They should be hosted at /1, /2, /3, /4, /5.
-
-Do NOT use any external libraries. Only use the libraries that are already installed in the project. Do not add any new dependencies, and do NOT use any MCP servers.
