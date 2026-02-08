@@ -75,14 +75,17 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
                 // Only regenerate if width changed or it's the first run
                 // This prevents regeneration on mobile when address bar hides/shows
                 if (Math.abs(width - lastWidth.current) > 2 || stars.length === 0) {
-                    // Generate for a safe maximum height to ensure coverage on mobile resizes
                     const safeHeight = Math.max(height, 2000);
+
+                    // CRITICAL: Only set width/height here.
+                    // Setting these properties clears the canvas, causing a "blink".
+                    // By moving them here, we only blink during orientation changes.
+                    canvas.width = width;
+                    canvas.height = safeHeight;
+
                     setStars(generateStars(width, safeHeight));
                     lastWidth.current = width;
                 }
-
-                canvas.width = width;
-                canvas.height = height;
             }
         };
 
@@ -140,7 +143,7 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
     return (
         <canvas
             ref={canvasRef}
-            className={cn("h-full w-full absolute inset-0", className)}
+            className={cn("h-full w-full absolute inset-0 object-cover", className)}
         />
     );
 };
