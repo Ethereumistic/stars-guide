@@ -72,8 +72,8 @@ export function Navbar() {
             className={cn(
                 "sticky top-0 z-50 w-full transition-all duration-500",
                 scrolled
-                    ? "border-b border-primary/10 bg-background/80 backdrop-blur-md py-2"
-                    : "bg-transparent py-4"
+                    ? "border-b border-primary/10 bg-background/80 backdrop-blur-sm py-2"
+                    : "bg-transparent py-2"
             )}
         >
             <div className="mx-auto flex max-w-[90rem] h-16 items-center px-4 sm:px-6 lg:px-8">

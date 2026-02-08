@@ -64,17 +64,25 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
         ]
     );
 
+    const lastWidth = useRef(0);
+
     useEffect(() => {
         const updateStars = () => {
             if (canvasRef.current) {
                 const canvas = canvasRef.current;
-                const ctx = canvas.getContext("2d");
-                if (!ctx) return;
-
                 const { width, height } = canvas.getBoundingClientRect();
+
+                // Only regenerate if width changed or it's the first run
+                // This prevents regeneration on mobile when address bar hides/shows
+                if (Math.abs(width - lastWidth.current) > 2 || stars.length === 0) {
+                    // Generate for a safe maximum height to ensure coverage on mobile resizes
+                    const safeHeight = Math.max(height, 2000);
+                    setStars(generateStars(width, safeHeight));
+                    lastWidth.current = width;
+                }
+
                 canvas.width = width;
                 canvas.height = height;
-                setStars(generateStars(width, height));
             }
         };
 
@@ -91,11 +99,7 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
             }
         };
     }, [
-        starDensity,
-        allStarsTwinkle,
-        twinkleProbability,
-        minTwinkleSpeed,
-        maxTwinkleSpeed,
+        stars.length,
         generateStars,
     ]);
 
