@@ -1,6 +1,7 @@
 import Google from "@auth/core/providers/google";
 import Apple from "@auth/core/providers/apple";
 import GitHub from "@auth/core/providers/github";
+import Twitter from "@auth/core/providers/twitter";
 import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
 
@@ -9,6 +10,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         Google,
         Apple,
         GitHub,
+        Twitter,
         Password({
             profile(params: any) {
                 return {

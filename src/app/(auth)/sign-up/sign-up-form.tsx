@@ -19,7 +19,8 @@ import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { motion } from "motion/react"
 import { Mail, Lock, Loader2 } from "lucide-react"
-import { FaGoogle } from "react-icons/fa"
+import { FcGoogle } from "react-icons/fc";
+import { FaXTwitter } from "react-icons/fa6"
 import { useUserStore } from "@/store/use-user-store"
 
 export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
@@ -28,6 +29,7 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
     const [error, setError] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(false)
     const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+    const [isTwitterLoading, setIsTwitterLoading] = useState(false)
     const router = useRouter()
     const { signIn } = useAuthActions()
 
@@ -74,6 +76,18 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
         }
     }
 
+    async function onTwitterSignIn() {
+        setIsTwitterLoading(true)
+        try {
+            await signIn("twitter")
+            router.push("/dashboard")
+        } catch (error) {
+            toast.error("Failed to sign in with X")
+            console.error(error)
+            setIsTwitterLoading(false)
+        }
+    }
+
     return (
         <div className={cn('flex flex-col gap-6', className)} {...props}>
             <motion.div
@@ -91,19 +105,32 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="grid gap-6">
-                        <div className="grid grid-cols-1 gap-4">
+                        <div className="grid grid-cols-2 gap-4">
                             <Button
                                 variant="outline"
-                                disabled={isGoogleLoading || isLoading}
+                                disabled={isGoogleLoading || isTwitterLoading || isLoading}
                                 onClick={onGoogleSignIn}
                                 className="font-sans border-primary/20 hover:bg-primary/5 hover:border-primary/40 transition-all duration-300 h-11"
                             >
                                 {isGoogleLoading ? (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 ) : (
-                                    <FaGoogle className="mr-2 h-4 w-4 text-[#4285F4]" />
+                                    <FcGoogle className="mr-2 h-4 w-4" />
                                 )}
-                                Sign up with Google
+                                Google
+                            </Button>
+                            <Button
+                                variant="outline"
+                                disabled={isGoogleLoading || isTwitterLoading || isLoading}
+                                onClick={onTwitterSignIn}
+                                className="font-sans border-primary/20 hover:bg-primary/5 hover:border-primary/40 transition-all duration-300 h-11"
+                            >
+                                {isTwitterLoading ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <FaXTwitter className="mr-2 h-4 w-4" />
+                                )}
+                                X (Twitter)
                             </Button>
                         </div>
 
@@ -131,7 +158,7 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
                                             required
                                             value={email}
                                             onChange={(e) => setEmail(e.target.value)}
-                                            disabled={isLoading || isGoogleLoading}
+                                            disabled={isLoading || isGoogleLoading || isTwitterLoading}
                                             className="pl-10 border-primary/10 focus-visible:ring-primary/30"
                                         />
                                     </div>
@@ -146,7 +173,7 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
                                             required
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
-                                            disabled={isLoading || isGoogleLoading}
+                                            disabled={isLoading || isGoogleLoading || isTwitterLoading}
                                             className="pl-10 border-primary/10 focus-visible:ring-primary/30"
                                         />
                                     </div>
@@ -158,7 +185,7 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
                                 )}
                                 <Button
                                     type="submit"
-                                    disabled={isLoading || isGoogleLoading}
+                                    disabled={isLoading || isGoogleLoading || isTwitterLoading}
                                     className="w-full font-serif uppercase tracking-widest mt-2 h-11 shadow-lg shadow-primary/10"
                                 >
                                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
