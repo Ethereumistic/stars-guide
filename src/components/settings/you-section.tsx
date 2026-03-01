@@ -28,44 +28,62 @@ interface YouSectionProps {
     delay?: number
 }
 
+//here we have implemented a rate limiting system for the username check
+//this is to prevent the user from checking the username availability too many times
+//this is to prevent the user from checking the username availability too many times
+//unfortunately it uses convex table called rateLimits lol, we must make it ratelimit in the UI :)
+
 export function YouSection({ user, delay = 0 }: YouSectionProps) {
     // Mutations
     const updateProfile = useMutation(api.users.updateProfile)
     const updateUsername = useMutation(api.users.updateUsername)
     const updatePreferences = useMutation(api.users.updatePreferences)
+    const checkAvailability = useMutation(api.users.checkUsernameAvailability)
 
     // Edit states
     const [isEditingUsername, setIsEditingUsername] = useState(false)
     const [isEditingPhone, setIsEditingPhone] = useState(false)
     const [editUsername, setEditUsername] = useState(user.username || '')
-    const [debouncedUsername, setDebouncedUsername] = useState(user.username || '')
     const [editPhone, setEditPhone] = useState(user.phone || '')
     const [isSaving, setIsSaving] = useState(false)
+    const [isAvailable, setIsAvailable] = useState<boolean | null>(null)
+    const [isChecking, setIsChecking] = useState(false)
 
     // Sync edit values when user changes
     useEffect(() => {
         setEditUsername(user.username || '')
-        setDebouncedUsername(user.username || '')
         setEditPhone(user.phone || '')
     }, [user.username, user.phone])
 
-    // Debounce username input
+    // Debounce & Check Availability
     useEffect(() => {
-        const timer = setTimeout(() => setDebouncedUsername(editUsername), 2100)
-        return () => clearTimeout(timer)
-    }, [editUsername])
-
-    const isChecking = editUsername !== debouncedUsername && editUsername.length >= 3 && editUsername !== user.username;
-
-    // Check availability query
-    const availability = useQuery(
-        api.users.checkUsernameAvailability,
-        debouncedUsername.length >= 3 && debouncedUsername !== user.username
-            ? { username: debouncedUsername }
-            : "skip"
-    )
-
-    const isAvailable = availability?.available ?? true
+        setIsAvailable(null)
+        let active = true;
+        if (editUsername.length >= 3 && editUsername !== user.username) {
+            const timer = setTimeout(() => {
+                setIsChecking(true)
+                checkAvailability({ username: editUsername })
+                    .then(res => {
+                        if (active) setIsAvailable(res.available)
+                    })
+                    .catch((err: any) => {
+                        if (active) {
+                            if (err?.message?.includes("RATE_LIMITED")) {
+                                toast.error("Rate Limited: Too many checks. Please wait 5 minutes.");
+                            }
+                            setIsAvailable(false) // Blocks the submit button
+                        }
+                    })
+                    .finally(() => {
+                        if (active) setIsChecking(false)
+                    })
+            }, 2100)
+            return () => {
+                active = false
+                clearTimeout(timer)
+            }
+        }
+    }, [editUsername, user.username, checkAvailability])
 
     // Get user initials
     const getInitials = (username?: string, email?: string) => {
@@ -158,7 +176,7 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
                                     variant="ghost"
                                     className="h-9 w-9 text-green-500 hover:text-green-600 hover:bg-green-500/10 shrink-0"
                                     onClick={handleSaveUsername}
-                                    disabled={isSaving || editUsername === user.username || editUsername.length < 3 || !isAvailable || isChecking}
+                                    disabled={isSaving || editUsername === user.username || editUsername.length < 3 || isAvailable === false || isChecking}
                                 >
                                     {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                                 </Button>
@@ -169,7 +187,8 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
                                     onClick={() => {
                                         setIsEditingUsername(false)
                                         setEditUsername(user.username || '')
-                                        setDebouncedUsername(user.username || '')
+                                        setIsAvailable(null)
+                                        setIsChecking(false)
                                     }}
                                 >
                                     <X className="h-4 w-4" />
@@ -177,8 +196,8 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
                             </div>
                             <div className="text-xs pl-6 h-4 flex items-center">
                                 {isChecking && <span className="text-muted-foreground flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Checking availability...</span>}
-                                {!isChecking && editUsername !== user.username && editUsername.length >= 3 && !isAvailable && <span className="text-destructive font-medium">Username is already taken</span>}
-                                {!isChecking && editUsername !== user.username && editUsername.length >= 3 && isAvailable && <span className="text-green-500 font-medium">Username is available!</span>}
+                                {!isChecking && editUsername !== user.username && editUsername.length >= 3 && isAvailable === false && <span className="text-destructive font-medium">Username unavailable or taken</span>}
+                                {!isChecking && editUsername !== user.username && editUsername.length >= 3 && isAvailable === true && <span className="text-green-500 font-medium">Username is available!</span>}
                                 {(editUsername === user.username || editUsername.length < 3) && <span className="text-muted-foreground">Max 15 chars. Letters, numbers, underscores only.</span>}
                             </div>
                         </div>

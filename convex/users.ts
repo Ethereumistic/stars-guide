@@ -118,9 +118,45 @@ export const updatePreferences = mutation({
     },
 });
 
-export const checkUsernameAvailability = query({
+export const checkUsernameAvailability = mutation({
     args: { username: v.string() },
     handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) {
+            return { available: false, valid: false };
+        }
+
+        // Apply strict 10 checks per 5-minute window Rate Limit
+        const MAX_CHECKS = 10;
+        const WINDOW_MS = 5 * 60 * 1000;
+        const now = Date.now();
+
+        const limit = await ctx.db
+            .query("rateLimits")
+            .withIndex("by_userId_action", (q) =>
+                q.eq("userId", userId).eq("action", "check_username")
+            )
+            .first();
+
+        if (limit) {
+            if (now > limit.resetAt) {
+                // Window passed, reset count
+                await ctx.db.patch(limit._id, { count: 1, resetAt: now + WINDOW_MS });
+            } else if (limit.count >= MAX_CHECKS) {
+                throw new Error("RATE_LIMITED");
+            } else {
+                // Inside window, increment
+                await ctx.db.patch(limit._id, { count: limit.count + 1 });
+            }
+        } else {
+            await ctx.db.insert("rateLimits", {
+                userId,
+                action: "check_username",
+                count: 1,
+                resetAt: now + WINDOW_MS,
+            });
+        }
+
         const normalized = args.username.trim();
         if (!/^[a-zA-Z0-9_]{1,15}$/.test(normalized)) {
             return { available: false, valid: false };

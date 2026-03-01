@@ -108,4 +108,12 @@ export default defineSchema({
     }).index("by_refereeId", ["refereeId"])
         .index("by_referrerId", ["referrerId"]),
 
+    // 4. RATE LIMITS (Preventing endpoint exhaustion)
+    rateLimits: defineTable({
+        userId: v.id("users"),
+        action: v.string(), // e.g. "check_username"
+        count: v.number(),
+        resetAt: v.number(), // timestamp for when the limit resets
+    }).index("by_userId_action", ["userId", "action"]),
+
 });
