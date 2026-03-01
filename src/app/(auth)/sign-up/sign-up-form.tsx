@@ -24,7 +24,12 @@ import { FaXTwitter } from "react-icons/fa6";
 import { FaFacebook } from "react-icons/fa";
 import { useUserStore } from "@/store/use-user-store";
 
-export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
+interface SignUpFormProps extends Omit<React.ComponentPropsWithoutRef<'div'>, 'title'> {
+    title?: React.ReactNode;
+    subtitle?: React.ReactNode;
+}
+
+export function SignUpForm({ className, title, subtitle, ...props }: SignUpFormProps) {
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [error, setError] = useState<string | null>(null)
@@ -112,10 +117,10 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
                 <Card className="border-primary/20 bg-background/60 backdrop-blur-xl shadow-2xl shadow-primary/10">
                     <CardHeader className="space-y-2 text-center">
                         <CardTitle className="font-serif text-3xl tracking-tight text-foreground">
-                            Create Account
+                            {title || "Create Account"}
                         </CardTitle>
-                        <CardDescription className="font-sans italic text-muted-foreground">
-                            Begin your mapping of the heavens
+                        <CardDescription className="font-sans italic text-muted-foreground w-full">
+                            {subtitle || "Begin your mapping of the heavens"}
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="grid gap-6">

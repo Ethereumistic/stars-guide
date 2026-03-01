@@ -14,7 +14,8 @@ const isPublicPage = createRouteMatcher([
     "/birth-chart",
     "/",
     "/terms",
-    "/privacy"
+    "/privacy",
+    "/invite/(.*)"
 ]);
 
 // 2. Define auth pages where authenticated users should be redirected from

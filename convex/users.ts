@@ -45,12 +45,32 @@ export const updateBirthData = mutation({
                 risingSign: args.risingSign,
             },
         });
+
+        // Referral System: Reward referrer if this user was pending
+        const pendingReferral = await ctx.db
+            .query("referrals")
+            .withIndex("by_refereeId", (q) => q.eq("refereeId", userId))
+            .filter((q) => q.eq(q.field("status"), "pending"))
+            .first();
+
+        if (pendingReferral) {
+            const referrer = await ctx.db.get(pendingReferral.referrerId);
+            if (referrer) {
+                // Reward referrer
+                await ctx.db.patch(referrer._id, {
+                    stardust: (referrer.stardust || 0) + pendingReferral.rewardAmount,
+                });
+                // Mark referral as complete
+                await ctx.db.patch(pendingReferral._id, {
+                    status: "completed",
+                });
+            }
+        }
     },
 });
 
 export const updateProfile = mutation({
     args: {
-        name: v.optional(v.string()),
         phone: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
@@ -60,7 +80,6 @@ export const updateProfile = mutation({
         }
 
         const updates: Record<string, string | undefined> = {};
-        if (args.name !== undefined) updates.name = args.name;
         if (args.phone !== undefined) updates.phone = args.phone;
 
         if (Object.keys(updates).length > 0) {
@@ -96,5 +115,59 @@ export const updatePreferences = mutation({
                 ...(args.dailySparkTime !== undefined && { dailySparkTime: args.dailySparkTime }),
             },
         });
+    },
+});
+
+export const checkUsernameAvailability = query({
+    args: { username: v.string() },
+    handler: async (ctx, args) => {
+        const normalized = args.username.trim();
+        if (!/^[a-zA-Z0-9_]{1,15}$/.test(normalized)) {
+            return { available: false, valid: false };
+        }
+        const existing = await ctx.db
+            .query("users")
+            .withIndex("by_username", (q) => q.eq("username", normalized))
+            .first();
+        return { available: !existing, valid: true };
+    },
+});
+
+export const updateUsername = mutation({
+    args: { username: v.string() },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Not authenticated");
+
+        const user = await ctx.db.get(userId);
+        if (!user) throw new Error("User not found");
+
+        const normalized = args.username.trim();
+        if (!/^[a-zA-Z0-9_]{1,15}$/.test(normalized)) {
+            throw new Error("Invalid username format. Use 1-15 letters, numbers, and underscores.");
+        }
+
+        // Check 30 day limit
+        const COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
+        if (user.lastUsernameChangeAt && Date.now() - user.lastUsernameChangeAt < COOLDOWN_MS) {
+            throw new Error("You can only change your username once every 30 days.");
+        }
+
+        // Check availability
+        const existing = await ctx.db
+            .query("users")
+            .withIndex("by_username", (q) => q.eq("username", normalized))
+            .first();
+
+        if (existing && existing._id !== userId) {
+            throw new Error("Username is already taken");
+        }
+
+        await ctx.db.patch(userId, {
+            username: normalized,
+            lastUsernameChangeAt: Date.now(),
+        });
+
+        return { success: true };
     },
 });

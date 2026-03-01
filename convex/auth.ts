@@ -39,11 +39,40 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
                 }
             }
 
+            // Generate a strictly unique username
+            let baseName = (args.profile.email as string)?.split('@')[0] || (args.profile.name as string)?.replace(/\s+/g, '') || "user";
+            baseName = baseName.replace(/[^a-zA-Z0-9_]/g, "").substring(0, 10);
+            if (!baseName) baseName = "user";
+
+            let generatedUsername = "";
+            let isUnique = false;
+            let attempts = 0;
+
+            while (!isUnique && attempts < 10) {
+                const randomSuffix = Math.floor(1000 + Math.random() * 9000).toString(); // 4 digits
+                const testUsername = `${baseName}${randomSuffix}`.substring(0, 15);
+
+                const existing = await (ctx.db as any)
+                    .query("users")
+                    .withIndex("by_username", (q: any) => q.eq("username", testUsername))
+                    .first();
+
+                if (!existing) {
+                    generatedUsername = testUsername;
+                    isUnique = true;
+                }
+                attempts++;
+            }
+            if (!generatedUsername) {
+                generatedUsername = `u${Date.now().toString().substring(5, 15)}`;
+            }
+
             const userId = await ctx.db.insert("users", {
-                name: args.profile.name ?? undefined,
                 email: args.profile.email ?? undefined,
                 image: args.profile.image ?? undefined,
                 birthData: args.profile.birthData, // Save birth data atomically if provided
+                username: generatedUsername,
+                stardust: 0,
                 role: "user",
                 tier: "free",
                 subscriptionStatus: "none",

@@ -7,7 +7,6 @@ export default defineSchema({
     // 1. EXTENDED AUTH TABLE (The "Atomic User")
     users: defineTable({
         // --- Standard Auth Fields (Managed by Convex Auth) ---
-        name: v.optional(v.string()),
         image: v.optional(v.string()), // Avatar URL
         email: v.optional(v.string()),
         emailVerificationTime: v.optional(v.number()),
@@ -16,6 +15,11 @@ export default defineSchema({
         isAnonymous: v.optional(v.boolean()),
 
         // --- stars.guide Business Logic (Managed by Us) ---
+
+        // Viral Referral System
+        username: v.optional(v.string()),
+        lastUsernameChangeAt: v.optional(v.number()),
+        stardust: v.optional(v.number()),
 
         // Subscription State
         tier: v.union(
@@ -72,6 +76,7 @@ export default defineSchema({
 
     })
         .index("by_email", ["email"])
+        .index("by_username", ["username"])
         .index("by_subscription_status", ["subscriptionStatus"]), // Vital for Daily Cron Jobs
 
     // 2. SUBSCRIPTION HISTORY (Audit Trail)
@@ -90,5 +95,17 @@ export default defineSchema({
         reason: v.optional(v.string()), // e.g. "User requested", "Insufficient funds"
         metadata: v.optional(v.any()),  // Store Stripe Event ID here
     }).index("by_user_id", ["userId"]),
+
+    // 3. REFERRALS (Tracking successful invites and stardust rewards)
+    referrals: defineTable({
+        referrerId: v.id("users"), // The user who sent the invite
+        refereeId: v.id("users"),  // The new user who clicked the link
+        status: v.union(
+            v.literal("pending"),   // Clicked link, signed up, but hasn't finished birth data
+            v.literal("completed")  // Finished birth data, Stardust awarded
+        ),
+        rewardAmount: v.number(),    // e.g. 1
+    }).index("by_refereeId", ["refereeId"])
+        .index("by_referrerId", ["referrerId"]),
 
 });
