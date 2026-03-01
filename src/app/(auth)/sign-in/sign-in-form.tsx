@@ -20,8 +20,9 @@ import { toast } from "sonner"
 import { motion } from "motion/react"
 import { Mail, Lock, Loader2 } from "lucide-react"
 import { FcGoogle } from "react-icons/fc";
-import { FaXTwitter } from "react-icons/fa6"
-import { useUserStore } from "@/store/use-user-store"
+import { FaXTwitter } from "react-icons/fa6";
+import { FaFacebook } from "react-icons/fa";
+import { useUserStore } from "@/store/use-user-store";
 
 export function SignInForm({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
     const [email, setEmail] = useState("")
@@ -30,6 +31,7 @@ export function SignInForm({ className, ...props }: React.ComponentPropsWithoutR
     const [isLoading, setIsLoading] = useState(false)
     const [isGoogleLoading, setIsGoogleLoading] = useState(false)
     const [isTwitterLoading, setIsTwitterLoading] = useState(false)
+    const [isFacebookLoading, setIsFacebookLoading] = useState(false)
     const router = useRouter()
     const { signIn } = useAuthActions()
 
@@ -88,6 +90,18 @@ export function SignInForm({ className, ...props }: React.ComponentPropsWithoutR
         }
     }
 
+    async function onFacebookSignIn() {
+        setIsFacebookLoading(true)
+        try {
+            await signIn("facebook")
+            router.push("/dashboard")
+        } catch (error) {
+            toast.error("Failed to sign in with Facebook")
+            console.error(error)
+            setIsFacebookLoading(false)
+        }
+    }
+
     return (
         <div className={cn('flex flex-col gap-6', className)} {...props}>
             <motion.div
@@ -105,33 +119,47 @@ export function SignInForm({ className, ...props }: React.ComponentPropsWithoutR
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="grid gap-6">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-4">
                             <Button
                                 variant="outline"
-                                disabled={isGoogleLoading || isTwitterLoading || isLoading}
+                                disabled={isGoogleLoading || isTwitterLoading || isFacebookLoading || isLoading}
                                 onClick={onGoogleSignIn}
-                                className="font-sans border-primary/20 hover:bg-primary/5 hover:border-primary/40 transition-all duration-300 h-11"
+                                className="font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300 h-11"
                             >
                                 {isGoogleLoading ? (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 ) : (
                                     <FcGoogle className="mr-2 h-4 w-4 " />
                                 )}
-                                Google
+                                Continue with Google
                             </Button>
                             <Button
                                 variant="outline"
-                                disabled={isGoogleLoading || isTwitterLoading || isLoading}
+                                disabled={isGoogleLoading || isTwitterLoading || isFacebookLoading || isLoading}
+                                onClick={onFacebookSignIn}
+                                className="font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300 h-11"
+                            >
+                                {isFacebookLoading ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <FaFacebook className="mr-2 h-4 w-4 text-[#1877F2]" />
+                                )}
+                                Continue with Facebook
+                            </Button>
+                            <Button
+                                variant="outline"
+                                disabled={isGoogleLoading || isTwitterLoading || isFacebookLoading || isLoading}
                                 onClick={onTwitterSignIn}
-                                className="font-sans border-primary/20 hover:bg-primary/5 hover:border-primary/40 transition-all duration-300 h-11"
+                                className="font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300 h-11"
                             >
                                 {isTwitterLoading ? (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 ) : (
                                     <FaXTwitter className="mr-2 h-4 w-4" />
                                 )}
-                                X (Twitter)
+                                Continue with X
                             </Button>
+
                         </div>
 
                         <div className="relative">
@@ -158,7 +186,7 @@ export function SignInForm({ className, ...props }: React.ComponentPropsWithoutR
                                             required
                                             value={email}
                                             onChange={(e) => setEmail(e.target.value)}
-                                            disabled={isLoading || isGoogleLoading || isTwitterLoading}
+                                            disabled={isLoading || isGoogleLoading || isTwitterLoading || isFacebookLoading}
                                             className="pl-10 border-primary/10 focus-visible:ring-primary/30"
                                         />
                                     </div>
@@ -181,7 +209,7 @@ export function SignInForm({ className, ...props }: React.ComponentPropsWithoutR
                                             required
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
-                                            disabled={isLoading || isGoogleLoading || isTwitterLoading}
+                                            disabled={isLoading || isGoogleLoading || isTwitterLoading || isFacebookLoading}
                                             className="pl-10 border-primary/10 focus-visible:ring-primary/30"
                                         />
                                     </div>
@@ -193,7 +221,7 @@ export function SignInForm({ className, ...props }: React.ComponentPropsWithoutR
                                 )}
                                 <Button
                                     type="submit"
-                                    disabled={isLoading || isGoogleLoading || isTwitterLoading}
+                                    disabled={isLoading || isGoogleLoading || isTwitterLoading || isFacebookLoading}
                                     className="w-full font-serif uppercase tracking-widest mt-2 h-11 shadow-lg shadow-primary/10"
                                 >
                                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
