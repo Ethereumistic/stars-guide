@@ -13,7 +13,7 @@ export default function OnboardingLayout({
     return (
         <div className="relative min-h-[calc(100vh-5rem)] w-full flex items-center justify-center overflow-hidden py-12 px-4">
             {/* Animated Background */}
-            <ShootingStars
+            {/* <ShootingStars
                 minSpeed={15}
                 maxSpeed={35}
                 minDelay={1200}
@@ -27,7 +27,7 @@ export default function OnboardingLayout({
                 twinkleProbability={0.7}
                 minTwinkleSpeed={0.5}
                 maxTwinkleSpeed={1.5}
-            />
+            /> */}
 
             {/* Content with dynamic width based on children if needed, but keeping it centered */}
             <motion.div

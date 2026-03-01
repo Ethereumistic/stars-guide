@@ -179,7 +179,7 @@
 	--earth: oklch(0.6198 0.0713 129.86);
 	--air: oklch(0.7534 0.0333 251.2);
 	*/
-	--galactic: oklch(0.5881 0.2118 306.32);
+	--galactic: oklch(58.808% 0.21189 306.31);
 	--galactic-dark: oklch(0.4875 0.2135 303.58);
 
 	--background: oklch(13.416% 0.01726 262.183);
@@ -253,4 +253,5 @@
 
 /* shadow-[0_0_25px_-5px_oklch(var(--primary)/0.4)] shadow-primary/40 */
 
-/* drop-shadow-[0_0_15px_rgba(212,175,55,0.3)] */
+/* drop-shadow-[0_0_15px_rgba(212,175,55,0.3)] primary glow */
+/* drop-shadow-[0_0_15px_rgba(157,78,221,0.3)] galactic glow */

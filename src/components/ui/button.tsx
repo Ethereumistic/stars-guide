@@ -20,6 +20,9 @@ const buttonVariants = cva(
           "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
         link: "text-primary underline-offset-4 hover:underline",
 
+        galactic: "text-sm bg-galactic/10 text-white tracking-widest border border-galactic/30  hover:border-galactic/50 hover:text-white",
+
+
         fire: "bg-fire/10 text-white hover:bg-fire/20 border-fire/40 border uppercase tracking-[0.2em] font-serif shadow-[0_0_15px_-5px_var(--fire-glow)]",
         earth: "bg-earth/10 text-white hover:bg-earth/20 border-earth/40 border uppercase tracking-[0.2em] font-serif shadow-[0_0_15px_-5px_var(--earth-glow)]",
         air: "bg-air/10 text-white hover:bg-air/20 border-air/40 border uppercase tracking-[0.2em] font-serif shadow-[0_0_15px_-5px_var(--air-glow)]",
@@ -30,6 +33,7 @@ const buttonVariants = cva(
         xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
         lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
+        xl: "h-12 rounded-md px-8 has-[>svg]:px-6",
         icon: "size-9",
         "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
         "icon-sm": "size-8",

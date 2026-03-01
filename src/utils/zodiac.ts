@@ -12,8 +12,9 @@ import {
     TbZodiacAquarius,
     TbZodiacPisces
 } from "react-icons/tb";
-import { GiWaterfall, GiTornado, GiFlame, GiStonePile } from "react-icons/gi";
+import { GiWaterfall, GiTornado, GiFlame, GiStonePile, GiStaticWaves, GiBigWave, GiWaveCrest } from "react-icons/gi";
 import { IconType } from "react-icons";
+import { BsTsunami } from "react-icons/bs";
 
 export type ElementType = "Fire" | "Earth" | "Air" | "Water";
 
@@ -36,7 +37,8 @@ export const ELEMENTS: Record<ElementType, { name: string; icon: IconType; }> = 
     Fire: { name: "Fire", icon: GiFlame },
     Earth: { name: "Earth", icon: GiStonePile },
     Air: { name: "Air", icon: GiTornado },
-    Water: { name: "Water", icon: GiWaterfall },
+    Water: { name: "Water", icon: GiWaveCrest },
+    // Water: { name: "Water", icon: GiBigWave },
 };
 
 export const ELEMENT_STYLES: Record<ElementType, {
@@ -376,7 +378,7 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
         name: "Aries",
         element: "Fire",
         icon: TbZodiacAries,
-        elementIcon: GiFlame,
+        elementIcon: ELEMENTS.Fire.icon,
         traits: "Energetic, adventurous, and enthusiastic.",
         dates: "Mar 21 - Apr 19",
         constellation: CONSTELLATION_URL + "aries.svg",
@@ -387,7 +389,7 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
         name: "Taurus",
         element: "Earth",
         icon: TbZodiacTaurus,
-        elementIcon: GiStonePile,
+        elementIcon: ELEMENTS.Earth.icon,
         traits: "Patient, reliable, and warmhearted.",
         dates: "Apr 20 - May 20",
         constellation: CONSTELLATION_URL + "taurus.svg",
@@ -398,7 +400,7 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
         name: "Gemini",
         element: "Air",
         icon: TbZodiacGemini,
-        elementIcon: GiTornado,
+        elementIcon: ELEMENTS.Air.icon,
         traits: "Adaptable, versatile, and intellectual.",
         dates: "May 21 - Jun 20",
         constellation: CONSTELLATION_URL + "gemini.svg",
@@ -409,7 +411,7 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
         name: "Cancer",
         element: "Water",
         icon: TbZodiacCancer,
-        elementIcon: GiWaterfall,
+        elementIcon: ELEMENTS.Water.icon,
         traits: "Emotional, loving, and intuitive.",
         dates: "Jun 21 - Jul 22",
         constellation: CONSTELLATION_URL + "cancer.svg",
@@ -420,7 +422,7 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
         name: "Leo",
         element: "Fire",
         icon: TbZodiacLeo,
-        elementIcon: GiFlame,
+        elementIcon: ELEMENTS.Fire.icon,
         traits: "Generous, warmhearted, and creative.",
         dates: "Jul 23 - Aug 22",
         constellation: CONSTELLATION_URL + "leo.svg",
@@ -431,7 +433,7 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
         name: "Virgo",
         element: "Earth",
         icon: TbZodiacVirgo,
-        elementIcon: GiStonePile,
+        elementIcon: ELEMENTS.Earth.icon,
         traits: "Modest, shy, and meticulous.",
         dates: "Aug 23 - Sep 22",
         constellation: CONSTELLATION_URL + "virgo.svg",
@@ -442,7 +444,7 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
         name: "Libra",
         element: "Air",
         icon: TbZodiacLibra,
-        elementIcon: GiTornado,
+        elementIcon: ELEMENTS.Air.icon,
         traits: "Diplomatic, urbane, and romantic.",
         dates: "Sep 23 - Oct 22",
         constellation: CONSTELLATION_URL + "libra.svg",
@@ -453,7 +455,7 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
         name: "Scorpio",
         element: "Water",
         icon: TbZodiacScorpio,
-        elementIcon: GiWaterfall,
+        elementIcon: ELEMENTS.Water.icon,
         traits: "Determined, forceful, and emotional.",
         dates: "Oct 23 - Nov 21",
         constellation: CONSTELLATION_URL + "scorpio.svg",
@@ -464,7 +466,7 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
         name: "Sagittarius",
         element: "Fire",
         icon: TbZodiacSagittarius,
-        elementIcon: GiFlame,
+        elementIcon: ELEMENTS.Fire.icon,
         traits: "Optimistic, freedom-loving, and honest.",
         dates: "Nov 22 - Dec 21",
         constellation: CONSTELLATION_URL + "sagittarius.svg",
@@ -475,7 +477,7 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
         name: "Capricorn",
         element: "Earth",
         icon: TbZodiacCapricorn,
-        elementIcon: GiStonePile,
+        elementIcon: ELEMENTS.Earth.icon,
         traits: "Practical, prudent, and ambitious.",
         dates: "Dec 22 - Jan 19",
         constellation: CONSTELLATION_URL + "capricorn.svg",
@@ -486,7 +488,7 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
         name: "Aquarius",
         element: "Air",
         icon: TbZodiacAquarius,
-        elementIcon: GiTornado,
+        elementIcon: ELEMENTS.Air.icon,
         traits: "Friendly, humanitarian, and honest.",
         dates: "Jan 20 - Feb 18",
         constellation: CONSTELLATION_URL + "aquarius.svg",
@@ -497,7 +499,7 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
         name: "Pisces",
         element: "Water",
         icon: TbZodiacPisces,
-        elementIcon: GiWaterfall,
+        elementIcon: ELEMENTS.Water.icon,
         traits: "Imaginative, sensitive, and compassionate.",
         dates: "Feb 19 - Mar 20",
         constellation: CONSTELLATION_URL + "pisces.svg",

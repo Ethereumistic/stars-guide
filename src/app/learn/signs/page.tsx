@@ -1,12 +1,11 @@
 "use client";
 
-import { ZODIAC_SIGNS } from "@/utils/zodiac";
+import { ZODIAC_SIGNS, ELEMENTS } from "@/utils/zodiac";
 import { motion, Variants } from "motion/react";
 import Link from "next/link";
 import {
     TbSparkles,
 } from "react-icons/tb";
-import { GiWaterfall, GiTornado, GiFlame, GiStonePile } from "react-icons/gi";
 import { SignCard } from "@/components/learn/signs/sign-card";
 import { Button } from "@/components/ui/button";
 import {
@@ -75,19 +74,19 @@ export default function SignsPage() {
                                 <span className="font-mono text-xs uppercase tracking-wider">All</span>
                             </TabsTrigger>
                             <TabsTrigger value="fire" className="rounded-md px-4 py-2 hover:bg-white/5  transition-all duration-300">
-                                <GiFlame className="size-4 mr-2 text-fire" />
+                                <ELEMENTS.Fire.icon className="size-4 mr-2 text-fire" />
                                 <span className="font-mono text-xs uppercase tracking-wider">Fire</span>
                             </TabsTrigger>
                             <TabsTrigger value="earth" className="rounded-md px-4 py-2 hover:bg-white/5 transition-all duration-300">
-                                <GiStonePile className="size-4 mr-2 text-earth" />
+                                <ELEMENTS.Earth.icon className="size-4 mr-2 text-earth" />
                                 <span className="font-mono text-xs uppercase tracking-wider">Earth</span>
                             </TabsTrigger>
                             <TabsTrigger value="air" className="rounded-md px-4 py-2 hover:bg-white/5 transition-all duration-300">
-                                <GiTornado className="size-4 mr-2 text-air" />
+                                <ELEMENTS.Air.icon className="size-4 mr-2 text-air" />
                                 <span className="font-mono text-xs uppercase tracking-wider">Air</span>
                             </TabsTrigger>
                             <TabsTrigger value="water" className="rounded-md px-4 py-2 hover:bg-white/5  transition-all duration-300">
-                                <GiWaterfall className="size-4 mr-2 text-water" />
+                                <ELEMENTS.Water.icon className="size-4 mr-2 text-water" />
                                 <span className="font-mono text-xs uppercase tracking-wider">Water</span>
                             </TabsTrigger>
                         </TabsList>
