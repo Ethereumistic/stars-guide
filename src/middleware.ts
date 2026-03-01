@@ -12,7 +12,9 @@ const isPublicPage = createRouteMatcher([
     "/pricing",
     "/onboarding",
     "/birth-chart",
-    "/"
+    "/",
+    "/terms",
+    "/privacy"
 ]);
 
 // 2. Define auth pages where authenticated users should be redirected from
