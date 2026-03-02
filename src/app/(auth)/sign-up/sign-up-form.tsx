@@ -75,8 +75,7 @@ export function SignUpForm({ className, title, subtitle, ...props }: SignUpFormP
     async function onGoogleSignIn() {
         setIsGoogleLoading(true)
         try {
-            await signIn("google")
-            router.push("/onboarding")
+            await signIn("google", { redirectTo: "/onboarding" })
         } catch (error) {
             toast.error("Failed to sign in with Google")
             console.error(error)
@@ -87,8 +86,7 @@ export function SignUpForm({ className, title, subtitle, ...props }: SignUpFormP
     async function onTwitterSignIn() {
         setIsTwitterLoading(true)
         try {
-            await signIn("twitter")
-            router.push("/onboarding")
+            await signIn("twitter", { redirectTo: "/onboarding" })
         } catch (error) {
             toast.error("Failed to sign in with X")
             console.error(error)
@@ -99,8 +97,7 @@ export function SignUpForm({ className, title, subtitle, ...props }: SignUpFormP
     async function onFacebookSignIn() {
         setIsFacebookLoading(true)
         try {
-            await signIn("facebook")
-            router.push("/onboarding")
+            await signIn("facebook", { redirectTo: "/onboarding" })
         } catch (error) {
             toast.error("Failed to sign in with Facebook")
             console.error(error)

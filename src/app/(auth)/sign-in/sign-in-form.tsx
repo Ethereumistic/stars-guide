@@ -69,8 +69,7 @@ export function SignInForm({ className, ...props }: React.ComponentPropsWithoutR
     async function onGoogleSignIn() {
         setIsGoogleLoading(true)
         try {
-            await signIn("google")
-            router.push("/dashboard")
+            await signIn("google", { redirectTo: "/dashboard" })
         } catch (error) {
             toast.error("Failed to sign in with Google")
             console.error(error)
@@ -81,8 +80,7 @@ export function SignInForm({ className, ...props }: React.ComponentPropsWithoutR
     async function onTwitterSignIn() {
         setIsTwitterLoading(true)
         try {
-            await signIn("twitter")
-            router.push("/dashboard")
+            await signIn("twitter", { redirectTo: "/dashboard" })
         } catch (error) {
             toast.error("Failed to sign in with X")
             console.error(error)
@@ -93,8 +91,7 @@ export function SignInForm({ className, ...props }: React.ComponentPropsWithoutR
     async function onFacebookSignIn() {
         setIsFacebookLoading(true)
         try {
-            await signIn("facebook")
-            router.push("/dashboard")
+            await signIn("facebook", { redirectTo: "/dashboard" })
         } catch (error) {
             toast.error("Failed to sign in with Facebook")
             console.error(error)
