@@ -3,22 +3,20 @@
 import { compositionalSigns } from "@/astrology/signs";
 import { zodiacUIConfig } from "@/config/zodiac-ui";
 import { planetUIConfig } from "@/config/planet-ui";
-import { ELEMENT_CONTENT, ElementType } from "@/utils/zodiac";
+import { ELEMENT_CONTENT, ElementType } from "@/astrology/elements";
 import { ShootingStars } from "@/components/hero/shooting-stars";
 import { StarsBackground } from "@/components/hero/stars-background";
-import { motion, useScroll, useTransform } from "motion/react";
+import { motion } from "motion/react";
 import Link from "next/link";
 import { useParams, notFound } from "next/navigation";
-import { useRef } from "react";
 import {
     TbSparkles,
     TbActivity,
     TbArrowLeft,
     TbCompass,
-    TbMoon,
-    TbSun,
     TbTriangleSquareCircle,
-    TbIcons
+    TbIcons,
+    TbAtom
 } from "react-icons/tb";
 import {
     Breadcrumb,
@@ -28,8 +26,18 @@ import {
     BreadcrumbPage,
     BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { GiFlame, GiStonePile, GiTornado, GiWaveCrest } from "react-icons/gi";
 
 const HOUSE_NAMES = ["1st House", "2nd House", "3rd House", "4th House", "5th House", "6th House", "7th House", "8th House", "9th House", "10th House", "11th House", "12th House"];
+
+const getElementIcon = (element: ElementType) => {
+    switch (element) {
+        case "Fire": return GiFlame;
+        case "Earth": return GiStonePile;
+        case "Air": return GiTornado;
+        case "Water": return GiWaveCrest;
+    }
+};
 
 const getStyles = (element: "Fire" | "Earth" | "Air" | "Water") => {
     const el = element.toLowerCase();
@@ -57,316 +65,304 @@ export default function SignDetailPage() {
     const planetUi = planetUIConfig[data.ruler];
     const element = ELEMENT_CONTENT[ui.elementName as ElementType];
     const styles = getStyles(ui.elementName);
-    const containerRef = useRef<HTMLDivElement>(null);
-
-    const { scrollYProgress } = useScroll({
-        target: containerRef,
-        offset: ["start start", "end end"]
-    });
-
-    const heroOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
-    const heroScale = useTransform(scrollYProgress, [0, 0.2], [1, 0.95]);
 
     const Icon = ui.icon;
+    const ElementIcon = getElementIcon(ui.elementName);
 
     return (
-        <div ref={containerRef} className="relative min-h-[400vh] w-full text-foreground selection:bg-primary/30 overflow-x-hidden">
-            {/* Ambient Background Layer */}
-            <div className="fixed inset-0 z-0">
+        <div className="relative min-h-screen w-full text-foreground  overflow-x-hidden">
+            {/* Ambient Base Layer - Replace heavy blurs with simple massive CSS radials centered around the viewport */}
+            <div className="fixed inset-0 z-0 pointer-events-none contain-strict">
                 <StarsBackground />
                 <ShootingStars />
                 <div
-                    className="absolute inset-0 opacity-20 transition-colors duration-1000"
+                    className="absolute top-[-10%] left-[0%] w-[140%] h-[140%] opacity-[0.15] mix-blend-screen"
                     style={{
-                        background: `radial-gradient(circle at 50% 50%, ${styles.glow} 0%, transparent 70%)`
+                        background: `radial-gradient(circle at 50% 50%, ${styles.primary} 0%, transparent 60%)`
                     }}
                 />
             </div>
 
-            <div className="relative z-10 max-w-[1600px] mx-auto px-6 md:px-12 pt-16 md:pt-32 pb-32">
-                {/* Breadcrumbs */}
+            <div className="relative z-10 max-w-[1600px] mx-auto px-6 md:px-12 pt-8 pb-32">
+                {/* Navigation Breadcrumbs */}
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8 }}
                 >
-                    <Breadcrumb className="mb-12 md:mb-20">
-                        <BreadcrumbList className="text-primary/60">
+                    <Breadcrumb className="mb-12 md:mb-16 border-b border-white/10 pb-6">
+                        <BreadcrumbList className="text-white/40">
                             <BreadcrumbItem>
-                                <BreadcrumbLink asChild className="hover:text-primary transition-colors font-mono text-[10px] uppercase tracking-[0.2em]">
+                                <BreadcrumbLink asChild className="hover:text-white transition-colors font-mono text-[10px] uppercase tracking-[0.2em]">
                                     <Link href="/learn">Archive</Link>
                                 </BreadcrumbLink>
                             </BreadcrumbItem>
                             <BreadcrumbSeparator className="opacity-20">/</BreadcrumbSeparator>
                             <BreadcrumbItem>
-                                <BreadcrumbLink asChild className="hover:text-primary transition-colors font-mono text-[10px] uppercase tracking-[0.2em]">
+                                <BreadcrumbLink asChild className="hover:text-white transition-colors font-mono text-[10px] uppercase tracking-[0.2em]">
                                     <Link href="/learn/signs">Signs</Link>
                                 </BreadcrumbLink>
                             </BreadcrumbItem>
                             <BreadcrumbSeparator className="opacity-20">/</BreadcrumbSeparator>
                             <BreadcrumbItem>
-                                <BreadcrumbPage className="text-primary font-mono text-[10px] uppercase tracking-[0.2em]">{data.name}</BreadcrumbPage>
+                                <BreadcrumbPage className="font-mono text-[10px] uppercase tracking-[0.2em]" style={{ color: styles.primary }}>
+                                    {data.name} // {data.modality.toUpperCase()}
+                                </BreadcrumbPage>
                             </BreadcrumbItem>
                         </BreadcrumbList>
                     </Breadcrumb>
                 </motion.div>
 
-                {/* Hero Section: Split Layout */}
-                <motion.section
-                    style={{ opacity: heroOpacity, scale: heroScale }}
-                    className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24 items-center mb-64"
-                >
-                    {/* Left Side: Constellation */}
-                    <motion.div
-                        initial={{ opacity: 0, x: -100, rotate: -5 }}
-                        animate={{ opacity: 1, x: 0, rotate: 0 }}
-                        transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
-                        className="relative aspect-square flex items-center justify-center p-8 md:p-16"
-                    >
-                        <div
-                            className="absolute inset-0 blur-[100px] opacity-20 rounded-full"
-                            style={{ backgroundColor: styles.glow }}
-                        />
-                        <img
-                            src={ui.constellationUrl}
-                            alt={`${data.name} Constellation`}
-                            className="relative z-10 w-full h-full object-contain filter drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]"
-                        />
+                {/* Hero Layout */}
+                <section className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start mb-48">
 
-                        {/* Decorative Rings */}
-                        <div className="absolute inset-0 border border-white/5 rounded-full scale-110 pointer-events-none" />
-                        <div className="absolute inset-0 border border-white/5 rounded-full scale-125 opacity-50 pointer-events-none" />
-                    </motion.div>
-
-                    {/* Right Side: Fundamental Info */}
+                    {/* Left Column: Dossier Display */}
                     <motion.div
-                        initial={{ opacity: 0, x: 100 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-                        className="space-y-12"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 1, ease: "easeOut" }}
+                        className="lg:col-span-5 space-y-12"
                     >
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-6 md:gap-8">
-                                <h1 className="text-7xl md:text-9xl font-serif text-white tracking-tighter leading-none">
-                                    {data.name}
-                                </h1>
-                                <motion.div
-                                    className="p-3 md:p-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl h-fit"
+                        {/* Title Block */}
+                        <div className="space-y-6">
+                            <div className="flex items-start justify-between border-b border-white/10 pb-8">
+                                <div className="space-y-2">
+                                    <h1 className="text-7xl md:text-8xl xl:text-9xl font-serif text-white tracking-tighter leading-[0.85]">
+                                        {data.name}
+                                    </h1>
+                                    <p className="text-xl md:text-2xl font-serif italic text-white/60">
+                                        {data.dates}
+                                    </p>
+                                </div>
+                                <div
+                                    className="p-4 md:p-6 rounded-none border border-white/10 bg-black/40"
                                     style={{ color: styles.primary }}
                                 >
-                                    <Icon className="w-10 h-10 md:w-16 md:h-16" />
-                                </motion.div>
+                                    <Icon className="w-12 h-12 md:w-16 md:h-16 stroke-1" />
+                                </div>
                             </div>
-                            <div className="flex flex-col gap-2">
-                                <p className="text-2xl font-serif italic text-primary/80">
-                                    {data.dates}
-                                </p>
-                                <p className="text-sm font-mono uppercase tracking-[0.3em] text-white/40">
-                                    &quot;{data.motto}&quot;
-                                </p>
-                            </div>
+
+                            <p className="text-xs md:text-sm font-mono uppercase tracking-[0.25em] text-white/50 border-l-2 pl-4 py-1" style={{ borderColor: styles.primary }}>
+                                "{data.motto}"
+                            </p>
                         </div>
 
-                        {/* Info Grid */}
-                        <div className="grid grid-cols-2 gap-8 border-t border-white/10 pt-12">
+                        {/* Specs Grid */}
+                        <div className="grid grid-cols-2 gap-px bg-white/10 border border-white/10">
                             {[
-                                { label: "Element", value: ui.elementName, icon: TbIcons, subValue: "" },
+                                { label: "Element", value: ui.elementName, icon: ElementIcon, subValue: "" },
                                 { label: "Modality", value: data.modality, icon: TbTriangleSquareCircle, subValue: "" },
-                                { label: "Ruling Planet", value: data.ruler.charAt(0).toUpperCase() + data.ruler.slice(1), icon: TbSparkles, subValue: planetUi?.rulerSymbol || "" },
-                                { label: "Celestial House", value: HOUSE_NAMES[houseIndex] || "", icon: TbCompass, subValue: "" },
+                                { label: "Ruler", value: data.ruler.charAt(0).toUpperCase() + data.ruler.slice(1), icon: TbSparkles, subValue: planetUi?.rulerSymbol || "" },
+                                { label: "House", value: HOUSE_NAMES[houseIndex] || "", icon: TbCompass, subValue: "" },
                             ].map((item, idx) => (
-                                <div key={idx} className="space-y-2">
-                                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/40 flex items-center gap-2">
-                                        <item.icon className="w-3 h-3" /> {item.label}
-                                    </span>
-                                    <p className="text-xl font-serif text-white flex items-center gap-3">
+                                <div key={idx} className="bg-black p-6 space-y-3 flex flex-col justify-between group hover:bg-white/2 transition-colors">
+                                    <div className="flex items-center justify-between opacity-40">
+                                        <span className="text-[10px] font-mono uppercase tracking-[0.2em]">{item.label}</span>
+                                        <item.icon className="w-4 h-4" />
+                                    </div>
+                                    <p className="text-2xl font-serif text-white tracking-tight flex items-baseline gap-2">
                                         {item.value}
-                                        {item.subValue && (
-                                            <span className="text-2xl opacity-50 font-sans">{item.subValue}</span>
-                                        )}
+                                        {item.subValue && <span className="text-lg opacity-40 font-sans">{item.subValue}</span>}
                                     </p>
                                 </div>
                             ))}
                         </div>
 
-                        <div className="space-y-6">
-                            <h3 className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/40">The Essence</h3>
-                            <p className="text-lg text-muted-foreground/90 leading-relaxed font-sans max-w-xl">
+                        {/* The Essence */}
+                        <div className="p-8 border border-white/10 bg-black/50 space-y-6">
+                            <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                                <TbAtom className="text-white/40 w-5 h-5" />
+                                <h3 className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/60">Core Essence File</h3>
+                            </div>
+                            <p className="text-[17px] text-white/80 leading-relaxed font-serif">
                                 {data.essenceFull}
                             </p>
                         </div>
                     </motion.div>
-                </motion.section>
 
-                {/* Detailed Sections */}
-                <div className="space-y-64 pb-64">
-                    {/* Elemental Deep Dive */}
-                    <section className="relative p-12 lg:p-24 rounded-[4rem] overflow-hidden">
-                        {/* Background Glass and Glow */}
-                        <div className="absolute inset-0 bg-white/2 border border-white/5 backdrop-blur-2xl -z-10" />
-                        <div
-                            className="absolute -top-32 -right-32 w-[600px] h-[600px] blur-[150px] opacity-10"
-                            style={{ backgroundColor: styles.glow }}
-                        />
+                    {/* Right Column: High Performance Constellation Framing */}
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 1.5, ease: "easeOut", delay: 0.2 }}
+                        className="lg:col-span-7 relative h-full min-h-[500px] flex items-center justify-center lg:sticky lg:top-32"
+                    >
+                        {/* Geometric framing instead of massive blurs */}
+                        <div className="absolute inset-0 border border-white/5 bg-black/20 overflow-hidden flex items-center justify-center p-12 lg:p-24">
+                            {/* Controlled inner glow via simple radial background */}
+                            <div
+                                className="absolute inset-0 opacity-20"
+                                style={{
+                                    background: `radial-gradient(circle at center, ${styles.glow} 0%, transparent 70%)`
+                                }}
+                            />
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-                            <div className="space-y-8">
-                                <div className="space-y-2">
-                                    <span className="font-mono text-xs uppercase tracking-[0.5em] text-primary/60">Elemental Resonance</span>
-                                    <h2 className="text-5xl md:text-7xl font-serif text-white italic">The Path of {ui.elementName}: {data.elementalTitle}</h2>
+                            {/* Grid overlay for editorial look */}
+                            <div className="absolute inset-0 pointer-events-none" style={{
+                                backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px)`,
+                                backgroundSize: '4rem 4rem'
+                            }} />
+
+                            <img
+                                src={ui.constellationUrl}
+                                alt={`${data.name} Constellation`}
+                                className="relative z-10 w-full max-w-2xl h-auto object-contain filter drop-shadow-[0_0_15px_rgba(255,255,255,0.15)] opacity-80"
+                            />
+
+                            {/* Corner Accents */}
+                            <div className="absolute top-0 left-0 w-8 h-8 border-t border-l border-white/30" />
+                            <div className="absolute top-0 right-0 w-8 h-8 border-t border-r border-white/30" />
+                            <div className="absolute bottom-0 left-0 w-8 h-8 border-b border-l border-white/30" />
+                            <div className="absolute bottom-0 right-0 w-8 h-8 border-b border-r border-white/30" />
+
+                            {/* Data points on diagram */}
+                            <div className="absolute bottom-6 left-6 font-mono text-[10px] uppercase tracking-widest text-white/30">
+                                FIG. {houseIndex + 1} // {data.id.toUpperCase()}
+                            </div>
+                            <div className="absolute bottom-6 right-6 font-mono text-[10px] uppercase tracking-[0.3em]" style={{ color: styles.primary }}>
+                                {ui.elementName} Class
+                            </div>
+                        </div>
+                    </motion.div>
+                </section>
+
+                {/* Structured Data Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-48">
+
+                    {/* Archetypal Analysis */}
+                    <motion.section
+                        initial={{ opacity: 0, y: 30 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true, margin: "-100px" }}
+                        className="border border-white/10 bg-black flex flex-col"
+                    >
+                        <div className="p-8 md:p-12 border-b border-white/10">
+                            <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/40 block mb-6">Cognitive Archetype</span>
+                            <h2 className="text-4xl md:text-6xl font-serif text-white tracking-tight mb-8">
+                                {data.archetypeName}
+                            </h2>
+                            <p className="text-lg text-white/70 leading-relaxed font-serif">
+                                {data.cognitiveInsight}
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-px bg-white/10">
+                            {[
+                                { title: "Primary Goal", val: data.goal },
+                                { title: "Dominant Fear", val: data.greatestFear },
+                                { title: "Core Desire", val: data.coreDesire },
+                                { title: "Special Talent", val: data.strengths[0] }
+                            ].map((spec, i) => (
+                                <div key={i} className="bg-black p-6 space-y-2">
+                                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30 block">
+                                        {spec.title}
+                                    </span>
+                                    <span className="text-sm md:text-base text-white/90">
+                                        {spec.val}
+                                    </span>
                                 </div>
-                                <div className="space-y-6">
-                                    <p className="text-xl text-muted-foreground/80 leading-relaxed max-w-xl">
-                                        {element.desc}
+                            ))}
+                        </div>
+                    </motion.section>
+
+                    <div className="flex flex-col gap-8">
+                        {/* Elemental Physics */}
+                        <motion.section
+                            initial={{ opacity: 0, y: 30 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true, margin: "-100px" }}
+                            className="border border-white/10 bg-black p-8 md:p-12 h-full flex flex-col justify-center relative overflow-hidden"
+                        >
+                            <div className="absolute right-0 top-0 bottom-0 w-64 opacity-[0.03] pointer-events-none mix-blend-screen overflow-hidden flex items-center justify-end">
+                                <img src={ui.elementFrameUrl} className="h-[150%] max-w-none object-cover grayscale" alt="" />
+                            </div>
+
+                            <div className="relative z-10 space-y-8">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-4 text-white/40 mb-2">
+                                        <ElementIcon className="w-5 h-5" />
+                                        <span className="font-mono text-[10px] uppercase tracking-[0.4em]">Elemental Resonance</span>
+                                    </div>
+                                    <h2 className="text-3xl md:text-4xl font-serif text-white">
+                                        The Path of {ui.elementName}
+                                    </h2>
+                                </div>
+
+                                <blockquote className="border-l-2 pl-6 py-2" style={{ borderColor: styles.primary }}>
+                                    <p className="text-xl text-white/90 italic font-serif leading-relaxed">
+                                        "{data.elementalInsight}"
                                     </p>
-                                    <div className="space-y-4 max-w-xl border-l-2 border-primary/30 pl-6 py-2">
-                                        <p className="text-lg text-primary/80 italic font-serif leading-relaxed">
-                                            &quot;{data.elementalInsight}&quot;
+                                </blockquote>
+
+                                <div className="space-y-6">
+                                    <div className="space-y-2">
+                                        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40 block">Foundational Axiom</span>
+                                        <p className="text-sm text-white/60 font-sans mt-0">
+                                            {element.desc}
                                         </p>
-                                        <div className="space-y-1">
-                                            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary/40">Eternal Path</span>
-                                            <p className="text-sm text-muted-foreground/70 leading-relaxed">
-                                                {data.elementalPath}
-                                            </p>
-                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40 block">Eternal Path</span>
+                                        <p className="text-sm text-white/60 font-sans mt-0">
+                                            {data.elementalPath}
+                                        </p>
                                     </div>
                                 </div>
-                                <div className="flex flex-wrap gap-4 pt-4">
-                                    {element.keywords.map(word => (
-                                        <span key={word} className="px-5 py-2 rounded-full border border-white/10 bg-white/5 text-[10px] font-mono uppercase tracking-widest text-white/60">
-                                            {word}
+
+                                <div className="flex flex-wrap gap-2 pt-2">
+                                    {element.keywords.map(kw => (
+                                        <span key={kw} className="px-3 py-1 bg-white/5 border border-white/10 text-[10px] font-mono uppercase tracking-widest text-white/50">
+                                            {kw}
                                         </span>
                                     ))}
                                 </div>
                             </div>
+                        </motion.section>
 
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.8 }}
-                                whileInView={{ opacity: 1, scale: 1 }}
-                                viewport={{ once: true }}
-                                className="relative aspect-square flex items-center justify-center overflow-hidden"
-                            >
-                                <img
-                                    src={ui.elementFrameUrl}
-                                    className="w-full h-full object-contain opacity-40 animate-spin-slow"
-                                    alt=""
-                                />
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                    <div
-                                        className="w-48 h-48 rounded-full blur-[80px] opacity-30"
-                                        style={{ backgroundColor: styles.glow }}
-                                    />
-                                    <TbSparkles className="w-16 h-16 text-white/20 relative z-10" />
-                                </div>
-                            </motion.div>
-                        </div>
-                    </section>
-
-                    {/* Cosmic Archetype and Traits */}
-                    <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        {/* Main Archetype Card */}
-                        <motion.div
+                        {/* Tactical Vector (Traits) */}
+                        <motion.section
                             initial={{ opacity: 0, y: 30 }}
                             whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            className="lg:col-span-2 p-12 rounded-[3rem] bg-white/3 border border-white/5 flex flex-col justify-between"
+                            viewport={{ once: true, margin: "-100px" }}
+                            className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/10 border border-white/10"
                         >
-                            <div className="space-y-6">
-                                <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-primary/60">Manifestation</span>
-                                <h2 className="text-6xl font-serif text-white">{data.archetypeName}</h2>
-                                <p className="text-lg text-muted-foreground leading-relaxed max-w-2xl">
-                                    {data.cognitiveInsight}
-                                </p>
-                            </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-8 mt-16 pt-12 border-t border-white/5">
-                                <div className="space-y-2">
-                                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">Core Desire</span>
-                                    <p className="text-lg font-serif text-white">{data.coreDesire}</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">Primary Goal</span>
-                                    <p className="text-lg font-serif text-white">{data.goal}</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">Dominant Fear</span>
-                                    <p className="text-lg font-serif text-white">{data.greatestFear}</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">Special Talent</span>
-                                    <p className="text-lg font-serif text-white">{data.strengths[0]}</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">Polarity</span>
-                                    <p className="text-lg font-serif text-white">{data.polarity}</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">Celestial Stone</span>
-                                    <p className="text-lg font-serif text-white">{data.stone}</p>
-                                </div>
-                            </div>
-                        </motion.div>
-
-                        {/* Personality Traits List */}
-                        <div className="space-y-8">
-                            <motion.div
-                                initial={{ opacity: 0, x: 20 }}
-                                whileInView={{ opacity: 1, x: 0 }}
-                                viewport={{ once: true }}
-                                className="p-8 rounded-[2rem] bg-linear-to-b from-white/5 to-transparent border-l-2 border-primary/20"
-                            >
-                                <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-primary mb-6 block">Impact Strategy</span>
-                                <p className="text-lg font-serif text-white/80 leading-relaxed">
+                            <div className="bg-black p-8 space-y-4">
+                                <span className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: styles.primary }}>Impact Strategy</span>
+                                <p className="text-sm text-white/80 leading-relaxed">
                                     {data.coreStrategy}
                                 </p>
-                            </motion.div>
+                            </div>
+                            <div className="bg-black p-8 space-y-4">
+                                <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/40">Inherent Flaw</span>
+                                <ul className="text-sm text-white/60 space-y-2 list-disc list-inside">
+                                    {data.weaknesses.map((w, i) => (
+                                        <li key={i}>{w}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </motion.section>
+                    </div>
 
-                            <motion.div
-                                initial={{ opacity: 0, x: 20 }}
-                                whileInView={{ opacity: 1, x: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ delay: 0.1 }}
-                                className="p-8 rounded-[2rem] bg-linear-to-b from-white/2 to-transparent border-l-2 border-white/10"
-                            >
-                                <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/40 mb-6 block">Intrinsic Weakness</span>
-                                <p className="text-lg font-serif text-white/50 leading-relaxed">
-                                    {data.weaknesses.join(", ")}
-                                </p>
-                            </motion.div>
-                        </div>
-                    </section>
                 </div>
 
-                {/* Next/Prev Sign Footer */}
-                <section className="container mx-auto px-6 pt-32 border-t border-white/5">
-                    <div className="flex flex-col items-center gap-12 text-center">
-                        <TbSparkles className="text-primary/40 w-8 h-8 md:w-10 md:h-10" />
-                        <h2 className="text-4xl md:text-5xl font-serif text-white italic">Continue through the Archive</h2>
-
-                        <div className="flex flex-wrap justify-center gap-4">
-                            {compositionalSigns.filter(s => s.id !== signId).slice(0, 4).map(s => (
-                                <Link
-                                    key={s.id}
-                                    href={`/learn/signs/${s.id}`}
-                                    className="px-6 md:px-8 py-4 md:py-5 rounded-full border border-white/10 bg-white/5 hover:border-primary/50 hover:bg-white/8 transition-all duration-500 group"
-                                >
-                                    <span className="text-sm font-sans tracking-wide text-white/60 group-hover:text-primary transition-colors">{s.name} →</span>
-                                </Link>
-                            ))}
-                        </div>
+                {/* Footer Linkages */}
+                <section className="border-t border-white/10 pt-24 pb-12 flex flex-col items-center">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/30 block mb-12">System Archive Linkages</span>
+                    <div className="flex flex-wrap justify-center gap-px bg-white/10 border border-white/10 p-px">
+                        {compositionalSigns.filter(s => s.id !== signId).slice(0, 4).map(s => (
+                            <Link
+                                key={s.id}
+                                href={`/learn/signs/${s.id}`}
+                                className="bg-black px-6 md:px-10 py-5 hover:bg-white/3 transition-colors group flex items-center gap-4"
+                            >
+                                <span className="text-xs font-mono uppercase tracking-[0.2em] text-white/50 group-hover:text-white transition-colors">{s.name}</span>
+                                <TbArrowLeft className="w-4 h-4 text-white/20 group-hover:text-white transition-colors rotate-180" />
+                            </Link>
+                        ))}
                     </div>
                 </section>
             </div>
-
-            <style jsx global>{`
-                @keyframes spin-slow {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
-                }
-                .animate-spin-slow {
-                    animation: spin-slow 20s linear infinite;
-                }
-            `}</style>
         </div>
     );
 }
