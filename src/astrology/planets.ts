@@ -98,5 +98,14 @@ export const compositionalPlanets: PlanetData[] = [
         coreDrives: ["Purging obsolete ego construct", "Mastering the shadow aspects", "Transmuting psychological pain into power"],
         shadowExpression: "When resisted, it manifests as paranoia, compulsive control, destructive obsession, and power struggles.",
         compositionalVerbPhrase: "compels profound psychological metamorphosis and masters hidden power by"
+    },
+    {
+        id: "rising",
+        name: "Rising",
+        domain: "Interface",
+        psychologicalFunction: "The Rising sign (Ascendant) dictates the external psychological interface and the persona. It is the ego's first line of defense and interaction with the immediate environment.",
+        coreDrives: ["Projecting the external self", "Filtering environmental stimuli", "Establishing the initial relational boundary"],
+        shadowExpression: "When unintegrated, it manifests as a false mask, chronic misalignment between internal truth and outward presentation, or defensive superficiality.",
+        compositionalVerbPhrase: "projects its psychological interface and engages with the immediate environment by"
     }
 ];
