@@ -1,4 +1,5 @@
 export { SignCard } from './sign-card'
+export { SignCardV2 } from './sign-card-v2'
 export { BirthDetailsCard } from './birth-details-card'
 export { ElementalBalanceCard } from './elemental-balance-card'
 export { DashboardSkeleton } from './dashboard-skeleton'

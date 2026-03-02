@@ -7,6 +7,7 @@ import { getZodiacSignByName } from "@/utils/zodiac"
 import { motion } from "motion/react"
 import {
     SignCard,
+    SignCardV2,
     BirthDetailsCard,
     ElementalBalanceCard,
     DashboardSkeleton
@@ -46,7 +47,7 @@ export default function DashboardPage() {
 
     return (
         <div className="min-h-[calc(100vh-5rem)] w-full py-8 px-4 md:px-8">
-            <div className="max-w-6xl mx-auto space-y-8">
+            <div className="max-w-5xl mx-auto space-y-8">
                 {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
@@ -64,26 +65,35 @@ export default function DashboardPage() {
 
                 {/* Main Signs Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <SignCard
-                        title="Sun Sign"
-                        subtitle="Your Core Identity"
-                        icon={<span className="text-lg">☉</span>}
+                    {/* <SignCard
+                        label="☉ Sun Sign"
                         sign={sunSign}
                         delay={0}
                     />
 
                     <SignCard
-                        title="Moon Sign"
-                        subtitle="Your Inner World"
-                        icon={<span className="text-lg">☽</span>}
+                        label="☽ Moon Sign"
                         sign={moonSign}
                         delay={0.1}
                     />
 
                     <SignCard
-                        title="Rising Sign"
-                        subtitle="Your Outer Self"
-                        icon={<span className="text-lg">↑</span>}
+                        label="↑ Rising Sign"
+                        sign={risingSign}
+                        delay={0.2}
+                    /> */}
+                    <SignCardV2
+                        label="☉ Sun Sign"
+                        sign={sunSign}
+                        delay={0}
+                    />
+                    <SignCardV2
+                        label="☽ Moon Sign"
+                        sign={moonSign}
+                        delay={0.1}
+                    />
+                    <SignCardV2
+                        label="↑ Rising Sign"
                         sign={risingSign}
                         delay={0.2}
                     />
