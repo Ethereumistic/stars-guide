@@ -11,7 +11,8 @@ import {
     BirthDetailsCard,
     ElementalBalanceCard,
     InterpretationCard,
-    DashboardSkeleton
+    DashboardSkeleton,
+    NatalChart
 } from "@/components/dashboard"
 
 const getSignData = (name: string | undefined) =>
@@ -99,6 +100,16 @@ export default function DashboardPage() {
 
                 {/* Birth Details Card */}
                 <BirthDetailsCard birthData={birthData} delay={0.3} />
+
+                {/* Natal Chart */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.35 }}
+                    className="w-full"
+                >
+                    <NatalChart birthData={birthData} />
+                </motion.div>
 
                 {/* Elemental Balance Card */}
                 <ElementalBalanceCard

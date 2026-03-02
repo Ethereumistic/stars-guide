@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { motion } from "motion/react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { SignData } from "@/astrology/signs"
@@ -43,6 +44,7 @@ const getElementIcon = (element: "Fire" | "Earth" | "Air" | "Water") => {
 
 export function SignCardV2({ label, data, ui, delay = 0 }: SignCardV2Props) {
     const [isFlipped, setIsFlipped] = useState(false)
+    const router = useRouter()
 
     if (!data || !ui) return null
 
@@ -86,11 +88,11 @@ export function SignCardV2({ label, data, ui, delay = 0 }: SignCardV2Props) {
                     >
                         {/* ── FRONT FACE ── */}
                         <div
-                            className="absolute inset-0 w-full h-full"
+                            className={`absolute inset-0 w-full h-full ${isFlipped ? 'pointer-events-none' : ''}`}
                             style={{ backfaceVisibility: "hidden" }}
                         >
-                            <Link
-                                href={`/learn/signs/${data.id}`}
+                            <div
+                                onClick={() => setIsFlipped(true)}
                                 className="group relative block w-full h-full cursor-pointer"
                             >
                                 <Card className="relative h-full overflow-hidden rounded-2xl bg-transparent border-0 shadow-none">
@@ -240,23 +242,26 @@ export function SignCardV2({ label, data, ui, delay = 0 }: SignCardV2Props) {
                                     className="absolute inset-0 -z-10 rounded-2xl opacity-0 group-hover:opacity-20 transition-opacity duration-700 blur-2xl"
                                     style={{ backgroundColor: styles.glow }}
                                 />
-                            </Link>
+                            </div>
                         </div>
 
                         {/* ── BACK FACE ── */}
                         <div
-                            className="absolute inset-0 w-full h-full"
+                            className={`absolute inset-0 w-full h-full ${!isFlipped ? 'pointer-events-none' : ''}`}
                             style={{
                                 backfaceVisibility: "hidden",
                                 transform: "rotateY(180deg)"
                             }}
                         >
-                            <Card className="relative h-full overflow-hidden rounded-2xl bg-transparent border-0 shadow-none transition-all duration-700">
+                            <Card
+                                className="relative h-full overflow-hidden rounded-2xl bg-transparent border-0 shadow-none transition-all duration-700 cursor-pointer"
+                                onClick={() => setIsFlipped(false)}
+                            >
                                 {/* Back card background */}
                                 <div
-                                    className="absolute inset-0 backdrop-blur-md"
+                                    className="absolute inset-0 backdrop-blur-[0.5px]"
                                     style={{
-                                        background: `linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.3) 100%)`,
+                                        background: `linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%)`,
                                         borderWidth: '1px',
                                         borderStyle: 'solid',
                                         borderImage: `linear-gradient(135deg, ${styles.border}, transparent) 1`
@@ -310,19 +315,22 @@ export function SignCardV2({ label, data, ui, delay = 0 }: SignCardV2Props) {
                                     </div>
 
                                     {/* Learn More Button */}
-                                    <div className="mt-8 pt-4 w-full flex justify-center z-20">
-                                        <Link href={`/learn/signs/${data.id}`} onClick={(e) => e.stopPropagation()}>
-                                            <Button
-                                                variant={ui.elementName.toLowerCase() as any}
-                                                className="h-11 px-8 border-primary/40 relative group/btn"
-                                            >
-                                                <ElementIcon
-                                                    className="w-4 h-4 transition-transform"
-                                                    style={{ color: styles.primary }}
-                                                />
-                                                <span className="mx-2 text-xs sm:text-sm tracking-widest uppercase">Learn More</span>
-                                            </Button>
-                                        </Link>
+                                    <div className="mt-8 pt-4 w-full flex justify-center z-20 relative">
+                                        <Button
+                                            variant={ui.elementName.toLowerCase() as any}
+                                            className="h-11 px-8 border-primary/40 relative group/btn cursor-pointer"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                router.push(`/learn/signs/${data.id}`);
+                                            }}
+                                        >
+                                            <ElementIcon
+                                                className="w-4 h-4 transition-transform"
+                                                style={{ color: styles.primary }}
+                                            />
+                                            <span className="mx-2 text-xs sm:text-sm tracking-widest uppercase">Learn More</span>
+                                        </Button>
                                     </div>
 
                                     {/* Faded background constellation on back face */}
