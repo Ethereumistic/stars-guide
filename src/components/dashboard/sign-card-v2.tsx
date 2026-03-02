@@ -9,6 +9,7 @@ import { SignData } from "@/astrology/signs"
 import { SignUIConfig } from "@/config/zodiac-ui"
 import { GiFlame, GiStonePile, GiTornado, GiWaveCrest } from "react-icons/gi"
 import { generateSynthesis } from "@/astrology/interpretationEngine"
+import { ChevronLeft } from "lucide-react"
 
 interface SignCardV2Props {
     /** Label shown ABOVE the card, e.g. "☉ Sun Sign" */
@@ -270,8 +271,10 @@ export function SignCardV2({ label, data, ui, delay = 0 }: SignCardV2Props) {
 
                                 <CardContent className="relative p-6 sm:p-8 h-full flex flex-col items-center text-center">
                                     {/* Back Button */}
-                                    <button
-                                        className="absolute top-4 left-4 z-20 p-2 text-white/50 hover:text-white transition-colors rounded-full hover:bg-white/10"
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute top-4 left-4 z-20 p-2 "
                                         onClick={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();
@@ -280,14 +283,14 @@ export function SignCardV2({ label, data, ui, delay = 0 }: SignCardV2Props) {
                                         aria-label="Flip back"
                                         title="Flip back"
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M19 12H5" />
-                                            <path d="M12 19l-7-7 7-7" />
-                                        </svg>
-                                    </button>
+                                        <ChevronLeft
+                                            className="w-4 h-4 transition-transform"
+
+                                        />
+                                    </Button>
 
                                     {/* Small Sign Icon + Label */}
-                                    <div className="flex flex-col items-center justify-center mt-2 mb-4">
+                                    <div className="flex flex-col items-center justify-center mt-2 mb-6">
                                         <Icon
                                             className="w-10 h-10 opacity-70 mb-2"
                                             style={{ color: styles.primary, filter: `drop-shadow(0 0 10px ${styles.glow})` }}
@@ -297,48 +300,29 @@ export function SignCardV2({ label, data, ui, delay = 0 }: SignCardV2Props) {
                                         </h3>
                                     </div>
 
-                                    <div className="flex-1 w-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] space-y-4 sm:space-y-6 pb-2">
+                                    <div className="flex-1 w-full flex flex-col justify-center items-center">
                                         {/* Synthesis using Interpretation Engine */}
-                                        <div className="w-full text-left bg-black/30 p-4 rounded-xl border border-white/5">
-                                            <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: styles.primary }}>Cosmic Synthesis</p>
-                                            <p className="text-sm text-white/90 italic leading-relaxed font-serif">
-                                                {generateSynthesis(planetId, data.id)}
+                                        <div className="w-full text-center">
+                                            <p className="text-lg  text-white/95 italic leading-relaxed font-serif px-2">
+                                                "{generateSynthesis(planetId, data.id)}"
                                             </p>
                                         </div>
+                                    </div>
 
-                                        {/* Cognitive Insight */}
-                                        <div className="w-full text-left">
-                                            <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: styles.secondary }}>Cognitive Insight</p>
-                                            <p className="text-xs sm:text-sm text-white/70 leading-relaxed font-sans">
-                                                {data.cognitiveInsight}
-                                            </p>
-                                        </div>
-
-                                        {/* Strengths & Weaknesses Grid */}
-                                        <div className="grid grid-cols-2 gap-4 w-full text-left pb-4">
-                                            <div>
-                                                <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--earth-primary)' }}>Integrative</p>
-                                                <ul className="text-xs text-white/60 space-y-1.5 list-none pl-0 m-0">
-                                                    {data.strengths.slice(0, 3).map((s, i) => (
-                                                        <li key={i} className="flex gap-2 items-start leading-tight">
-                                                            <span className="opacity-50 -mt-px text-[10px] shrink-0">+</span>
-                                                            <span className="flex-1">{s}</span>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                            <div>
-                                                <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--fire-primary)' }}>Shadow</p>
-                                                <ul className="text-xs text-white/60 space-y-1.5 list-none pl-0 m-0">
-                                                    {data.weaknesses.slice(0, 3).map((w, i) => (
-                                                        <li key={i} className="flex gap-2 items-start leading-tight">
-                                                            <span className="opacity-50 -mt-px text-[10px] shrink-0">-</span>
-                                                            <span className="flex-1">{w}</span>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        </div>
+                                    {/* Learn More Button */}
+                                    <div className="mt-8 pt-4 w-full flex justify-center z-20">
+                                        <Link href={`/learn/signs/${data.id}`} onClick={(e) => e.stopPropagation()}>
+                                            <Button
+                                                variant={ui.elementName.toLowerCase() as any}
+                                                className="h-11 px-8 border-primary/40 relative group/btn"
+                                            >
+                                                <ElementIcon
+                                                    className="w-4 h-4 transition-transform"
+                                                    style={{ color: styles.primary }}
+                                                />
+                                                <span className="mx-2 text-xs sm:text-sm tracking-widest uppercase">Learn More</span>
+                                            </Button>
+                                        </Link>
                                     </div>
 
                                     {/* Faded background constellation on back face */}
