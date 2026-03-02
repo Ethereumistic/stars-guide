@@ -8,6 +8,22 @@ export interface SignData {
     strengths: string[];
     weaknesses: string[];
     compositionalAdverbialPhrase: string; // The "How"
+
+    // Legacy Data
+    dates: string;
+    traits: string;
+    modality: "Cardinal" | "Fixed" | "Mutable";
+    ruler: string;
+    polarity: "Masculine" | "Feminine";
+    stone: string;
+    essenceFull: string;
+    motto: string;
+    coreDesire: string;
+    goal: string;
+    greatestFear: string;
+    elementalTitle: string;
+    elementalInsight: string;
+    elementalPath: string;
 }
 
 export const compositionalSigns: SignData[] = [
@@ -20,7 +36,21 @@ export const compositionalSigns: SignData[] = [
         elementalTruth: "You are the spark that starts the blaze. Your fire is raw, unfiltered initiation. You don't sustain—you activate.",
         strengths: ["Activation and mobilization of energy", "Overcoming systemic inertia", "Decisive forward momentum"],
         weaknesses: ["Impulsivity", "Start-up energy burnout", "Lack of sustained follow-through"],
-        compositionalAdverbialPhrase: "with aggressive autonomy and decisive speed"
+        compositionalAdverbialPhrase: "with aggressive autonomy and decisive speed",
+        dates: "Mar 21 - Apr 19",
+        traits: "Energetic, adventurous, and enthusiastic.",
+        modality: "Cardinal",
+        ruler: "mars",
+        polarity: "Masculine",
+        stone: "Diamond",
+        essenceFull: "The pioneer of the zodiac, Aries is a force of nature. As the first sign, they possess an inherent need to lead, to initiate, and to conquer. Their energy is raw, unfiltered, and deeply connected to the spark of existence itself.",
+        motto: "I am, therefore I do.",
+        coreDesire: "Autonomy and forward momentum.",
+        goal: "To initiate action and prove existence through impact.",
+        greatestFear: "Stagnation, being controlled, or fading into the background.",
+        elementalTitle: "Ignition",
+        elementalInsight: "You are the spark that starts the blaze. Your fire is raw, unfiltered initiation. You don't sustain—you activate. You're the one who sees the need for change and moves before others finish deliberating. You break inertia and force evolution through decisive action.",
+        elementalPath: "Learn that not every beginning requires burning down what came before."
     },
     {
         id: "taurus",
@@ -31,7 +61,21 @@ export const compositionalSigns: SignData[] = [
         elementalTruth: "You are the bedrock. Your earth doesn't shift—it anchors. You build structures meant to last, accumulating value through patience and consistency.",
         strengths: ["Sustainment and endurance", "Methodical execution", "Sensory awareness and appreciation"],
         weaknesses: ["Inertia and resistance to change", "Over-attachment to comfort", "Slowness to adapt to novelty"],
-        compositionalAdverbialPhrase: "through methodical stabilization and risk-averse endurance"
+        compositionalAdverbialPhrase: "through methodical stabilization and risk-averse endurance",
+        dates: "Apr 20 - May 20",
+        traits: "Patient, reliable, and warmhearted.",
+        modality: "Fixed",
+        ruler: "venus",
+        polarity: "Feminine",
+        stone: "Emerald",
+        essenceFull: "Taurus represents the physical world in its most beautiful and stable form. They are the builders and the keepers of comfort, find joy in the senses, and possess an unwavering loyalty that grounds everyone around them.",
+        motto: "Quality over quantity, always.",
+        coreDesire: "Stability and sensory satisfaction.",
+        goal: "To build sustainable systems and accumulate resources (emotional or material) that last.",
+        greatestFear: "Scarcity, sudden instability, or being rushed into poor quality.",
+        elementalTitle: "Foundation",
+        elementalInsight: "You are the bedrock. Your earth doesn't shift—it anchors. You build structures meant to last, accumulating value through patience and consistency. When others chase what's urgent, you invest in what endures. Your stability becomes the ground others stand on.",
+        elementalPath: "Learn that the ground sometimes needs to shift for new growth to emerge."
     },
     {
         id: "gemini",
@@ -42,7 +86,21 @@ export const compositionalSigns: SignData[] = [
         elementalTruth: "You are the wind. Your air doesn't concentrate—it circulates. You gather information from one place and carry it to another, naturally connecting disparate ideas and people.",
         strengths: ["Translation of complex ideas", "Rapid context switching", "Social adaptability"],
         weaknesses: ["Analysis paralysis", "Scattered focus", "Lack of sustained depth"],
-        compositionalAdverbialPhrase: "with rapid adaptability and continuous data collection"
+        compositionalAdverbialPhrase: "with rapid adaptability and continuous data collection",
+        dates: "May 21 - Jun 20",
+        traits: "Adaptable, versatile, and intellectual.",
+        modality: "Mutable",
+        ruler: "mercury",
+        polarity: "Masculine",
+        stone: "Agate",
+        essenceFull: "Gemini is the breath of curiosity that connects ideas. Always seeking, always learning, they embody the dual nature of the mind. They are the messengers of the zodiac, weaving together disparate threads of information into a cohesive whole.",
+        motto: "Everything is interesting if you look close enough.",
+        coreDesire: "Intellectual variety and social connection.",
+        goal: "To gather information and bridge gaps between different people and ideas.",
+        greatestFear: "Boredom, mental confinement, or being \"out of the loop.\"",
+        elementalTitle: "Distribution",
+        elementalInsight: "You are the wind. Your air doesn't concentrate—it circulates. You gather information from one place and carry it to another, naturally connecting disparate ideas and people. You're fluent in multiple contexts and can translate between them with ease.",
+        elementalPath: "Learn that connection without depth becomes mere distraction."
     },
     {
         id: "cancer",
@@ -53,7 +111,21 @@ export const compositionalSigns: SignData[] = [
         elementalTruth: "You are the wave. Your water doesn't just feel—it moves. You respond to emotional currents and create environments where others feel safe enough to be vulnerable.",
         strengths: ["High emotional intelligence", "Creation of psychological safety", "Visceral understanding of unstated needs"],
         weaknesses: ["Over-identification with others' emotions", "Defensive withdrawal under stress", "Difficulty letting go"],
-        compositionalAdverbialPhrase: "through intuitive care and emotional self-protection"
+        compositionalAdverbialPhrase: "through intuitive care and emotional self-protection",
+        dates: "Jun 21 - Jul 22",
+        traits: "Emotional, loving, and intuitive.",
+        modality: "Cardinal",
+        ruler: "moon",
+        polarity: "Feminine",
+        stone: "Pearl",
+        essenceFull: "Cancer is the emotional foundation of the zodiac. Deeply intuitive and fiercely protective, they navigate life through the tides of feeling. To a Cancer, home is not a place, but a state of emotional safety and belonging.",
+        motto: "To care is to be strong.",
+        coreDesire: "Emotional safety and belonging.",
+        goal: "To create a sanctuary (home/community) where defenses can be lowered.",
+        greatestFear: "Vulnerability without reciprocity; being left exposed.",
+        elementalTitle: "Tide",
+        elementalInsight: "You are the wave. Your water doesn't just feel—it moves. You respond to emotional currents and create environments where others feel safe enough to be vulnerable. You understand that belonging is built through consistent care and attention.",
+        elementalPath: "Learn that you cannot carry everyone's emotional weight—some people must learn to swim on their own."
     },
     {
         id: "leo",
@@ -64,7 +136,21 @@ export const compositionalSigns: SignData[] = [
         elementalTruth: "You are the eternal flame. Your fire doesn't ignite—it radiates. You turn raw energy into a steady source that others rely upon.",
         strengths: ["Magnetic social presence", "Creative self-expression", "Inspiring morale in groups"],
         weaknesses: ["Reliance on external validation", "Fear of mediocrity", "Resistance to sharing the spotlight"],
-        compositionalAdverbialPhrase: "with radiant self-assurance and dramatic visibility"
+        compositionalAdverbialPhrase: "with radiant self-assurance and dramatic visibility",
+        dates: "Jul 23 - Aug 22",
+        traits: "Generous, warmhearted, and creative.",
+        modality: "Fixed",
+        ruler: "sun",
+        polarity: "Masculine",
+        stone: "Ruby",
+        essenceFull: "Leo is the heart of the zodiac, radiating warmth, creativity, and authority. They are natural leaders who lead with love and a dramatic flair. Their presence is a reminder of the power of individual expression and the courage to be seen.",
+        motto: "Shine, so others have permission to do the same.",
+        coreDesire: "Self-expression and validation.",
+        goal: "To leave a unique, visible mark on the world (legacy).",
+        greatestFear: "Being ignored, mediocrity, or public humiliation.",
+        elementalTitle: "Sustained Burn",
+        elementalInsight: "You are the eternal flame. Your fire doesn't ignite—it radiates. You turn raw energy into a steady source that others rely upon. You don't just create—you maintain presence and consistency over time. Your warmth draws people in and holds their attention.",
+        elementalPath: "Learn that true brilliance doesn't need constant validation—it simply exists."
     },
     {
         id: "virgo",
@@ -75,7 +161,21 @@ export const compositionalSigns: SignData[] = [
         elementalTruth: "You are the cultivated garden. Your earth doesn't just exist—it optimizes. You turn raw material into something functional and efficient.",
         strengths: ["Instant flaw recognition", "Methodical refinement", "Dedication to functional perfection"],
         weaknesses: ["Analysis paralysis", "Imposter syndrome", "Harsh self-criticism"],
-        compositionalAdverbialPhrase: "through systematic analysis and relentless refinement"
+        compositionalAdverbialPhrase: "through systematic analysis and relentless refinement",
+        dates: "Aug 23 - Sep 22",
+        traits: "Modest, shy, and meticulous.",
+        modality: "Mutable",
+        ruler: "mercury",
+        polarity: "Feminine",
+        stone: "Sapphire",
+        essenceFull: "Virgo seeks perfection through service and analysis. Meticulous and thoughtful, they find the hidden patterns in chaos. They represent the Earth in its most refined state, where every detail serves a higher purpose of healing and organization.",
+        motto: "There is a better way to do this.",
+        coreDesire: "Competence, order, and utility.",
+        goal: "To refine systems, heal chaos, and achieve functional perfection.",
+        greatestFear: "Uselessness, chaos, or being criticized for errors.",
+        elementalTitle: "Refinement",
+        elementalInsight: "You are the cultivated garden. Your earth doesn't just exist—it optimizes. You turn raw material into something functional and efficient. You see the gap between 'how it is' and 'how it could be better,' and you can't rest until you close it.",
+        elementalPath: "Learn that imperfection is sometimes the most honest form of beauty."
     },
     {
         id: "libra",
@@ -86,7 +186,21 @@ export const compositionalSigns: SignData[] = [
         elementalTruth: "You are the atmosphere. Your air doesn't scatter—it balances. You instinctively sense when things are off-kilter and work to restore harmony.",
         strengths: ["Calibration of social dynamics", "Objective fairness", "Mastery of diplomacy"],
         weaknesses: ["Indecision from over-weighing options", "Suppression of authentic anger", "Conflict avoidance"],
-        compositionalAdverbialPhrase: "by calibrating relational mechanics and seeking equilibrium"
+        compositionalAdverbialPhrase: "by calibrating relational mechanics and seeking equilibrium",
+        dates: "Sep 23 - Oct 22",
+        traits: "Diplomatic, urbane, and romantic.",
+        modality: "Cardinal",
+        ruler: "venus",
+        polarity: "Masculine",
+        stone: "Opal",
+        essenceFull: "Libra is the pursuit of harmony through relationship. They are the architects of balance, seeking beauty and justice in all things. Through the mirror of the 'other', Libra learns the grace of compromise and the art of peace.",
+        motto: "Balance is not a destination, it's a practice.",
+        coreDesire: "Harmony, beauty, and objective fairness.",
+        goal: "To align their environment and relationships into a state of equilibrium.",
+        greatestFear: "Conflict, isolation, or making the \"wrong\" permanent decision.",
+        elementalTitle: "Equilibrium",
+        elementalInsight: "You are the atmosphere. Your air doesn't scatter—it balances. You instinctively sense when things are off-kilter and work to restore harmony. You see validity in opposing viewpoints and can hold space for contradiction.",
+        elementalPath: "Learn that perfect balance is impossible—sometimes choosing a side is the most honest thing you can do."
     },
     {
         id: "scorpio",
@@ -97,7 +211,21 @@ export const compositionalSigns: SignData[] = [
         elementalTruth: "You are the abyss. Your water doesn't flow—it transforms. You dive beneath literal surface explanations to understand the true nature of things.",
         strengths: ["Psychological resilience", "Unflinching focus", "Mastery over crisis and transformation"],
         weaknesses: ["Tendency towards paranoia", "Vindictiveness when betrayed", "Holding onto psychological debts"],
-        compositionalAdverbialPhrase: "with piercing intensity and transformative depths"
+        compositionalAdverbialPhrase: "with piercing intensity and transformative depths",
+        dates: "Oct 23 - Nov 21",
+        traits: "Determined, forceful, and emotional.",
+        modality: "Fixed",
+        ruler: "pluto",
+        polarity: "Feminine",
+        stone: "Topaz",
+        essenceFull: "Scorpio is the sign of transformation, depth, and intensity. They are the detectives of the soul, unafraid of the shadows and the mysteries of life. Their power lies in their ability to endure, to regenerate, and to speak the unspoken truth.",
+        motto: "I survive, I transform, I rise.",
+        coreDesire: "Intensity and uncovering the truth beneath the surface.",
+        goal: "To master the self and understand the taboo/hidden mechanics of life.",
+        greatestFear: "Betrayal and powerlessness.",
+        elementalTitle: "Depths",
+        elementalInsight: "You are the abyss. Your water doesn't flow—it transforms. You don't accept surface explanations; you dive beneath to understand the true nature of things. You're drawn to what others avoid and possess the strength to face uncomfortable truths.",
+        elementalPath: "Learn that not every mystery needs solving—some things can remain unknown."
     },
     {
         id: "sagittarius",
@@ -108,7 +236,21 @@ export const compositionalSigns: SignData[] = [
         elementalTruth: "You are the spreading flame. Your fire doesn't stay put—it explores. You carry energy across boundaries and into unfamiliar territory.",
         strengths: ["Visionary perspective", "High adaptability to the unknown", "Philosophical optimism"],
         weaknesses: ["Tactless bluntness", "Fear of confinement or commitment", "Overlooking immediate details"],
-        compositionalAdverbialPhrase: "with boundless exploration and philosophical expansion"
+        compositionalAdverbialPhrase: "with boundless exploration and philosophical expansion",
+        dates: "Nov 22 - Dec 21",
+        traits: "Optimistic, freedom-loving, and honest.",
+        modality: "Mutable",
+        ruler: "jupiter",
+        polarity: "Masculine",
+        stone: "Turquoise",
+        essenceFull: "Sagittarius is the eternal seeker of truth and wisdom. With their eyes on the horizon, they embody the spirit of adventure and the joy of philosophy. They are the fire that lights the way to higher understanding and boundless freedom.",
+        motto: "Don't fence me in.",
+        coreDesire: "Expansion (mental or physical) and freedom.",
+        goal: "To find meaning and truth through experience.",
+        greatestFear: "Confinement, boredom, and having to follow arbitrary rules.",
+        elementalTitle: "Wildfire",
+        elementalInsight: "You are the spreading flame. Your fire doesn't stay put—it explores. You carry energy across boundaries and into unfamiliar territory. You're driven by the question 'what else is possible?' and refuse to accept limitations as final.",
+        elementalPath: "Learn that depth sometimes matters more than distance traveled."
     },
     {
         id: "capricorn",
@@ -119,7 +261,21 @@ export const compositionalSigns: SignData[] = [
         elementalTruth: "You are the mountain. Your earth doesn't settle—it ascends. You measure life in milestones, not moments, building toward something greater with each step.",
         strengths: ["Execution of long-term goals", "Unwavering discipline", "Mastery of structural integrity"],
         weaknesses: ["Ruthlessness with self limits", "Equating worth with productivity", "Emotional rigidity"],
-        compositionalAdverbialPhrase: "through disciplined ambition and structural mastery"
+        compositionalAdverbialPhrase: "through disciplined ambition and structural mastery",
+        dates: "Dec 22 - Jan 19",
+        traits: "Practical, prudent, and ambitious.",
+        modality: "Cardinal",
+        ruler: "saturn",
+        polarity: "Feminine",
+        stone: "Garnet",
+        essenceFull: "Capricorn is the climber of the zodiac, representing discipline, ambition, and the wisdom of time. They understand that true greatness is built stone by stone. They are the masters of the material realm, turning vision into lasting legacy.",
+        motto: "Discipline is freedom.",
+        coreDesire: "Achievement and autonomy through mastery.",
+        goal: "To build a legacy of tangible value and structural integrity.",
+        greatestFear: "Failure, public embarrassment, and dependency on others.",
+        elementalTitle: "Summit",
+        elementalInsight: "You are the mountain. Your earth doesn't settle—it ascends. You measure life in milestones, not moments, building toward something greater with each step. Delayed gratification is your natural state; you understand that worthwhile things take time.",
+        elementalPath: "Learn that achievement means nothing if the climb leaves you isolated."
     },
     {
         id: "aquarius",
@@ -130,7 +286,21 @@ export const compositionalSigns: SignData[] = [
         elementalTruth: "You are the frequency. Your air doesn't adapt—it broadcasts. You transmit ideas that challenge the status quo, often ahead of when others are ready to receive them.",
         strengths: ["Divergent thinking", "Objective systems analysis", "Forward-thinking innovation"],
         weaknesses: ["Intellectual arrogance (God-complex)", "Disconnect from one-on-one intimacy", "Rebelliousness for its own sake"],
-        compositionalAdverbialPhrase: "using detached objectivity and disruptive insight"
+        compositionalAdverbialPhrase: "using detached objectivity and disruptive insight",
+        dates: "Jan 20 - Feb 18",
+        traits: "Friendly, humanitarian, and honest.",
+        modality: "Fixed",
+        ruler: "uranus",
+        polarity: "Masculine",
+        stone: "Amethyst",
+        essenceFull: "Aquarius is the visionary of the zodiac, focused on the future and the collective good. They are the rebels with a cause, challenging traditions to make way for innovation and humanitarian ideals. They dance to the beat of an cosmic drum.",
+        motto: "Break the rules to build a better game.",
+        coreDesire: "Freedom of thought and progress for the collective.",
+        goal: "To disrupt outdated systems and implement future-proof solutions.",
+        greatestFear: "Conformity, losing individuality, and emotional suffocation.",
+        elementalTitle: "Transmission",
+        elementalInsight: "You are the frequency. Your air doesn't adapt—it broadcasts. You transmit ideas that challenge the status quo, often ahead of when others are ready to receive them. You value truth over comfort and principle over popularity.",
+        elementalPath: "Learn that vision without compassion becomes cold ideology."
     },
     {
         id: "pisces",
@@ -141,6 +311,20 @@ export const compositionalSigns: SignData[] = [
         elementalTruth: "You are the ocean. Your water doesn't contain—it merges. You experience life through fluid boundaries, absorbing the emotions and energies around you.",
         strengths: ["Holistic synthesis", "Limitless empathy", "Adaptable intuitive logic"],
         weaknesses: ["Escapism", "Lack of energetic boundaries", "Vulnerability to being consumed by others"],
-        compositionalAdverbialPhrase: "with empathetic dissolution of boundaries and intuitive synthesis"
+        compositionalAdverbialPhrase: "with empathetic dissolution of boundaries and intuitive synthesis",
+        dates: "Feb 19 - Mar 20",
+        traits: "Imaginative, sensitive, and compassionate.",
+        modality: "Mutable",
+        ruler: "neptune",
+        polarity: "Feminine",
+        stone: "Aquamarine",
+        essenceFull: "Pisces is the ocean of the zodiac, where all boundaries dissolve into spiritual oneness. Deeply empathetic and highly imaginative, they exist between worlds. They are the dreamers who remind us that we are all part of a larger, mystical whole.",
+        motto: "Reality is just one layer of existence.",
+        coreDesire: "Transcendent connection and unity.",
+        goal: "To dissolve boundaries and alleviate suffering through understanding.",
+        greatestFear: "Being consumed by the harshness of reality or total isolation.",
+        elementalTitle: "Dissolution",
+        elementalInsight: "You are the ocean. Your water doesn't contain—it merges. You experience life through fluid boundaries, absorbing the emotions and energies around you. You understand connection at a level that transcends logic, sensing what cannot be spoken.",
+        elementalPath: "Learn that you need boundaries, or you'll lose yourself entirely in others' stories."
     }
 ];

@@ -107,16 +107,16 @@ export function SignCard({ data, ui }: SignCardProps) {
                         {/* Archetype (Top Left) */}
                         <div className="absolute top-0 left-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10 w-24">
                             <p
-                                className="text-[9px] font-sans uppercase tracking-[0.1em] mt-2 line-clamp-2"
+                                className="text-[10px] text-nowrap font-sans uppercase tracking-[0.2em]"
                                 style={{ color: styles.secondary }}
                             >
-                                {data.archetypeName}
+                                {data.dates}
                             </p>
                         </div>
 
                         {/* Element Badge (Top Right) */}
                         <div className="absolute top-0 right-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10">
-                            <div className="flex items-center gap-2 mt-2">
+                            <div className="flex items-center gap-2 ">
                                 <ElementIcon
                                     className="w-3.5 h-3.5"
                                     style={{ color: styles.primary }}
@@ -172,13 +172,10 @@ export function SignCard({ data, ui }: SignCardProps) {
                                 </h2>
                             </div>
 
-                            {/* Core Strategy and Elemental Truth (Appears on Hover) */}
-                            <div className="flex-1 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-700 translate-y-4 group-hover:translate-y-0 max-w-3xs">
-                                <p className="text-xs font-sans text-amber-100/90 leading-relaxed italic mb-2 line-clamp-3">
-                                    "{data.coreStrategy}"
-                                </p>
-                                <p className="text-[10px] font-sans text-amber-100/60 leading-relaxed uppercase tracking-wider line-clamp-2">
-                                    {data.elementalTruth}
+                            {/* Traits description (Appears on Hover) */}
+                            <div className="flex-1 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-700 translate-y-4 group-hover:translate-y-0 max-w-md">
+                                <p className="text-lg font-sans text-amber-100/80 leading-relaxed italic px-2">
+                                    {data.traits}
                                 </p>
                             </div>
 
@@ -192,7 +189,7 @@ export function SignCard({ data, ui }: SignCardProps) {
                                         className="w-4 h-4 transition-transform"
                                         style={{ color: styles.primary }}
                                     />
-                                    <span className="mx-2">Explore</span>
+                                    <span className="mx-2">{data.archetypeName}</span>
                                 </Button>
                             </div>
                         </div>

@@ -125,7 +125,7 @@ export function RevealSignCard({
                             {/* Archetype Name (Top Left) — hidden → appears on reveal */}
                             <div className={`absolute top-0 left-6 transition-opacity duration-500 z-10 w-24 ${isRevealed ? "opacity-100" : "opacity-0"}`}>
                                 <p
-                                    className="text-[9px] font-sans uppercase tracking-[0.1em] mt-2 line-clamp-2"
+                                    className="text-[9px] font-sans text-nowrap uppercase tracking-[0.1em] line-clamp-2"
                                     style={{ color: styles.secondary }}
                                 >
                                     {data.archetypeName}
@@ -134,7 +134,7 @@ export function RevealSignCard({
 
                             {/* Element Badge (Top Right) — hidden → appears on reveal */}
                             <div className={`absolute top-0 right-6 transition-opacity duration-500 z-10 ${isRevealed ? "opacity-100" : "opacity-0"}`}>
-                                <div className="flex items-center gap-2 mt-2">
+                                <div className="flex items-center gap-2">
                                     <ElementIcon
                                         className="w-3.5 h-3.5"
                                         style={{ color: styles.primary }}
@@ -194,7 +194,7 @@ export function RevealSignCard({
                             {/* Traits footer (pinned to bottom, hidden → slides up on reveal) */}
                             <div className={`absolute bottom-0 left-0 right-0 px-6 pb-5 text-center z-10 transition-all duration-700 ${isRevealed ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
                                 <p className="text-sm font-sans text-amber-100/70 leading-relaxed italic">
-                                    {data.cognitiveInsight}
+                                    {data.traits}
                                 </p>
                             </div>
                         </CardContent>
