@@ -85,7 +85,7 @@ export function SynthesizedSignCard({ signId }: { signId: string }) {
     if (!data || !ui) return null;
 
     const styles = getStyles(ui.elementName);
-    const Icon = ui.icon; // Dynamic React Icon from UI config
+    const Icon = ui.icon; // Dynamic React Icon from UI conf
 
     return (
         <div style={{ backgroundColor: styles.glow }} className="p-6 rounded-xl">
