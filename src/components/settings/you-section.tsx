@@ -10,6 +10,8 @@ import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { SettingsSection } from "./settings-section"
 import { toast } from "sonner"
+import { useRateLimitStore } from "@/store/use-rate-limit-store"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import {
     User,
     Mail,
@@ -28,10 +30,8 @@ interface YouSectionProps {
     delay?: number
 }
 
-//here we have implemented a rate limiting system for the username check
-//this is to prevent the user from checking the username availability too many times
-//this is to prevent the user from checking the username availability too many times
-//unfortunately it uses convex table called rateLimits lol, we must make it ratelimit in the UI :)
+// Frontend rate limiting for username availability checks
+// Stored in localStorage to prevent excessive API calls
 
 export function YouSection({ user, delay = 0 }: YouSectionProps) {
     // Mutations
@@ -61,7 +61,19 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
         let active = true;
         if (editUsername.length >= 3 && editUsername !== user.username) {
             const timer = setTimeout(() => {
+                const canCheck = useRateLimitStore.getState().canCheckUsername();
+                if (!canCheck) {
+                    const remaining = useRateLimitStore.getState().getRemainingTime();
+                    toast.error(`Rate Limited: Too many checks. Please wait ${remaining} seconds.`);
+                    if (active) {
+                        setIsAvailable(false);
+                        setIsChecking(false);
+                    }
+                    return;
+                }
+
                 setIsChecking(true)
+                useRateLimitStore.getState().recordUsernameCheck();
                 checkAvailability({ username: editUsername })
                     .then(res => {
                         if (active) setIsAvailable(res.available)
@@ -69,9 +81,10 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
                     .catch((err: any) => {
                         if (active) {
                             if (err?.message?.includes("RATE_LIMITED")) {
-                                toast.error("Rate Limited: Too many checks. Please wait 5 minutes.");
+                                const remaining = useRateLimitStore.getState().getRemainingTime();
+                                toast.error(`Rate Limited: Too many checks. Please wait ${remaining} seconds.`);
                             }
-                            setIsAvailable(false) // Blocks the submit button
+                            setIsAvailable(false)
                         }
                     })
                     .finally(() => {
@@ -143,6 +156,13 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
         }
     }
 
+    // Check if username can be edited (30-day cooldown)
+    const COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
+    const canEditUsername = !user.lastUsernameChangeAt || Date.now() - user.lastUsernameChangeAt >= COOLDOWN_MS;
+    const daysUntilNextChange = user.lastUsernameChangeAt
+        ? Math.ceil((COOLDOWN_MS - (Date.now() - user.lastUsernameChangeAt)) / (1000 * 60 * 60 * 24))
+        : 0;
+
     return (
         <SettingsSection
             icon={<User className="h-5 w-5" />}
@@ -206,14 +226,32 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
                             <p className="font-medium text-lg truncate font-sans">
                                 {user.username ? `@${user.username}` : '@anonymous_stargazer'}
                             </p>
-                            <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7"
-                                onClick={() => setIsEditingUsername(true)}
-                            >
-                                <Pencil className="h-3.5 w-3.5" />
-                            </Button>
+                            {canEditUsername ? (
+                                <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7"
+                                    onClick={() => setIsEditingUsername(true)}
+                                >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                            ) : (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            type="button"
+                                            size="icon"
+                                            variant="ghost"
+                                            className="h-7 w-7 opacity-50 hover:bg-transparent hover:cursor-not-allowed"
+                                        >
+                                            <Pencil className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Username can be changed in {daysUntilNextChange} day{daysUntilNextChange !== 1 ? 's' : ''}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            )}
                         </div>
                     )}
                     <p className="text-sm text-muted-foreground truncate opacity-70 mt-1">{user.email}</p>

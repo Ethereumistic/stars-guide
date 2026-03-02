@@ -25,15 +25,16 @@ export default function OnboardingPage() {
     const { user, isAuthenticated, isLoading } = useUserStore()
     const router = useRouter()
 
-    // Redirect if already has birth data or skip intro if authenticated
+    // Redirect if already has birth data (but NOT while on step 7 — calculation/results)
+    // Step 7 saves birthData to DB during loading, but we still need to show the cards
     useEffect(() => {
-        if (user?.birthData) {
+        if (user?.birthData && step !== 7) {
             router.replace("/dashboard")
         }
-    }, [user, router])
+    }, [user, router, step])
 
-    // Prevent flashing content if user is already onboarded
-    if (user?.birthData) return null;
+    // Prevent flashing content if user is already onboarded (but not on step 7)
+    if (user?.birthData && step !== 7) return null;
 
     const renderStep = () => {
         switch (step) {
@@ -51,9 +52,9 @@ export default function OnboardingPage() {
     }
 
     return (
-        <div className="space-y-8 w-full">
+        <div className="w-full flex flex-col items-center gap-6">
             {step > 0 && step < 7 && (
-                <div className="space-y-2  max-w-xl mx-auto">
+                <div className="space-y-2 max-w-xl w-full mx-auto">
                     <div className="flex justify-between text-xs text-muted-foreground uppercase tracking-widest px-1">
                         <span>Cosmic Journey</span>
                         <span>{Math.round(progress)}%</span>
@@ -62,7 +63,7 @@ export default function OnboardingPage() {
                 </div>
             )}
 
-            <div className="min-h-[400px]">
+            <div className="w-full">
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={step}

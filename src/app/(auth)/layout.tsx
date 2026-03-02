@@ -13,21 +13,6 @@ export default function AuthLayout({
     return (
         <div className="relative min-h-[calc(100vh-5rem)] w-full flex items-center justify-center overflow-hidden py-12 px-4">
             {/* Animated Background */}
-            <ShootingStars
-                minSpeed={15}
-                maxSpeed={35}
-                minDelay={1200}
-                maxDelay={4000}
-                starColor="#d4af37"
-                trailColor="#8b7355"
-            />
-            <StarsBackground
-                starDensity={0.0003}
-                allStarsTwinkle={true}
-                twinkleProbability={0.7}
-                minTwinkleSpeed={0.5}
-                maxTwinkleSpeed={1.5}
-            />
 
             {/* Content with subtle entrance animation */}
             <motion.div

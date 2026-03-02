@@ -23,6 +23,7 @@ import { FcGoogle } from "react-icons/fc";
 import { FaXTwitter } from "react-icons/fa6";
 import { FaFacebook } from "react-icons/fa";
 import { useUserStore } from "@/store/use-user-store";
+import { useOnboardingStore } from "@/store/use-onboarding-store";
 
 interface SignUpFormProps extends Omit<React.ComponentPropsWithoutRef<'div'>, 'title'> {
     title?: React.ReactNode;
@@ -40,14 +41,14 @@ export function SignUpForm({ className, title, subtitle, ...props }: SignUpFormP
     const router = useRouter()
     const { signIn } = useAuthActions()
 
-    const { isAuthenticated, isLoading: isAuthLoading } = useUserStore()
+    const { isAuthenticated, isLoading: isAuthLoading, needsOnboarding } = useUserStore()
 
     // Redirect if already authenticated
     useEffect(() => {
         if (isAuthenticated() && !isAuthLoading) {
-            router.push("/dashboard")
+            router.push(needsOnboarding() ? "/onboarding" : "/dashboard")
         }
-    }, [isAuthenticated, isAuthLoading, router])
+    }, [isAuthenticated, isAuthLoading, needsOnboarding, router])
 
     const handleSignUp = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -61,7 +62,7 @@ export function SignUpForm({ className, title, subtitle, ...props }: SignUpFormP
                 flow: "signUp",
             })
 
-            router.push("/dashboard")
+            router.push("/onboarding")
         } catch (error: unknown) {
             console.error("Sign up error:", error)
             const errorMessage = error instanceof Error ? error.message : "Failed to create account. Please try again."
@@ -75,7 +76,7 @@ export function SignUpForm({ className, title, subtitle, ...props }: SignUpFormP
         setIsGoogleLoading(true)
         try {
             await signIn("google")
-            router.push("/dashboard")
+            router.push("/onboarding")
         } catch (error) {
             toast.error("Failed to sign in with Google")
             console.error(error)
@@ -87,7 +88,7 @@ export function SignUpForm({ className, title, subtitle, ...props }: SignUpFormP
         setIsTwitterLoading(true)
         try {
             await signIn("twitter")
-            router.push("/dashboard")
+            router.push("/onboarding")
         } catch (error) {
             toast.error("Failed to sign in with X")
             console.error(error)
@@ -99,7 +100,7 @@ export function SignUpForm({ className, title, subtitle, ...props }: SignUpFormP
         setIsFacebookLoading(true)
         try {
             await signIn("facebook")
-            router.push("/dashboard")
+            router.push("/onboarding")
         } catch (error) {
             toast.error("Failed to sign in with Facebook")
             console.error(error)

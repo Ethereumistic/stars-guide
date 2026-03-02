@@ -35,14 +35,14 @@ export function SignInForm({ className, ...props }: React.ComponentPropsWithoutR
     const router = useRouter()
     const { signIn } = useAuthActions()
 
-    const { isAuthenticated, isLoading: isAuthLoading } = useUserStore()
+    const { isAuthenticated, isLoading: isAuthLoading, needsOnboarding } = useUserStore()
 
     // Redirect if already authenticated
     useEffect(() => {
         if (isAuthenticated() && !isAuthLoading) {
-            router.push("/dashboard")
+            router.push(needsOnboarding() ? "/onboarding" : "/dashboard")
         }
-    }, [isAuthenticated, isAuthLoading, router])
+    }, [isAuthenticated, isAuthLoading, needsOnboarding, router])
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()

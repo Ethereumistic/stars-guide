@@ -35,9 +35,10 @@ export const middleware = convexAuthNextjsMiddleware(async (request, { convexAut
         return nextjsMiddlewareRedirect(request, "/sign-in");
     }
 
-    // 5. Redirect authenticated users away from auth pages to /dashboard
+    // 5. Redirect authenticated users away from auth pages to /onboarding
+    // (onboarding page auto-redirects to /dashboard if birthData is already set)
     if (isAuthenticated && isAuthPage(request)) {
-        return nextjsMiddlewareRedirect(request, "/dashboard");
+        return nextjsMiddlewareRedirect(request, "/onboarding");
     }
 });
 
