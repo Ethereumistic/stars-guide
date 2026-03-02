@@ -42,6 +42,13 @@ export function Hero() {
             <div className="relative z-10 mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
                 <div className="flex flex-col items-center text-center space-y-8">
 
+                    <div
+                        className="absolute top-[-30%] left-1/2 -translate-x-1/2 w-[150vw] h-[150vh] opacity-7 mix-blend-screen pointer-events-none blur-3xl"
+                        style={{
+                            background: `radial-gradient(circle at center, var(--galactic) 0%, transparent 60%)`
+                        }}
+                    />
+
                     {/* Eyebrow Badge */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}

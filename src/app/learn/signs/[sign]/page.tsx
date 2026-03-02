@@ -26,7 +26,18 @@ import {
     BreadcrumbPage,
     BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { GiFlame, GiStonePile, GiTornado, GiWaveCrest } from "react-icons/gi";
+import {
+    GiFlame,
+    GiStonePile,
+    GiTornado,
+    GiWaveCrest,
+    GiArcheryTarget,
+    GiSpectre,
+    GiBurningPassion,
+    GiChessKnight,
+    GiMightyForce,
+    GiBrokenShield
+} from "react-icons/gi";
 
 const HOUSE_NAMES = ["1st House", "2nd House", "3rd House", "4th House", "5th House", "6th House", "7th House", "8th House", "9th House", "10th House", "11th House", "12th House"];
 
@@ -73,8 +84,8 @@ export default function SignDetailPage() {
         <div className="relative min-h-screen w-full text-foreground  overflow-x-hidden">
             {/* Ambient Base Layer - Replace heavy blurs with simple massive CSS radials centered around the viewport */}
             <div className="fixed inset-0 z-0 pointer-events-none contain-strict">
-                <StarsBackground />
-                <ShootingStars />
+                {/* <StarsBackground />
+                <ShootingStars /> */}
                 <div
                     className="absolute top-[-10%] left-[0%] w-[140%] h-[140%] opacity-[0.15] mix-blend-screen"
                     style={{
@@ -123,53 +134,65 @@ export default function SignDetailPage() {
                         transition={{ duration: 1, ease: "easeOut" }}
                         className="lg:col-span-5 space-y-12"
                     >
-                        {/* Title Block */}
+                        {/* Title Block - REARRANGED */}
                         <div className="space-y-6">
-                            <div className="flex items-start justify-between border-b border-white/10 pb-8">
-                                <div className="space-y-2">
-                                    <h1 className="text-7xl md:text-8xl xl:text-9xl font-serif text-white tracking-tighter leading-[0.85]">
+                            <div className="flex flex-col sm:flex-row items-start gap-6 border-b border-white/10 pb-8">
+                                <div className="relative flex items-center justify-center shrink-0">
+                                    <img src={ui.elementFrameUrl} className="w-32 h-32 md:w-40 md:h-40 object-cover" alt="" />
+                                    <Icon className="absolute w-12 h-12 md:w-16 md:h-16 stroke-1" />
+                                </div>
+                                <div className="space-y-2 pt-2 md:pt-4">
+                                    <h1 className="text-6xl md:text-7xl lg:text-[5.5rem] xl:text-[6.5rem] font-serif text-white tracking-tighter leading-[0.85] break-words">
                                         {data.name}
                                     </h1>
                                     <p className="text-xl md:text-2xl font-serif italic text-white/60">
                                         {data.dates}
                                     </p>
                                 </div>
-                                <div
-                                    className="p-4 md:p-6 rounded-none border border-white/10 bg-black/40"
-                                    style={{ color: styles.primary }}
-                                >
-                                    <Icon className="w-12 h-12 md:w-16 md:h-16 stroke-1" />
-                                </div>
                             </div>
 
-                            <p className="text-xs md:text-sm font-mono uppercase tracking-[0.25em] text-white/50 border-l-2 pl-4 py-1" style={{ borderColor: styles.primary }}>
+                            <p className="text-xs md:text-xl font-mono uppercase tracking-[0.25em] text-white border-l-2 pl-4 py-1" style={{ borderColor: styles.primary }}>
                                 "{data.motto}"
                             </p>
                         </div>
 
                         {/* Specs Grid */}
-                        <div className="grid grid-cols-2 gap-px bg-white/10 border border-white/10">
+                        <div className="grid grid-cols-2 gap-px bg-black/50 border border-white/10 rounded-md overflow-hidden">
                             {[
                                 { label: "Element", value: ui.elementName, icon: ElementIcon, subValue: "" },
                                 { label: "Modality", value: data.modality, icon: TbTriangleSquareCircle, subValue: "" },
                                 { label: "Ruler", value: data.ruler.charAt(0).toUpperCase() + data.ruler.slice(1), icon: TbSparkles, subValue: planetUi?.rulerSymbol || "" },
                                 { label: "House", value: HOUSE_NAMES[houseIndex] || "", icon: TbCompass, subValue: "" },
                             ].map((item, idx) => (
-                                <div key={idx} className="bg-black p-6 space-y-3 flex flex-col justify-between group hover:bg-white/2 transition-colors">
-                                    <div className="flex items-center justify-between opacity-40">
-                                        <span className="text-[10px] font-mono uppercase tracking-[0.2em]">{item.label}</span>
-                                        <item.icon className="w-4 h-4" />
+                                <div key={idx} className=" p-6 flex flex-row items-center justify-between group hover:bg-white/2 transition-colors">
+
+                                    {/* Text Content: Label and Value Stacked */}
+                                    <div className="flex flex-col space-y-2">
+                                        <span className="text-[10px] font-mono uppercase tracking-[0.2em] opacity-40">
+                                            {item.label}
+                                        </span>
+                                        <p className="text-2xl font-serif text-white tracking-tight">
+                                            {item.value}
+                                        </p>
                                     </div>
-                                    <p className="text-2xl font-serif text-white tracking-tight flex items-baseline gap-2">
-                                        {item.value}
-                                        {item.subValue && <span className="text-lg opacity-40 font-sans">{item.subValue}</span>}
-                                    </p>
+
+                                    {/* Visual Indicator: Big Icon or Ruler Symbol */}
+                                    <div className="flex items-center justify-center opacity-20 group-hover:opacity-40 transition-opacity pl-4">
+                                        {item.label === "Ruler" && item.subValue ? (
+                                            <span className="text-4xl md:text-5xl font-sans leading-none">
+                                                {item.subValue}
+                                            </span>
+                                        ) : (
+                                            <item.icon className="w-8 h-8 md:w-10 md:h-10" />
+                                        )}
+                                    </div>
+
                                 </div>
                             ))}
                         </div>
 
                         {/* The Essence */}
-                        <div className="p-8 border border-white/10 bg-black/50 space-y-6">
+                        <div className="p-8 border border-white/10 bg-black/50 space-y-6 rounded-md">
                             <div className="flex items-center gap-3 border-b border-white/10 pb-4">
                                 <TbAtom className="text-white/40 w-5 h-5" />
                                 <h3 className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/60">Core Essence File</h3>
@@ -185,43 +208,38 @@ export default function SignDetailPage() {
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 1.5, ease: "easeOut", delay: 0.2 }}
-                        className="lg:col-span-7 relative h-full min-h-[500px] flex items-center justify-center lg:sticky lg:top-32"
+                        className="lg:col-span-7 relative h-full min-h-[500px] flex items-center justify-center lg:sticky lg:top-32 -translate-y-12"
                     >
-                        {/* Geometric framing instead of massive blurs */}
-                        <div className="absolute inset-0 border border-white/5 bg-black/20 overflow-hidden flex items-center justify-center p-12 lg:p-24">
-                            {/* Controlled inner glow via simple radial background */}
+                        {/* Circular framing */}
+                        <div className="relative w-full max-w-[420px] lg:max-w-[600px] aspect-square rounded-full border border-white/10 bg-black/40 flex items-center justify-center p-8 overflow-hidden shadow-[0_0_60px_rgba(0,0,0,0.5)]">
+
+                            {/* Controlled inner glow */}
                             <div
-                                className="absolute inset-0 opacity-20"
+                                className="absolute inset-0 opacity-40"
                                 style={{
-                                    background: `radial-gradient(circle at center, ${styles.glow} 0%, transparent 70%)`
+                                    background: `radial-gradient(circle at center, ${styles.glow} 0%, transparent 65%)`
                                 }}
                             />
 
-                            {/* Grid overlay for editorial look */}
-                            <div className="absolute inset-0 pointer-events-none" style={{
-                                backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px)`,
-                                backgroundSize: '4rem 4rem'
+                            {/* Grid overlay */}
+                            <div className="absolute inset-0 pointer-events-none opacity-50" style={{
+                                backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px)`,
+                                backgroundSize: '3rem 3rem'
                             }} />
 
                             <img
                                 src={ui.constellationUrl}
                                 alt={`${data.name} Constellation`}
-                                className="relative z-10 w-full max-w-2xl h-auto object-contain filter drop-shadow-[0_0_15px_rgba(255,255,255,0.15)] opacity-80"
+                                className="relative z-10 w-full h-full object-contain filter drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] opacity-90 scale-[1.35] hover:scale-[1.45] transition-transform duration-700 ease-out"
                             />
+                        </div>
 
-                            {/* Corner Accents */}
-                            <div className="absolute top-0 left-0 w-8 h-8 border-t border-l border-white/30" />
-                            <div className="absolute top-0 right-0 w-8 h-8 border-t border-r border-white/30" />
-                            <div className="absolute bottom-0 left-0 w-8 h-8 border-b border-l border-white/30" />
-                            <div className="absolute bottom-0 right-0 w-8 h-8 border-b border-r border-white/30" />
-
-                            {/* Data points on diagram */}
-                            <div className="absolute bottom-6 left-6 font-mono text-[10px] uppercase tracking-widest text-white/30">
-                                FIG. {houseIndex + 1} // {data.id.toUpperCase()}
-                            </div>
-                            <div className="absolute bottom-6 right-6 font-mono text-[10px] uppercase tracking-[0.3em]" style={{ color: styles.primary }}>
-                                {ui.elementName} Class
-                            </div>
+                        {/* Data points on diagram (Moved outside the circle) */}
+                        <div className="absolute bottom-6 left-6 font-mono text-[10px] uppercase tracking-widest text-white/30 hidden lg:block">
+                            FIG. {houseIndex + 1} // {data.id.toUpperCase()}
+                        </div>
+                        <div className="absolute bottom-6 right-6 font-mono text-[10px] uppercase tracking-[0.3em] hidden lg:block" style={{ color: styles.primary }}>
+                            {ui.elementName} Class
                         </div>
                     </motion.div>
                 </section>
@@ -234,7 +252,7 @@ export default function SignDetailPage() {
                         initial={{ opacity: 0, y: 30 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true, margin: "-100px" }}
-                        className="border border-white/10 bg-black flex flex-col"
+                        className="border border-white/10 bg-black/50 flex flex-col rounded-md overflow-hidden"
                     >
                         <div className="p-8 md:p-12 border-b border-white/10">
                             <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/40 block mb-6">Cognitive Archetype</span>
@@ -246,22 +264,61 @@ export default function SignDetailPage() {
                             </p>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-px bg-white/10">
+                        {/* Top 4 Stats */}
+                        <div className="grid grid-cols-2 border-b border-white/10">
                             {[
-                                { title: "Primary Goal", val: data.goal },
-                                { title: "Dominant Fear", val: data.greatestFear },
-                                { title: "Core Desire", val: data.coreDesire },
-                                { title: "Special Talent", val: data.strengths[0] }
+                                { title: "Primary Goal", val: data.goal, icon: GiArcheryTarget },
+                                { title: "Dominant Fear", val: data.greatestFear, icon: GiSpectre },
+                                { title: "Core Desire", val: data.coreDesire, icon: GiBurningPassion },
+                                { title: "Impact Strategy", val: data.coreStrategy, icon: GiChessKnight }
                             ].map((spec, i) => (
-                                <div key={i} className="bg-black p-6 space-y-2">
-                                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30 block">
-                                        {spec.title}
-                                    </span>
-                                    <span className="text-sm md:text-base text-white/90">
+                                <div
+                                    key={i}
+                                    className={`p-6 space-y-3 border-white/10 ${i % 2 === 0 ? 'border-r' : ''
+                                        } ${i < 2 ? 'border-b' : ''
+                                        }`}
+                                >
+                                    <div className="flex items-center gap-2.5">
+                                        <spec.icon className="size-5 text-white/40" />
+                                        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30 block mt-0.5">
+                                            {spec.title}
+                                        </span>
+                                    </div>
+                                    <span className="text-sm md:text-base text-white/90 block pr-2">
                                         {spec.val}
                                     </span>
                                 </div>
                             ))}
+                        </div>
+
+                        {/* Strengths & Weaknesses */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-px ">
+                            <div className=" p-6 md:p-8 space-y-5">
+                                <div className="flex items-center gap-2.5">
+                                    <GiMightyForce className="size-5" />
+                                    <span className="font-mono text-white/30 text-[10px] uppercase tracking-[0.3em] mt-0.5">
+                                        Strengths
+                                    </span>
+                                </div>
+                                <ul className="text-sm text-white/90 space-y-2 list-disc list-inside">
+                                    {data.strengths.map((s, i) => (
+                                        <li key={i}>{s}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                            <div className=" p-6 md:p-8 space-y-5">
+                                <div className="flex items-center gap-2.5 text">
+                                    <GiBrokenShield className="size-5" />
+                                    <span className="font-mono text-white/30 text-[10px] uppercase tracking-[0.3em] mt-0.5">
+                                        Weaknesses
+                                    </span>
+                                </div>
+                                <ul className="text-sm text-white/90 space-y-2 list-disc list-inside">
+                                    {data.weaknesses.map((w, i) => (
+                                        <li key={i}>{w}</li>
+                                    ))}
+                                </ul>
+                            </div>
                         </div>
                     </motion.section>
 
@@ -271,21 +328,31 @@ export default function SignDetailPage() {
                             initial={{ opacity: 0, y: 30 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true, margin: "-100px" }}
-                            className="border border-white/10 bg-black p-8 md:p-12 h-full flex flex-col justify-center relative overflow-hidden"
+                            className="border border-white/10 bg-black/50 p-8 md:p-12 h-full flex flex-col justify-center relative overflow-hidden rounded-md"
                         >
-                            <div className="absolute right-0 top-0 bottom-0 w-64 opacity-[0.03] pointer-events-none mix-blend-screen overflow-hidden flex items-center justify-end">
-                                <img src={ui.elementFrameUrl} className="h-[150%] max-w-none object-cover grayscale" alt="" />
-                            </div>
+
+
 
                             <div className="relative z-10 space-y-8">
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-4 text-white/40 mb-2">
-                                        <ElementIcon className="w-5 h-5" />
-                                        <span className="font-mono text-[10px] uppercase tracking-[0.4em]">Elemental Resonance</span>
-                                    </div>
-                                    <h2 className="text-3xl md:text-4xl font-serif text-white">
-                                        The Path of {ui.elementName}
+
+                                <div className="flex items-center gap-4 text-white/40 mb-2">
+                                    <span className="font-mono text-[10px] uppercase tracking-[0.4em]">The Path of {ui.elementName}</span>
+
+                                </div>
+
+                                {/* Header block */}
+                                <div className="flex items-center justify-between gap-6 border-b border-white/10 pb-6">
+                                    <h2 className="text-3xl md:text-5xl font-serif text-white tracking-tight">
+                                        {data.elementalTitle}
                                     </h2>
+
+                                    <div className="relative flex items-center justify-center shrink-0">
+                                        <img src={ui.elementFrameUrl} className="w-20 h-20 md:w-28 md:h-28 object-cover" alt="" />
+                                        <ElementIcon
+                                            className="absolute size-8 md:size-10 drop-shadow-lg opacity-90"
+                                            style={{ color: styles.primary }}
+                                        />
+                                    </div>
                                 </div>
 
                                 <blockquote className="border-l-2 pl-6 py-2" style={{ borderColor: styles.primary }}>
@@ -312,7 +379,7 @@ export default function SignDetailPage() {
 
                                 <div className="flex flex-wrap gap-2 pt-2">
                                     {element.keywords.map(kw => (
-                                        <span key={kw} className="px-3 py-1 bg-white/5 border border-white/10 text-[10px] font-mono uppercase tracking-widest text-white/50">
+                                        <span key={kw} className="px-3 py-1 bg-white/5 border border-white/10 text-[10px] font-mono uppercase tracking-widest text-white/50 rounded-sm">
                                             {kw}
                                         </span>
                                     ))}
@@ -321,19 +388,19 @@ export default function SignDetailPage() {
                         </motion.section>
 
                         {/* Tactical Vector (Traits) */}
-                        <motion.section
+                        {/* <motion.section
                             initial={{ opacity: 0, y: 30 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true, margin: "-100px" }}
-                            className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/10 border border-white/10"
+                            className="grid grid-cols-1 md:grid-cols-2 gap-px  border border-white/10 rounded-md overflow-hidden"
                         >
-                            <div className="bg-black p-8 space-y-4">
+                            <div className="bg-black/50 p-8 space-y-4">
                                 <span className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: styles.primary }}>Impact Strategy</span>
                                 <p className="text-sm text-white/80 leading-relaxed">
                                     {data.coreStrategy}
                                 </p>
                             </div>
-                            <div className="bg-black p-8 space-y-4">
+                            <div className="bg-black/50 p-8 space-y-4">
                                 <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/40">Inherent Flaw</span>
                                 <ul className="text-sm text-white/60 space-y-2 list-disc list-inside">
                                     {data.weaknesses.map((w, i) => (
@@ -341,7 +408,7 @@ export default function SignDetailPage() {
                                     ))}
                                 </ul>
                             </div>
-                        </motion.section>
+                        </motion.section> */}
                     </div>
 
                 </div>
@@ -349,7 +416,7 @@ export default function SignDetailPage() {
                 {/* Footer Linkages */}
                 <section className="border-t border-white/10 pt-24 pb-12 flex flex-col items-center">
                     <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/30 block mb-12">System Archive Linkages</span>
-                    <div className="flex flex-wrap justify-center gap-px bg-white/10 border border-white/10 p-px">
+                    <div className="flex flex-wrap justify-center gap-px bg-white/10 border border-white/10 p-px rounded-md overflow-hidden">
                         {compositionalSigns.filter(s => s.id !== signId).slice(0, 4).map(s => (
                             <Link
                                 key={s.id}
