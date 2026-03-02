@@ -1,26 +1,49 @@
 "use client"
 
-import { type ZodiacSign, ELEMENT_STYLES, type ElementType } from "@/utils/zodiac"
 import { motion } from "motion/react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { SignData } from "@/astrology/signs"
+import { SignUIConfig } from "@/config/zodiac-ui"
+import { GiFlame, GiStonePile, GiTornado, GiWaveCrest } from "react-icons/gi"
 
 interface SignCardV2Props {
     /** Label shown ABOVE the card, e.g. "☉ Sun Sign" */
     label: string
     /** The zodiac sign data */
-    sign: ZodiacSign | undefined
+    data: SignData | undefined
+    ui: SignUIConfig | undefined
     /** Stagger delay for entrance animation */
     delay?: number
 }
 
-export function SignCardV2({ label, sign, delay = 0 }: SignCardV2Props) {
-    if (!sign) return null
+const getStyles = (element: "Fire" | "Earth" | "Air" | "Water") => {
+    const el = element.toLowerCase();
+    return {
+        primary: `var(--${el}-primary)`,
+        secondary: `var(--${el}-secondary)`,
+        glow: `var(--${el}-glow)`,
+        border: `var(--${el}-border)`,
+        gradient: `var(--${el}-gradient)`
+    };
+};
 
-    const Icon = sign.icon
-    const ElementIcon = sign.elementIcon
-    const styles = ELEMENT_STYLES[sign.element as ElementType]
+const getElementIcon = (element: "Fire" | "Earth" | "Air" | "Water") => {
+    switch (element) {
+        case "Fire": return GiFlame;
+        case "Earth": return GiStonePile;
+        case "Air": return GiTornado;
+        case "Water": return GiWaveCrest;
+    }
+};
+
+export function SignCardV2({ label, data, ui, delay = 0 }: SignCardV2Props) {
+    if (!data || !ui) return null
+
+    const Icon = ui.icon
+    const ElementIcon = getElementIcon(ui.elementName)
+    const styles = getStyles(ui.elementName)
 
     return (
         <div className="flex flex-col items-center gap-3">
@@ -42,7 +65,7 @@ export function SignCardV2({ label, sign, delay = 0 }: SignCardV2Props) {
                 className="perspective-[1000px] w-full"
             >
                 <Link
-                    href={`/learn/signs/${sign.id}`}
+                    href={`/learn/signs/${data.id}`}
                     className="group relative block h-full"
                 >
                     <Card className="relative h-full overflow-hidden rounded-2xl bg-transparent border-0 shadow-none transition-all duration-700 group-hover:scale-[1.02] min-h-[500px]">
@@ -66,7 +89,7 @@ export function SignCardV2({ label, sign, delay = 0 }: SignCardV2Props) {
                         {/* Constellation watermark (Lower Third) */}
                         <div className="absolute inset-x-0 bottom-0 h-1/2 overflow-hidden pointer-events-none">
                             <img
-                                src={sign.constellation}
+                                src={ui.constellationUrl}
                                 alt=""
                                 className="absolute bottom-[-15%] left-1/2 -translate-x-1/2 h-auto object-contain opacity-50 scale-105 transition-all duration-1000 group-hover:opacity-0 group-hover:scale-100"
                                 style={{
@@ -83,19 +106,19 @@ export function SignCardV2({ label, sign, delay = 0 }: SignCardV2Props) {
 
                         {/* Card content */}
                         <CardContent className="relative p-8 h-full">
-                            {/* Dates (Top Left) */}
-                            <div className="absolute top-0 left-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10">
+                            {/* Archetype (Top Left) */}
+                            <div className="absolute top-0 left-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10 w-24">
                                 <p
-                                    className="text-[10px] font-sans uppercase tracking-[0.2em]"
+                                    className="text-[9px] font-sans uppercase tracking-[0.1em] mt-2 line-clamp-2"
                                     style={{ color: styles.secondary }}
                                 >
-                                    {sign.dates}
+                                    {data.archetypeName}
                                 </p>
                             </div>
 
                             {/* Element Badge (Top Right) */}
                             <div className="absolute top-0 right-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 mt-2">
                                     <ElementIcon
                                         className="w-3.5 h-3.5"
                                         style={{ color: styles.primary }}
@@ -104,7 +127,7 @@ export function SignCardV2({ label, sign, delay = 0 }: SignCardV2Props) {
                                         className="text-[9px] font-sans uppercase tracking-[0.2em]"
                                         style={{ color: styles.secondary }}
                                     >
-                                        {sign.element}
+                                        {ui.elementName}
                                     </span>
                                 </div>
                             </div>
@@ -115,7 +138,7 @@ export function SignCardV2({ label, sign, delay = 0 }: SignCardV2Props) {
                                 <div className="relative mb-6 flex items-center justify-center w-32 h-32 transition-all duration-700 -translate-y-1 group-hover:translate-y-0">
                                     {/* Element Frame PNG (Appears on Hover) */}
                                     <img
-                                        src={sign.frame}
+                                        src={ui.elementFrameUrl}
                                         alt=""
                                         className="absolute inset-0 w-full h-full object-contain opacity-0 group-hover:opacity-60 group-hover:rotate-36 transition-all duration-[1.5s] ease-out"
                                         style={{
@@ -147,21 +170,24 @@ export function SignCardV2({ label, sign, delay = 0 }: SignCardV2Props) {
                                             textShadow: `0 0 10px ${styles.glow}`
                                         }}
                                     >
-                                        {sign.name}
+                                        {data.name}
                                     </h2>
                                 </div>
 
-                                {/* Traits description (Appears on Hover) */}
-                                <div className="flex-1 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-700 translate-y-4 group-hover:translate-y-0 max-w-md">
-                                    <p className="text-lg font-sans text-amber-100/80 leading-relaxed italic px-2">
-                                        {sign.traits}
+                                {/* Cognitive Insight (Appears on Hover) */}
+                                <div className="flex-1 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-700 translate-y-4 group-hover:translate-y-0 max-w-3xs">
+                                    <p className="text-xs font-sans text-amber-100/90 leading-relaxed italic mb-2 line-clamp-3">
+                                        "{data.coreStrategy}"
+                                    </p>
+                                    <p className="text-[10px] font-sans text-amber-100/60 leading-relaxed uppercase tracking-wider line-clamp-2">
+                                        {data.elementalTruth}
                                     </p>
                                 </div>
 
                                 {/* Explore Button (Styled Button) */}
                                 <div className="mt-8 pt-4 w-full flex justify-center opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0">
                                     <Button
-                                        variant={sign.element.toLowerCase() as any}
+                                        variant={ui.elementName.toLowerCase() as any}
                                         className="h-11 px-8 border-primary/40 relative group/btn"
                                     >
                                         <ElementIcon

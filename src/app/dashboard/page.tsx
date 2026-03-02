@@ -3,15 +3,22 @@
 import { useUserStore } from "@/store/use-user-store"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
-import { getZodiacSignByName } from "@/utils/zodiac"
 import { motion } from "motion/react"
+import { compositionalSigns } from "@/astrology/signs"
+import { zodiacUIConfig } from "@/config/zodiac-ui"
 import {
-    SignCard,
     SignCardV2,
     BirthDetailsCard,
     ElementalBalanceCard,
+    InterpretationCard,
     DashboardSkeleton
 } from "@/components/dashboard"
+
+const getSignData = (name: string | undefined) =>
+    compositionalSigns.find(s => s.name === name)
+
+const getUIConfig = (id: string | undefined) =>
+    id ? zodiacUIConfig[id] : undefined
 
 export default function DashboardPage() {
     const { user, isLoading, isAuthenticated, needsOnboarding } = useUserStore()
@@ -41,9 +48,14 @@ export default function DashboardPage() {
     }
 
     // Get zodiac sign details
-    const sunSign = getZodiacSignByName(birthData.sunSign)
-    const moonSign = getZodiacSignByName(birthData.moonSign)
-    const risingSign = getZodiacSignByName(birthData.risingSign)
+    const sunData = getSignData(birthData.sunSign)
+    const sunUI = getUIConfig(sunData?.id)
+
+    const moonData = getSignData(birthData.moonSign)
+    const moonUI = getUIConfig(moonData?.id)
+
+    const risingData = getSignData(birthData.risingSign)
+    const risingUI = getUIConfig(risingData?.id)
 
     return (
         <div className="min-h-[calc(100vh-5rem)] w-full py-8 px-4 md:px-8">
@@ -65,36 +77,22 @@ export default function DashboardPage() {
 
                 {/* Main Signs Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* <SignCard
-                        label="☉ Sun Sign"
-                        sign={sunSign}
-                        delay={0}
-                    />
-
-                    <SignCard
-                        label="☽ Moon Sign"
-                        sign={moonSign}
-                        delay={0.1}
-                    />
-
-                    <SignCard
-                        label="↑ Rising Sign"
-                        sign={risingSign}
-                        delay={0.2}
-                    /> */}
                     <SignCardV2
                         label="☉ Sun Sign"
-                        sign={sunSign}
+                        data={sunData}
+                        ui={sunUI}
                         delay={0}
                     />
                     <SignCardV2
                         label="☽ Moon Sign"
-                        sign={moonSign}
+                        data={moonData}
+                        ui={moonUI}
                         delay={0.1}
                     />
                     <SignCardV2
                         label="↑ Rising Sign"
-                        sign={risingSign}
+                        data={risingData}
+                        ui={risingUI}
                         delay={0.2}
                     />
                 </div>
@@ -104,10 +102,16 @@ export default function DashboardPage() {
 
                 {/* Elemental Balance Card */}
                 <ElementalBalanceCard
-                    sunSign={sunSign}
-                    moonSign={moonSign}
-                    risingSign={risingSign}
+                    sunUI={sunUI}
+                    moonUI={moonUI}
+                    risingUI={risingUI}
                     delay={0.4}
+                />
+
+                {/* Synthesis Interpretation */}
+                <InterpretationCard
+                    sunSignName={sunData?.id}
+                    delay={0.5}
                 />
             </div>
         </div>

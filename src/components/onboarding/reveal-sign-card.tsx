@@ -2,30 +2,50 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { type ZodiacSign, ELEMENT_STYLES, type ElementType } from "@/utils/zodiac"
 import { motion } from "motion/react"
+import { SignData } from "@/astrology/signs"
+import { SignUIConfig } from "@/config/zodiac-ui"
+import { GiFlame, GiStonePile, GiTornado, GiWaveCrest } from "react-icons/gi"
 
 interface RevealSignCardProps {
     /** Label shown ABOVE the card, e.g. "Sun Sign" */
     label: string
     /** The zodiac sign data */
-    sign: ZodiacSign
+    data: SignData | undefined
+    ui: SignUIConfig | undefined
     /** Delay before the card enters the viewport (stagger) */
     enterDelay?: number
     /** Delay before the "reveal" animation triggers (like hover but automatic) */
     revealDelay?: number
 }
 
+const getStyles = (element: "Fire" | "Earth" | "Air" | "Water") => {
+    const el = element.toLowerCase();
+    return {
+        primary: `var(--${el}-primary)`,
+        secondary: `var(--${el}-secondary)`,
+        glow: `var(--${el}-glow)`,
+        border: `var(--${el}-border)`,
+        gradient: `var(--${el}-gradient)`
+    };
+};
+
+const getElementIcon = (element: "Fire" | "Earth" | "Air" | "Water") => {
+    switch (element) {
+        case "Fire": return GiFlame;
+        case "Earth": return GiStonePile;
+        case "Air": return GiTornado;
+        case "Water": return GiWaveCrest;
+    }
+};
+
 export function RevealSignCard({
     label,
-    sign,
+    data,
+    ui,
     enterDelay = 0,
     revealDelay = 1.5,
 }: RevealSignCardProps) {
-    const Icon = sign.icon
-    const ElementIcon = sign.elementIcon
-    const styles = ELEMENT_STYLES[sign.element as ElementType]
-
     // State that triggers the "hover-like" reveal animation
     const [isRevealed, setIsRevealed] = useState(false)
 
@@ -35,6 +55,12 @@ export function RevealSignCard({
         const timer = setTimeout(() => setIsRevealed(true), totalDelay)
         return () => clearTimeout(timer)
     }, [enterDelay, revealDelay])
+
+    if (!data || !ui) return null
+
+    const Icon = ui.icon
+    const ElementIcon = getElementIcon(ui.elementName)
+    const styles = getStyles(ui.elementName)
 
     return (
         <div className="flex flex-col items-center gap-3">
@@ -79,7 +105,7 @@ export function RevealSignCard({
                         {/* Constellation watermark (stays visible, dims slightly on reveal) */}
                         <div className="absolute inset-x-0 bottom-0 h-1/2 overflow-hidden pointer-events-none">
                             <img
-                                src={sign.constellation}
+                                src={ui.constellationUrl}
                                 alt=""
                                 className={`absolute bottom-[5%] left-1/2 -translate-x-1/2 h-auto object-contain transition-all duration-1000 ${isRevealed ? "opacity-20 scale-100" : "opacity-50 scale-105"}`}
                                 style={{
@@ -96,19 +122,19 @@ export function RevealSignCard({
 
                         {/* Card content */}
                         <CardContent className="relative p-8 h-full">
-                            {/* Dates (Top Left) — hidden → appears on reveal */}
-                            <div className={`absolute top-0 left-6 transition-opacity duration-500 z-10 ${isRevealed ? "opacity-100" : "opacity-0"}`}>
+                            {/* Archetype Name (Top Left) — hidden → appears on reveal */}
+                            <div className={`absolute top-0 left-6 transition-opacity duration-500 z-10 w-24 ${isRevealed ? "opacity-100" : "opacity-0"}`}>
                                 <p
-                                    className="text-[10px] font-sans uppercase tracking-[0.2em]"
+                                    className="text-[9px] font-sans uppercase tracking-[0.1em] mt-2 line-clamp-2"
                                     style={{ color: styles.secondary }}
                                 >
-                                    {sign.dates}
+                                    {data.archetypeName}
                                 </p>
                             </div>
 
                             {/* Element Badge (Top Right) — hidden → appears on reveal */}
                             <div className={`absolute top-0 right-6 transition-opacity duration-500 z-10 ${isRevealed ? "opacity-100" : "opacity-0"}`}>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 mt-2">
                                     <ElementIcon
                                         className="w-3.5 h-3.5"
                                         style={{ color: styles.primary }}
@@ -117,7 +143,7 @@ export function RevealSignCard({
                                         className="text-[9px] font-sans uppercase tracking-[0.2em]"
                                         style={{ color: styles.secondary }}
                                     >
-                                        {sign.element}
+                                        {ui.elementName}
                                     </span>
                                 </div>
                             </div>
@@ -128,7 +154,7 @@ export function RevealSignCard({
                                 <div className={`relative  flex items-center justify-center w-32 h-32 transition-all duration-700 ${isRevealed ? "translate-y-0" : "translate-y-4"}`}>
                                     {/* Element Frame PNG (hidden → appears + rotates on reveal) */}
                                     <img
-                                        src={sign.frame}
+                                        src={ui.elementFrameUrl}
                                         alt=""
                                         className={`absolute inset-0 w-full h-full object-contain transition-all duration-[1.5s] ease-out ${isRevealed ? "opacity-60 rotate-36" : "opacity-0 rotate-0"}`}
                                         style={{
@@ -160,7 +186,7 @@ export function RevealSignCard({
                                             textShadow: `0 0 10px ${styles.glow}`
                                         }}
                                     >
-                                        {sign.name}
+                                        {data.name}
                                     </h2>
                                 </div>
                             </div>
@@ -168,7 +194,7 @@ export function RevealSignCard({
                             {/* Traits footer (pinned to bottom, hidden → slides up on reveal) */}
                             <div className={`absolute bottom-0 left-0 right-0 px-6 pb-5 text-center z-10 transition-all duration-700 ${isRevealed ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
                                 <p className="text-sm font-sans text-amber-100/70 leading-relaxed italic">
-                                    {sign.traits}
+                                    {data.cognitiveInsight}
                                 </p>
                             </div>
                         </CardContent>

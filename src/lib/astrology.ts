@@ -12,18 +12,18 @@
 
 import * as Astronomy from 'astronomy-engine';
 import tzlookup from 'tz-lookup';
-import { ZODIAC_SIGNS, type ZodiacSign } from '@/utils/zodiac';
+import { compositionalSigns, type SignData } from '@/astrology/signs';
 
 /**
  * Convert ecliptic longitude (0-360°) to tropical zodiac sign.
  * Each sign spans exactly 30° starting from 0° Aries.
  */
-export function eclipticLongitudeToSign(longitude: number): ZodiacSign {
+export function eclipticLongitudeToSign(longitude: number): SignData {
     // Normalize to 0-360° range
     const normalizedLongitude = ((longitude % 360) + 360) % 360;
     // Each sign is 30°, so index = floor(longitude / 30)
     const signIndex = Math.floor(normalizedLongitude / 30);
-    return ZODIAC_SIGNS[signIndex];
+    return compositionalSigns[signIndex];
 }
 
 /**
@@ -97,7 +97,7 @@ export function localBirthTimeToUTC(
  * @param date - Birth date/time as UTC
  * @returns The zodiac sign the Sun occupies
  */
-export function calculateSunSign(date: Date): ZodiacSign {
+export function calculateSunSign(date: Date): SignData {
     const sunPos = Astronomy.SunPosition(date);
     return eclipticLongitudeToSign(sunPos.elon);
 }
@@ -112,7 +112,7 @@ export function calculateSunSign(date: Date): ZodiacSign {
  * @param date - Birth date/time as UTC
  * @returns The zodiac sign the Moon occupies
  */
-export function calculateMoonSign(date: Date): ZodiacSign {
+export function calculateMoonSign(date: Date): SignData {
     const moonPos = Astronomy.EclipticGeoMoon(date);
     // EclipticGeoMoon returns Spherical with 'lon' for longitude
     return eclipticLongitudeToSign(moonPos.lon);
@@ -130,7 +130,7 @@ export function calculateMoonSign(date: Date): ZodiacSign {
  * @param longitude - Observer's longitude in degrees (positive = East)
  * @returns The zodiac sign on the Ascendant
  */
-export function calculateAscendant(date: Date, latitude: number, longitude: number): ZodiacSign {
+export function calculateAscendant(date: Date, latitude: number, longitude: number): SignData {
     // Get Greenwich Apparent Sidereal Time (in hours)
     const gast = Astronomy.SiderealTime(date);
 
@@ -189,9 +189,9 @@ export function calculateBigThree(
     longitude: number,
     hasExactTime: boolean
 ): {
-    sun: ZodiacSign;
-    moon: ZodiacSign;
-    rising: ZodiacSign | null;
+    sun: SignData;
+    moon: SignData;
+    rising: SignData | null;
 } {
     // Convert local birth time to UTC
     const birthDateUTC = localBirthTimeToUTC(year, month, day, hours, minutes, latitude, longitude);
@@ -207,3 +207,62 @@ export function calculateBigThree(
     return { sun, moon, rising };
 }
 
+/**
+ * Estimate Rising Sign based on Sun Sign and time of day
+ */
+export const estimateRisingSign = (
+    sunSignId: string,
+    timeOfDay: "morning" | "afternoon" | "evening" | "night" | "unknown" | null,
+    answers: Record<string, string>
+): SignData => {
+    const sunIndex = compositionalSigns.findIndex(s => s.id === sunSignId);
+    if (sunIndex === -1) return compositionalSigns[0];
+
+    // 1. Scoring each sign based on detective answers
+    const scores: Record<string, number> = {};
+    compositionalSigns.forEach(s => scores[s.id] = 0);
+
+    Object.values(answers).forEach(val => {
+        if (scores[val] !== undefined) {
+            scores[val] += 5; // Direct match weight
+        }
+    });
+
+    // 2. Define probable offsets from sun sign based on time of day
+    // Each 2 hours roughly = 1 sign (30 degrees).
+    // Sunrise (6am) = Sun sign is ASC.
+    let possibleOffsets: number[] = [];
+    switch (timeOfDay) {
+        case "morning": // 6am - 12pm
+            possibleOffsets = [0, 1, 2];
+            break;
+        case "afternoon": // 12pm - 6pm
+            possibleOffsets = [3, 4, 5];
+            break;
+        case "evening": // 6pm - 12am
+            possibleOffsets = [6, 7, 8];
+            break;
+        case "night": // 12am - 6am
+            possibleOffsets = [9, 10, 11];
+            break;
+        default:
+            possibleOffsets = Array.from({ length: 12 }, (_, i) => i);
+    }
+
+    // 3. Find the best match within the time constraint
+    // We give a small bonus for being in the "likely" window, 
+    // then pick the one with the highest trait score.
+    const candidates = possibleOffsets.map(offset => {
+        const index = (sunIndex + offset) % 12;
+        const sign = compositionalSigns[index];
+        return {
+            sign,
+            score: (scores[sign.id] || 0) + 1 // Add 1 as a baseline for being in the right time window
+        };
+    });
+
+    // Sort by score descending
+    candidates.sort((a, b) => b.score - a.score);
+
+    return candidates[0].sign;
+};

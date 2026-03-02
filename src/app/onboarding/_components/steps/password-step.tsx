@@ -11,7 +11,6 @@ import { motion } from "motion/react"
 import { Lock, ArrowRight, ChevronLeft, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { getZodiacSignByDate, ZODIAC_SIGNS } from "@/utils/zodiac"
 
 export function PasswordStep() {
     const {

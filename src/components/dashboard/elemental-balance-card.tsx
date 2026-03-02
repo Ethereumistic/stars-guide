@@ -1,8 +1,9 @@
 'use client'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ELEMENTS, type ZodiacSign } from "@/utils/zodiac"
+import { SignUIConfig } from "@/config/zodiac-ui"
 import { motion } from "motion/react"
+import { GiFlame, GiStonePile, GiTornado, GiWaveCrest } from "react-icons/gi"
 
 // Static maps for element styles - Tailwind can see these at build time
 const elementBorders: Record<string, string> = {
@@ -33,14 +34,21 @@ const elementDotClasses: Record<string, string> = {
     Air: 'bg-air',
 }
 
+const ELEMENTS = {
+    Fire: { name: 'Fire', icon: GiFlame },
+    Earth: { name: 'Earth', icon: GiStonePile },
+    Air: { name: 'Air', icon: GiTornado },
+    Water: { name: 'Water', icon: GiWaveCrest },
+}
+
 interface ElementalBalanceCardProps {
-    sunSign: ZodiacSign | undefined
-    moonSign: ZodiacSign | undefined
-    risingSign: ZodiacSign | undefined
+    sunUI: SignUIConfig | undefined
+    moonUI: SignUIConfig | undefined
+    risingUI: SignUIConfig | undefined
     delay?: number
 }
 
-export function ElementalBalanceCard({ sunSign, moonSign, risingSign, delay = 0.4 }: ElementalBalanceCardProps) {
+export function ElementalBalanceCard({ sunUI, moonUI, risingUI, delay = 0.4 }: ElementalBalanceCardProps) {
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -58,8 +66,8 @@ export function ElementalBalanceCard({ sunSign, moonSign, risingSign, delay = 0.
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {Object.entries(ELEMENTS).map(([key, element]) => {
                             const ElementIcon = element.icon
-                            const count = [sunSign, moonSign, risingSign].filter(
-                                s => s?.element === key
+                            const count = [sunUI, moonUI, risingUI].filter(
+                                s => s?.elementName === key
                             ).length
 
                             return (

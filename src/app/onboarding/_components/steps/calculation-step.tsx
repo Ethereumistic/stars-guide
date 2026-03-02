@@ -5,14 +5,15 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { useOnboardingStore } from "@/store/use-onboarding-store"
 import { useUserStore } from "@/store/use-user-store"
-import { estimateRisingSign } from "@/utils/zodiac"
-import { calculateSunSign, calculateMoonSign, calculateAscendant, localBirthTimeToUTC } from "@/lib/astrology"
+import { estimateRisingSign, calculateSunSign, calculateMoonSign, calculateAscendant, localBirthTimeToUTC } from "@/lib/astrology"
 import { useMutation } from "convex/react"
 import { api } from "../../../../../convex/_generated/api"
 import { motion } from "motion/react"
 import { Sparkles, ArrowRight } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { RevealSignCard } from "@/components/onboarding/reveal-sign-card"
+import { compositionalSigns } from "@/astrology/signs"
+import { zodiacUIConfig } from "@/config/zodiac-ui"
 
 export function CalculationStep() {
     const {
@@ -185,24 +186,45 @@ export function CalculationStep() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 my-6">
                 {signs && (
                     <>
-                        <RevealSignCard
-                            label="☉ Sun Sign"
-                            sign={signs.sun}
-                            enterDelay={0}
-                            revealDelay={1.6}
-                        />
-                        <RevealSignCard
-                            label="☽ Moon Sign"
-                            sign={signs.moon}
-                            enterDelay={0.4}
-                            revealDelay={1.6}
-                        />
-                        <RevealSignCard
-                            label={birthTimeKnown ? "↑ Rising Sign" : "↑ Rising Sign · Detective Match"}
-                            sign={signs.rising}
-                            enterDelay={0.8}
-                            revealDelay={1.6}
-                        />
+                        {(() => {
+                            const sunData = compositionalSigns.find(s => s.name === signs.sun.name);
+                            const sunUI = sunData ? zodiacUIConfig[sunData.id] : undefined;
+                            return (
+                                <RevealSignCard
+                                    label="☉ Sun Sign"
+                                    data={sunData}
+                                    ui={sunUI}
+                                    enterDelay={0}
+                                    revealDelay={1.6}
+                                />
+                            );
+                        })()}
+                        {(() => {
+                            const moonData = compositionalSigns.find(s => s.name === signs.moon.name);
+                            const moonUI = moonData ? zodiacUIConfig[moonData.id] : undefined;
+                            return (
+                                <RevealSignCard
+                                    label="☽ Moon Sign"
+                                    data={moonData}
+                                    ui={moonUI}
+                                    enterDelay={0.4}
+                                    revealDelay={1.6}
+                                />
+                            );
+                        })()}
+                        {(() => {
+                            const risingData = compositionalSigns.find(s => s.name === signs.rising.name);
+                            const risingUI = risingData ? zodiacUIConfig[risingData.id] : undefined;
+                            return (
+                                <RevealSignCard
+                                    label={birthTimeKnown ? "↑ Rising Sign" : "↑ Rising Sign · Detective Match"}
+                                    data={risingData}
+                                    ui={risingUI}
+                                    enterDelay={0.8}
+                                    revealDelay={1.6}
+                                />
+                            );
+                        })()}
                     </>
                 )}
             </div>

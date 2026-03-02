@@ -1,6 +1,7 @@
 "use client";
 
-import { ZODIAC_SIGNS, ElementType, ELEMENT_STYLES, SIGN_EXTENDED_DATA, ELEMENT_CONTENT } from "@/utils/zodiac";
+import { compositionalSigns } from "@/astrology/signs";
+import { zodiacUIConfig } from "@/config/zodiac-ui";
 import { ShootingStars } from "@/components/hero/shooting-stars";
 import { StarsBackground } from "@/components/hero/stars-background";
 import { motion, useScroll, useTransform } from "motion/react";
@@ -26,19 +27,29 @@ import {
     BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 
+const getStyles = (element: "Fire" | "Earth" | "Air" | "Water") => {
+    const el = element.toLowerCase();
+    return {
+        primary: `var(--${el}-primary)`,
+        secondary: `var(--${el}-secondary)`,
+        glow: `var(--${el}-glow)`,
+        border: `var(--${el}-border)`,
+        gradient: `var(--${el}-gradient)`
+    };
+};
+
 export default function SignDetailPage() {
     const params = useParams();
     const signId = params.sign as string;
 
-    const sign = ZODIAC_SIGNS.find(s => s.id === signId);
-    const extended = SIGN_EXTENDED_DATA[signId];
+    const data = compositionalSigns.find(s => s.id === signId);
+    const ui = zodiacUIConfig[signId];
 
-    if (!sign || !extended) {
+    if (!data || !ui) {
         return notFound();
     }
 
-    const element = ELEMENT_CONTENT[sign.element as ElementType];
-    const styles = ELEMENT_STYLES[sign.element as ElementType];
+    const styles = getStyles(ui.elementName);
     const containerRef = useRef<HTMLDivElement>(null);
 
     const { scrollYProgress } = useScroll({
@@ -48,6 +59,8 @@ export default function SignDetailPage() {
 
     const heroOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
     const heroScale = useTransform(scrollYProgress, [0, 0.2], [1, 0.95]);
+
+    const Icon = ui.icon;
 
     return (
         <div ref={containerRef} className="relative min-h-[400vh] w-full text-foreground selection:bg-primary/30 overflow-x-hidden">
@@ -85,7 +98,7 @@ export default function SignDetailPage() {
                             </BreadcrumbItem>
                             <BreadcrumbSeparator className="opacity-20">/</BreadcrumbSeparator>
                             <BreadcrumbItem>
-                                <BreadcrumbPage className="text-primary font-mono text-[10px] uppercase tracking-[0.2em]">{sign.name}</BreadcrumbPage>
+                                <BreadcrumbPage className="text-primary font-mono text-[10px] uppercase tracking-[0.2em]">{data.name}</BreadcrumbPage>
                             </BreadcrumbItem>
                         </BreadcrumbList>
                     </Breadcrumb>
@@ -108,8 +121,8 @@ export default function SignDetailPage() {
                             style={{ backgroundColor: styles.glow }}
                         />
                         <img
-                            src={sign.constellation}
-                            alt={`${sign.name} Constellation`}
+                            src={ui.constellationUrl}
+                            alt={`${data.name} Constellation`}
                             className="relative z-10 w-full h-full object-contain filter drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]"
                         />
 
@@ -128,21 +141,18 @@ export default function SignDetailPage() {
                         <div className="space-y-4">
                             <div className="flex items-center gap-6 md:gap-8">
                                 <h1 className="text-7xl md:text-9xl font-serif text-white tracking-tighter leading-none">
-                                    {sign.name}
+                                    {data.name}
                                 </h1>
                                 <motion.div
                                     className="p-3 md:p-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl h-fit"
                                     style={{ color: styles.primary }}
                                 >
-                                    <sign.icon className="w-10 h-10 md:w-16 md:h-16" />
+                                    <Icon className="w-10 h-10 md:w-16 md:h-16" />
                                 </motion.div>
                             </div>
                             <div className="flex flex-col gap-2">
                                 <p className="text-2xl font-serif italic text-primary/80">
-                                    {sign.dates}
-                                </p>
-                                <p className="text-sm font-mono uppercase tracking-[0.3em] text-white/40">
-                                    &quot;{extended.motto}&quot;
+                                    {data.archetypeName}
                                 </p>
                             </div>
                         </div>
@@ -150,10 +160,7 @@ export default function SignDetailPage() {
                         {/* Info Grid */}
                         <div className="grid grid-cols-2 gap-8 border-t border-white/10 pt-12">
                             {[
-                                { label: "Element", value: sign.element, icon: TbIcons, subValue: "" },
-                                { label: "Modality", value: extended.modality, icon: TbTriangleSquareCircle, subValue: "" },
-                                { label: "Ruling Planet", value: extended.ruler, icon: TbSparkles, subValue: extended.rulerSymbol },
-                                { label: "Celestial House", value: extended.house, icon: TbCompass, subValue: "" },
+                                { label: "Element", value: ui.elementName, icon: TbIcons },
                             ].map((item, idx) => (
                                 <div key={idx} className="space-y-2">
                                     <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/40 flex items-center gap-2">
@@ -161,18 +168,15 @@ export default function SignDetailPage() {
                                     </span>
                                     <p className="text-xl font-serif text-white flex items-center gap-3">
                                         {item.value}
-                                        {item.subValue && (
-                                            <span className="text-2xl opacity-50 font-sans">{item.subValue}</span>
-                                        )}
                                     </p>
                                 </div>
                             ))}
                         </div>
 
                         <div className="space-y-6">
-                            <h3 className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/40">The Essence</h3>
+                            <h3 className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/40">Cognitive Insight</h3>
                             <p className="text-lg text-muted-foreground/90 leading-relaxed font-sans max-w-xl">
-                                {extended.essenceFull}
+                                {data.cognitiveInsight}
                             </p>
                         </div>
                     </motion.div>
@@ -192,31 +196,13 @@ export default function SignDetailPage() {
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
                             <div className="space-y-8">
                                 <div className="space-y-2">
-                                    <span className="font-mono text-xs uppercase tracking-[0.5em] text-primary/60">Elemental Resonance</span>
-                                    <h2 className="text-5xl md:text-7xl font-serif text-white italic">The Path of {sign.element}: {extended.elementalTitle}</h2>
+                                    <span className="font-mono text-xs uppercase tracking-[0.5em] text-primary/60">Elemental Truth</span>
+                                    <h2 className="text-5xl md:text-7xl font-serif text-white italic">The Path of {ui.elementName}</h2>
                                 </div>
                                 <div className="space-y-6">
                                     <p className="text-xl text-muted-foreground/80 leading-relaxed max-w-xl">
-                                        {element.desc}
+                                        {data.elementalTruth}
                                     </p>
-                                    <div className="space-y-4 max-w-xl border-l-2 border-primary/30 pl-6 py-2">
-                                        <p className="text-lg text-primary/80 italic font-serif leading-relaxed">
-                                            &quot;{extended.elementalInsight}&quot;
-                                        </p>
-                                        <div className="space-y-1">
-                                            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary/40">Eternal Path</span>
-                                            <p className="text-sm text-muted-foreground/70 leading-relaxed">
-                                                {extended.elementalPath}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex flex-wrap gap-4 pt-4">
-                                    {element.keywords.map(word => (
-                                        <span key={word} className="px-5 py-2 rounded-full border border-white/10 bg-white/5 text-[10px] font-mono uppercase tracking-widest text-white/60">
-                                            {word}
-                                        </span>
-                                    ))}
                                 </div>
                             </div>
 
@@ -227,7 +213,7 @@ export default function SignDetailPage() {
                                 className="relative aspect-square flex items-center justify-center overflow-hidden"
                             >
                                 <img
-                                    src={sign.frame}
+                                    src={ui.elementFrameUrl}
                                     className="w-full h-full object-contain opacity-40 animate-spin-slow"
                                     alt=""
                                 />
@@ -252,42 +238,40 @@ export default function SignDetailPage() {
                             className="lg:col-span-2 p-12 rounded-[3rem] bg-white/3 border border-white/5 flex flex-col justify-between"
                         >
                             <div className="space-y-6">
-                                <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-primary/60">Manifestation</span>
-                                <h2 className="text-6xl font-serif text-white">{extended.archetype}</h2>
+                                <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-primary/60">Core Strategy</span>
+                                <h2 className="text-6xl font-serif text-white">{data.archetypeName}</h2>
                                 <p className="text-lg text-muted-foreground leading-relaxed max-w-2xl">
-                                    {extended.insight}
+                                    {data.coreStrategy}
                                 </p>
                             </div>
 
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-8 mt-16 pt-12 border-t border-white/5">
-                                <div className="space-y-2">
-                                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">Core Desire</span>
-                                    <p className="text-lg font-serif text-white">{extended.coreDesire}</p>
+                            <div className="grid grid-cols-2 gap-8 mt-16 pt-12 border-t border-white/5">
+                                <div className="space-y-4">
+                                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">Strengths</span>
+                                    <ul className="space-y-2">
+                                        {data.strengths.map((s, idx) => (
+                                            <li key={idx} className="text-lg font-serif text-white flex items-center gap-2">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-primary/50" />
+                                                {s}
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </div>
-                                <div className="space-y-2">
-                                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">Primary Goal</span>
-                                    <p className="text-lg font-serif text-white">{extended.goal}</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">Dominant Fear</span>
-                                    <p className="text-lg font-serif text-white">{extended.greatestFear}</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">Special Talent</span>
-                                    <p className="text-lg font-serif text-white">{extended.talent}</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">Polarity</span>
-                                    <p className="text-lg font-serif text-white">{extended.polarity}</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">Celestial Stone</span>
-                                    <p className="text-lg font-serif text-white">{extended.stone}</p>
+                                <div className="space-y-4">
+                                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/30">Weaknesses</span>
+                                    <ul className="space-y-2">
+                                        {data.weaknesses.map((w, idx) => (
+                                            <li key={idx} className="text-lg font-serif text-white flex items-center gap-2">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-destructive/50" />
+                                                {w}
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </div>
                             </div>
                         </motion.div>
 
-                        {/* Personality Traits List */}
+                        {/* Adverbial Phrase */}
                         <div className="space-y-8">
                             <motion.div
                                 initial={{ opacity: 0, x: 20 }}
@@ -295,22 +279,9 @@ export default function SignDetailPage() {
                                 viewport={{ once: true }}
                                 className="p-8 rounded-[2rem] bg-linear-to-b from-white/5 to-transparent border-l-2 border-primary/20"
                             >
-                                <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-primary mb-6 block">Impact Strategy</span>
-                                <p className="text-lg font-serif text-white/80 leading-relaxed">
-                                    {extended.strategy}
-                                </p>
-                            </motion.div>
-
-                            <motion.div
-                                initial={{ opacity: 0, x: 20 }}
-                                whileInView={{ opacity: 1, x: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ delay: 0.1 }}
-                                className="p-8 rounded-[2rem] bg-linear-to-b from-white/2 to-transparent border-l-2 border-white/10"
-                            >
-                                <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/40 mb-6 block">Intrinsic Weakness</span>
-                                <p className="text-lg font-serif text-white/50 leading-relaxed">
-                                    {extended.weakness}
+                                <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-primary mb-6 block">Compositional Phrase</span>
+                                <p className="text-lg font-serif text-white/80 leading-relaxed italic">
+                                    "{data.compositionalAdverbialPhrase}"
                                 </p>
                             </motion.div>
                         </div>
@@ -324,7 +295,7 @@ export default function SignDetailPage() {
                         <h2 className="text-4xl md:text-5xl font-serif text-white italic">Continue through the Archive</h2>
 
                         <div className="flex flex-wrap justify-center gap-4">
-                            {ZODIAC_SIGNS.filter(s => s.id !== signId).slice(0, 4).map(s => (
+                            {compositionalSigns.filter(s => s.id !== signId).slice(0, 4).map(s => (
                                 <Link
                                     key={s.id}
                                     href={`/learn/signs/${s.id}`}

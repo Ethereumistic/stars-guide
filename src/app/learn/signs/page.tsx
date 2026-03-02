@@ -1,13 +1,10 @@
 "use client";
 
-import { ZODIAC_SIGNS, ELEMENTS } from "@/utils/zodiac";
+import { compositionalSigns } from "@/astrology/signs";
+import { zodiacUIConfig } from "@/config/zodiac-ui";
 import { motion, Variants } from "motion/react";
 import Link from "next/link";
-import {
-    TbSparkles,
-} from "react-icons/tb";
 import { SignCard } from "@/components/learn/signs/sign-card";
-import { Button } from "@/components/ui/button";
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -22,6 +19,7 @@ import {
     TabsTrigger,
 } from "@/components/ui/tabs";
 import { useState } from "react";
+import { GiFlame, GiStonePile, GiTornado, GiWaveCrest } from "react-icons/gi";
 
 const containerVariants: Variants = {
     hidden: { opacity: 0 },
@@ -34,12 +32,17 @@ const containerVariants: Variants = {
     }
 };
 
+const mergedSigns = compositionalSigns.map(data => ({
+    data,
+    ui: zodiacUIConfig[data.id] || zodiacUIConfig['aries'] // Fallback just in case
+}));
+
 export default function SignsPage() {
     const [activeTab, setActiveTab] = useState<string>("all");
 
     const filteredSigns = activeTab === "all"
-        ? ZODIAC_SIGNS
-        : ZODIAC_SIGNS.filter(sign => sign.element.toLowerCase() === activeTab);
+        ? mergedSigns
+        : mergedSigns.filter(sign => sign.ui.elementName.toLowerCase() === activeTab);
 
     return (
         <div className="relative z-10 max-w-[1600px] mx-auto px-8">
@@ -74,19 +77,19 @@ export default function SignsPage() {
                                 <span className="font-mono text-xs uppercase tracking-wider">All</span>
                             </TabsTrigger>
                             <TabsTrigger value="fire" className="rounded-md px-4 py-2 hover:bg-white/5  transition-all duration-300">
-                                <ELEMENTS.Fire.icon className="size-4 mr-2 text-fire" />
+                                <GiFlame className="size-4 mr-2 text-fire" />
                                 <span className="font-mono text-xs uppercase tracking-wider">Fire</span>
                             </TabsTrigger>
                             <TabsTrigger value="earth" className="rounded-md px-4 py-2 hover:bg-white/5 transition-all duration-300">
-                                <ELEMENTS.Earth.icon className="size-4 mr-2 text-earth" />
+                                <GiStonePile className="size-4 mr-2 text-earth" />
                                 <span className="font-mono text-xs uppercase tracking-wider">Earth</span>
                             </TabsTrigger>
                             <TabsTrigger value="air" className="rounded-md px-4 py-2 hover:bg-white/5 transition-all duration-300">
-                                <ELEMENTS.Air.icon className="size-4 mr-2 text-air" />
+                                <GiTornado className="size-4 mr-2 text-air" />
                                 <span className="font-mono text-xs uppercase tracking-wider">Air</span>
                             </TabsTrigger>
                             <TabsTrigger value="water" className="rounded-md px-4 py-2 hover:bg-white/5  transition-all duration-300">
-                                <ELEMENTS.Water.icon className="size-4 mr-2 text-water" />
+                                <GiWaveCrest className="size-4 mr-2 text-water" />
                                 <span className="font-mono text-xs uppercase tracking-wider">Water</span>
                             </TabsTrigger>
                         </TabsList>
@@ -102,8 +105,8 @@ export default function SignsPage() {
                 initial="hidden"
                 animate="visible"
             >
-                {filteredSigns.map((sign) => (
-                    <SignCard key={sign.id} sign={sign} />
+                {filteredSigns.map(({ data, ui }) => (
+                    <SignCard key={data.id} data={data} ui={ui} />
                 ))}
             </motion.div>
 

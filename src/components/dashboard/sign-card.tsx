@@ -1,24 +1,47 @@
 'use client'
 
 import { Card, CardContent } from "@/components/ui/card"
-import { type ZodiacSign, ELEMENT_STYLES, type ElementType } from "@/utils/zodiac"
 import { motion } from "motion/react"
+import { SignData } from "@/astrology/signs"
+import { SignUIConfig } from "@/config/zodiac-ui"
+import { GiFlame, GiStonePile, GiTornado, GiWaveCrest } from "react-icons/gi"
 
 interface SignCardProps {
     /** Label shown ABOVE the card, e.g. "☉ Sun Sign" */
     label: string
     /** The zodiac sign data */
-    sign: ZodiacSign | undefined
+    data: SignData | undefined
+    ui: SignUIConfig | undefined
     /** Stagger delay for entrance animation */
     delay?: number
 }
 
-export function SignCard({ label, sign, delay = 0 }: SignCardProps) {
-    if (!sign) return null
+const getStyles = (element: "Fire" | "Earth" | "Air" | "Water") => {
+    const el = element.toLowerCase();
+    return {
+        primary: `var(--${el}-primary)`,
+        secondary: `var(--${el}-secondary)`,
+        glow: `var(--${el}-glow)`,
+        border: `var(--${el}-border)`,
+        gradient: `var(--${el}-gradient)`
+    };
+};
 
-    const Icon = sign.icon
-    const ElementIcon = sign.elementIcon
-    const styles = ELEMENT_STYLES[sign.element as ElementType]
+const getElementIcon = (element: "Fire" | "Earth" | "Air" | "Water") => {
+    switch (element) {
+        case "Fire": return GiFlame;
+        case "Earth": return GiStonePile;
+        case "Air": return GiTornado;
+        case "Water": return GiWaveCrest;
+    }
+};
+
+export function SignCard({ label, data, ui, delay = 0 }: SignCardProps) {
+    if (!data || !ui) return null
+
+    const Icon = ui.icon
+    const ElementIcon = getElementIcon(ui.elementName)
+    const styles = getStyles(ui.elementName)
 
     return (
         <div className="flex flex-col items-center gap-3">
@@ -61,7 +84,7 @@ export function SignCard({ label, sign, delay = 0 }: SignCardProps) {
                         {/* Constellation watermark (dimmed — revealed state) */}
                         <div className="absolute inset-x-0 bottom-0 h-1/2 overflow-hidden pointer-events-none">
                             <img
-                                src={sign.constellation}
+                                src={ui.constellationUrl}
                                 alt=""
                                 className="absolute bottom-[-16%] left-1/2 -translate-x-1/2 h-auto object-contain opacity-20 scale-100"
                                 style={{
@@ -78,19 +101,19 @@ export function SignCard({ label, sign, delay = 0 }: SignCardProps) {
 
                         {/* Card content */}
                         <CardContent className="relative p-8 h-full">
-                            {/* Dates (Top Left) */}
-                            <div className="absolute top-0 left-6 z-10">
+                            {/* Archetype Name (Top Left) */}
+                            <div className="absolute top-0 left-6 z-10 w-24">
                                 <p
-                                    className="text-[10px] font-sans uppercase tracking-[0.2em]"
+                                    className="text-[9px] font-sans uppercase tracking-[0.1em] mt-2 line-clamp-2"
                                     style={{ color: styles.secondary }}
                                 >
-                                    {sign.dates}
+                                    {data.archetypeName}
                                 </p>
                             </div>
 
                             {/* Element Badge (Top Right) */}
                             <div className="absolute top-0 right-6 z-10">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 mt-2">
                                     <ElementIcon
                                         className="w-3.5 h-3.5"
                                         style={{ color: styles.primary }}
@@ -99,7 +122,7 @@ export function SignCard({ label, sign, delay = 0 }: SignCardProps) {
                                         className="text-[9px] font-sans uppercase tracking-[0.2em]"
                                         style={{ color: styles.secondary }}
                                     >
-                                        {sign.element}
+                                        {ui.elementName}
                                     </span>
                                 </div>
                             </div>
@@ -110,7 +133,7 @@ export function SignCard({ label, sign, delay = 0 }: SignCardProps) {
                                 <div className="relative flex items-center justify-center w-32 h-32">
                                     {/* Element Frame PNG (revealed — rotated) */}
                                     <img
-                                        src={sign.frame}
+                                        src={ui.elementFrameUrl}
                                         alt=""
                                         className="absolute inset-0 w-full h-full object-contain opacity-60 rotate-36"
                                         style={{
@@ -141,15 +164,15 @@ export function SignCard({ label, sign, delay = 0 }: SignCardProps) {
                                             textShadow: `0 0 10px ${styles.glow}`
                                         }}
                                     >
-                                        {sign.name}
+                                        {data.name}
                                     </h2>
                                 </div>
                             </div>
 
                             {/* Traits footer (pinned to bottom — revealed state) */}
-                            <div className="absolute bottom-0 left-0 right-0 px-6  text-center z-10">
+                            <div className="absolute bottom-0 left-0 right-0 px-6 pb-5 text-center z-10">
                                 <p className="text-sm font-sans text-amber-100/70 leading-relaxed italic">
-                                    {sign.traits}
+                                    {data.coreStrategy}
                                 </p>
                             </div>
                         </CardContent>
