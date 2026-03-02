@@ -16,6 +16,8 @@ const ONBOARDING_EXEMPT_PATHS = [
     "/privacy",
     "/invite",
     "/pricing",
+    "/learn",
+    "/birth-chart",
 ];
 
 export function UserSync() {

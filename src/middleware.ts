@@ -15,7 +15,9 @@ const isPublicPage = createRouteMatcher([
     "/",
     "/terms",
     "/privacy",
-    "/invite/(.*)"
+    "/invite/(.*)",
+    "/learn",
+    "/learn/(.*)"
 ]);
 
 // 2. Define auth pages where authenticated users should be redirected from
