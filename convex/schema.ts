@@ -176,6 +176,10 @@ export default defineSchema({
         errors: v.optional(v.array(v.string())),
         startedAt: v.number(),
         completedAt: v.optional(v.number()),
+        // v3: Emotional Translation Layer
+        rawZeitgeist: v.optional(v.string()),           // Original admin-typed events
+        emotionalZeitgeist: v.optional(v.string()),     // AI-translated emotional state
+        hookId: v.optional(v.id("hooks")),              // Assigned hook archetype for this run
     }).index("by_status", ["status"])
         .index("by_admin", ["adminUserId"]),
 
@@ -204,5 +208,16 @@ export default defineSchema({
         ),
         generatedAt: v.number(),           // Date.now() timestamp for audit
     }).index("by_date", ["date"]),
+
+    // 10. HOOKS (Hook Archetype Library — DB-driven, zero deploy updates)
+    hooks: defineTable({
+        name: v.string(),                    // e.g. "The Mirror Hook"
+        description: v.string(),             // One-sentence description
+        examples: v.array(v.string()),       // 2–5 example lines
+        isActive: v.boolean(),
+        moonPhaseMapping: v.optional(v.string()),  // e.g. "full_moon", "waxing", "new_moon", "waning"
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    }).index("by_active", ["isActive"]),
 
 });

@@ -60,12 +60,15 @@ type CosmicWeatherData = {
 /**
  * formatCosmicWeatherForPrompt — Converts computed astronomical data
  * into a human-readable block for the LLM.
+ * v3: Includes retrograde felt-language guidance.
  */
 function formatCosmicWeatherForPrompt(snapshot: CosmicWeatherData): string {
     const planets = snapshot.planetPositions
         .map((p) => {
-            const retro = p.isRetrograde ? " ℞ (RETROGRADE)" : "";
-            return `${p.planet} in ${p.sign} (${p.degreeInSign}°)${retro}`;
+            const status = p.isRetrograde
+                ? " (retrograde — energy turns inward, review not advance)"
+                : "";
+            return `${p.planet} in ${p.sign} (${p.degreeInSign}°)${status}`;
         })
         .join(", ");
 
@@ -87,23 +90,57 @@ Moon: ${snapshot.moonPhase.name}, ${snapshot.moonPhase.illuminationPercent}% ill
 Active Aspects: ${aspects}`;
 }
 
+// ─── HOOK FORMATTING ──────────────────────────────────────────────────────
+
+type HookData = {
+    name: string;
+    description: string;
+    examples: string[];
+};
+
+/**
+ * formatHookForPrompt — Formats the assigned hook archetype into a
+ * prompt block that instructs the LLM on the opening style.
+ */
+function formatHookForPrompt(hook: HookData): string {
+    const exampleLines = hook.examples
+        .map((e, i) => `${i + 1}. "${e}"`)
+        .join("\n");
+
+    return `HOOK ARCHETYPE FOR THIS HOROSCOPE:
+Type: ${hook.name}
+Description: ${hook.description}
+Examples of this hook style:
+${exampleLines}
+Open the horoscope with this hook type. Do not copy the examples — use them as tone reference only.`;
+}
+
 /**
  * callOpenRouter — Makes a single API call to OpenRouter.
- * Handles the HTTP request, error checking, and JSON extraction.
- * Now includes cosmic weather data in the prompt when available.
+ * v3: Includes moon phase frame, hook archetype, and emotional zeitgeist.
  */
 async function callOpenRouter(
     sign: string,
     dates: string[],
-    zeitgeistSummary: string,
+    emotionalZeitgeist: string,
     masterContext: string,
     modelId: string,
     apiKey: string,
-    cosmicWeatherText?: string
+    cosmicWeatherText?: string,
+    moonPhaseFrame?: string,
+    hookText?: string,
 ): Promise<unknown> {
-    // Build the user message with cosmic weather injected
+    // Build the v3 user message with all context layers
+    const moonPhaseBlock = moonPhaseFrame
+        ? `\n\nMOON PHASE CONTEXT:\n${moonPhaseFrame}\nThis is the emotional container for all horoscopes in this run.\nEvery piece of copy should be coloured by this phase's energy.`
+        : "";
+
     const cosmicWeatherBlock = cosmicWeatherText
-        ? `\n\nCOSMIC WEATHER (USE THIS TO GROUND THE HOROSCOPE IN TODAY'S ACTUAL SKY):\n${cosmicWeatherText}\nWeave the relevant planetary data naturally into the copy.\nDo NOT list planets robotically. Reference them the way a real astrologer would —\nas felt energies, not data points.`
+        ? `\n\nCOSMIC WEATHER:\n${cosmicWeatherText}\nTranslate relevant planetary data into felt language per the Planet Felt-Language Guide.\nNever name a planet directly in the copy. Never list positions robotically.`
+        : "";
+
+    const hookBlock = hookText
+        ? `\n\n${hookText}`
         : "";
 
     const payload = {
@@ -116,17 +153,22 @@ async function callOpenRouter(
             {
                 role: "user",
                 content: `TARGET SIGN: ${sign}
-TARGET DATES: ${dates.join(", ")}${cosmicWeatherBlock}
+TARGET DATES: ${dates.join(", ")}${moonPhaseBlock}${cosmicWeatherBlock}
 
-CURRENT WORLD VIBE (ZEITGEIST):
-${zeitgeistSummary}
+COLLECTIVE EMOTIONAL STATE (ZEITGEIST):
+${emotionalZeitgeist}
+This is how the world FEELS right now — not what happened.
+Map this emotional climate to the sign's Likely Felt State.
+Never reference news events, countries, or headlines in the output.${hookBlock}
 
-TASK: Generate horoscopes for the above sign and dates.
-Map both the Cosmic Weather and the Zeitgeist to this sign's psychological wiring.
+TASK:
+Generate horoscopes for ${sign} for the dates above.
+Each horoscope must feel like it was written specifically for this reader, today.
+Apply the Core Principle: emotionally specific, circumstantially universal.
 Output ONLY valid JSON matching the schema in the system prompt.`,
             },
         ],
-        temperature: 0.7,
+        temperature: 0.75, // v3: raised from 0.7 for more natural language variation
         max_tokens: 2048,
         response_format: { type: "json_object" },
     };
@@ -137,7 +179,7 @@ Output ONLY valid JSON matching the schema in the system prompt.`,
             "Authorization": `Bearer ${apiKey}`,
             "Content-Type": "application/json",
             "HTTP-Referer": "https://stars.guide",
-            "X-Title": "Stars.Guide Horoscope Engine",
+            "X-Title": "Stars.Guide Horoscope Engine v3",
         },
         body: JSON.stringify(payload),
     });
@@ -147,7 +189,7 @@ Output ONLY valid JSON matching the schema in the system prompt.`,
         throw new Error(`OpenRouter API error ${response.status}: ${errorBody}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
 
     // Extract the content from the response
     const content = data?.choices?.[0]?.message?.content;
@@ -160,11 +202,17 @@ Output ONLY valid JSON matching the schema in the system prompt.`,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// THE CORE ENGINE — runGenerationJob
+// THE CORE ENGINE — runGenerationJob (v3)
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
  * runGenerationJob — Internal action that runs entirely server-side.
+ * 
+ * v3 Changes:
+ * - Uses emotionalZeitgeist (not raw events) in prompts
+ * - Injects moon phase frame as first context layer
+ * - Injects assigned hook archetype for opening style
+ * - Updated prompt structure per v3 spec
  * 
  * Architecture: Fire-and-Forget with Progress Tracking
  * - The browser is ONLY a progress viewer, not a critical link.
@@ -182,7 +230,7 @@ export const runGenerationJob = internalAction({
             return;
         }
 
-        // 2. Fetch zeitgeist and master context
+        // 2. Fetch zeitgeist — use emotionalZeitgeist if available, fallback to raw
         const zeitgeist = await ctx.runQuery(internal.aiQueries.getZeitgeistInternal, {
             zeitgeistId: job.zeitgeistId,
         });
@@ -193,6 +241,9 @@ export const runGenerationJob = internalAction({
             });
             return;
         }
+
+        // v3: Prefer emotionalZeitgeist from the job, fallback to zeitgeist.summary
+        const emotionalZeitgeist = job.emotionalZeitgeist || zeitgeist.summary;
 
         const masterSetting = await ctx.runQuery(internal.aiQueries.getSystemSettingInternal, {
             key: "master_context",
@@ -216,9 +267,10 @@ export const runGenerationJob = internalAction({
             return;
         }
 
-        // 3b. Fetch or compute Cosmic Weather for the first target date
-        //     (all dates in a batch are typically sequential, so we use the first)
+        // 3b. Fetch or compute Cosmic Weather + Moon Phase Frame
         let cosmicWeatherText: string | undefined;
+        let moonPhaseFrame: string | undefined;
+        let moonPhaseCategory: string | undefined;
         try {
             const targetDate = job.targetDates[0];
             let cosmicWeather = await ctx.runQuery(
@@ -236,11 +288,31 @@ export const runGenerationJob = internalAction({
             }
             if (cosmicWeather) {
                 cosmicWeatherText = formatCosmicWeatherForPrompt(cosmicWeather);
-                console.log(`Cosmic weather loaded for ${targetDate}`);
+                // v3: Get moon phase frame from astronomyEngine
+                // We import the frame text computation at runtime since this is a "use node" file
+                const { getMoonPhaseFrame, getMoonPhaseCategory } = await import("./lib/astronomyEngine");
+                moonPhaseFrame = getMoonPhaseFrame(cosmicWeather.moonPhase.name);
+                moonPhaseCategory = getMoonPhaseCategory(cosmicWeather.moonPhase.name);
+                console.log(`Cosmic weather + moon phase frame loaded for ${targetDate} (${cosmicWeather.moonPhase.name})`);
             }
         } catch (err) {
             // Non-fatal: generation proceeds without cosmic weather
             console.warn("Failed to fetch/compute cosmic weather, proceeding without:", err);
+        }
+
+        // 3c. Fetch assigned hook archetype
+        let hookText: string | undefined;
+        try {
+            const hook = await ctx.runQuery(internal.hooks.getAssignedHook, {
+                hookId: job.hookId || undefined,
+                moonPhaseCategory: moonPhaseCategory,
+            });
+            if (hook) {
+                hookText = formatHookForPrompt(hook);
+                console.log(`Hook archetype assigned: ${hook.name}`);
+            }
+        } catch (err) {
+            console.warn("Failed to fetch hook archetype, proceeding without:", err);
         }
 
         // 4. Process signs one at a time
@@ -252,7 +324,8 @@ export const runGenerationJob = internalAction({
             try {
                 // First attempt
                 const result = await callOpenRouter(
-                    sign, job.targetDates, zeitgeist.summary, masterContext, job.modelId, apiKey, cosmicWeatherText
+                    sign, job.targetDates, emotionalZeitgeist, masterContext,
+                    job.modelId, apiKey, cosmicWeatherText, moonPhaseFrame, hookText
                 );
                 const validated = LLMResponseSchema.safeParse(result);
 
@@ -262,7 +335,8 @@ export const runGenerationJob = internalAction({
                     await sleep(RETRY_DELAY_MS);
 
                     const retryResult = await callOpenRouter(
-                        sign, job.targetDates, zeitgeist.summary, masterContext, job.modelId, apiKey, cosmicWeatherText
+                        sign, job.targetDates, emotionalZeitgeist, masterContext,
+                        job.modelId, apiKey, cosmicWeatherText, moonPhaseFrame, hookText
                     );
                     const retryValidated = LLMResponseSchema.safeParse(retryResult);
 
@@ -316,7 +390,8 @@ export const runGenerationJob = internalAction({
                 try {
                     await sleep(RETRY_DELAY_MS);
                     const retryResult = await callOpenRouter(
-                        sign, job.targetDates, zeitgeist.summary, masterContext, job.modelId, apiKey, cosmicWeatherText
+                        sign, job.targetDates, emotionalZeitgeist, masterContext,
+                        job.modelId, apiKey, cosmicWeatherText, moonPhaseFrame, hookText
                     );
                     const retryValidated = LLMResponseSchema.safeParse(retryResult);
 
@@ -372,7 +447,7 @@ export const runGenerationJob = internalAction({
 
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ZEITGEIST AI SYNTHESIS
+// ZEITGEIST AI SYNTHESIS (Original — 3-sentence psychological baseline)
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
@@ -420,9 +495,80 @@ export const synthesizeZeitgeist = internalAction({
             throw new Error(`OpenRouter API error ${response.status}: ${errorBody}`);
         }
 
-        const data = await response.json();
+        const data = await response.json() as any;
         const content = data?.choices?.[0]?.message?.content;
         if (!content) throw new Error("OpenRouter returned empty synthesis");
+
+        return content.trim();
+    },
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// v3: EMOTIONAL ZEITGEIST TRANSLATION LAYER
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * synthesizeEmotionalZeitgeist — The two-pass Emotional Translation Layer.
+ * Takes raw world events (or a 3-sentence psychological summary) and
+ * converts them into a description of how people are FEELING — not what happened.
+ *
+ * This is the single highest-leverage change in v3. Headlines don't generate
+ * empathy. Felt emotional states do.
+ */
+export const synthesizeEmotionalZeitgeist = internalAction({
+    args: {
+        rawEvents: v.string(),
+        modelId: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const apiKey = process.env.OPENROUTER_API_KEY;
+        if (!apiKey) throw new Error("OPENROUTER_API_KEY not set");
+
+        const payload = {
+            model: args.modelId,
+            messages: [
+                {
+                    role: "system",
+                    content: `You are an expert at translating world events into collective emotional states.
+Your output is used as context for horoscope generation. It must describe how an average person
+is FEELING right now — not what happened in the news.
+
+Rules:
+- Never mention country names, political figures, or specific events
+- Never use the words: systemic, macro, geopolitical, structural
+- Focus exclusively on felt human experience: fears, cravings, confusion, quiet hopes
+- Write 4-6 sentences of plain, warm, human prose
+- Output ONLY the emotional translation. No preamble, no labels.`,
+                },
+                {
+                    role: "user",
+                    content: `World events / current vibe:\n${args.rawEvents}\n\nDescribe the collective emotional state.`,
+                },
+            ],
+            temperature: 0.65,
+            max_tokens: 400,
+        };
+
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://stars.guide",
+                "X-Title": "Stars.Guide Emotional Translation",
+            },
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.text();
+            throw new Error(`OpenRouter API error ${response.status}: ${errorBody}`);
+        }
+
+        const data = await response.json() as any;
+        const content = data?.choices?.[0]?.message?.content;
+        if (!content) throw new Error("OpenRouter returned empty emotional translation");
 
         return content.trim();
     },

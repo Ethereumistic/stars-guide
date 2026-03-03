@@ -57,3 +57,13 @@ export const validateAdmin = internalQuery({
         return userId;
     },
 });
+
+/**
+ * getHookInternal — Fetch a specific hook by ID for the AI generation pipeline.
+ */
+export const getHookInternal = internalQuery({
+    args: { hookId: v.id("hooks") },
+    handler: async (ctx, args) => {
+        return await ctx.db.get(args.hookId);
+    },
+});

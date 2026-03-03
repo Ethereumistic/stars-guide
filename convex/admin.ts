@@ -118,6 +118,10 @@ export const startGeneration = mutation({
         modelId: v.string(),
         targetDates: v.array(v.string()),
         targetSigns: v.array(v.string()),
+        // v3: Emotional Translation Layer fields
+        rawZeitgeist: v.optional(v.string()),
+        emotionalZeitgeist: v.optional(v.string()),
+        hookId: v.optional(v.id("hooks")),
     },
     handler: async (ctx, args) => {
         const { userId } = await requireAdmin(ctx);
@@ -171,6 +175,10 @@ export const startGeneration = mutation({
                 total: args.targetSigns.length,
             },
             startedAt: Date.now(),
+            // v3: Store raw + emotional zeitgeist and hook assignment
+            rawZeitgeist: args.rawZeitgeist,
+            emotionalZeitgeist: args.emotionalZeitgeist,
+            hookId: args.hookId,
         });
 
         // Fire-and-forget: schedule the AI action to run server-side
@@ -438,5 +446,29 @@ export const synthesizeZeitgeistAction = action({
         });
 
         return summary;
+    },
+});
+
+/**
+ * synthesizeEmotionalZeitgeistAction — Public action wrapper for the v3
+ * Emotional Translation Layer. Converts raw events into how people FEEL.
+ */
+export const synthesizeEmotionalZeitgeistAction = action({
+    args: {
+        rawEvents: v.string(),
+        modelId: v.string(),
+    },
+    handler: async (ctx, args): Promise<string> => {
+        const userId = await ctx.runQuery(internal.aiQueries.validateAdmin, {});
+        if (!userId) {
+            throw new Error("UNAUTHORIZED: Admin access required");
+        }
+
+        const result: string = await ctx.runAction(internal.ai.synthesizeEmotionalZeitgeist, {
+            rawEvents: args.rawEvents,
+            modelId: args.modelId,
+        });
+
+        return result;
     },
 });

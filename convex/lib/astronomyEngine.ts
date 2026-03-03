@@ -225,3 +225,77 @@ export function computeSnapshot(utcDate: string): CosmicWeatherSnapshot {
 
     return { planetPositions, moonPhase, activeAspects };
 }
+
+// ─── MOON PHASE NARRATIVE FRAMES ─────────────────────────────────────────
+// Maps moon phase name to an emotional container that sets the tone for
+// generated copy. This is the v3 primary narrative driver, replacing the
+// old Impact→Processing→Pivot→Integration arc entirely.
+
+const MOON_PHASE_FRAMES: Record<string, string> = {
+    "New Moon": `MOON PHASE FRAME: New Moon — Quiet Beginnings
+Frame: Things are seeding underground. Energy is inward, not outward.
+Language: "Something is starting, even if you can't see it yet." "This is a reset, not a failure."
+Avoid: Big dramatic declarations. This phase is subtle.`,
+
+    "Waxing Crescent": `MOON PHASE FRAME: Waxing Crescent — Building Momentum
+Frame: Effort is accumulating. Results aren't visible yet but the work matters.
+Language: "Keep going. The momentum is real even when it's invisible." "You're further along than you think."
+Avoid: Impatience. Don't reinforce the urge to quit before the payoff.`,
+
+    "First Quarter": `MOON PHASE FRAME: First Quarter — Building Momentum
+Frame: Building. Effort is accumulating. Results aren't visible yet but the work matters.
+Language: "Keep going. The momentum is real even when it's invisible." "You're further along than you think."
+Avoid: Impatience. Don't reinforce the urge to quit before the payoff.`,
+
+    "Waxing Gibbous": `MOON PHASE FRAME: Waxing Gibbous — Almost There
+Frame: Refinement energy. The gap between where you are and the goal feels frustrating.
+Language: "You're in the final stretch. Don't change the plan now." "Finish the thing."
+Avoid: Introducing new directions. This phase is completion energy.`,
+
+    "Full Moon": `MOON PHASE FRAME: Full Moon — Peak Intensity
+Frame: What's been underground surfaces. Emotions are amplified. Revelations happen.
+Language: "Something is coming to a head." "You're about to see something clearly that's been blurry."
+Avoid: Minimising the emotional intensity. Let it be big.`,
+
+    "Waning Gibbous": `MOON PHASE FRAME: Waning Gibbous — Release
+Frame: What worked, keep. What didn't, let go. Integration energy.
+Language: "What are you still carrying that you don't actually need?" "You get to put some of this down."
+Avoid: Starting new things. This phase is the exhale.`,
+
+    "Last Quarter": `MOON PHASE FRAME: Last Quarter — Release
+Frame: What worked, keep. What didn't, let go. Integration energy.
+Language: "What are you still carrying that you don't actually need?" "You get to put some of this down."
+Avoid: Starting new things. This phase is the exhale.`,
+
+    "Waning Crescent": `MOON PHASE FRAME: Waning Crescent — Rest
+Frame: The cycle is ending. Quiet restoration before the next beginning.
+Language: "This is the pause before the next chapter." "Rest is not nothing. It's preparation."
+Avoid: Urgency, action, big moves. This phase is stillness.`,
+};
+
+/**
+ * getMoonPhaseFrame — Returns the narrative frame text for a given moon phase name.
+ * Used by the generation pipeline to set the emotional container for all horoscopes.
+ *
+ * @param phaseName — e.g. "Waxing Gibbous", "Full Moon", "New Moon"
+ * @returns Frame text string, or a generic fallback if the phase name is unrecognised
+ */
+export function getMoonPhaseFrame(phaseName: string): string {
+    return MOON_PHASE_FRAMES[phaseName] ||
+        `MOON PHASE FRAME: ${phaseName}\nFrame: Navigate the day with awareness of the current lunar energy.`;
+}
+
+/**
+ * getMoonPhaseCategory — Normalises a detailed moon phase name into a broad
+ * category used for auto-assigning hook archetypes.
+ *
+ * Returns: "new_moon" | "waxing" | "full_moon" | "waning"
+ */
+export function getMoonPhaseCategory(phaseName: string): string {
+    const lower = phaseName.toLowerCase();
+    if (lower.includes("new")) return "new_moon";
+    if (lower.includes("full")) return "full_moon";
+    if (lower.includes("waxing") || lower.includes("first quarter")) return "waxing";
+    if (lower.includes("waning") || lower.includes("last quarter")) return "waning";
+    return "waxing"; // safe default
+}

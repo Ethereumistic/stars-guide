@@ -54,6 +54,7 @@ export function SignTitleBlock({
             >
                 "{motto}"
             </p>
+
         </motion.div>
     );
 }

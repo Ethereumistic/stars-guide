@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -21,6 +22,9 @@ import {
     History,
     PenLine,
     Bot,
+    Heart,
+    RefreshCw,
+    ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -48,6 +52,7 @@ export default function ZeitgeistPage() {
     const zeitgeists = useQuery(api.admin.getZeitgeists);
     const createZeitgeist = useMutation(api.admin.createZeitgeist);
     const synthesize = useAction(api.admin.synthesizeZeitgeistAction);
+    const synthesizeEmotional = useAction(api.admin.synthesizeEmotionalZeitgeistAction);
 
     const [isManual, setIsManual] = useState(false);
     const [title, setTitle] = useState("");
@@ -58,8 +63,13 @@ export default function ZeitgeistPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [selectedModel, setSelectedModel] = useState(MODEL_OPTIONS[0].id);
 
+    // v3: Emotional Translation Layer
+    const [emotionalTranslation, setEmotionalTranslation] = useState("");
+    const [isTranslating, setIsTranslating] = useState(false);
+    const [skipTranslation, setSkipTranslation] = useState(false);
+
     // Prompt injection warning
-    const summaryText = isManual ? manualSummary : aiSummary;
+    const summaryText = isManual ? manualSummary : (emotionalTranslation || aiSummary);
     const hasSuspiciousPattern = SUSPICIOUS_PATTERNS.some((p) => p.test(summaryText));
 
     const addArchetype = () => {
@@ -93,10 +103,38 @@ export default function ZeitgeistPage() {
             });
             setAiSummary(result);
             toast.success("Synthesis complete!");
+
+            // v3: Auto-translate to emotional zeitgeist unless skip is checked
+            if (!skipTranslation) {
+                await handleEmotionalTranslation(result);
+            }
         } catch (error) {
             toast.error("Synthesis failed. " + (error instanceof Error ? error.message : ""));
         } finally {
             setIsSynthesizing(false);
+        }
+    };
+
+    // v3: Emotional Translation
+    const handleEmotionalTranslation = async (rawText?: string) => {
+        const textToTranslate = rawText || aiSummary;
+        if (!textToTranslate.trim()) {
+            toast.error("No summary to translate. Synthesize first.");
+            return;
+        }
+
+        setIsTranslating(true);
+        try {
+            const result = await synthesizeEmotional({
+                rawEvents: textToTranslate,
+                modelId: selectedModel,
+            });
+            setEmotionalTranslation(result);
+            toast.success("Emotional translation generated!");
+        } catch (error) {
+            toast.error("Translation failed. " + (error instanceof Error ? error.message : ""));
+        } finally {
+            setIsTranslating(false);
         }
     };
 
@@ -106,7 +144,11 @@ export default function ZeitgeistPage() {
             return;
         }
 
-        const summary = isManual ? manualSummary : aiSummary;
+        // v3: Use emotional translation if available, fallback to raw summary
+        const summary = isManual
+            ? manualSummary
+            : (skipTranslation ? aiSummary : (emotionalTranslation || aiSummary));
+
         if (!summary.trim()) {
             toast.error("Please provide a summary (write one manually or synthesize via AI).");
             return;
@@ -125,6 +167,7 @@ export default function ZeitgeistPage() {
             setTitle("");
             setManualSummary("");
             setAiSummary("");
+            setEmotionalTranslation("");
             setArchetypes([""]);
         } catch (error) {
             toast.error("Failed to save. " + (error instanceof Error ? error.message : ""));
@@ -134,7 +177,7 @@ export default function ZeitgeistPage() {
     };
 
     return (
-        <div className="space-y-8 max-w-4xl">
+        <div className="space-y-8 max-w-5xl">
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-serif font-bold tracking-tight flex items-center gap-2">
@@ -143,7 +186,7 @@ export default function ZeitgeistPage() {
                 </h1>
                 <p className="text-muted-foreground mt-1 text-sm">
                     Define the current world vibe that shapes horoscope generation.
-                    This context is injected into the user message for each LLM call.
+                    v3 adds an Emotional Translation Layer that converts raw events into felt emotional states.
                 </p>
             </div>
 
@@ -156,7 +199,7 @@ export default function ZeitgeistPage() {
                             <CardDescription>
                                 {isManual
                                     ? "Write the Zeitgeist summary directly for instant control."
-                                    : "Input world events and let AI synthesize the psychological baseline."}
+                                    : "Input world events and let AI synthesize + emotionally translate."}
                             </CardDescription>
                         </div>
                         <div className="flex items-center gap-3">
@@ -199,7 +242,8 @@ export default function ZeitgeistPage() {
                             Manual Override
                         </CardTitle>
                         <CardDescription>
-                            Write the world vibe summary directly. Use this for emergency or unprecedented events.
+                            Write the world vibe summary directly. This should already be emotionally framed —
+                            describe how people FEEL, not what happened in the news.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -207,107 +251,200 @@ export default function ZeitgeistPage() {
                             value={manualSummary}
                             onChange={(e) => setManualSummary(e.target.value)}
                             className="min-h-[200px] font-mono text-sm bg-background/50"
-                            placeholder='e.g., "The collective psyche is navigating systemic economic uncertainty as global markets destabilize..."'
+                            placeholder='e.g., "There is a widespread, low-grade anxiety about professional stability right now. A lot of people are quietly asking *is my position safe?* even when nothing concrete has happened..."'
                         />
                     </CardContent>
                 </Card>
             ) : (
-                /* AI Synthesis Mode */
-                <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-base flex items-center gap-2">
-                            <Bot className="h-4 w-4" />
-                            AI Synthesis
-                        </CardTitle>
-                        <CardDescription>
-                            Input 3-7 primary archetypal world events. The AI will synthesize them into a cohesive psychological baseline.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {/* Model Selector */}
-                        <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">LLM Model</Label>
-                            <Select value={selectedModel} onValueChange={setSelectedModel}>
-                                <SelectTrigger className="bg-background/50">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {MODEL_OPTIONS.map((model) => (
-                                        <SelectItem key={model.id} value={model.id}>
-                                            <div className="flex items-center gap-2">
-                                                <span>{model.name}</span>
-                                                <span className="text-xs text-muted-foreground">
-                                                    {model.provider}
-                                                </span>
-                                            </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {/* Archetypes */}
-                        <div className="space-y-3">
-                            {archetypes.map((archetype, index) => (
-                                <div key={index} className="flex items-center gap-2">
-                                    <Badge variant="outline" className="text-xs shrink-0 w-6 justify-center">
-                                        {index + 1}
-                                    </Badge>
-                                    <Input
-                                        value={archetype}
-                                        onChange={(e) => updateArchetype(index, e.target.value)}
-                                        placeholder={`e.g., "massive tech layoffs", "oil price surge", "AI regulation debates"`}
-                                        className="bg-background/50"
-                                    />
-                                    {archetypes.length > 1 && (
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => removeArchetype(index)}
-                                            className="shrink-0 h-8 w-8"
-                                        >
-                                            <X className="h-3 w-3" />
-                                        </Button>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            {archetypes.length < 7 && (
-                                <Button variant="outline" size="sm" onClick={addArchetype} className="gap-1">
-                                    <Plus className="h-3 w-3" /> Add Event
-                                </Button>
-                            )}
-                            <Button
-                                onClick={handleSynthesize}
-                                disabled={isSynthesizing || archetypes.every((a) => !a.trim())}
-                                size="sm"
-                                className="gap-1"
-                            >
-                                {isSynthesizing ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                    <Sparkles className="h-3 w-3" />
-                                )}
-                                {isSynthesizing ? "Synthesizing..." : "Synthesize"}
-                            </Button>
-                        </div>
-
-                        {aiSummary && (
-                            <div className="mt-4 p-4 rounded-lg bg-background/80 border border-border/50">
-                                <Label className="text-xs text-muted-foreground mb-2 block">
-                                    AI-Generated Summary
-                                </Label>
-                                <Textarea
-                                    value={aiSummary}
-                                    onChange={(e) => setAiSummary(e.target.value)}
-                                    className="font-mono text-sm min-h-[100px] bg-transparent border-0 p-0 resize-y focus-visible:ring-0"
-                                />
+                /* AI Synthesis Mode — Two-Panel */
+                <div className="space-y-6">
+                    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-base flex items-center gap-2">
+                                <Bot className="h-4 w-4" />
+                                AI Synthesis
+                            </CardTitle>
+                            <CardDescription>
+                                Input 3-7 primary archetypal world events. The AI will synthesize them into a psychological baseline,
+                                then translate it into an emotional state.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {/* Model Selector */}
+                            <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">LLM Model</Label>
+                                <Select value={selectedModel} onValueChange={setSelectedModel}>
+                                    <SelectTrigger className="bg-background/50">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {MODEL_OPTIONS.map((model) => (
+                                            <SelectItem key={model.id} value={model.id}>
+                                                <div className="flex items-center gap-2">
+                                                    <span>{model.name}</span>
+                                                    <span className="text-xs text-muted-foreground">
+                                                        {model.provider}
+                                                    </span>
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
-                        )}
-                    </CardContent>
-                </Card>
+
+                            {/* Archetypes */}
+                            <div className="space-y-3">
+                                {archetypes.map((archetype, index) => (
+                                    <div key={index} className="flex items-center gap-2">
+                                        <Badge variant="outline" className="text-xs shrink-0 w-6 justify-center">
+                                            {index + 1}
+                                        </Badge>
+                                        <Input
+                                            value={archetype}
+                                            onChange={(e) => updateArchetype(index, e.target.value)}
+                                            placeholder={`e.g., "massive tech layoffs", "oil price surge", "AI regulation debates"`}
+                                            className="bg-background/50"
+                                        />
+                                        {archetypes.length > 1 && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => removeArchetype(index)}
+                                                className="shrink-0 h-8 w-8"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </Button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                {archetypes.length < 7 && (
+                                    <Button variant="outline" size="sm" onClick={addArchetype} className="gap-1">
+                                        <Plus className="h-3 w-3" /> Add Event
+                                    </Button>
+                                )}
+                                <Button
+                                    onClick={handleSynthesize}
+                                    disabled={isSynthesizing || archetypes.every((a) => !a.trim())}
+                                    size="sm"
+                                    className="gap-1"
+                                >
+                                    {isSynthesizing ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                        <Sparkles className="h-3 w-3" />
+                                    )}
+                                    {isSynthesizing ? "Synthesizing..." : "Synthesize & Translate"}
+                                </Button>
+                            </div>
+
+                            {/* Skip Translation Checkbox */}
+                            <div className="flex items-center gap-2 p-3 rounded-lg bg-background/50 border border-border/30">
+                                <Checkbox
+                                    id="skip-translation"
+                                    checked={skipTranslation}
+                                    onCheckedChange={(checked) => setSkipTranslation(checked as boolean)}
+                                />
+                                <Label htmlFor="skip-translation" className="text-xs text-muted-foreground cursor-pointer">
+                                    Skip emotional translation (use raw synthesis directly)
+                                </Label>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* v3: Two-Panel Display */}
+                    {(aiSummary || emotionalTranslation) && (
+                        <div className="grid gap-4 lg:grid-cols-2">
+                            {/* Left Panel: Raw Summary */}
+                            {aiSummary && (
+                                <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-sm flex items-center gap-2">
+                                            <Bot className="h-4 w-4 text-blue-400" />
+                                            Raw Psychological Summary
+                                        </CardTitle>
+                                        <CardDescription className="text-xs">
+                                            What the AI synthesized from your events
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <Textarea
+                                            value={aiSummary}
+                                            onChange={(e) => setAiSummary(e.target.value)}
+                                            className="font-mono text-sm min-h-[120px] bg-background/50 resize-y"
+                                        />
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Right Panel: Emotional Translation */}
+                            {!skipTranslation && (
+                                <Card className={`border-border/50 backdrop-blur-sm ${emotionalTranslation ? "bg-emerald-500/5 border-emerald-500/20" : "bg-card/50"
+                                    }`}>
+                                    <CardHeader className="pb-2">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <CardTitle className="text-sm flex items-center gap-2">
+                                                    <Heart className="h-4 w-4 text-rose-400" />
+                                                    Emotional Translation
+                                                    {emotionalTranslation && (
+                                                        <Badge variant="outline" className="text-xs text-emerald-400 border-emerald-400/30">
+                                                            Active
+                                                        </Badge>
+                                                    )}
+                                                </CardTitle>
+                                                <CardDescription className="text-xs">
+                                                    How people are FEELING — this goes into the prompt
+                                                </CardDescription>
+                                            </div>
+                                            {aiSummary && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleEmotionalTranslation()}
+                                                    disabled={isTranslating}
+                                                    className="gap-1 text-xs"
+                                                >
+                                                    {isTranslating ? (
+                                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                                    ) : (
+                                                        <RefreshCw className="h-3 w-3" />
+                                                    )}
+                                                    {isTranslating ? "Translating..." : "Regenerate"}
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {emotionalTranslation ? (
+                                            <Textarea
+                                                value={emotionalTranslation}
+                                                onChange={(e) => setEmotionalTranslation(e.target.value)}
+                                                className="font-mono text-sm min-h-[120px] bg-transparent border-0 p-0 resize-y focus-visible:ring-0"
+                                            />
+                                        ) : (
+                                            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground gap-2">
+                                                {isTranslating ? (
+                                                    <>
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                        Translating to felt emotional state...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <ArrowRight className="h-4 w-4" />
+                                                        Will be generated after synthesis
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </div>
+                    )}
+                </div>
             )}
 
             {/* Prompt Injection Warning */}
@@ -376,4 +513,3 @@ export default function ZeitgeistPage() {
         </div>
     );
 }
-

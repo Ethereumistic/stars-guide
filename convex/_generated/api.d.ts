@@ -14,6 +14,7 @@ import type * as aiQueries from "../aiQueries.js";
 import type * as auth from "../auth.js";
 import type * as cosmicWeather from "../cosmicWeather.js";
 import type * as crons from "../crons.js";
+import type * as hooks from "../hooks.js";
 import type * as horoscopes from "../horoscopes.js";
 import type * as http from "../http.js";
 import type * as lib_adminGuard from "../lib/adminGuard.js";
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   cosmicWeather: typeof cosmicWeather;
   crons: typeof crons;
+  hooks: typeof hooks;
   horoscopes: typeof horoscopes;
   http: typeof http;
   "lib/adminGuard": typeof lib_adminGuard;

@@ -24,6 +24,7 @@ import {
     LayoutDashboard,
     Shield,
     Loader2,
+    Anchor,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -48,6 +49,11 @@ const adminNavItems = [
         title: "Generation Desk",
         href: "/admin/generator",
         icon: Sparkles,
+    },
+    {
+        title: "Hook Manager",
+        href: "/admin/hooks",
+        icon: Anchor,
     },
     {
         title: "Review & Publish",
