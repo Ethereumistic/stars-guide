@@ -1,3 +1,7 @@
+The 12 houses in astrology
+
+What is a “house” in astrology?
+
 There are many ways of mapping the sky. 
 
 The way that might be most familiar to you is the zodiac: the 12 signs that our Sun blazes through each year. But thanks to the Earth’s rotation, the stars look different at different times of night and in different locations. That’s where the 12 houses come in. The houses of your natal chart illustrate how the sky would have appeared from your perspective at the time and place of your birth. They anchor the sky in your unique vantage point and divide it into segments that represent distinct areas of your life.

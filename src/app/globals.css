@@ -234,7 +234,6 @@
 	--shadow-2xl: 0px 4px 12px -2px hsl(0 0% 0% / 1.25);
 }
 
-
 @layer base {
 	body {
 		letter-spacing: var(--tracking-normal);
