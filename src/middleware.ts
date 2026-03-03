@@ -27,20 +27,31 @@ const isAuthPage = createRouteMatcher([
     "/forgot-password"
 ]);
 
+// 3. Define admin pages (Layer 1: UI Gate — NOT a security boundary)
+const isAdminPage = createRouteMatcher(["/admin", "/admin/(.*)"]);
+
 // Use 'middleware' export for Edge Runtime compatibility with Cloudflare Workers
 export const middleware = convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
-    // 3. Check if the user is authenticated using the injected client
+    // 4. Check if the user is authenticated using the injected client
     const isAuthenticated = await convexAuth.isAuthenticated();
 
-    // 4. Redirect unauthenticated users trying to access protected pages (like /account, /dashboard)
+    // 5. Redirect unauthenticated users trying to access protected pages (like /account, /dashboard)
     if (!isPublicPage(request) && !isAuthenticated) {
         return nextjsMiddlewareRedirect(request, "/sign-in");
     }
 
-    // 5. Redirect authenticated users away from auth pages to /onboarding
+    // 6. Redirect authenticated users away from auth pages to /onboarding
     // (onboarding page auto-redirects to /dashboard if birthData is already set)
     if (isAuthenticated && isAuthPage(request)) {
         return nextjsMiddlewareRedirect(request, "/onboarding");
+    }
+
+    // 7. Admin route protection (Layer 1: Fast UI gate)
+    // The real admin enforcement happens in Layer 2 (Convex requireAdmin guard).
+    // This middleware simply ensures unauthenticated users can't even see the admin UI.
+    // Authenticated non-admins will be caught by the admin layout's server-side check.
+    if (isAdminPage(request) && !isAuthenticated) {
+        return nextjsMiddlewareRedirect(request, "/sign-in");
     }
 });
 

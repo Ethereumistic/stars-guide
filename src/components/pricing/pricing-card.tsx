@@ -24,8 +24,8 @@ interface PricingCardProps {
 }
 
 export function PricingCard({ plan, index, isYearly }: PricingCardProps) {
-    const isPopular = plan.tier === "popular";
-    const isPremium = plan.tier === "premium";
+    const isPopular = plan.role === "popular";
+    const isPremium = plan.role === "premium";
     const [isHovered, setIsHovered] = useState(false);
 
     let glowColor = "rgba(71, 85, 105, 0.2)"; // base slate glow

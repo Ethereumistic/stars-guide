@@ -40,7 +40,13 @@ export default defineSchema({
         subEndsAt: v.optional(v.number()), // Access valid until this timestamp
 
         // Identity & Access
-        role: v.union(v.literal("user"), v.literal("admin"), v.literal("moderator")),
+        role: v.union(
+            v.literal("user"),
+            v.literal("popular"),
+            v.literal("premium"),
+            v.literal("admin"),
+            v.literal("moderator")
+        ),
 
         // Feature Flags (Smart Rollout)
         featureFlags: v.optional(v.object({
@@ -115,5 +121,88 @@ export default defineSchema({
         count: v.number(),
         resetAt: v.number(), // timestamp for when the limit resets
     }).index("by_userId_action", ["userId", "action"]),
+
+    // ─── DAILY HOROSCOPE ENGINE ───────────────────────────────────────
+
+    // 5. SYSTEM SETTINGS (Master Prompt Storage)
+    systemSettings: defineTable({
+        key: v.string(),          // e.g., "master_context"
+        content: v.string(),      // Raw markdown of the master prompt
+        updatedAt: v.number(),    // Timestamp of last edit
+        updatedBy: v.id("users"), // Which admin made the change
+    }).index("by_key", ["key"]),
+
+    // 6. ZEITGEISTS (World Vibe Context for Generation)
+    zeitgeists: defineTable({
+        title: v.string(),
+        isManual: v.boolean(),
+        archetypes: v.optional(v.array(v.string())),
+        summary: v.string(),
+        createdBy: v.id("users"),
+        createdAt: v.number(),
+    }).index("by_createdAt", ["createdAt"]),
+
+    // 7. HOROSCOPES (Generated Content — the product)
+    horoscopes: defineTable({
+        zeitgeistId: v.id("zeitgeists"),
+        sign: v.string(),             // One of the 12 canonical sign names
+        targetDate: v.string(),       // ISO "YYYY-MM-DD" (UTC-normalized)
+        content: v.string(),
+        status: v.union(v.literal("draft"), v.literal("published"), v.literal("failed")),
+        generatedBy: v.optional(v.id("generationJobs")),
+    }).index("by_sign_and_date", ["sign", "targetDate"])
+        .index("by_status", ["status"])
+        .index("by_date", ["targetDate"]),
+
+    // 8. GENERATION JOBS (Audit Trail + Progress Tracking)
+    generationJobs: defineTable({
+        adminUserId: v.id("users"),
+        zeitgeistId: v.id("zeitgeists"),
+        modelId: v.string(),              // e.g., "x-ai/grok-4.1-fast"
+        targetDates: v.array(v.string()),
+        targetSigns: v.array(v.string()),
+        status: v.union(
+            v.literal("running"),
+            v.literal("completed"),
+            v.literal("partial"),
+            v.literal("failed"),
+            v.literal("cancelled")
+        ),
+        progress: v.object({
+            completed: v.number(),
+            failed: v.number(),
+            total: v.number(),
+        }),
+        errors: v.optional(v.array(v.string())),
+        startedAt: v.number(),
+        completedAt: v.optional(v.number()),
+    }).index("by_status", ["status"])
+        .index("by_admin", ["adminUserId"]),
+
+    // 9. COSMIC WEATHER (Astronomical Data — computed daily)
+    cosmicWeather: defineTable({
+        date: v.string(),                  // "YYYY-MM-DD" UTC — primary lookup key
+        planetPositions: v.array(
+            v.object({
+                planet: v.string(),            // e.g. "Mars"
+                sign: v.string(),              // e.g. "Gemini"
+                degreeInSign: v.number(),      // 0–29.99
+                isRetrograde: v.boolean(),     // true if planet is retrograde
+            })
+        ),
+        moonPhase: v.object({
+            name: v.string(),                // e.g. "Waxing Gibbous"
+            illuminationPercent: v.number(), // 0–100
+        }),
+        activeAspects: v.array(
+            v.object({
+                planet1: v.string(),           // e.g. "Mars"
+                planet2: v.string(),           // e.g. "Pluto"
+                aspect: v.string(),            // "conjunction" | "opposition" | "trine" | "square" | "sextile"
+                orbDegrees: v.number(),        // how tight the aspect is
+            })
+        ),
+        generatedAt: v.number(),           // Date.now() timestamp for audit
+    }).index("by_date", ["date"]),
 
 });

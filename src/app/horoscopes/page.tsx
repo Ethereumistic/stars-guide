@@ -3,7 +3,7 @@
 import { compositionalSigns } from "@/astrology/signs";
 import { zodiacUIConfig } from "@/config/zodiac-ui";
 import { motion, Variants } from "motion/react";
-import { SignCard } from "@/components/learn/signs/sign-card";
+import { CompactSignCard } from "@/components/horoscopes/compact-sign-card";
 import { PageHeader } from "@/components/layout/page-header";
 import { useState } from "react";
 
@@ -12,8 +12,8 @@ const containerVariants: Variants = {
     visible: {
         opacity: 1,
         transition: {
-            staggerChildren: 0.1,
-            delayChildren: 0.2
+            staggerChildren: 0.05,
+            delayChildren: 0.1
         }
     }
 };
@@ -23,7 +23,7 @@ const mergedSigns = compositionalSigns.map(data => ({
     ui: zodiacUIConfig[data.id] || zodiacUIConfig['aries'] // Fallback just in case
 }));
 
-export default function SignsPage() {
+export default function HoroscopesHubPage() {
     const [activeTab, setActiveTab] = useState<string>("all");
 
     const filteredSigns = activeTab === "all"
@@ -35,29 +35,28 @@ export default function SignsPage() {
             <PageHeader
                 breadcrumbs={[
                     { label: "Home", href: "/" },
-                    { label: "Learn", href: "/learn" },
-                    { label: "Signs" },
+                    { label: "Horoscopes" },
                 ]}
-                title="The Twelve"
-                subtitle="Guardians"
+                title="Daily"
+                subtitle="Horoscopes"
                 activeFilter={activeTab}
                 onFilterChange={setActiveTab}
+                className="mb-12 lg:mb-16 gap-8"
             />
 
             {/* Grid */}
             <motion.div
                 key={activeTab} // Added key to trigger re-animation on filter change
-                className="grid mb-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mx-auto"
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 mx-auto mb-20"
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
             >
                 {filteredSigns.map(({ data, ui }) => (
-                    <SignCard key={data.id} data={data} ui={ui} />
+                    <CompactSignCard key={data.id} data={data} ui={ui} />
                 ))}
             </motion.div>
 
         </div>
     );
 }
-

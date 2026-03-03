@@ -254,3 +254,17 @@
 
 /* drop-shadow-[0_0_15px_rgba(212,175,55,0.3)] primary glow */
 /* drop-shadow-[0_0_15px_rgba(157,78,221,0.3)] galactic glow */
+
+@keyframes space-spin {
+	from {
+		transform: rotate(0deg);
+	}
+
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.space-spin {
+	animation: space-spin 60s linear infinite;
+}
