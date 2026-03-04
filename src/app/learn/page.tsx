@@ -49,9 +49,9 @@ const CATEGORIES = [
         subtitle: "Celestial Actors",
         description: "The Sun, Moon, and planets are the drivers of our inner psyche. Learn their deep mythology and psychological archetypes.",
         icon: TbPlanet,
-        href: "#",
+        href: "/learn/planets",
         gradient: "from-rose-500/10 via-purple-500/10 to-transparent",
-        status: "Coming Soon"
+        status: "Available"
     },
     {
         id: "aspects",

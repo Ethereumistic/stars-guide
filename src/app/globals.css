@@ -12,6 +12,17 @@
 	--color-water-secondary: var(--water-secondary);
 	--color-earth-secondary: var(--earth-secondary);
 	--color-air-secondary: var(--air-secondary);
+
+	--color-sun: var(--sun);
+	--color-moon: var(--moon);
+	--color-mercury: var(--mercury);
+	--color-venus: var(--venus);
+	--color-mars: var(--mars);
+	--color-jupiter: var(--jupiter);
+	--color-saturn: var(--saturn);
+	--color-uranus: var(--uranus);
+	--color-neptune: var(--neptune);
+	--color-pluto: var(--pluto);
 	--color-galactic: var(--galactic);
 	--color-galactic-dark: var(--galactic-dark);
 
@@ -115,6 +126,17 @@
 	--water-border: rgba(30, 144, 255, 0.15);
 	--water-gradient: linear-gradient(135deg, rgba(30, 144, 255, 0.1) 0%, rgba(70, 130, 180, 0.05) 100%);
 
+	--sun: #D4AF37;
+	--moon: #E0E0E0;
+	--mercury: #B0C4DE;
+	--venus: #CD7F32;
+	--mars: #B22222;
+	--jupiter: #DAA520;
+	--saturn: #A8A39D;
+	--uranus: #5F9EA0;
+	--neptune: #4682B4;
+	--pluto: #36454F;
+
 	--galactic: oklch(0.5881 0.2118 306.32);
 	--galactic-dark: oklch(0.4875 0.2135 303.58);
 
@@ -181,6 +203,17 @@
 	*/
 	--galactic: oklch(58.808% 0.21189 306.31);
 	--galactic-dark: oklch(0.4875 0.2135 303.58);
+
+	--sun: #D4AF37;
+	--moon: #E0E0E0;
+	--mercury: #B0C4DE;
+	--venus: #CD7F32;
+	--mars: #B22222;
+	--jupiter: #DAA520;
+	--saturn: #A8A39D;
+	--uranus: #5F9EA0;
+	--neptune: #4682B4;
+	--pluto: #36454F;
 
 	--background: oklch(13.416% 0.01726 262.183);
 	--foreground: oklch(0.9337 0.0055 95.1027);
