@@ -3,6 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { addDays, subDays, parseISO, format, isValid } from "date-fns";
 import { ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 import { use } from "react";
@@ -12,8 +13,9 @@ import { ElementType } from "@/astrology/elements";
 import { motion } from "motion/react";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { GiFlame, GiStonePile, GiTornado, GiWaveCrest } from "react-icons/gi";
-import { TbTriangleSquareCircle, TbCompass, TbBrandTether } from "react-icons/tb";
-import { SignTitleBlock, ConstellationGraphic, HoroscopeContentCard } from "@/components/layout/signs";
+import { TbTriangleSquareCircle, TbCompass, TbBrandTether, TbSparkles } from "react-icons/tb";
+import { SignTitleBlock, ConstellationGraphic, HoroscopeContentCard, SignSpecsGrid } from "@/components/layout/signs";
+import { planetUIConfig, PlanetUIConfig } from "@/config/planet-ui";
 
 const HOUSE_NAMES = ["1st House", "2nd House", "3rd House", "4th House", "5th House", "6th House", "7th House", "8th House", "9th House", "10th House", "11th House", "12th House"];
 
@@ -60,6 +62,33 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
     const prevDateStr = format(subDays(currentDate, 1), "yyyy-MM-dd");
     const nextDateStr = format(addDays(currentDate, 1), "yyyy-MM-dd");
 
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+    const currentDateNormalized = new Date(currentDate);
+    currentDateNormalized.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((currentDateNormalized.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    const prevTargetDate = subDays(currentDate, 1);
+    const nextTargetDate = addDays(currentDate, 1);
+    const prevDistance = Math.round((prevTargetDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
+    const nextDistance = Math.round((nextTargetDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    const getVariant = (distance: number) => {
+        if (distance === 0) return "outline";
+        if (Math.abs(distance) === 1) return "default";
+        return "galactic";
+    };
+
+    const getButtonText = (targetDateStr: string, isPrev: boolean) => {
+        if (targetDateStr === todayStr) {
+            return "TODAY";
+        }
+        if (diffDays === 0) {
+            return isPrev ? "PREVIOUS" : "NEXT";
+        }
+        return null;
+    };
+
     const formattedSign = sign.charAt(0).toUpperCase() + sign.slice(1).toLowerCase();
 
     const data = compositionalSigns.find(s => s.id === sign.toLowerCase());
@@ -75,6 +104,7 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
     }
 
     const houseIndex = compositionalSigns.findIndex(s => s.id === sign.toLowerCase());
+    const planetUi = planetUIConfig[data.ruler];
     const styles = getStyles(ui.elementName);
     const ElementIcon = getElementIcon(ui.elementName);
     const Icon = ui.icon;
@@ -121,8 +151,8 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
 
-                    {/* Left Column: Title Block + Smaller Constellation */}
-                    <div className="lg:col-span-5 flex flex-col">
+                    {/* Left Column: Title Block + Horoscope */}
+                    <div className="lg:col-span-5 flex flex-col space-y-12">
                         <SignTitleBlock
                             variant="horoscopes"
                             signName={data.name}
@@ -133,43 +163,28 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
                             borderColor={styles.primary}
                         />
 
-                        {/* Constellation - smaller, under the motto */}
-                        <div className="flex-1 flex items-center justify-center mt-6">
-                            <motion.div
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ duration: 1.5, ease: "easeOut", delay: 0.2 }}
-                                className="relative w-full max-w-[220px] md:max-w-[300px] lg:max-w-[280px] aspect-square"
-                            >
-                                <div
-                                    className="absolute inset-0 rounded-full border border-white/10 bg-black/40 flex items-center justify-center p-4 overflow-hidden"
-                                    style={{ boxShadow: `0_0_40px rgba(0,0,0,0.5)` }}
-                                >
-                                    <div
-                                        className="absolute inset-0 opacity-40"
-                                        style={{
-                                            background: `radial-gradient(circle at center, ${styles.glow} 0%, transparent 65%)`
-                                        }}
-                                    />
-                                    <div
-                                        className="absolute inset-0 pointer-events-none opacity-50"
-                                        style={{
-                                            backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px)`,
-                                            backgroundSize: '2rem 2rem'
-                                        }}
-                                    />
-                                    <img
-                                        src={ui.constellationUrl}
-                                        alt={`${data.name} Constellation`}
-                                        className="relative z-10 w-full h-full object-contain filter drop-shadow-[0_0_10px_rgba(255,255,255,0.15)] opacity-80 scale-125"
-                                    />
-                                </div>
-                            </motion.div>
+                        {/* Horoscope Content - now above specs on mobile */}
+                        <div className="lg:hidden">
+                            <HoroscopeContentCard
+                                horoscopeData={horoscopeData}
+                                date={date}
+                                styles={styles}
+                            />
                         </div>
+
+                        {/* Specs Grid */}
+                        <SignSpecsGrid
+                            specs={[
+                                { label: "Element", value: ui.elementName, icon: ElementIcon, subValue: "" },
+                                { label: "Modality", value: data.modality, icon: TbTriangleSquareCircle, subValue: "" },
+                                { label: "Ruler", value: data.ruler.charAt(0).toUpperCase() + data.ruler.slice(1), icon: TbSparkles, subValue: planetUi?.rulerSymbol || "" },
+                                { label: "House", value: HOUSE_NAMES[houseIndex] || "", icon: TbCompass, subValue: "" },
+                            ]}
+                        />
                     </div>
 
-                    {/* Right Column: Horoscope Content Card */}
-                    <div className="col-span-6 lg:col-span-7 lg:col-start-8">
+                    {/* Right Column: Horoscope Content Card - desktop only */}
+                    <div className="hidden lg:block col-span-6 lg:col-span-7 lg:col-start-8">
                         <HoroscopeContentCard
                             horoscopeData={horoscopeData}
                             date={date}
@@ -179,22 +194,34 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
                 </div>
 
                 {/* Pagination at bottom */}
-                <div className="flex flex-row gap-4 justify-between items-center mt-6 pt-6 border-t border-white/10">
-                    <Link
-                        href={`/horoscopes/${sign}/${prevDateStr}`}
-                        className="flex items-center px-5 py-2.5 border border-white/10 bg-black/40 rounded-sm font-mono text-[10px] uppercase tracking-[0.2em] text-white/60 hover:text-white hover:bg-white/5 transition-colors group"
+                <div className="flex flex-row gap-4 justify-between items-center mt-6">
+                    <Button
+                        variant={getVariant(prevDistance) as "outline" | "default" | "galactic"}
+                        className="font-serif"
+                        asChild
                     >
-                        <ChevronLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform opacity-50" />
-                        {prevDateStr}
-                    </Link>
+                        <Link
+                            href={`/horoscopes/${sign}/${prevDateStr}`}
+                            className="flex items-center"
+                        >
+                            <ChevronLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform opacity-50" />
+                            {getButtonText(prevDateStr, true) || prevDateStr}
+                        </Link>
+                    </Button>
 
-                    <Link
-                        href={`/horoscopes/${sign}/${nextDateStr}`}
-                        className="flex items-center px-5 py-2.5 border border-white/10 bg-black/40 rounded-sm font-mono text-[10px] uppercase tracking-[0.2em] text-white/60 hover:text-white hover:bg-white/5 transition-colors group"
+                    <Button
+                        variant={getVariant(nextDistance) as "outline" | "default" | "galactic"}
+                        className="font-serif"
+                        asChild
                     >
-                        {nextDateStr}
-                        <ChevronRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform opacity-50" />
-                    </Link>
+                        <Link
+                            href={`/horoscopes/${sign}/${nextDateStr}`}
+                            className="flex items-center"
+                        >
+                            {getButtonText(nextDateStr, false) || nextDateStr}
+                            <ChevronRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform opacity-50" />
+                        </Link>
+                    </Button>
                 </div>
             </div>
         </div>

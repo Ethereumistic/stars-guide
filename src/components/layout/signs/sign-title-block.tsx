@@ -33,23 +33,23 @@ export function SignTitleBlock({
             transition={{ duration: 1, ease: "easeOut" }}
             className="space-y-6"
         >
-            <div className="flex flex-col sm:flex-row items-start gap-6 border-b border-white/10 pb-8">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 border-b border-white/10 pb-6 sm:pb-8">
                 <div className="relative flex items-center justify-center shrink-0">
-                    <img src={elementFrameUrl} className="w-32 h-32 md:w-40 md:h-40 object-cover" alt="" />
+                    <img src={elementFrameUrl} className="w-40 h-40 md:w-40 md:h-40 object-cover" alt="" />
                     {icon}
                 </div>
-                <div className="space-y-2 pt-2 md:pt-4">
-                    <h1 className="text-6xl md:text-7xl lg:text-[5.5rem] xl:text-[6.5rem] font-serif text-white tracking-tighter leading-[0.85] break-words">
+                <div className="space-y-2 pt-2 md:pt-4 text-center sm:text-left">
+                    <h1 className="text-7xl md:text-7xl lg:text-[5.5rem] xl:text-[6.5rem] font-serif text-white tracking-tighter leading-[0.85] break-words">
                         {signName}
                     </h1>
-                    <p className="text-xl md:text-2xl font-serif italic text-white/60">
+                    <p className="text-2xl md:text-2xl font-serif italic text-white/60">
                         {subtitlePrefix}{subtitle}
                     </p>
                 </div>
             </div>
 
             <p
-                className="text-xs md:text-xl font-mono uppercase tracking-[0.25em] text-white border-l-2 pl-4 py-1"
+                className="text-base md:text-xl font-mono uppercase tracking-[0.25em] text-white border-l-2 pl-4 py-1"
                 style={{ borderColor }}
             >
                 "{motto}"

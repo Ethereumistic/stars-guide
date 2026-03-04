@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { Lock } from "lucide-react";
-import { TbSparkles } from "react-icons/tb";
 
 interface HoroscopeContent {
     content: string;
@@ -23,6 +22,54 @@ interface HoroscopeContentCardProps {
         primary: string;
         glow: string;
     };
+}
+
+function parseHoroscopeContent(content: string): string[] {
+    // 1. Split the text into an array of sentences, keeping punctuation intact
+    const sentenceRegex = /[^.!?]+[.!?]+["']?(?:\s+|$)/g;
+    const sentences = content.match(sentenceRegex)?.map(s => s.trim()) || [content];
+
+    // Fallback for unusually short content
+    if (sentences.length <= 2) return sentences;
+
+    // 2. The Hook / Title
+    const title = sentences[0];
+
+    // 3. Find the logical split point (The Reframing Pivot)
+    let splitIndex = -1;
+
+    for (let i = 1; i < sentences.length; i++) {
+        const currentSentence = sentences[i].toLowerCase();
+        const nextSentence = (sentences[i + 1] || "").toLowerCase();
+
+        // Look for the "isn't [x] -> it's [y]" pattern.
+        // It either happens in one sentence or across two consecutive ones.
+        if (currentSentence.includes("isn't")) {
+            if (currentSentence.includes("it's")) {
+                splitIndex = i; // Split right after this sentence
+                break;
+            } else if (nextSentence.includes("it's")) {
+                splitIndex = i + 1; // Split right after the next sentence
+                break;
+            }
+        }
+    }
+
+    // Fallback: If the specific pattern isn't found, split the body sentences in half
+    if (splitIndex === -1) {
+        splitIndex = Math.floor((sentences.length - 1) / 2);
+    }
+
+    // 4. Construct the body paragraphs
+    const para1 = sentences.slice(1, splitIndex + 1).join(" ");
+    const para2 = sentences.slice(splitIndex + 1).join(" ");
+
+    // Return an array with the Title as the first item, followed by the body paragraphs
+    return [title, para1, para2].filter(p => p.trim().length > 0);
+}
+
+function extractTitle(content: string): string {
+    return content.split(/[.!?]\s/)[0];
 }
 
 export function HoroscopeContentCard({
@@ -79,19 +126,37 @@ export function HoroscopeContentCard({
                 </div>
             )}
 
-            {horoscopeData !== null && "content" in horoscopeData && (
-                <div className="p-6 md:p-8 space-y-5">
-                    <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-                        <TbSparkles className="text-white/40 w-5 h-5" />
-                        <h3 className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/60">
-                            Daily Horoscope
-                        </h3>
+            {horoscopeData !== null && "content" in horoscopeData && (() => {
+                const paragraphs = parseHoroscopeContent(horoscopeData.content);
+                const title = extractTitle(paragraphs[0] || '');
+
+                let firstParagraphRest = paragraphs[0] || '';
+                const titleMatch = firstParagraphRest.match(/^[^.!?]*[.!?]\s*/);
+                if (titleMatch) {
+                    firstParagraphRest = firstParagraphRest.substring(titleMatch[0].length);
+                }
+
+                const bodyParagraphs = [
+                    firstParagraphRest,
+                    ...paragraphs.slice(1)
+                ].filter(p => p.trim().length > 0);
+
+                return (
+                    <div className="p-8 md:p-12 border-b border-white/10">
+                        <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/40 block mb-6">Daily Horoscope</span>
+                        <h2 className="text-3xl md:text-4xl font-serif text-white tracking-tight mb-8">
+                            {title}
+                        </h2>
+                        <div className="space-y-6">
+                            {bodyParagraphs.map((para, i) => (
+                                <p key={i} className="text-lg text-white/70 leading-relaxed font-serif">
+                                    {para}
+                                </p>
+                            ))}
+                        </div>
                     </div>
-                    <p className="text-base md:text-lg text-white/90 leading-relaxed font-serif whitespace-pre-wrap">
-                        {horoscopeData.content}
-                    </p>
-                </div>
-            )}
+                );
+            })()}
         </div>
     );
 }

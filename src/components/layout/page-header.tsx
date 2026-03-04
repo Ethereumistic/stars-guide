@@ -92,21 +92,21 @@ export function PageHeader({
                 </div>
 
                 {showElementFilter && onFilterChange && (
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-4 md:items-end text-center md:text-left">
                         <span className="text-base uppercase font-mono text-primary/60 tracking-[0.3em] font-bold">
                             Filter by Element
                         </span>
-                        <Tabs value={activeFilter} onValueChange={onFilterChange} className="w-fit rounded-md">
-                            <TabsList className="bg-white/5 border border-white/10 p-1 h-auto gap-2">
+                        <Tabs value={activeFilter} onValueChange={onFilterChange} className="w-fit rounded-md mx-auto md:mx-0">
+                            <TabsList className="bg-white/5 border border-white/10 p-1 h-auto gap-2 justify-center">
                                 {elementFilters.map((filter) => (
                                     <TabsTrigger
                                         key={filter.value}
                                         value={filter.value}
                                         className="rounded-md px-4 py-2 hover:bg-white/5 data-[state=active]:text-primary transition-all duration-300"
                                     >
-                                        {filter.icon && (
+                                        {filter.icon ? (
                                             <filter.icon
-                                                className={`size-4 mr-2 ${
+                                                className={`size-6 md:size-4 md:mr-2 ${
                                                     filter.value === "fire"
                                                         ? "text-fire"
                                                         : filter.value === "earth"
@@ -118,8 +118,11 @@ export function PageHeader({
                                                         : ""
                                                 }`}
                                             />
-                                        )}
-                                        <span className="font-mono text-xs uppercase tracking-wider">
+                                        ) : null}
+                                        <span className="font-mono text-sm md:text-xs uppercase tracking-wider md:hidden">
+                                            {filter.icon ? "" : filter.label}
+                                        </span>
+                                        <span className="font-mono text-xs uppercase tracking-wider hidden md:inline">
                                             {filter.label}
                                         </span>
                                     </TabsTrigger>
