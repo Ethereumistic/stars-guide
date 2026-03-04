@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ShootingStars } from "@/components/hero/shooting-stars"
 import { StarsBackground } from "@/components/hero/stars-background"
-import { GiAstrolabe, GiCrystalBall } from "react-icons/gi"
+import { GiAstrolabe, GiCrystalBall, GiCursedStar } from "react-icons/gi"
 import { ArrowRight, Sparkles } from "lucide-react"
 import { motion } from "motion/react"
 
@@ -18,26 +18,6 @@ export function Hero() {
 
     return (
         <section className="relative min-h-[calc(100vh-5rem)] flex items-center justify-center overflow-hidden">
-            {/* Animated Background */}
-            {/* <div className="fixed inset-0 z-0">
-                <ShootingStars
-                    minSpeed={15}
-                    maxSpeed={35}
-                    minDelay={800}
-                    maxDelay={3000}
-                    starColor="#d4af37"
-                    trailColor="#8b7355"
-                />
-                <StarsBackground
-                    starDensity={0.0002}
-                    allStarsTwinkle={true}
-                    twinkleProbability={0.8}
-                    minTwinkleSpeed={0.3}
-                    maxTwinkleSpeed={1.2}
-                />
-                <div className="absolute inset-0 bg-radial-[circle_at_50%_50%] from-transparent via-background/50 to-background opacity-50" />
-            </div> */}
-
             {/* Content Container */}
             <div className="relative z-10 mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
                 <div className="flex flex-col items-center text-center space-y-8">
@@ -121,6 +101,17 @@ export function Hero() {
                             <Link href="/readings" className="flex items-center gap-2">
                                 <GiCrystalBall className="size-5 transition-transform group-hover:scale-110 duration-300" />
                                 <span>Explore Readings</span>
+                            </Link>
+                        </Button>
+                        <Button
+                            size="lg"
+                            variant="galactic"
+                            asChild
+                            className="group font-serif uppercase tracking-widest text-base px-8 py-6 transition-all duration-300"
+                        >
+                            <Link href="/readings" className="flex items-center gap-2">
+                                <GiCursedStar className="size-5 transition-transform group-hover:scale-110 duration-300" />
+                                <span>Ask Oracle</span>
                             </Link>
                         </Button>
                     </motion.div>

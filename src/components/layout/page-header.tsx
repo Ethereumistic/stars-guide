@@ -92,31 +92,30 @@ export function PageHeader({
                 </div>
 
                 {showElementFilter && onFilterChange && (
-                    <div className="flex flex-col gap-4 md:items-end text-center md:text-left">
+                    <div className="flex flex-col gap-4 md:items-end text-center md:text-left mt-8 md:mt-0">
                         <span className="text-base uppercase font-mono text-primary/60 tracking-[0.3em] font-bold">
                             Filter by Element
                         </span>
-                        <Tabs value={activeFilter} onValueChange={onFilterChange} className="w-fit rounded-md mx-auto md:mx-0">
+                        <Tabs value={activeFilter} onValueChange={onFilterChange} className="w-fit rounded-md mx-auto md:mx-0 ">
                             <TabsList className="bg-white/5 border border-white/10 p-1 h-auto gap-2 justify-center">
                                 {elementFilters.map((filter) => (
                                     <TabsTrigger
                                         key={filter.value}
                                         value={filter.value}
-                                        className="rounded-md px-4 py-2 hover:bg-white/5 data-[state=active]:text-primary transition-all duration-300"
+                                        className="relative w-16 md:w-20 text-center px-4 py-2.5 text-sm font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300"
                                     >
                                         {filter.icon ? (
                                             <filter.icon
-                                                className={`size-6 md:size-4 md:mr-2 ${
-                                                    filter.value === "fire"
-                                                        ? "text-fire"
-                                                        : filter.value === "earth"
+                                                className={`size-6 md:size-4 md:mr-2 ${filter.value === "fire"
+                                                    ? "text-fire"
+                                                    : filter.value === "earth"
                                                         ? "text-earth"
                                                         : filter.value === "air"
-                                                        ? "text-air"
-                                                        : filter.value === "water"
-                                                        ? "text-water"
-                                                        : ""
-                                                }`}
+                                                            ? "text-air"
+                                                            : filter.value === "water"
+                                                                ? "text-water"
+                                                                : ""
+                                                    }`}
                                             />
                                         ) : null}
                                         <span className="font-mono text-sm md:text-xs uppercase tracking-wider md:hidden">

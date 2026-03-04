@@ -1,29 +1,74 @@
 "use client";
 
-import { motion, Variants } from "motion/react";
+import { motion, Variants, AnimatePresence } from "motion/react";
 import Link from "next/link";
-import { ComponentType } from "react";
-import { GiFlame, GiStonePile, GiTornado, GiWaveCrest } from "react-icons/gi";
+import { ComponentType, useMemo, useState } from "react";
 import {
     Card,
     CardContent,
 } from "@/components/ui/card";
+import {
+    TbZodiacAries, TbZodiacTaurus, TbZodiacGemini, TbZodiacCancer,
+    TbZodiacLeo, TbZodiacVirgo, TbZodiacLibra, TbZodiacScorpio,
+    TbZodiacSagittarius, TbZodiacCapricorn, TbZodiacAquarius, TbZodiacPisces,
+} from "react-icons/tb";
 
 const cardVariants: Variants = {
-    hidden: {
-        opacity: 0,
-        y: 20,
-        scale: 0.9,
-    },
+    hidden: { opacity: 0, y: 20, scale: 0.9 },
     visible: {
-        opacity: 1,
-        y: 0,
-        scale: 1,
-        transition: {
-            duration: 0.5,
-            ease: [0.22, 1, 0.36, 1]
-        }
+        opacity: 1, y: 0, scale: 1,
+        transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] }
     }
+};
+
+// ─── Zodiac icons array ───
+const ZODIAC_ICONS = [
+    TbZodiacAries, TbZodiacTaurus, TbZodiacGemini, TbZodiacCancer,
+    TbZodiacLeo, TbZodiacVirgo, TbZodiacLibra, TbZodiacScorpio,
+    TbZodiacSagittarius, TbZodiacCapricorn, TbZodiacAquarius, TbZodiacPisces,
+];
+
+// ─── Planet symbols ───
+const PLANET_SYMBOLS = ["☉", "☾", "☿", "♀", "♂", "♃", "♄", "⛢", "♆", "♇"];
+
+// ─── Aspect symbols ───
+const ASPECT_SYMBOLS = ["☌", "⚹", "□", "△", "☍", "⊼", "⊻"];
+
+// ─── Color palettes mirroring pricing-data.ts UI values ───
+// gray = Free tier, gold = Cosmic Flow, purple = Oracle
+const PALETTES = {
+    gray: {
+        glow: "rgba(71, 85, 105, 0.2)",
+        glowStrong: "rgba(71, 85, 105, 0.5)",
+        border: "rgba(255, 255, 255, 0.2)",
+        accent: "var(--color-white, #ffffff)",
+        accentRgb: "255,255,255",
+        glare: "rgba(255,255,255,0.06)",
+    },
+    gold: {
+        glow: "rgba(212, 175, 55, 0.4)",
+        glowStrong: "rgba(212, 175, 55, 0.6)",
+        border: "color-mix(in srgb, var(--primary) 60%, transparent)",
+        accent: "var(--primary)",
+        accentRgb: "212,175,55",
+        glare: "rgba(212, 175, 55, 0.08)",
+    },
+    purple: {
+        glow: "rgba(157, 78, 221, 0.4)",
+        glowStrong: "rgba(157, 78, 221, 0.6)",
+        border: "color-mix(in srgb, var(--galactic) 60%, transparent)",
+        accent: "var(--galactic)",
+        accentRgb: "157,78,221",
+        glare: "rgba(138, 43, 226, 0.08)",
+    }
+};
+
+// Map each category to a palette
+const CATEGORY_PALETTE: Record<string, keyof typeof PALETTES> = {
+    signs: "gold",
+    houses: "gray",
+    planets: "purple",
+    aspects: "gold"
 };
 
 interface CategoryCardData {
@@ -31,7 +76,7 @@ interface CategoryCardData {
     title: string;
     subtitle: string;
     description: string;
-    icon: ComponentType<{ className?: string }>;
+    icon: ComponentType<{ className?: string; style?: React.CSSProperties }>;
     href: string;
     gradient: string;
     status: string;
@@ -42,131 +87,153 @@ interface CompactCategoryCardProps {
     category: CategoryCardData;
 }
 
-const CATEGORY_ELEMENTS: Record<string, "Fire" | "Earth" | "Air" | "Water"> = {
-    signs: "Fire",
-    houses: "Earth",
-    planets: "Water",
-    aspects: "Air"
-};
-
-const getStyles = (element: "Fire" | "Earth" | "Air" | "Water") => {
-    const el = element.toLowerCase();
-    return {
-        primary: `var(--${el}-primary)`,
-        secondary: `var(--${el}-secondary)`,
-        glow: `var(--${el}-glow)`,
-        border: `var(--${el}-border)`,
-        gradient: `var(--${el}-gradient)`
-    };
-};
-
-const getElementIcon = (element: "Fire" | "Earth" | "Air" | "Water") => {
-    switch (element) {
-        case "Fire": return GiFlame;
-        case "Earth": return GiStonePile;
-        case "Air": return GiTornado;
-        case "Water": return GiWaveCrest;
-    }
-};
-
-const CONSTELLATION_URLS: Record<string, string> = {
-    signs: "https://cdn.jsdelivr.net/gh/Ethereumistic/stars-guide-assets/signs/constellations/aries.svg",
-    houses: "https://cdn.jsdelivr.net/gh/Ethereumistic/stars-guide-assets/signs/constellations/taurus.svg",
-    planets: "https://cdn.jsdelivr.net/gh/Ethereumistic/stars-guide-assets/signs/constellations/cancer.svg",
-    aspects: "https://cdn.jsdelivr.net/gh/Ethereumistic/stars-guide-assets/signs/constellations/gemini.svg"
-};
-
 export function CompactCategoryCard({ category }: CompactCategoryCardProps) {
     const { title, subtitle, icon: Icon, href, status, id } = category;
     const isLocked = status === "Coming Soon";
-    const element = category.element || CATEGORY_ELEMENTS[id] || "Fire";
-    const styles = getStyles(element);
-    const ElementIcon = getElementIcon(element);
-    const constellationUrl = CONSTELLATION_URLS[id];
+    const [isHovered, setIsHovered] = useState(false);
+
+    const paletteKey = CATEGORY_PALETTE[id] || "gray";
+    const palette = PALETTES[paletteKey];
+
+    const ringItems = useMemo(() => {
+        if (id === "signs") return ZODIAC_ICONS.map((ZIcon, i) => ({ type: "icon" as const, Icon: ZIcon, key: i }));
+        if (id === "houses") return Array.from({ length: 12 }, (_, i) => ({ type: "number" as const, num: i + 1, key: i }));
+        if (id === "planets") return PLANET_SYMBOLS.map((s, i) => ({ type: "symbol" as const, symbol: s, key: i }));
+        return ASPECT_SYMBOLS.map((s, i) => ({ type: "symbol" as const, symbol: s, key: i }));
+    }, [id]);
+
+    const total = ringItems.length;
 
     return (
         <motion.div variants={cardVariants} className="w-full">
             <Link
                 href={href}
-                className={`group relative block h-full ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                className={`group relative block ${isLocked ? "cursor-not-allowed" : "cursor-pointer"}`}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
             >
-                <Card className="relative h-full overflow-hidden rounded-xl bg-transparent border-0 shadow-none transition-all duration-500 group-hover:scale-[1.03] min-h-[200px]">
+                <Card className="relative overflow-hidden rounded-2xl bg-transparent border-0 shadow-none transition-all duration-500 group-hover:scale-[1.02] aspect-square">
+                    {/* Base */}
                     <div
-                        className="absolute inset-0 backdrop-blur-[0.5px]"
+                        className="absolute inset-0"
                         style={{
-                            background: `linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%)`,
-                            borderWidth: '1px',
-                            borderStyle: 'solid',
-                            borderImage: `linear-gradient(135deg, ${styles.border}, transparent) 1`
+                            background: `linear-gradient(160deg, rgba(12,12,20,0.97) 0%, rgba(6,6,12,0.99) 100%)`,
+                            border: `1px solid rgba(${palette.accentRgb},0.15)`,
+                            borderRadius: "1rem",
                         }}
                     />
 
-                    <div
-                        className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-500"
-                        style={{ background: styles.gradient }}
-                    />
+                    {/* Diagonal glare sweep (from pricing-card) */}
+                    <AnimatePresence>
+                        {isHovered && (
+                            <motion.div
+                                className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none z-1"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                <motion.div
+                                    className="absolute inset-0 w-[200%] h-[200%]"
+                                    initial={{ x: "-50%", y: "-50%" }}
+                                    animate={{ x: "50%", y: "50%" }}
+                                    transition={{ duration: 1.5, ease: "easeInOut" }}
+                                    style={{
+                                        background: `linear-gradient(135deg, transparent 0%, transparent 40%, ${palette.glare} 50%, transparent 60%, transparent 100%)`,
+                                    }}
+                                />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
 
-                    <div className="absolute inset-y-0 right-0 w-1/2 overflow-hidden pointer-events-none">
-                        <img
-                            src={constellationUrl}
-                            alt=""
-                            className="absolute top-1/2 right-[-20%] -translate-y-1/2 h-full object-contain opacity-15 scale-125 transition-all duration-700 group-hover:opacity-30 group-hover:scale-100 group-hover:right-0"
-                            style={{
-                                filter: `drop-shadow(0 0 10px ${styles.glow})`
-                            }}
+                    {/* Ornamental ring — centered in card */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        {/* Outer decorative circle */}
+                        <div
+                            className="absolute w-[90%] h-[90%] rounded-full opacity-10 group-hover:opacity-25 transition-all duration-700"
+                            style={{ border: `1px solid ${palette.accent}` }}
                         />
+                        <div
+                            className="absolute w-[65%] h-[65%] rounded-full opacity-5 group-hover:opacity-15 transition-all duration-700"
+                            style={{ border: `1px dashed rgba(${palette.accentRgb},0.5)` }}
+                        />
+
+                        {/* Items on the ring */}
+                        <div className="relative w-[85%] h-[85%] transition-transform duration-2500 ease-out group-hover:rotate-90">
+                            {ringItems.map((item, i) => {
+                                const angle = (360 / total) * i - 90;
+                                const rad = (angle * Math.PI) / 180;
+                                const radius = 46;
+                                const x = 50 + radius * Math.cos(rad);
+                                const y = 50 + radius * Math.sin(rad);
+                                return (
+                                    <div
+                                        key={item.key}
+                                        className="absolute opacity-10 group-hover:opacity-50 transition-opacity duration-700"
+                                        style={{
+                                            left: `${x}%`,
+                                            top: `${y}%`,
+                                            transform: "translate(-50%, -50%)",
+                                            color: palette.accent,
+                                            filter: `drop-shadow(0 0 4px ${palette.glow})`,
+                                        }}
+                                    >
+                                        {item.type === "icon" ? (
+                                            <item.Icon className="w-6 h-6 md:w-7 md:h-7 group-hover:-rotate-90 transition-transform duration-2500 ease-out" />
+                                        ) : item.type === "number" ? (
+                                            <div className="group-hover:-rotate-90 transition-transform duration-2500 ease-out">
+                                                <span className="text-base md:text-lg font-serif font-bold">{item.num}</span>
+                                            </div>
+                                        ) : (
+                                            <div className="group-hover:-rotate-90 transition-transform duration-2500 ease-out">
+                                                <span className="text-lg md:text-xl font-serif">{item.symbol}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
 
+                    {/* Glow pulse */}
                     <div
-                        className="absolute top-1/2 right-0 -translate-y-1/2 w-32 h-32 rounded-full opacity-0 group-hover:opacity-30 transition-opacity duration-500 blur-2xl"
-                        style={{ backgroundColor: styles.glow }}
+                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-700 blur-3xl"
+                        style={{ backgroundColor: palette.accent }}
                     />
 
-                    <CardContent className="relative p-5 h-full flex items-center justify-between z-10">
-                        <div className="flex flex-col h-full justify-center space-y-2 max-w-[65%]">
-                            <div className="flex items-center gap-2 mb-1">
-                                <ElementIcon
-                                    className="w-3.5 h-3.5"
-                                    style={{ color: styles.primary }}
-                                />
-                                <span
-                                    className="text-[9px] font-sans uppercase tracking-[0.2em] opacity-80"
-                                    style={{ color: styles.secondary }}
-                                >
-                                    {subtitle}
-                                </span>
-                            </div>
+                    <CardContent className="relative h-full flex flex-col justify-between z-10">
+                        {/* Top row: subtitle top-left, icon top-right */}
+                        <div className="flex items-start justify-between">
+                            {/* <span
+                                className="text-[9px] uppercase tracking-[0.3em] opacity-40 group-hover:opacity-80 transition-opacity duration-500"
+                                style={{ color: palette.accent }}
+                            >
+                                {subtitle}
+                            </span> */}
+                            <Icon
+                                className="w-7 h-7 opacity-40   group-hover:opacity-80 transition-all duration-500 group-hover:scale-110 "
+                                style={{ color: palette.accent, filter: `drop-shadow(0 0 10px ${palette.glow})` }}
+                            />
+                        </div>
 
+                        {/* Bottom: title and status */}
+                        <div className="flex items-center justify-center h-[100%] -mt-8" >
                             <h2
-                                className="text-2xl md:text-3xl font-serif tracking-wide transition-colors duration-300 group-hover:text-white"
-                                style={{
-                                    color: styles.secondary,
-                                    textShadow: `0 0 5px ${styles.glow}`
-                                }}
+                                className="text-2xl md:text-3xl font-serif text-center tracking-widest"
+                                style={{ color: palette.accent, textShadow: `0 0 25px ${palette.glow}` }}
                             >
                                 {title}
                             </h2>
-
-                            {isLocked && (
-                                <p className="text-[10px] font-sans text-white/40 uppercase tracking-widest mt-1">
-                                    Coming Soon
-                                </p>
-                            )}
-                        </div>
-
-                        <div className="relative flex items-center justify-center w-16 h-16 shrink-0 transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">
-                            <div style={{ filter: isLocked ? 'none' : `drop-shadow(0 0 8px ${styles.glow})` }}>
-                                <Icon
-                                    className={`w-12 h-12 transition-colors duration-500 ${isLocked ? 'text-white/20' : 'text-amber-100 group-hover:text-white'}`}
-                                />
-                            </div>
+                            {/* {isLocked && (
+                                <p className="text-[10px] text-white/25 uppercase tracking-widest mt-2">Coming Soon</p>
+                            )} */}
                         </div>
                     </CardContent>
                 </Card>
 
                 <div
-                    className="absolute inset-0 -z-10 rounded-xl opacity-0 group-hover:opacity-20 transition-opacity duration-500 blur-xl"
-                    style={{ backgroundColor: styles.glow }}
+                    className="absolute inset-0 -z-10 rounded-2xl opacity-0 group-hover:opacity-20 transition-opacity duration-700 blur-2xl"
+                    style={{ backgroundColor: palette.accent }}
                 />
             </Link>
         </motion.div>

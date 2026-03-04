@@ -75,7 +75,7 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
 
     const getVariant = (distance: number) => {
         if (distance === 0) return "outline";
-        if (Math.abs(distance) === 1) return "default";
+        if (Math.abs(distance) === 1) return "outline";
         return "galactic";
     };
 
@@ -84,7 +84,7 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
             return "TODAY";
         }
         if (diffDays === 0) {
-            return isPrev ? "PREVIOUS" : "NEXT";
+            return isPrev ? "YESTERDAY" : "TOMORROW";
         }
         return null;
     };
@@ -99,6 +99,8 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
         date: date,
     });
 
+    const isLoading = horoscopeData === undefined;
+
     if (!data || !ui) {
         return <div className="p-12 text-center text-white/50">Cannot load sign data.</div>;
     }
@@ -109,27 +111,8 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
     const ElementIcon = getElementIcon(ui.elementName);
     const Icon = ui.icon;
 
-    if (horoscopeData === undefined) {
-        return (
-            <div className="relative min-h-screen w-full text-foreground overflow-x-hidden">
-                <div className="relative z-10 max-w-[1600px] mx-auto px-6 md:px-12 animate-pulse space-y-8">
-                    <div className="h-4 w-64 bg-white/5 rounded"></div>
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                        <div className="lg:col-span-4 space-y-6">
-                            <div className="h-24 w-full bg-white/5 rounded"></div>
-                            <div className="w-48 h-48 rounded-full bg-white/5 mx-auto"></div>
-                        </div>
-                        <div className="lg:col-span-8">
-                            <div className="h-80 w-full bg-white/5 rounded"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <div className="relative min-h-screen w-full text-foreground overflow-x-hidden">
+        <div className="relative min-h-[91vh] w-full text-foreground overflow-x-hidden flex flex-col">
             <div className="fixed inset-0 z-0 pointer-events-none contain-strict">
                 <div
                     className="absolute top-[-10%] left-[0%] w-[140%] h-[140%] opacity-[0.15] mix-blend-screen"
@@ -139,7 +122,7 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
                 />
             </div>
 
-            <div className="relative z-10 max-w-[1600px] mx-auto px-6 md:px-12 pt-8 pb-8">
+            <div className="relative z-10 max-w-[1600px] mx-auto px-6 md:px-12 py-8 flex-1">
                 <PageBreadcrumbs
                     items={[
                         { label: "Home", href: "/" },
@@ -167,6 +150,7 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
                         <div className="lg:hidden">
                             <HoroscopeContentCard
                                 horoscopeData={horoscopeData}
+                                isLoading={isLoading}
                                 date={date}
                                 styles={styles}
                             />
@@ -187,14 +171,17 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
                     <div className="hidden lg:block col-span-6 lg:col-span-7 lg:col-start-8">
                         <HoroscopeContentCard
                             horoscopeData={horoscopeData}
+                            isLoading={isLoading}
                             date={date}
                             styles={styles}
                         />
                     </div>
                 </div>
+            </div>
 
-                {/* Pagination at bottom */}
-                <div className="flex flex-row gap-4 justify-between items-center mt-6">
+            {/* Pagination - at bottom of content, above footer */}
+            <div className="max-w-[1600px] mx-auto px-6 md:px-12 pb-8 ">
+                <div className="flex flex-row gap-4 justify-between items-center space-x-16">
                     <Button
                         variant={getVariant(prevDistance) as "outline" | "default" | "galactic"}
                         className="font-serif"

@@ -25,7 +25,12 @@ export default function AuthLayout({
             </motion.div>
 
             {/* Decorative vignette */}
-            <div className="absolute inset-0 bg-radial-[circle_at_center,var(--background)_0%,transparent_70%] pointer-events-none opacity-50" />
+            <div
+                className="fade-in absolute top-[-30%] left-1/2 -translate-x-1/2 w-[150vw] h-[150vh] opacity-7 mix-blend-screen pointer-events-none blur-3xl"
+                style={{
+                    background: `radial-gradient(circle at center, var(--galactic) 0%, transparent 60%)`
+                }}
+            />
         </div>
     )
 }

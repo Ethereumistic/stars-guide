@@ -90,7 +90,6 @@ export default function SignDetailPage() {
                     ]}
                     currentPage={`${data.name} // ${data.modality.toUpperCase()}`}
                     currentPageColor={styles.primary}
-                    animate={false}
                 />
 
                 {/* Hero Layout */}

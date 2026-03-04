@@ -112,7 +112,7 @@ export function SignUpForm({ className, title, subtitle, ...props }: SignUpFormP
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.2 }}
             >
-                <Card className="border-primary/20 bg-background/60 backdrop-blur-xl shadow-2xl shadow-primary/10">
+                <Card className="border-primary/10 bg-background/60 backdrop-blur-xl shadow-2xl shadow-primary/10">
                     <CardHeader className="space-y-2 text-center">
                         <CardTitle className="font-serif text-3xl tracking-tight text-foreground">
                             {title || "Create Account"}

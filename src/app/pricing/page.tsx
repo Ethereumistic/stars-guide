@@ -7,9 +7,14 @@ import { TbSparkles } from "react-icons/tb";
 import { PricingCard } from "@/components/pricing/pricing-card";
 import { plans } from "@/components/pricing/pricing-data";
 import { StardustPurchase } from "@/components/pricing/stardust-purchase";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { StardustPurchaseV1 } from "@/components/pricing/stardust-purchase-v1";
+
+import { StardustPurchaseV5 } from "@/components/pricing/stardust-purchase-v5";
 
 export default function PricingPage() {
     const [isYearly, setIsYearly] = useState(false);
+    const billingValue = isYearly ? "yearly" : "monthly";
 
     return (
         <div className="relative min-h-screen w-full text-foreground selection:bg-primary/30">
@@ -63,28 +68,29 @@ export default function PricingPage() {
                     transition={{ duration: 0.8, delay: 0.5 }}
                     className="flex justify-center mb-16 relative z-10"
                 >
-                    <div className="relative flex items-center p-1 bg-white/5 border border-white/10 rounded-full shadow-lg backdrop-blur-sm">
-                        <button
-                            onClick={() => setIsYearly(false)}
-                            className={`relative w-32 text-center z-10 px-4 py-2.5 text-sm font-medium transition-colors ${!isYearly ? "text-white" : "text-white/60 hover:text-white"}`}
-                        >
-                            Monthly
-                        </button>
-                        <button
-                            onClick={() => setIsYearly(true)}
-                            className={`relative w-32 text-center z-10 px-4 py-2.5 text-sm font-medium transition-colors ${isYearly ? "text-white" : "text-white/60 hover:text-white"}`}
-                        >
-                            Yearly
-                            {/* Saving Badge */}
-                            <span className="absolute -top-3 -right-2 bg-primary text-[#0A0F1A] text-[10px] font-bold px-2 py-0.5 rounded-full rotate-3 shadow-md">
-                                Save 20%
-                            </span>
-                        </button>
-                        {/* Active Pill Selector */}
-                        <div
-                            className={`absolute top-1 bottom-1 w-32 bg-white/10 border border-white/10 rounded-full shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none ${isYearly ? "translate-x-32" : "translate-x-0"}`}
-                        />
-                    </div>
+                    <Tabs
+                        value={billingValue}
+                        onValueChange={(value) => setIsYearly(value === "yearly")}
+                        className="w-auto"
+                    >
+                        <TabsList className="relative flex items-center p-1 bg-white/5 border border-white/10 shadow-lg backdrop-blur-sm h-auto">
+                            <TabsTrigger
+                                value="monthly"
+                                className="relative w-32 text-center px-4 py-2.5 text-sm font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300"
+                            >
+                                Monthly
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="yearly"
+                                className="relative w-32 text-center px-4 py-2.5 text-sm font-medium data-[state=active]:text-white text-white/60 hover:text-white  data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300"
+                            >
+                                Yearly
+                                <span className="absolute -top-3 -right-2 bg-primary text-[#0A0F1A] text-[10px] font-bold px-2 py-0.5 rounded-full rotate-3 shadow-md">
+                                    -44%
+                                </span>
+                            </TabsTrigger>
+                        </TabsList>
+                    </Tabs>
                 </motion.div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch w-full max-w-7xl mx-auto">
@@ -98,7 +104,11 @@ export default function PricingPage() {
                     ))}
                 </div>
 
-                <StardustPurchase />
+                {/* <StardustPurchase /> */}
+                <StardustPurchaseV1 />
+
+                {/* <StardustPurchaseV4 /> */}
+                <StardustPurchaseV5 />
 
                 {/* Bottom Decoration */}
                 <motion.div

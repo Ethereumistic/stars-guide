@@ -1,21 +1,13 @@
 "use client";
 
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, useInView } from "motion/react";
 import Link from "next/link";
 import { Check, X } from "lucide-react";
-import { PricingPlan } from "./pricing-data";
-import { useState } from "react";
+import { PricingPlan, IconMap } from "./pricing-data";
+import { useState, useRef, useEffect } from "react";
 import { StarsBackground } from "@/components/hero/stars-background";
 import { ShootingStars } from "@/components/hero/shooting-stars";
-import { GiPolarStar, GiBeveledStar, GiCursedStar, GiStarSwirl } from "react-icons/gi";
 import { Button } from "../ui/button";
-
-const IconMap: Record<string, React.ElementType> = {
-    GiPolarStar,
-    GiBeveledStar,
-    GiCursedStar,
-    GiStarSwirl,
-};
 
 interface PricingCardProps {
     plan: PricingPlan;
@@ -27,41 +19,25 @@ export function PricingCard({ plan, index, isYearly }: PricingCardProps) {
     const isPopular = plan.role === "popular";
     const isPremium = plan.role === "premium";
     const [isHovered, setIsHovered] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+    const cardRef = useRef<HTMLDivElement>(null);
+    const isInView = useInView(cardRef, { amount: 0.8, once: false });
 
-    let glowColor = "rgba(71, 85, 105, 0.2)"; // base slate glow
-    let borderColorClass = "border-white/20"; // base border
-    let diagonalGlareColor = "rgba(255,255,255,0.06)";
-    let titleColorClass = "text-white group-hover:text-slate-200 transition-colors";
-    let iconGlowColor = "drop-shadow-[0_0_8px_rgba(255,255,255,0.3)] transition-all duration-300";
-    let buttonGlowColor = "hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.1)] transition-all duration-300";
-    let iconColor = "text-white";
-    let iconAnimate = "group-hover:scale-110";
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener("resize", checkMobile);
+        return () => window.removeEventListener("resize", checkMobile);
+    }, []);
 
-    if (isPopular) {
-        glowColor = "rgba(212, 175, 55, 0.4)"; // primary/gold glow
-        borderColorClass = "border-primary/60";
-        diagonalGlareColor = "rgba(212, 175, 55, 0.08)";
-        titleColorClass = "text-primary drop-shadow-[0_0_15px_rgba(212,175,55,0.3)]";
-        iconGlowColor = "drop-shadow-[0_0_15px_rgba(212,175,55,0.6)] transition-all duration-300";
-        buttonGlowColor = "hover:drop-shadow-[0_0_8px_rgba(212,175,55,0.3)] transition-all duration-300";
-        iconColor = "text-primary";
-        iconAnimate = "group-hover:rotate-45 group-hover:scale-115 transition-all duration-1500"
-
-    } else if (isPremium) {
-        glowColor = "rgba(138, 43, 226, 0.4)"; // galactic/violet glow
-        borderColorClass = "border-galactic/60";
-        diagonalGlareColor = "rgba(138, 43, 226, 0.08)";
-        titleColorClass = "text-galactic drop-shadow-[0_0_15px_rgba(157,78,221,0.3)] group-hover:brightness-125 transition-all";
-        iconGlowColor = "drop-shadow-[0_0_15px_rgba(157,78,221,0.6)] transition-all duration-300";
-        buttonGlowColor = "hover:drop-shadow-[0_0_15px_rgba(138,43,226,0.6)] transition-all duration-300";
-        iconColor = "text-galactic";
-        iconAnimate = "group-hover:rotate-360 group-hover:scale-120 transition-all duration-2000"
-    }
+    const showGlare = isMobile ? isInView : isHovered;
 
     const Icon = IconMap[plan.icon];
+    const ui = plan.ui;
 
     return (
         <motion.div
+            ref={cardRef}
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 + index * 0.15, ease: [0.16, 1, 0.3, 1] }}
@@ -72,12 +48,12 @@ export function PricingCard({ plan, index, isYearly }: PricingCardProps) {
             {/* Outline Glow - constantly radiating, more intense on hover */}
             <div
                 className="absolute inset-0 -z-10 rounded-3xl opacity-15 group-hover:opacity-35 transition-opacity duration-1000 blur-xl group-hover:blur-2xl"
-                style={{ backgroundColor: glowColor }}
+                style={{ backgroundColor: ui.glowColor }}
             />
 
             {/* Main Card */}
             <div
-                className={`relative py-8 px-8  flex flex-col h-full bg-background/85 backdrop-blur-2xl rounded-3xl z-0 overflow-hidden shadow-2xl transition-transform duration-1000  border ${borderColorClass}`}
+                className={`relative py-8 px-8  flex flex-col h-full bg-background/85 backdrop-blur-2xl rounded-md z-0 overflow-hidden shadow-2xl transition-transform duration-1000  border ${ui.borderColor}`}
             >
 
                 <div className="absolute  inset-0 z-0 overflow-hidden rounded-3xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-700">
@@ -112,7 +88,7 @@ export function PricingCard({ plan, index, isYearly }: PricingCardProps) {
                 </div>
 
                 <AnimatePresence>
-                    {isHovered && (
+                    {showGlare && (
                         <motion.div
                             className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none z-0"
                             initial={{ opacity: 0 }}
@@ -126,7 +102,7 @@ export function PricingCard({ plan, index, isYearly }: PricingCardProps) {
                                 animate={{ x: "50%", y: "50%" }}
                                 transition={{ duration: 1.5, ease: "easeInOut" }}
                                 style={{
-                                    background: `linear-gradient(135deg, transparent 0%, transparent 40%, ${diagonalGlareColor} 50%, transparent 60%, transparent 100%)`,
+                                    background: `linear-gradient(135deg, transparent 0%, transparent 40%, ${ui.diagonalGlareColor} 50%, transparent 60%, transparent 100%)`,
                                 }}
                             />
                         </motion.div>
@@ -144,30 +120,35 @@ export function PricingCard({ plan, index, isYearly }: PricingCardProps) {
                 <div className="flex-1 z-10 space-y-4">
                     <div className=" flex items-center gap-3">
                         {Icon && (
-                            <div className={`${iconColor} ${iconGlowColor} ${iconAnimate} `}>
+                            <div className={`${ui.iconColor} ${ui.iconGlowColor} ${ui.iconAnimate} `}>
                                 <Icon className="size-10" />
                             </div>
                         )}
-                        <h3 className={`text-3xl font-serif text-nowrap font-bold ${titleColorClass}`}>
+                        <h3 className={`text-3xl font-serif text-nowrap font-bold ${ui.titleColorClass}`}>
                             {plan.name}
                         </h3>
                     </div>
 
-                    <div className="my-6 p-2">
+                    <div className="my-4 p-2">
                         <div className="flex items-baseline gap-2">
-                            <span className="text-5xl font-serif tracking-tight text-white">
-                                {isYearly ? plan.price.yearly : plan.price.monthly}
+                            <span
+                                className={`text-2xl font-serif tracking-tight text-white/40 line-through mr-1 transition-all duration-500 ease-out ${isYearly && plan.price.yearlyMonthly !== plan.price.monthly ? "opacity-100 max-w-20 translate-x-0" : "opacity-0 max-w-0 translate-x-4 overflow-hidden"}`}
+                            >
+                                {plan.price.monthly}
                             </span>
-                            {plan.price.monthly !== "€0" && <span className="text-muted-foreground">/{isYearly ? "yr" : "mo"}</span>}
+                            <span className="text-5xl font-serif tracking-tight text-white">
+                                {isYearly ? plan.price.yearlyMonthly : plan.price.monthly}
+                            </span>
+                            {plan.price.monthly !== "€0" && <span className="text-muted-foreground">/{isYearly ? "mo" : "mo"}</span>}
                         </div>
                         <p className="text-sm font-mono text-muted-foreground mt-2">
                             {isYearly ? plan.setup.yearly : plan.setup.monthly}
                         </p>
                     </div>
 
-                    <p className="p-2 text-sm text-white/80 leading-relaxed min-h-[40px]">{plan.description}</p>
+                    {/* <p className="p-2 text-sm text-white/80 leading-relaxed min-h-[40px]">{plan.description}</p> */}
 
-                    <div className="h-px w-full bg-linear-to-r from-transparent via-white/10 to-transparent my-8" />
+                    <div className="h-px w-full bg-linear-to-r from-transparent via-white/10 to-transparent my-4" />
 
                     <ul className="space-y-4 p-2">
                         {plan.features.map((feature, i) => (
@@ -192,10 +173,10 @@ export function PricingCard({ plan, index, isYearly }: PricingCardProps) {
                     </ul>
                 </div>
 
-                <div className="mt-12  z-10 transition-transform duration-300 group-hover:-translate-y-1">
-                    <Link href={plan.href} className={`w-full ${buttonGlowColor} relative inline-flex group/btn items-center justify-center p-px mb-2 overflow-hidden text-sm font-medium rounded-xl`}>
+                <div className="mt-8  z-10 transition-transform duration-300 group-hover:-translate-y-1">
+                    <Link href={plan.href} className={`w-full ${ui.buttonGlowColor} relative inline-flex group/btn items-center justify-center p-px mb-2 overflow-hidden text-sm font-medium rounded-xl`}>
                         {isPopular ? (
-                            <Button size="xl" variant="default" className="w-full uppercase font-serif font-bold ">
+                            <Button size="xl" variant="default" className="w-full uppercase font-serif font-bold">
                                 {plan.cta}
                             </Button>
                         ) : isPremium ? (

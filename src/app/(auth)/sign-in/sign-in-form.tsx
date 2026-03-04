@@ -101,12 +101,13 @@ export function SignInForm({ className, ...props }: React.ComponentPropsWithoutR
 
     return (
         <div className={cn('flex flex-col gap-6', className)} {...props}>
+
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.2 }}
             >
-                <Card className="border-primary/20 bg-background/60 backdrop-blur-xl shadow-2xl shadow-primary/10">
+                <Card className="border-primary/10 bg-background/60 backdrop-blur-xl shadow-2xl shadow-primary/10">
                     <CardHeader className="space-y-2 text-center">
                         <CardTitle className="font-serif text-3xl tracking-tight text-foreground">
                             Welcome Back
