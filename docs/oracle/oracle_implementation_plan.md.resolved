@@ -1,0 +1,85 @@
+# Oracle Admin CMS — Phase 4 Implementation Status
+
+## ✅ Completed Routes
+
+| Route | Page | Status |
+|---|---|---|
+| `/admin/oracle` | Overview Dashboard | ✅ Done |
+| `/admin/oracle/settings` | Settings (Soul Prompt, Models, Quotas, Controls) | ✅ Done |
+| `/admin/oracle/categories` | Category CRUD table | ✅ Done |
+| `/admin/oracle/templates` | Template CRUD with category tabs | ✅ Done |
+| `/admin/oracle/follow-ups` | Follow-up questions + options editor | ✅ Done |
+| `/admin/oracle/context-injection` | Category contexts + Scenario injections | ✅ Done |
+
+## Page Summaries
+
+### Overview Dashboard (`/admin/oracle`)
+- Live status card with kill switch indicator
+- Model fallback chain display (A → B → C → D)
+- Quota limits per tier (Free, Cosmic, Oracle)
+- Categories grid with icon, name, color
+- Quick links to all admin sections
+
+### Settings Page (`/admin/oracle/settings`)
+- **Soul Prompt** editor with version history
+- **Model Config**: 3-tier fallback chain, temperature/top-p sliders, max tokens, streaming toggle
+- **Quota Limits**: Per-tier daily/monthly/max-per-session quotas
+- **Operational Controls**: Kill switch with CONFIRM dialog, crisis response, fallback response D
+
+### Categories Page (`/admin/oracle/categories`)
+- Sortable table with icon, name, slug, color swatch, active toggle, display order
+- Create/Edit dialog with emoji picker, hex color input + color picker, auto-slug generation
+- Toggle active/inactive via `update` mutation (soft deactivation)
+
+### Templates Page (`/admin/oracle/templates`)
+- Tab bar filtering by category (All + each active category with count)
+- Table showing question text, short label, 3rd-party badge, active toggle, display order
+- Create/Edit dialog with category selector, third-party toggle with explanation panel
+
+### Follow-ups Page (`/admin/oracle/follow-ups`)
+- Template selector dropdown
+- Follow-up cards with question type badge, required badge, active toggle
+- Inline options editor for single_select / multi_select types (pill UI with hover edit/delete)
+- Create/Edit dialog for follow-up questions (5 types: single_select, multi_select, free_text, date, sign_picker)
+- Option CRUD dialog (label, value, display order)
+- Enforced max 3 follow-ups per template
+- Warning banner for non-third-party templates
+
+### Context & Injections Page (`/admin/oracle/context-injection`)
+- **Tab A — Category Contexts**: Inline textarea per active category, char/token count, save with version history, prompt preview button
+- **Tab B — Scenario Injections**: Template selector → structured mode (tone, psychological frame, avoid, emphasize, opening guide) OR raw override mode
+- Full prompt assembly preview dialog (shows Layers 1-3 stacked)
+
+## API Alignment
+
+All admin pages use the correct Convex function names:
+
+| Frontend Call | Backend Function |
+|---|---|
+| `api.oracle.categories.create` | `categories.create` |
+| `api.oracle.categories.update` | `categories.update` |
+| `api.oracle.categories.listAll` | `categories.listAll` |
+| `api.oracle.templates.create` | `templates.create` |
+| `api.oracle.templates.update` | `templates.update` |
+| `api.oracle.templates.listAll` | `templates.listAll` |
+| `api.oracle.followUps.createFollowUp` | `followUps.createFollowUp` |
+| `api.oracle.followUps.updateFollowUp` | `followUps.updateFollowUp` |
+| `api.oracle.followUps.createOption` | `followUps.createOption` |
+| `api.oracle.followUps.updateOption` | `followUps.updateOption` |
+| `api.oracle.followUps.deleteOption` | `followUps.deleteOption` |
+| `api.oracle.injections.saveCategoryContext` | `injections.saveCategoryContext` |
+| `api.oracle.injections.saveScenarioInjection` | `injections.saveScenarioInjection` |
+| `api.oracle.injections.listAllCategoryContexts` | `injections.listAllCategoryContexts` |
+| `api.oracle.injections.getScenarioInjection` | `injections.getScenarioInjection` |
+
+## Build Status
+- **TypeScript**: ✅ Zero errors (`npx tsc --noEmit` passes cleanly)
+- **All Oracle admin pages compile without issues**
+
+## Next Steps
+1. Wire full prompt assembly (natal context, category context, scenario injection) into the LLM action
+2. Add streaming response support to frontend
+3. Implement follow-up conditional logic
+4. Refine responsive design and animations
+5. Implement date picker and sign picker follow-up types in the chat UI
+6. Testing: unit and integration tests for Convex functions and frontend components

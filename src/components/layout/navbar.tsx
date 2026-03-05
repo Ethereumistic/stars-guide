@@ -33,7 +33,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 const navItems = [
     { title: "Horoscopes", href: "/horoscopes", icon: GiStarsStack },
     { title: "Learn", href: "/learn", icon: GiAstrolabe },
-    { title: "Oracle", href: "/oracle/1", icon: GiCursedStar },
+    { title: "Oracle", href: "/oracle", icon: GiCursedStar },
     { title: "Readings", href: "/readings", icon: GiCrystalBall },
     { title: "Pricing", href: "/pricing", icon: GiCoins },
 ]
@@ -42,6 +42,7 @@ export function Navbar() {
     const [scrolled, setScrolled] = React.useState(false)
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false)
     const pathname = usePathname()
+    const isOracle = pathname.startsWith("/oracle")
 
     // Handle Scroll Effect
     React.useEffect(() => {
@@ -78,12 +79,14 @@ export function Navbar() {
                         : "bg-transparent py-2"
                 )}
             >
-                <div className="mx-auto flex max-w-[90rem] h-16 items-center px-4 sm:px-6 lg:px-8">
-                    {/* --- Left Section: Logo --- */}
+                <div className={cn("mx-auto flex h-16 items-center px-4 sm:px-6 lg:px-8", isOracle ? "w-full" : "max-w-[90rem]")}>
+                    {/* --- Left Section: Logo (hidden on Oracle, shown in sidebar instead) --- */}
                     <div className="flex-1 flex items-center">
-                        <Link href="/" className="transition-transform duration-300 hover:scale-[1.02] z-50 relative">
-                            <Logo size="sm" />
-                        </Link>
+                        {!isOracle && (
+                            <Link href="/" className="transition-transform duration-300 hover:scale-[1.02] z-50 relative">
+                                <Logo size="sm" />
+                            </Link>
+                        )}
                     </div>
 
                     {/* --- Center Section: Desktop Nav links --- */}

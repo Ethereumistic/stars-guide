@@ -25,7 +25,12 @@ import {
     Shield,
     Loader2,
     Anchor,
+    MessageCircle,
+    Settings,
+    Tag,
+    Puzzle,
 } from "lucide-react";
+import { GiCursedStar } from "react-icons/gi";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -59,6 +64,39 @@ const adminNavItems = [
         title: "Review & Publish",
         href: "/admin/review",
         icon: ClipboardCheck,
+    },
+];
+
+const oracleNavItems = [
+    {
+        title: "Oracle Overview",
+        href: "/admin/oracle",
+        icon: LayoutDashboard,
+    },
+    {
+        title: "Categories",
+        href: "/admin/oracle/categories",
+        icon: Tag,
+    },
+    {
+        title: "Templates",
+        href: "/admin/oracle/templates",
+        icon: MessageCircle,
+    },
+    {
+        title: "Follow-ups",
+        href: "/admin/oracle/follow-ups",
+        icon: Puzzle,
+    },
+    {
+        title: "Context & Injections",
+        href: "/admin/oracle/context-injection",
+        icon: FileText,
+    },
+    {
+        title: "Settings",
+        href: "/admin/oracle/settings",
+        icon: Settings,
     },
 ];
 
@@ -106,11 +144,40 @@ export default function AdminLayout({
 
                     <Separator className="opacity-20" />
 
-                    <SidebarContent className="p-2">
+                    <SidebarContent className="p-2 overflow-y-auto">
                         <SidebarMenu>
                             {adminNavItems.map((item) => {
                                 const isActive = pathname === item.href ||
-                                    (item.href !== "/admin" && pathname?.startsWith(item.href));
+                                    (item.href !== "/admin" && pathname?.startsWith(item.href) && !pathname?.startsWith("/admin/oracle"));
+                                return (
+                                    <SidebarMenuItem key={item.href}>
+                                        <SidebarMenuButton
+                                            asChild
+                                            isActive={isActive}
+                                            className="transition-all duration-200"
+                                        >
+                                            <Link href={item.href}>
+                                                <item.icon className="h-4 w-4" />
+                                                <span>{item.title}</span>
+                                            </Link>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                );
+                            })}
+                        </SidebarMenu>
+
+                        {/* Oracle CMS Section */}
+                        <Separator className="opacity-20 my-3" />
+                        <div className="px-3 py-1.5 flex items-center gap-2">
+                            <GiCursedStar className="h-4 w-4 text-galactic" />
+                            <span className="text-[11px] font-semibold tracking-wider uppercase text-galactic/70">
+                                Oracle CMS
+                            </span>
+                        </div>
+                        <SidebarMenu>
+                            {oracleNavItems.map((item) => {
+                                const isActive = pathname === item.href ||
+                                    (item.href !== "/admin/oracle" && pathname?.startsWith(item.href));
                                 return (
                                     <SidebarMenuItem key={item.href}>
                                         <SidebarMenuButton
@@ -142,7 +209,7 @@ export default function AdminLayout({
                         <SidebarTrigger className="-ml-1" />
                         <Separator orientation="vertical" className="mr-2 h-4" />
                         <span className="text-sm text-muted-foreground">
-                            {adminNavItems.find((item) =>
+                            {[...adminNavItems, ...oracleNavItems].find((item) =>
                                 pathname === item.href ||
                                 (item.href !== "/admin" && pathname?.startsWith(item.href))
                             )?.title || "Dashboard"}

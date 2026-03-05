@@ -220,4 +220,212 @@ export default defineSchema({
         updatedAt: v.number(),
     }).index("by_active", ["isActive"]),
 
+    // ─── ORACLE AI ASTROLOGY GUIDE ────────────────────────────────────────
+
+    // 11. ORACLE CATEGORIES (The 6 domain badges)
+    oracle_categories: defineTable({
+        name: v.string(),                    // "Love", "Work", "Self", etc.
+        slug: v.string(),                    // "love", "work" — URL-safe, unique
+        icon: v.string(),                    // Lucide icon name or emoji string
+        description: v.string(),             // Short description for admin panel
+        displayOrder: v.number(),            // Sort order in UI (0-based)
+        color: v.string(),                   // Hex color for badge styling
+        isActive: v.boolean(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_slug", ["slug"])
+        .index("by_display_order", ["displayOrder"])
+        .index("by_active", ["isActive"]),
+
+    // 12. ORACLE TEMPLATES (Template questions linked to category)
+    oracle_templates: defineTable({
+        categoryId: v.id("oracle_categories"),
+        questionText: v.string(),            // Full template question shown to user
+        shortLabel: v.string(),              // Truncated for admin lists
+        requiresThirdParty: v.boolean(),     // If false: skip follow-up flow entirely
+        displayOrder: v.number(),
+        isActive: v.boolean(),
+        isDefault: v.boolean(),              // true = seeded by system
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_category", ["categoryId"])
+        .index("by_category_active", ["categoryId", "isActive"])
+        .index("by_active", ["isActive"]),
+
+    // 13. ORACLE FOLLOW-UPS (Follow-up questions for third-party context)
+    oracle_follow_ups: defineTable({
+        templateId: v.id("oracle_templates"),
+        questionText: v.string(),
+        questionType: v.union(
+            v.literal("single_select"),
+            v.literal("multi_select"),
+            v.literal("free_text"),
+            v.literal("date"),               // For third party birth date
+            v.literal("sign_picker"),         // 12-sign zodiac picker for third party
+            v.literal("conditional"),         // Appears based on previous answer
+        ),
+        contextLabel: v.string(),            // Label in assembled context: "Their birth date:"
+        displayOrder: v.number(),            // 0, 1, 2 (max 3 enforced in mutation)
+        isRequired: v.boolean(),
+        placeholder: v.optional(v.string()),
+        // For conditional questions:
+        conditionalOnFollowUpId: v.optional(v.id("oracle_follow_ups")),
+        conditionalOnValue: v.optional(v.string()), // Show this Q if previous answer === this value
+        isActive: v.boolean(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_template", ["templateId"])
+        .index("by_template_active", ["templateId", "isActive"]),
+
+    // 14. ORACLE FOLLOW-UP OPTIONS (Options for select-type follow-ups)
+    oracle_follow_up_options: defineTable({
+        followUpId: v.id("oracle_follow_ups"),
+        label: v.string(),                   // Displayed to user
+        value: v.string(),                   // Stored in answer + assembled context
+        displayOrder: v.number(),
+        isActive: v.boolean(),
+    })
+        .index("by_follow_up", ["followUpId"]),
+
+    // 15. ORACLE SCENARIO INJECTIONS (Per-template prompt behavioral modifiers)
+    oracle_scenario_injections: defineTable({
+        templateId: v.id("oracle_templates"),
+        toneModifier: v.string(),
+        psychologicalFrame: v.string(),
+        avoid: v.string(),
+        emphasize: v.string(),
+        openingAcknowledgmentGuide: v.string(),
+        rawInjectionText: v.optional(v.string()), // Override: full freeform injection text
+        useRawText: v.boolean(),             // Toggle: use structured fields vs raw override
+        isActive: v.boolean(),
+        version: v.number(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_template", ["templateId"]),
+
+    // 16. ORACLE CATEGORY CONTEXTS (Per-category domain framing blocks)
+    oracle_category_contexts: defineTable({
+        categoryId: v.id("oracle_categories"),
+        contextText: v.string(),
+        isActive: v.boolean(),
+        version: v.number(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_category", ["categoryId"]),
+
+    // 17. ORACLE SETTINGS (Key-value config: soul prompt, models, limits, etc.)
+    oracle_settings: defineTable({
+        key: v.string(),
+        value: v.string(),                   // Always stored as string — parsed at app layer
+        valueType: v.union(
+            v.literal("string"),
+            v.literal("number"),
+            v.literal("boolean"),
+            v.literal("json"),
+        ),
+        label: v.string(),                   // Human-readable label for admin
+        description: v.optional(v.string()),
+        group: v.string(),                   // "model", "quota", "content", "safety", "operational"
+        updatedAt: v.number(),
+        updatedBy: v.optional(v.id("users")),
+    })
+        .index("by_key", ["key"])
+        .index("by_group", ["group"]),
+
+    // 18. ORACLE PROMPT VERSIONS (Version history for prompt content rollback)
+    oracle_prompt_versions: defineTable({
+        entityType: v.union(
+            v.literal("soul_prompt"),
+            v.literal("category_context"),
+            v.literal("scenario_injection"),
+        ),
+        entityId: v.string(),               // Convex ID of the entity (as string)
+        content: v.string(),                 // Full content snapshot
+        version: v.number(),
+        savedBy: v.optional(v.id("users")),
+        savedAt: v.number(),
+        label: v.optional(v.string()),       // Admin can tag versions: "pre-gpt4o switch"
+    })
+        .index("by_entity", ["entityType", "entityId"])
+        .index("by_entity_version", ["entityType", "entityId", "version"]),
+
+    // 19. ORACLE QUOTA USAGE (Server-authoritative question tracking)
+    oracle_quota_usage: defineTable({
+        userId: v.id("users"),
+        // For roles with rolling 24h reset:
+        dailyCount: v.number(),              // Questions used in current 24h window
+        dailyWindowStart: v.number(),        // Timestamp when current window started (ms)
+        // For free tier (lifetime cap):
+        lifetimeCount: v.number(),           // Total questions ever asked (never decremented)
+        // Metadata
+        lastQuestionAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_user", ["userId"]),
+
+    // 20. ORACLE SESSIONS (User conversation sessions)
+    oracle_sessions: defineTable({
+        userId: v.id("users"),
+        title: v.string(),                   // Auto-generated from first question (~40 chars)
+        categoryId: v.optional(v.id("oracle_categories")),
+        templateId: v.optional(v.id("oracle_templates")),
+        status: v.union(
+            v.literal("collecting_context"),  // In follow-up flow
+            v.literal("active"),              // Oracle answered, conversation ongoing
+            v.literal("completed"),           // Session ended
+        ),
+        messageCount: v.number(),
+        // Which model was used for the primary Oracle response
+        primaryModelUsed: v.optional(v.string()),
+        // Was fallback triggered?
+        usedFallback: v.optional(v.boolean()),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+        lastMessageAt: v.number(),
+    })
+        .index("by_user", ["userId"])
+        .index("by_user_updated", ["userId", "updatedAt"]),
+
+    // 21. ORACLE MESSAGES (Individual messages in a session)
+    oracle_messages: defineTable({
+        sessionId: v.id("oracle_sessions"),
+        role: v.union(
+            v.literal("user"),
+            v.literal("assistant"),           // Oracle's response
+            v.literal("follow_up_prompt"),    // A follow-up question shown to the user
+        ),
+        content: v.string(),
+        isFollowUpQuestion: v.boolean(),
+        followUpId: v.optional(v.id("oracle_follow_ups")),
+        // LLM metadata (only on assistant messages)
+        modelUsed: v.optional(v.string()),
+        promptTokens: v.optional(v.number()),
+        completionTokens: v.optional(v.number()),
+        fallbackTierUsed: v.optional(v.union(
+            v.literal("A"),
+            v.literal("B"),
+            v.literal("C"),
+            v.literal("D"),                   // D = hardcoded fallback
+        )),
+        createdAt: v.number(),
+    })
+        .index("by_session", ["sessionId"])
+        .index("by_session_created", ["sessionId", "createdAt"]),
+
+    // 22. ORACLE FOLLOW-UP ANSWERS (User's follow-up answers per session)
+    oracle_follow_up_answers: defineTable({
+        sessionId: v.id("oracle_sessions"),
+        followUpId: v.id("oracle_follow_ups"),
+        answer: v.string(),                  // Serialized — JSON for multi_select
+        skipped: v.boolean(),                // true if user skipped optional question
+        answeredAt: v.number(),
+    })
+        .index("by_session", ["sessionId"])
+        .index("by_session_followup", ["sessionId", "followUpId"]),
+
 });
