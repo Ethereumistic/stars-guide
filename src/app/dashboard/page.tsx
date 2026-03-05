@@ -113,9 +113,9 @@ export default function DashboardPage() {
 
                 {/* Elemental Balance Card */}
                 <ElementalBalanceCard
-                    sunUI={sunUI}
-                    moonUI={moonUI}
-                    risingUI={risingUI}
+                    sunData={sunData}
+                    moonData={moonData}
+                    risingData={risingData}
                     delay={0.4}
                 />
 

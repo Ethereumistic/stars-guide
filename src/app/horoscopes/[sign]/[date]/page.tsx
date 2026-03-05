@@ -12,34 +12,13 @@ import { zodiacUIConfig } from "@/config/zodiac-ui";
 import { ElementType } from "@/astrology/elements";
 import { motion } from "motion/react";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
-import { GiFlame, GiStonePile, GiTornado, GiWaveCrest } from "react-icons/gi";
+import { elementUIConfig } from "@/config/elements-ui";
 import { TbTriangleSquareCircle, TbCompass, TbBrandTether, TbSparkles } from "react-icons/tb";
 import { SignTitleBlock, ConstellationGraphic, SignSpecsGrid } from "@/components/learn/signs";
 import { planetUIConfig, PlanetUIConfig } from "@/config/planet-ui";
 import { HoroscopeContentCard } from "@/components/horoscopes/horoscope-content-card";
 
 const HOUSE_NAMES = ["1st House", "2nd House", "3rd House", "4th House", "5th House", "6th House", "7th House", "8th House", "9th House", "10th House", "11th House", "12th House"];
-
-const getElementIcon = (element: ElementType) => {
-    switch (element) {
-        case "Fire": return GiFlame;
-        case "Earth": return GiStonePile;
-        case "Air": return GiTornado;
-        case "Water": return GiWaveCrest;
-    }
-    return GiFlame;
-};
-
-const getStyles = (element: "Fire" | "Earth" | "Air" | "Water") => {
-    const el = element.toLowerCase();
-    return {
-        primary: `var(--${el}-primary)`,
-        secondary: `var(--${el}-secondary)`,
-        glow: `var(--${el}-glow)`,
-        border: `var(--${el}-border)`,
-        gradient: `var(--${el}-gradient)`
-    };
-};
 
 export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: string, date: string }> }) {
     const { sign, date } = use(params);
@@ -108,8 +87,9 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
 
     const houseIndex = compositionalSigns.findIndex(s => s.id === sign.toLowerCase());
     const planetUi = planetUIConfig[data.ruler];
-    const styles = getStyles(ui.elementName);
-    const ElementIcon = getElementIcon(ui.elementName);
+    const elementUi = elementUIConfig[data.element];
+    const styles = elementUi.styles;
+    const ElementIcon = elementUi.icon;
     const Icon = ui.icon;
 
     return (
@@ -143,7 +123,7 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
                             subtitle={displayDate}
                             motto={data.motto}
                             icon={<Icon className="absolute w-12 h-12 md:w-16 md:h-16 stroke-1" />}
-                            elementFrameUrl={ui.elementFrameUrl}
+                            elementFrameUrl={elementUi.frameUrl}
                             borderColor={styles.primary}
                         />
 
@@ -160,7 +140,7 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
                         {/* Specs Grid */}
                         <SignSpecsGrid
                             specs={[
-                                { label: "Element", value: ui.elementName, icon: ElementIcon, subValue: "" },
+                                { label: "Element", value: data.element, icon: ElementIcon, subValue: "" },
                                 { label: "Modality", value: data.modality, icon: TbTriangleSquareCircle, subValue: "" },
                                 { label: "Ruler", value: data.ruler.charAt(0).toUpperCase() + data.ruler.slice(1), icon: TbSparkles, subValue: planetUi?.rulerSymbol || "" },
                                 { label: "House", value: HOUSE_NAMES[houseIndex] || "", icon: TbCompass, subValue: "" },

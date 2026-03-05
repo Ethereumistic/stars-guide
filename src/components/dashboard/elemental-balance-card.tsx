@@ -1,7 +1,7 @@
 'use client'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { SignUIConfig } from "@/config/zodiac-ui"
+import { SignData } from "@/astrology/signs"
 import { motion } from "motion/react"
 import { GiFlame, GiStonePile, GiTornado, GiWaveCrest } from "react-icons/gi"
 
@@ -42,13 +42,13 @@ const ELEMENTS = {
 }
 
 interface ElementalBalanceCardProps {
-    sunUI: SignUIConfig | undefined
-    moonUI: SignUIConfig | undefined
-    risingUI: SignUIConfig | undefined
+    sunData: SignData | undefined
+    moonData: SignData | undefined
+    risingData: SignData | undefined
     delay?: number
 }
 
-export function ElementalBalanceCard({ sunUI, moonUI, risingUI, delay = 0.4 }: ElementalBalanceCardProps) {
+export function ElementalBalanceCard({ sunData, moonData, risingData, delay = 0.4 }: ElementalBalanceCardProps) {
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -66,8 +66,8 @@ export function ElementalBalanceCard({ sunUI, moonUI, risingUI, delay = 0.4 }: E
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {Object.entries(ELEMENTS).map(([key, element]) => {
                             const ElementIcon = element.icon
-                            const count = [sunUI, moonUI, risingUI].filter(
-                                s => s?.elementName === key
+                            const count = [sunData, moonData, risingData].filter(
+                                s => s?.element === key
                             ).length
 
                             return (

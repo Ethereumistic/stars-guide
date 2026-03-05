@@ -95,9 +95,6 @@ export const SIGN_EXTENDED_DATA: Record<string, {
     weakness: string;
     talent: string;
     insight: string;
-    elementalTitle: string;
-    elementalInsight: string;
-    elementalPath: string;
 }> = {
     aries: {
         modality: "Cardinal",
@@ -116,9 +113,6 @@ export const SIGN_EXTENDED_DATA: Record<string, {
         weakness: "Impulsivity and \"Start-up energy\" burnout (starting many fires but finishing none).",
         talent: "Activation. The ability to mobilize energy out of nothing.",
         insight: "You likely possess a high \"bias for action.\" Psychologically, you are driven by dopamine rewards tied to novelty and overcoming resistance. You aren't necessarily \"aggressive\"; you just have a low tolerance for inefficiency and hesitation.",
-        elementalTitle: "Ignition",
-        elementalInsight: "You are the spark that starts the blaze. Your fire is raw, unfiltered initiation. You don't sustain—you activate. You're the one who sees the need for change and moves before others finish deliberating. You break inertia and force evolution through decisive action.",
-        elementalPath: "Learn that not every beginning requires burning down what came before."
     },
     taurus: {
         modality: "Fixed",
@@ -137,9 +131,6 @@ export const SIGN_EXTENDED_DATA: Record<string, {
         weakness: "Inertia. The resistance to change can look like stubbornness, but is actually a preservation instinct.",
         talent: "Sustainment. The ability to maintain effort long after others have quit.",
         insight: "You value empirical evidence over theory. If you can’t touch it, see it, or quantify it, you are skeptical. Your \"stubbornness\" is actually high cognitive persistence—once you verify a fact or method is sound, you stick to it to maximize efficiency.",
-        elementalTitle: "Foundation",
-        elementalInsight: "You are the bedrock. Your earth doesn't shift—it anchors. You build structures meant to last, accumulating value through patience and consistency. When others chase what's urgent, you invest in what endures. Your stability becomes the ground others stand on.",
-        elementalPath: "Learn that the ground sometimes needs to shift for new growth to emerge."
     },
     gemini: {
         modality: "Mutable",
@@ -158,9 +149,6 @@ export const SIGN_EXTENDED_DATA: Record<string, {
         weakness: "Analysis paralysis or scattered focus (The \"Jack of all trades\" syndrome).",
         talent: "Translation. The ability to explain complex ideas simply and adapt your personality to fit the room.",
         insight: "You possess high \"Cognitive Flexibility.\" Your brain craves new neural pathways, which manifests as a need for variety. You aren't \"two-faced\"; you are context-dependent, rapidly adjusting your behavior to optimize social friction.",
-        elementalTitle: "Distribution",
-        elementalInsight: "You are the wind. Your air doesn't concentrate—it circulates. You gather information from one place and carry it to another, naturally connecting disparate ideas and people. You're fluent in multiple contexts and can translate between them with ease.",
-        elementalPath: "Learn that connection without depth becomes mere distraction."
     },
     cancer: {
         modality: "Cardinal",
@@ -179,9 +167,6 @@ export const SIGN_EXTENDED_DATA: Record<string, {
         weakness: "Over-identification with the emotions of others (empathetic distress).",
         talent: "Emotional Intelligence. A visceral understanding of human needs before they are spoken.",
         insight: "You are hyper-attentive to non-verbal cues and micro-expressions. Your \"moodiness\" is a reaction to environmental stimuli that others miss. You value tribal cohesion and security, acting as the \"social glue\" in groups.",
-        elementalTitle: "Tide",
-        elementalInsight: "You are the wave. Your water doesn't just feel—it moves. You respond to emotional currents and create environments where others feel safe enough to be vulnerable. You understand that belonging is built through consistent care and attention.",
-        elementalPath: "Learn that you cannot carry everyone's emotional weight—some people must learn to swim on their own."
     },
     leo: {
         modality: "Fixed",
@@ -200,9 +185,6 @@ export const SIGN_EXTENDED_DATA: Record<string, {
         weakness: "Reliance on external validation to regulate self-esteem.",
         talent: "Magnetism. The ability to influence the mood of a room simply by entering it.",
         insight: "You have a high drive for \"Social Dominance\" in the benevolent sense—you want to lead and inspire. You understand the psychology of presentation: perception is reality. You aren't just \"vain\"; you are curating your avatar for maximum impact.",
-        elementalTitle: "Sustained Burn",
-        elementalInsight: "You are the eternal flame. Your fire doesn't ignite—it radiates. You turn raw energy into a steady source that others rely upon. You don't just create—you maintain presence and consistency over time. Your warmth draws people in and holds their attention.",
-        elementalPath: "Learn that true brilliance doesn't need constant validation—it simply exists."
     },
     virgo: {
         modality: "Mutable",
@@ -221,9 +203,6 @@ export const SIGN_EXTENDED_DATA: Record<string, {
         weakness: "Analysis paralysis and turning the critical lens inward (imposter syndrome).",
         talent: "Diagnosis. Seeing the flaw in the pattern instantly.",
         insight: "You are a systems thinker. You don't \"nag\"; you troubleshoot. Your brain is wired for pattern recognition regarding efficiency. If something is broken, your cognitive itch demands you fix it. You are the ultimate realist.",
-        elementalTitle: "Refinement",
-        elementalInsight: "You are the cultivated garden. Your earth doesn't just exist—it optimizes. You turn raw material into something functional and efficient. You see the gap between 'how it is' and 'how it could be better,' and you can't rest until you close it.",
-        elementalPath: "Learn that imperfection is sometimes the most honest form of beauty."
     },
     libra: {
         modality: "Cardinal",
@@ -242,9 +221,6 @@ export const SIGN_EXTENDED_DATA: Record<string, {
         weakness: "Indecision (seeking the \"perfect\" choice) and suppressing anger to keep the peace.",
         talent: "Calibration. The ability to assess social dynamics and adjust to restore flow.",
         insight: "You possess high \"Social Intelligence.\" You are a dialectical thinker—you naturally see the thesis and antithesis of every argument. You aren't \"fake\"; you are diplomatic, prioritizing group cohesion over individual ego.",
-        elementalTitle: "Equilibrium",
-        elementalInsight: "You are the atmosphere. Your air doesn't scatter—it balances. You instinctively sense when things are off-kilter and work to restore harmony. You see validity in opposing viewpoints and can hold space for contradiction.",
-        elementalPath: "Learn that perfect balance is impossible—sometimes choosing a side is the most honest thing you can do."
     },
     scorpio: {
         modality: "Fixed",
@@ -263,9 +239,6 @@ export const SIGN_EXTENDED_DATA: Record<string, {
         weakness: "Paranoia and the tendency to \"burn it all down\" when hurt.",
         talent: "Resilience. The psychological capacity to endure high-pressure situations and emerge stronger.",
         insight: "You have a \"Investigative\" personality type. You are not satisfied with surface-level data; you look for root causes and hidden motives. Your intensity is simply a high level of focus and a refusal to engage in cognitive dissonance (lying to yourself).",
-        elementalTitle: "Depths",
-        elementalInsight: "You are the abyss. Your water doesn't flow—it transforms. You don't accept surface explanations; you dive beneath to understand the true nature of things. You're drawn to what others avoid and possess the strength to face uncomfortable truths.",
-        elementalPath: "Learn that not every mystery needs solving—some things can remain unknown."
     },
     sagittarius: {
         modality: "Mutable",
@@ -284,9 +257,6 @@ export const SIGN_EXTENDED_DATA: Record<string, {
         weakness: "Tactlessness (blunt truth) and commitment issues (fear of missing out on the next horizon).",
         talent: "Vision. The ability to see potential outcomes and optimistic futures that others can't.",
         insight: "You score high in \"Openness to Experience\" (Big 5 Trait). You have a biological drive for novelty. You aren't \"flaky\"; you are an information-forager who learns best through immersion and trial-and-error rather than rote memorization.",
-        elementalTitle: "Wildfire",
-        elementalInsight: "You are the spreading flame. Your fire doesn't stay put—it explores. You carry energy across boundaries and into unfamiliar territory. You're driven by the question 'what else is possible?' and refuse to accept limitations as final.",
-        elementalPath: "Learn that depth sometimes matters more than distance traveled."
     },
     capricorn: {
         modality: "Cardinal",
@@ -305,9 +275,6 @@ export const SIGN_EXTENDED_DATA: Record<string, {
         weakness: "Ruthlessness with self (and others) and equating self-worth with productivity.",
         talent: "Execution. The ability to turn abstract goals into concrete reality.",
         insight: "You are \"Goal-Oriented\" and \"Conscientious.\" You view life as a resource management game. You aren't \"cold\"; you are efficient with your emotional energy, preferring to invest it where it yields a return (ROI).",
-        elementalTitle: "Summit",
-        elementalInsight: "You are the mountain. Your earth doesn't settle—it ascends. You measure life in milestones, not moments, building toward something greater with each step. Delayed gratification is your natural state; you understand that worthwhile things take time.",
-        elementalPath: "Learn that achievement means nothing if the climb leaves you isolated."
     },
     aquarius: {
         modality: "Fixed",
@@ -326,9 +293,6 @@ export const SIGN_EXTENDED_DATA: Record<string, {
         weakness: "God-complex (intellectual arrogance) and difficulty with one-on-one intimacy.",
         talent: "Divergent Thinking. The ability to connect unrelated concepts to solve problems.",
         insight: "You are a non-conformist by nature. Psychologically, you have a low need for social approval and a high need for intellectual autonomy. You aren't \"aloof\"; you are objective, able to separate facts from feelings to analyze systems without bias.",
-        elementalTitle: "Transmission",
-        elementalInsight: "You are the frequency. Your air doesn't adapt—it broadcasts. You transmit ideas that challenge the status quo, often ahead of when others are ready to receive them. You value truth over comfort and principle over popularity.",
-        elementalPath: "Learn that vision without compassion becomes cold ideology."
     },
     pisces: {
         modality: "Mutable",
@@ -347,9 +311,6 @@ export const SIGN_EXTENDED_DATA: Record<string, {
         weakness: "Escapism (avoiding hard truths) and lack of boundaries.",
         talent: "Synthesis. The ability to merge logic, emotion, and intuition into a holistic understanding.",
         insight: "You possess \"High Sensory Processing Sensitivity.\" Your brain absorbs more environmental data than the average person, leading to high empathy and creativity. You aren't \"delusional\"; you are an abstract thinker who processes information through pattern recognition and feeling rather than linear logic.",
-        elementalTitle: "Dissolution",
-        elementalInsight: "You are the ocean. Your water doesn't contain—it merges. You experience life through fluid boundaries, absorbing the emotions and energies around you. You understand connection at a level that transcends logic, sensing what cannot be spoken.",
-        elementalPath: "Learn that you need boundaries, or you'll lose yourself entirely in others' stories."
     }
 };
 

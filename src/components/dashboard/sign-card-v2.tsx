@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { SignData } from "@/astrology/signs"
 import { SignUIConfig } from "@/config/zodiac-ui"
-import { GiFlame, GiStonePile, GiTornado, GiWaveCrest } from "react-icons/gi"
+import { elementUIConfig } from "@/config/elements-ui"
 import { generateSynthesis } from "@/astrology/interpretationEngine"
 import { ChevronLeft } from "lucide-react"
 
@@ -22,35 +22,16 @@ interface SignCardV2Props {
     delay?: number
 }
 
-const getStyles = (element: "Fire" | "Earth" | "Air" | "Water") => {
-    const el = element.toLowerCase();
-    return {
-        primary: `var(--${el}-primary)`,
-        secondary: `var(--${el}-secondary)`,
-        glow: `var(--${el}-glow)`,
-        border: `var(--${el}-border)`,
-        gradient: `var(--${el}-gradient)`
-    };
-};
-
-const getElementIcon = (element: "Fire" | "Earth" | "Air" | "Water") => {
-    switch (element) {
-        case "Fire": return GiFlame;
-        case "Earth": return GiStonePile;
-        case "Air": return GiTornado;
-        case "Water": return GiWaveCrest;
-    }
-};
-
 export function SignCardV2({ label, data, ui, delay = 0 }: SignCardV2Props) {
     const [isFlipped, setIsFlipped] = useState(false)
     const router = useRouter()
 
     if (!data || !ui) return null
 
-    const Icon = ui.icon
-    const ElementIcon = getElementIcon(ui.elementName)
-    const styles = getStyles(ui.elementName)
+    const elementUi = elementUIConfig[data.element];
+    const Icon = ui.icon;
+    const ElementIcon = elementUi.icon;
+    const styles = elementUi.styles;
 
     // Determine the planetId for the synthesis engine based on the label.
     const planetId = label.toLowerCase().includes('moon')
@@ -154,7 +135,7 @@ export function SignCardV2({ label, data, ui, delay = 0 }: SignCardV2Props) {
                                                     className="text-[9px] font-sans uppercase tracking-[0.2em]"
                                                     style={{ color: styles.secondary }}
                                                 >
-                                                    {ui.elementName}
+                                                    {data.element}
                                                 </span>
                                             </div>
                                         </div>
@@ -165,7 +146,7 @@ export function SignCardV2({ label, data, ui, delay = 0 }: SignCardV2Props) {
                                             <div className="relative mb-6 flex items-center justify-center w-32 h-32 transition-all duration-700 -translate-y-1 group-hover:translate-y-0">
                                                 {/* Element Frame PNG (Appears on Hover) */}
                                                 <img
-                                                    src={ui.elementFrameUrl}
+                                                    src={elementUi.frameUrl}
                                                     alt=""
                                                     className="absolute inset-0 w-full h-full object-contain opacity-0 group-hover:opacity-60 group-hover:rotate-36 transition-all duration-[1.5s] ease-out"
                                                     style={{
@@ -218,7 +199,7 @@ export function SignCardV2({ label, data, ui, delay = 0 }: SignCardV2Props) {
                                             {/* Explore Button (Styled Button) */}
                                             <div className="mt-8 pt-4 w-full flex justify-center opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0 z-20">
                                                 <Button
-                                                    variant={ui.elementName.toLowerCase() as any}
+                                                    variant={data.element.toLowerCase() as any}
                                                     className="h-11 px-8 border-primary/40 relative group/btn"
                                                     onClick={(e) => {
                                                         e.preventDefault();
@@ -317,7 +298,7 @@ export function SignCardV2({ label, data, ui, delay = 0 }: SignCardV2Props) {
                                     {/* Learn More Button */}
                                     <div className="mt-8 pt-4 w-full flex justify-center z-20 relative">
                                         <Button
-                                            variant={ui.elementName.toLowerCase() as any}
+                                            variant={data.element.toLowerCase() as any}
                                             className="h-11 px-8 border-primary/40 relative group/btn cursor-pointer"
                                             onClick={(e) => {
                                                 e.preventDefault();

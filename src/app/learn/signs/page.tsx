@@ -82,7 +82,7 @@ export default function SignsPage() {
 
     const filteredSigns = activeTab === "all"
         ? mergedSigns
-        : mergedSigns.filter(sign => sign.ui.elementName.toLowerCase() === activeTab);
+        : mergedSigns.filter(sign => sign.data.element.toLowerCase() === activeTab);
 
     const { activeIndex, containerRef } = useCenterCard(filteredSigns.length);
 

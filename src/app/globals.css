@@ -215,6 +215,59 @@
 	--neptune: #4682B4;
 	--pluto: #36454F;
 
+
+	--aspect-conjunction: #F5C842;
+	--aspect-conjunction-glow: #F5C84244;
+	--aspect-conjunction-border: #F5C84266;
+
+	--aspect-sextile: #5B9BD5;
+	--aspect-sextile-glow: #5B9BD544;
+	--aspect-sextile-border: #5B9BD566;
+
+	--aspect-square: #D94F4F;
+	--aspect-square-glow: #D94F4F44;
+	--aspect-square-border: #D94F4F66;
+
+	--aspect-trine: #4A9E6B;
+	--aspect-trine-glow: #4A9E6B44;
+	--aspect-trine-border: #4A9E6B66;
+
+	--aspect-opposition: #C94040;
+	--aspect-opposition-glow: #C9404044;
+	--aspect-opposition-border: #C9404066;
+
+	--aspect-semisextile: #4EBFBF;
+	--aspect-semisextile-glow: #4EBFBF44;
+	--aspect-semisextile-border: #4EBFBF66;
+
+	--aspect-semisquare: #D4735A;
+	--aspect-semisquare-glow: #D4735A44;
+	--aspect-semisquare-border: #D4735A66;
+
+	--aspect-quintile: #5ABFB0;
+	--aspect-quintile-glow: #5ABFB044;
+	--aspect-quintile-border: #5ABFB066;
+
+	--aspect-sesquiquadrate: #BF6060;
+	--aspect-sesquiquadrate-glow: #BF606044;
+	--aspect-sesquiquadrate-border: #BF606066;
+
+	--aspect-quincunx: #D4A84B;
+	--aspect-quincunx-glow: #D4A84B44;
+	--aspect-quincunx-border: #D4A84B66;
+
+	--aspect-biquintile: #8B62D4;
+	--aspect-biquintile-glow: #8B62D444;
+	--aspect-biquintile-border: #8B62D466;
+
+	--aspect-septile: #7B52C4;
+	--aspect-septile-glow: #7B52C444;
+	--aspect-septile-border: #7B52C466;
+
+	--aspect-novile: #9B72CF;
+	--aspect-novile-glow: #9B72CF44;
+	--aspect-novile-border: #9B72CF66;
+
 	--background: oklch(13.416% 0.01726 262.183);
 	--foreground: oklch(0.9337 0.0055 95.1027);
 	--card: oklch(0.2354 0.0332 263.6226);

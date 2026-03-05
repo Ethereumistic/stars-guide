@@ -3,7 +3,8 @@
 import { compositionalSigns } from "@/astrology/signs";
 import { zodiacUIConfig } from "@/config/zodiac-ui";
 import { planetUIConfig } from "@/config/planet-ui";
-import { ELEMENT_CONTENT, ElementType } from "@/astrology/elements";
+import { ELEMENT_CONTENT, ElementType, ELEMENTAL_MANIFESTATIONS } from "@/astrology/elements";
+import { elementUIConfig } from "@/config/elements-ui";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useParams, notFound } from "next/navigation";
@@ -14,41 +15,18 @@ import {
     TbTriangleSquareCircle
 } from "react-icons/tb";
 import {
-    GiFlame,
-    GiStonePile,
-    GiTornado,
-    GiWaveCrest,
-    GiArcheryTarget,
-    GiSpectre,
-    GiBurningPassion,
     GiChessKnight,
     GiMightyForce,
-    GiBrokenShield
+    GiBrokenShield,
+    GiArcheryTarget,
+    GiSpectre,
+    GiBurningPassion
 } from "react-icons/gi";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { SignTitleBlock, SignSpecsGrid, SignEssence, ConstellationGraphic } from "@/components/learn/signs";
 
 const HOUSE_NAMES = ["1st House", "2nd House", "3rd House", "4th House", "5th House", "6th House", "7th House", "8th House", "9th House", "10th House", "11th House", "12th House"];
 
-const getElementIcon = (element: ElementType) => {
-    switch (element) {
-        case "Fire": return GiFlame;
-        case "Earth": return GiStonePile;
-        case "Air": return GiTornado;
-        case "Water": return GiWaveCrest;
-    }
-};
-
-const getStyles = (element: "Fire" | "Earth" | "Air" | "Water") => {
-    const el = element.toLowerCase();
-    return {
-        primary: `var(--${el}-primary)`,
-        secondary: `var(--${el}-secondary)`,
-        glow: `var(--${el}-glow)`,
-        border: `var(--${el}-border)`,
-        gradient: `var(--${el}-gradient)`
-    };
-};
 
 export default function SignDetailPage() {
     const params = useParams();
@@ -63,11 +41,13 @@ export default function SignDetailPage() {
 
     const houseIndex = compositionalSigns.findIndex(s => s.id === signId);
     const planetUi = planetUIConfig[data.ruler];
-    const element = ELEMENT_CONTENT[ui.elementName as ElementType];
-    const styles = getStyles(ui.elementName);
+    const element = ELEMENT_CONTENT[data.element];
+    const elementUi = elementUIConfig[data.element];
+    const manifestation = ELEMENTAL_MANIFESTATIONS[signId];
+    const styles = elementUi.styles;
 
     const Icon = ui.icon;
-    const ElementIcon = getElementIcon(ui.elementName);
+    const ElementIcon = elementUi.icon;
 
     return (
         <div className="relative min-h-screen w-full text-foreground  overflow-x-hidden">
@@ -104,14 +84,14 @@ export default function SignDetailPage() {
                             subtitle={data.dates}
                             motto={data.motto}
                             icon={<Icon className="absolute w-12 h-12 md:w-16 md:h-16 stroke-1" />}
-                            elementFrameUrl={ui.elementFrameUrl}
+                            elementFrameUrl={elementUi.frameUrl}
                             borderColor={styles.primary}
                         />
 
                         {/* Specs Grid */}
                         <SignSpecsGrid
                             specs={[
-                                { label: "Element", value: ui.elementName, icon: ElementIcon, subValue: "" },
+                                { label: "Element", value: data.element, icon: ElementIcon, subValue: "" },
                                 { label: "Modality", value: data.modality, icon: TbTriangleSquareCircle, subValue: "" },
                                 { label: "Ruler", value: data.ruler.charAt(0).toUpperCase() + data.ruler.slice(1), icon: TbSparkles, subValue: planetUi?.rulerSymbol || "" },
                                 { label: "House", value: HOUSE_NAMES[houseIndex] || "", icon: TbCompass, subValue: "" },
@@ -126,8 +106,8 @@ export default function SignDetailPage() {
                     <ConstellationGraphic
                         constellationUrl={ui.constellationUrl}
                         signName={data.name}
-                        elementName={ui.elementName}
-                        elementClass={`${ui.elementName} Class`}
+                        elementName={data.element}
+                        elementClass={`${data.element} Class`}
                         houseIndex={houseIndex}
                         signId={data.id}
                         styles={styles}
@@ -227,18 +207,18 @@ export default function SignDetailPage() {
                             <div className="relative z-10 space-y-8">
 
                                 <div className="flex items-center gap-4 text-white/40 mb-2">
-                                    <span className="font-mono text-[10px] uppercase tracking-[0.4em]">The Path of {ui.elementName}</span>
+                                    <span className="font-mono text-[10px] uppercase tracking-[0.4em]">The Path of {data.element}</span>
 
                                 </div>
 
                                 {/* Header block */}
                                 <div className="flex items-center justify-between gap-6 border-b border-white/10 pb-6">
                                     <h2 className="text-3xl md:text-5xl font-serif text-white tracking-tight">
-                                        {data.elementalTitle}
+                                        {manifestation.title}
                                     </h2>
 
                                     <div className="relative flex items-center justify-center shrink-0">
-                                        <img src={ui.elementFrameUrl} className="w-20 h-20 md:w-28 md:h-28 object-cover" alt="" />
+                                        <img src={elementUi.frameUrl} className="w-20 h-20 md:w-28 md:h-28 object-cover" alt="" />
                                         <ElementIcon
                                             className="absolute size-8 md:size-10 drop-shadow-lg opacity-90"
                                             style={{ color: styles.primary }}
@@ -248,7 +228,7 @@ export default function SignDetailPage() {
 
                                 <blockquote className="border-l-2 pl-6 py-2" style={{ borderColor: styles.primary }}>
                                     <p className="text-xl text-white/90 italic font-serif leading-relaxed">
-                                        "{data.elementalInsight}"
+                                        "{manifestation.insight}"
                                     </p>
                                 </blockquote>
 
@@ -263,7 +243,7 @@ export default function SignDetailPage() {
                                     <div className="space-y-2">
                                         <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40 block">Eternal Path</span>
                                         <p className="text-sm text-white/60 font-sans mt-0">
-                                            {data.elementalPath}
+                                            {manifestation.path}
                                         </p>
                                     </div>
                                 </div>

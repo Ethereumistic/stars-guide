@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { motion } from "motion/react"
 import { SignData } from "@/astrology/signs"
 import { SignUIConfig } from "@/config/zodiac-ui"
-import { GiFlame, GiStonePile, GiTornado, GiWaveCrest } from "react-icons/gi"
+import { elementUIConfig } from "@/config/elements-ui"
 
 interface SignCardProps {
     /** Label shown ABOVE the card, e.g. "☉ Sun Sign" */
@@ -16,32 +16,13 @@ interface SignCardProps {
     delay?: number
 }
 
-const getStyles = (element: "Fire" | "Earth" | "Air" | "Water") => {
-    const el = element.toLowerCase();
-    return {
-        primary: `var(--${el}-primary)`,
-        secondary: `var(--${el}-secondary)`,
-        glow: `var(--${el}-glow)`,
-        border: `var(--${el}-border)`,
-        gradient: `var(--${el}-gradient)`
-    };
-};
-
-const getElementIcon = (element: "Fire" | "Earth" | "Air" | "Water") => {
-    switch (element) {
-        case "Fire": return GiFlame;
-        case "Earth": return GiStonePile;
-        case "Air": return GiTornado;
-        case "Water": return GiWaveCrest;
-    }
-};
-
 export function SignCard({ label, data, ui, delay = 0 }: SignCardProps) {
     if (!data || !ui) return null
 
+    const elementUi = elementUIConfig[data.element]
     const Icon = ui.icon
-    const ElementIcon = getElementIcon(ui.elementName)
-    const styles = getStyles(ui.elementName)
+    const ElementIcon = elementUi.icon
+    const styles = elementUi.styles
 
     return (
         <div className="flex flex-col items-center gap-3">
@@ -122,7 +103,7 @@ export function SignCard({ label, data, ui, delay = 0 }: SignCardProps) {
                                         className="text-[9px] font-sans uppercase tracking-[0.2em]"
                                         style={{ color: styles.secondary }}
                                     >
-                                        {ui.elementName}
+                                        {data.element}
                                     </span>
                                 </div>
                             </div>
@@ -133,7 +114,7 @@ export function SignCard({ label, data, ui, delay = 0 }: SignCardProps) {
                                 <div className="relative flex items-center justify-center w-32 h-32">
                                     {/* Element Frame PNG (revealed — rotated) */}
                                     <img
-                                        src={ui.elementFrameUrl}
+                                        src={elementUi.frameUrl}
                                         alt=""
                                         className="absolute inset-0 w-full h-full object-contain opacity-60 rotate-36"
                                         style={{

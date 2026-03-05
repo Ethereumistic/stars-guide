@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/card";
 import { SignData } from "@/astrology/signs";
 import { SignUIConfig } from "@/config/zodiac-ui";
-import { GiFlame, GiStonePile, GiTornado, GiWaveCrest } from "react-icons/gi";
+import { elementUIConfig } from "@/config/elements-ui";
 
 const cardVariants: Variants = {
     hidden: {
@@ -35,30 +35,11 @@ interface SignCardProps {
     ui: SignUIConfig;
 }
 
-const getStyles = (element: "Fire" | "Earth" | "Air" | "Water") => {
-    const el = element.toLowerCase();
-    return {
-        primary: `var(--${el}-primary)`,
-        secondary: `var(--${el}-secondary)`,
-        glow: `var(--${el}-glow)`,
-        border: `var(--${el}-border)`,
-        gradient: `var(--${el}-gradient)`
-    };
-};
-
-const getElementIcon = (element: "Fire" | "Earth" | "Air" | "Water") => {
-    switch (element) {
-        case "Fire": return GiFlame;
-        case "Earth": return GiStonePile;
-        case "Air": return GiTornado;
-        case "Water": return GiWaveCrest;
-    }
-};
-
 export function SignCard({ data, ui }: SignCardProps) {
+    const elementUi = elementUIConfig[data.element];
     const Icon = ui.icon;
-    const ElementIcon = getElementIcon(ui.elementName);
-    const styles = getStyles(ui.elementName);
+    const ElementIcon = elementUi.icon;
+    const styles = elementUi.styles;
 
     return (
         <motion.div variants={cardVariants} className="perspective-[1000px] w-[350px]">
@@ -125,7 +106,7 @@ export function SignCard({ data, ui }: SignCardProps) {
                                     className="text-[9px] font-sans uppercase tracking-[0.2em]"
                                     style={{ color: styles.secondary }}
                                 >
-                                    {ui.elementName}
+                                    {data.element}
                                 </span>
                             </div>
                         </div>
@@ -136,7 +117,7 @@ export function SignCard({ data, ui }: SignCardProps) {
                             <div className="relative mb-6 flex items-center justify-center w-32 h-32 transition-all duration-700 translate-y-4 group-hover:translate-y-0">
                                 {/* Element Frame PNG (Appears on Hover) */}
                                 <img
-                                    src={ui.elementFrameUrl}
+                                    src={elementUi.frameUrl}
                                     alt=""
                                     className="absolute inset-0 w-full h-full object-contain opacity-0 group-hover:opacity-60 group-hover:rotate-36 transition-all duration-[1.5s] ease-out"
                                     style={{
@@ -182,7 +163,7 @@ export function SignCard({ data, ui }: SignCardProps) {
                             {/* Explore Button (Styled Button) */}
                             <div className="mt-8 pt-4 w-full flex justify-center opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0">
                                 <Button
-                                    variant={ui.elementName.toLowerCase() as any}
+                                    variant={data.element.toLowerCase() as any}
                                     className="h-11 px-8 border-primary/40 relative group/btn"
                                 >
                                     <ElementIcon

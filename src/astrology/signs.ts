@@ -1,3 +1,5 @@
+import { ElementType } from "./elements";
+
 export interface SignData {
     id: string;
     name: string;
@@ -8,6 +10,7 @@ export interface SignData {
     strengths: string[];
     weaknesses: string[];
     compositionalAdverbialPhrase: string; // The "How"
+    element: ElementType;
 
     // Legacy Data
     dates: string;
@@ -21,15 +24,13 @@ export interface SignData {
     coreDesire: string;
     goal: string;
     greatestFear: string;
-    elementalTitle: string;
-    elementalInsight: string;
-    elementalPath: string;
 }
 
 export const compositionalSigns: SignData[] = [
     {
         id: "aries",
         name: "Aries",
+        element: "Fire",
         archetypeName: "The Trailblazer",
         coreStrategy: "Rapid decision-making, taking the first step before others are ready, and embracing conflict as a catalyst for change.",
         cognitiveInsight: "Psychologically driven by dopamine rewards tied to novelty and overcoming resistance, exhibiting a high bias for action and a low tolerance for inefficiency.",
@@ -48,13 +49,11 @@ export const compositionalSigns: SignData[] = [
         coreDesire: "Autonomy and forward momentum.",
         goal: "To initiate action and prove existence through impact.",
         greatestFear: "Stagnation, being controlled, or fading into the background.",
-        elementalTitle: "Ignition",
-        elementalInsight: "You are the spark that starts the blaze. Your fire is raw, unfiltered initiation. You don't sustain—you activate. You're the one who sees the need for change and moves before others finish deliberating. You break inertia and force evolution through decisive action.",
-        elementalPath: "Learn that not every beginning requires burning down what came before."
     },
     {
         id: "taurus",
         name: "Taurus",
+        element: "Earth",
         archetypeName: "The Builder",
         coreStrategy: "Methodical progress, risk aversion, and utilizing the five senses to verify reality.",
         cognitiveInsight: "You value empirical evidence over theory. If you can’t touch it, see it, or quantify it, you are skeptical. Your \"stubbornness\" is actually high cognitive persistence—once you verify a fact or method is sound, you stick to it to maximize efficiency.",
@@ -73,13 +72,11 @@ export const compositionalSigns: SignData[] = [
         coreDesire: "Stability and sensory satisfaction.",
         goal: "To build sustainable systems and accumulate resources (emotional or material) that last.",
         greatestFear: "Scarcity, sudden instability, or being rushed into poor quality.",
-        elementalTitle: "Foundation",
-        elementalInsight: "You are the bedrock. Your earth doesn't shift—it anchors. You build structures meant to last, accumulating value through patience and consistency. When others chase what's urgent, you invest in what endures. Your stability becomes the ground others stand on.",
-        elementalPath: "Learn that the ground sometimes needs to shift for new growth to emerge."
     },
     {
         id: "gemini",
         name: "Gemini",
+        element: "Air",
         archetypeName: "The Connector",
         coreStrategy: "Adaptability, humor, and collecting data points from diverse sources.",
         cognitiveInsight: "You possess high \"Cognitive Flexibility.\" Your brain craves new neural pathways, which manifests as a need for variety. You aren't \"two-faced\"; you are context-dependent, rapidly adjusting your behavior to optimize social friction.",
@@ -98,13 +95,11 @@ export const compositionalSigns: SignData[] = [
         coreDesire: "Intellectual variety and social connection.",
         goal: "To gather information and bridge gaps between different people and ideas.",
         greatestFear: "Boredom, mental confinement, or being \"out of the loop.\"",
-        elementalTitle: "Distribution",
-        elementalInsight: "You are the wind. Your air doesn't concentrate—it circulates. You gather information from one place and carry it to another, naturally connecting disparate ideas and people. You're fluent in multiple contexts and can translate between them with ease.",
-        elementalPath: "Learn that connection without depth becomes mere distraction."
     },
     {
         id: "cancer",
         name: "Cancer",
+        element: "Water",
         archetypeName: "The Protector",
         coreStrategy: "Establishing deep roots, reading emotional undercurrents, and defensive withdrawal when threatened.",
         cognitiveInsight: "You are hyper-attentive to non-verbal cues and micro-expressions. Your \"moodiness\" is a reaction to environmental stimuli that others miss. You value tribal cohesion and security.",
@@ -123,13 +118,11 @@ export const compositionalSigns: SignData[] = [
         coreDesire: "Emotional safety and belonging.",
         goal: "To create a sanctuary (home/community) where defenses can be lowered.",
         greatestFear: "Vulnerability without reciprocity; being left exposed.",
-        elementalTitle: "Tide",
-        elementalInsight: "You are the wave. Your water doesn't just feel—it moves. You respond to emotional currents and create environments where others feel safe enough to be vulnerable. You understand that belonging is built through consistent care and attention.",
-        elementalPath: "Learn that you cannot carry everyone's emotional weight—some people must learn to swim on their own."
     },
     {
         id: "leo",
         name: "Leo",
+        element: "Fire",
         archetypeName: "The Protagonist",
         coreStrategy: "Radiating confidence (even when faked), generosity, and assuming the lead role in one's own life.",
         cognitiveInsight: "You have a high drive for \"Social Dominance\" in the benevolent sense—you want to lead and inspire. You understand the psychology of presentation: perception is reality.",
@@ -148,13 +141,11 @@ export const compositionalSigns: SignData[] = [
         coreDesire: "Self-expression and validation.",
         goal: "To leave a unique, visible mark on the world (legacy).",
         greatestFear: "Being ignored, mediocrity, or public humiliation.",
-        elementalTitle: "Sustained Burn",
-        elementalInsight: "You are the eternal flame. Your fire doesn't ignite—it radiates. You turn raw energy into a steady source that others rely upon. You don't just create—you maintain presence and consistency over time. Your warmth draws people in and holds their attention.",
-        elementalPath: "Learn that true brilliance doesn't need constant validation—it simply exists."
     },
     {
         id: "virgo",
         name: "Virgo",
+        element: "Earth",
         archetypeName: "The Optimizer",
         coreStrategy: "Critical analysis, discernment, and focusing on the details others overlook.",
         cognitiveInsight: "You are a systems thinker. You don't \"nag\"; you troubleshoot. Your brain is wired for pattern recognition regarding efficiency. If something is broken, your cognitive itch demands you fix it.",
@@ -173,13 +164,11 @@ export const compositionalSigns: SignData[] = [
         coreDesire: "Competence, order, and utility.",
         goal: "To refine systems, heal chaos, and achieve functional perfection.",
         greatestFear: "Uselessness, chaos, or being criticized for errors.",
-        elementalTitle: "Refinement",
-        elementalInsight: "You are the cultivated garden. Your earth doesn't just exist—it optimizes. You turn raw material into something functional and efficient. You see the gap between 'how it is' and 'how it could be better,' and you can't rest until you close it.",
-        elementalPath: "Learn that imperfection is sometimes the most honest form of beauty."
     },
     {
         id: "libra",
         name: "Libra",
+        element: "Air",
         archetypeName: "The Harmonizer",
         coreStrategy: "Negotiation, charm, and seeing the validity in opposing viewpoints.",
         cognitiveInsight: "You possess high \"Social Intelligence.\" You are a dialectical thinker—you naturally see the thesis and antithesis of every argument. You prioritize group cohesion over individual ego.",
@@ -198,13 +187,11 @@ export const compositionalSigns: SignData[] = [
         coreDesire: "Harmony, beauty, and objective fairness.",
         goal: "To align their environment and relationships into a state of equilibrium.",
         greatestFear: "Conflict, isolation, or making the \"wrong\" permanent decision.",
-        elementalTitle: "Equilibrium",
-        elementalInsight: "You are the atmosphere. Your air doesn't scatter—it balances. You instinctively sense when things are off-kilter and work to restore harmony. You see validity in opposing viewpoints and can hold space for contradiction.",
-        elementalPath: "Learn that perfect balance is impossible—sometimes choosing a side is the most honest thing you can do."
     },
     {
         id: "scorpio",
         name: "Scorpio",
+        element: "Water",
         archetypeName: "The Alchemist",
         coreStrategy: "Strategic silence, deep observation, and testing the loyalty of others.",
         cognitiveInsight: "You have an \"Investigative\" personality type. You are not satisfied with surface-level data; you look for root causes and hidden motives, refusing to engage in cognitive dissonance.",
@@ -223,13 +210,11 @@ export const compositionalSigns: SignData[] = [
         coreDesire: "Intensity and uncovering the truth beneath the surface.",
         goal: "To master the self and understand the taboo/hidden mechanics of life.",
         greatestFear: "Betrayal and powerlessness.",
-        elementalTitle: "Depths",
-        elementalInsight: "You are the abyss. Your water doesn't flow—it transforms. You don't accept surface explanations; you dive beneath to understand the true nature of things. You're drawn to what others avoid and possess the strength to face uncomfortable truths.",
-        elementalPath: "Learn that not every mystery needs solving—some things can remain unknown."
     },
     {
         id: "sagittarius",
         name: "Sagittarius",
+        element: "Fire",
         archetypeName: "The Explorer",
         coreStrategy: "Humor, risk-taking, and constantly zooming out to see the \"Big Picture.\"",
         cognitiveInsight: "You score high in \"Openness to Experience.\" You have a biological drive for novelty. You are an information-forager who learns best through immersion and trial-and-error.",
@@ -248,13 +233,11 @@ export const compositionalSigns: SignData[] = [
         coreDesire: "Expansion (mental or physical) and freedom.",
         goal: "To find meaning and truth through experience.",
         greatestFear: "Confinement, boredom, and having to follow arbitrary rules.",
-        elementalTitle: "Wildfire",
-        elementalInsight: "You are the spreading flame. Your fire doesn't stay put—it explores. You carry energy across boundaries and into unfamiliar territory. You're driven by the question 'what else is possible?' and refuse to accept limitations as final.",
-        elementalPath: "Learn that depth sometimes matters more than distance traveled."
     },
     {
         id: "capricorn",
         name: "Capricorn",
+        element: "Earth",
         archetypeName: "The Strategist",
         coreStrategy: "Delayed gratification, pragmatic planning, and emotional regulation.",
         cognitiveInsight: "You are \"Goal-Oriented\" and \"Conscientious.\" You view life as a resource management game, preferring to invest emotional energy where it yields a tangible return.",
@@ -273,13 +256,11 @@ export const compositionalSigns: SignData[] = [
         coreDesire: "Achievement and autonomy through mastery.",
         goal: "To build a legacy of tangible value and structural integrity.",
         greatestFear: "Failure, public embarrassment, and dependency on others.",
-        elementalTitle: "Summit",
-        elementalInsight: "You are the mountain. Your earth doesn't settle—it ascends. You measure life in milestones, not moments, building toward something greater with each step. Delayed gratification is your natural state; you understand that worthwhile things take time.",
-        elementalPath: "Learn that achievement means nothing if the climb leaves you isolated."
     },
     {
         id: "aquarius",
         name: "Aquarius",
+        element: "Air",
         archetypeName: "The Innovator",
         coreStrategy: "Detachment (viewing life objectively), radical honesty, and networking.",
         cognitiveInsight: "You are a non-conformist by nature. You have a low need for social approval and a high need for intellectual autonomy, able to analyze systems without bias.",
@@ -298,13 +279,11 @@ export const compositionalSigns: SignData[] = [
         coreDesire: "Freedom of thought and progress for the collective.",
         goal: "To disrupt outdated systems and implement future-proof solutions.",
         greatestFear: "Conformity, losing individuality, and emotional suffocation.",
-        elementalTitle: "Transmission",
-        elementalInsight: "You are the frequency. Your air doesn't adapt—it broadcasts. You transmit ideas that challenge the status quo, often ahead of when others are ready to receive them. You value truth over comfort and principle over popularity.",
-        elementalPath: "Learn that vision without compassion becomes cold ideology."
     },
     {
         id: "pisces",
         name: "Pisces",
+        element: "Water",
         archetypeName: "The Dreamer",
         coreStrategy: "Intuition, creativity, and adaptability (flowing like water).",
         cognitiveInsight: "You possess \"High Sensory Processing Sensitivity.\" Your brain absorbs more environmental data than the average person, processing through pattern recognition and feeling rather than linear logic.",
@@ -323,8 +302,5 @@ export const compositionalSigns: SignData[] = [
         coreDesire: "Transcendent connection and unity.",
         goal: "To dissolve boundaries and alleviate suffering through understanding.",
         greatestFear: "Being consumed by the harshness of reality or total isolation.",
-        elementalTitle: "Dissolution",
-        elementalInsight: "You are the ocean. Your water doesn't contain—it merges. You experience life through fluid boundaries, absorbing the emotions and energies around you. You understand connection at a level that transcends logic, sensing what cannot be spoken.",
-        elementalPath: "Learn that you need boundaries, or you'll lose yourself entirely in others' stories."
     }
 ];

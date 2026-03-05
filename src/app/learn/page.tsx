@@ -39,9 +39,9 @@ const CATEGORIES = [
         subtitle: "Sectors of Life",
         description: "From self-image to career, discover how the twelve houses define the specific areas of your life where cosmic energies manifest.",
         icon: TbHomeSearch,
-        href: "#",
+        href: "/learn/houses",
         gradient: "from-blue-500/10 via-indigo-500/10 to-transparent",
-        status: "Coming Soon"
+        status: "Available"
     },
     {
         id: "planets",
@@ -59,9 +59,9 @@ const CATEGORIES = [
         subtitle: "Geometric Wisdom",
         description: "Conjunctions, squares, and trines—the sacred geometry between planets that reveals internal conflicts and natural talents.",
         icon: TbCompass,
-        href: "#",
+        href: "/learn/aspects",
         gradient: "from-emerald-500/10 via-cyan-500/10 to-transparent",
-        status: "Coming Soon"
+        status: "Available"
     }
 ];
 

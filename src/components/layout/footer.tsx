@@ -38,6 +38,10 @@ export function Footer() {
     const { user: currentUser } = useUserStore()
     const isAuthenticated = isAuthConvex && !!currentUser
 
+    if (pathname.startsWith("/oracle")) {
+        return null;
+    }
+
     return (
         <footer className="w-full border-t border-primary/10 bg-background/50 backdrop-blur-sm">
             <div className="mx-auto max-w-[90rem] px-4 py-12 sm:px-6 lg:px-8 lg:py-16">

@@ -7,11 +7,8 @@ import {
     Card,
     CardContent,
 } from "@/components/ui/card";
-import {
-    TbZodiacAries, TbZodiacTaurus, TbZodiacGemini, TbZodiacCancer,
-    TbZodiacLeo, TbZodiacVirgo, TbZodiacLibra, TbZodiacScorpio,
-    TbZodiacSagittarius, TbZodiacCapricorn, TbZodiacAquarius, TbZodiacPisces,
-} from "react-icons/tb";
+import { zodiacUIConfig } from "@/config/zodiac-ui";
+import { planetUIConfig } from "@/config/planet-ui";
 
 const cardVariants: Variants = {
     hidden: { opacity: 0, y: 20, scale: 0.9 },
@@ -22,14 +19,10 @@ const cardVariants: Variants = {
 };
 
 // ─── Zodiac icons array ───
-const ZODIAC_ICONS = [
-    TbZodiacAries, TbZodiacTaurus, TbZodiacGemini, TbZodiacCancer,
-    TbZodiacLeo, TbZodiacVirgo, TbZodiacLibra, TbZodiacScorpio,
-    TbZodiacSagittarius, TbZodiacCapricorn, TbZodiacAquarius, TbZodiacPisces,
-];
+const ZODIAC_ICONS = Object.values(zodiacUIConfig).map((ui) => ui.icon);
 
 // ─── Planet symbols ───
-const PLANET_SYMBOLS = ["☉", "☾", "☿", "♀", "♂", "♃", "♄", "⛢", "♆", "♇"];
+const PLANET_SYMBOLS = Object.values(planetUIConfig).map((ui) => ui.rulerSymbol);
 
 // ─── Aspect symbols ───
 const ASPECT_SYMBOLS = ["☌", "⚹", "□", "△", "☍", "⊼", "⊻"];
