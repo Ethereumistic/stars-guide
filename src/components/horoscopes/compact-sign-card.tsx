@@ -94,17 +94,15 @@ export function CompactSignCard({ data, ui, isActive = false, href }: CompactSig
                 href={linkHref}
                 className="group relative block h-full"
             >
-                <Card className={`relative h-full overflow-hidden rounded-xl bg-transparent border-0 shadow-none transition-all duration-500 group-hover:scale-[1.03] ${activeClass} min-h-[160px]`}>
+                <Card className={`relative h-full  overflow-hidden rounded-xl bg-transparent border border-border/30 shadow-none transition-all duration-500 group-hover:scale-[1.03] ${activeClass} min-h-[160px]`}>
                     {/* Card background with gradient */}
                     <div
-                        className="absolute inset-0 backdrop-blur-[0.5px]"
+                        className="absolute inset-0 backdrop-blur-[0.5px] rounded-xl"
                         style={{
-                            background: `linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%)`,
-                            borderWidth: '1px',
-                            borderStyle: 'solid',
-                            borderImage: `linear-gradient(135deg, ${styles.border}, transparent) 1`
+                            background: `linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%)`
                         }}
                     />
+
 
                     {/* Element gradient overlay */}
                     <div
@@ -179,6 +177,6 @@ export function CompactSignCard({ data, ui, isActive = false, href }: CompactSig
                     style={{ backgroundColor: styles.glow }}
                 />
             </Link>
-        </motion.div>
+        </motion.div >
     );
 }

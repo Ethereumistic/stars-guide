@@ -26,6 +26,8 @@ function useCenterCard(itemCount: number) {
         const container = containerRef.current;
         if (!container) return;
 
+        let ticking = false;
+
         const updateActiveCard = () => {
             const cards = container.querySelectorAll('[data-card-index]');
             const viewportCenter = window.innerHeight / 2;
@@ -45,15 +47,25 @@ function useCenterCard(itemCount: number) {
             });
 
             setActiveIndex(closestIndex);
+            ticking = false;
+        };
+
+        const onScroll = () => {
+            if (!ticking) {
+                window.requestAnimationFrame(() => {
+                    updateActiveCard();
+                });
+                ticking = true;
+            }
         };
 
         updateActiveCard();
-        window.addEventListener('scroll', updateActiveCard, { passive: true });
-        window.addEventListener('resize', updateActiveCard);
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', onScroll);
 
         return () => {
-            window.removeEventListener('scroll', updateActiveCard);
-            window.removeEventListener('resize', updateActiveCard);
+            window.removeEventListener('scroll', onScroll);
+            window.removeEventListener('resize', onScroll);
         };
     }, [itemCount]);
 
@@ -75,16 +87,6 @@ export default function PlanetsHubPage() {
 
     return (
         <div className="relative z-10 max-w-[1600px] mx-auto px-6 md:px-12 py-8  ">
-
-            {/* Ambient Base Layer Effect */}
-            <div className="fixed inset-0 z-0 pointer-events-none contain-strict flex items-center justify-center">
-                <div className="absolute w-[80vw] h-[80vw] rounded-full opacity-[0.03] mix-blend-screen space-spin"
-                    style={{
-                        background: "conic-gradient(from 0deg at 50% 50%, var(--sun) 0%, var(--mercury) 10%, var(--venus) 20%, var(--mars) 30%, var(--jupiter) 40%, var(--saturn) 50%, var(--uranus) 60%, var(--neptune) 70%, var(--pluto) 80%, var(--moon) 90%, var(--sun) 100%)",
-                        filter: "blur(100px)"
-                    }}
-                />
-            </div>
 
             <div className="relative z-10 w-full mb-16">
                 <PageHeader

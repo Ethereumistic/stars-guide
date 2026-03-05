@@ -26,6 +26,8 @@ function useCenterCard(itemCount: number) {
         const container = containerRef.current;
         if (!container) return;
 
+        let ticking = false;
+
         const updateActiveCard = () => {
             const cards = container.querySelectorAll('[data-card-index]');
             const viewportCenter = window.innerHeight / 2;
@@ -45,15 +47,25 @@ function useCenterCard(itemCount: number) {
             });
 
             setActiveIndex(closestIndex);
+            ticking = false;
+        };
+
+        const onScroll = () => {
+            if (!ticking) {
+                window.requestAnimationFrame(() => {
+                    updateActiveCard();
+                });
+                ticking = true;
+            }
         };
 
         updateActiveCard();
-        window.addEventListener('scroll', updateActiveCard, { passive: true });
-        window.addEventListener('resize', updateActiveCard);
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', onScroll);
 
         return () => {
-            window.removeEventListener('scroll', updateActiveCard);
-            window.removeEventListener('resize', updateActiveCard);
+            window.removeEventListener('scroll', onScroll);
+            window.removeEventListener('resize', onScroll);
         };
     }, [itemCount]);
 
@@ -93,12 +105,12 @@ export default function SignsPage() {
                 ref={containerRef}
                 key={activeTab}
                 className={`grid gap-4 md:gap-6 mx-auto  ${filteredSigns.length === 1
-                        ? 'grid-cols-1 max-w-sm'
-                        : filteredSigns.length === 2
-                            ? 'grid-cols-1 sm:grid-cols-2 max-w-2xl'
-                            : filteredSigns.length === 3
-                                ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl'
-                                : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+                    ? 'grid-cols-1 max-w-sm'
+                    : filteredSigns.length === 2
+                        ? 'grid-cols-1 sm:grid-cols-2 max-w-2xl'
+                        : filteredSigns.length === 3
+                            ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl'
+                            : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
                     }`}
                 variants={containerVariants}
                 initial="hidden"

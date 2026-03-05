@@ -26,7 +26,7 @@ import {
     GiBrokenShield
 } from "react-icons/gi";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
-import { SignTitleBlock, SignSpecsGrid, SignEssence, ConstellationGraphic } from "@/components/layout/signs";
+import { SignTitleBlock, SignSpecsGrid, SignEssence, ConstellationGraphic } from "@/components/learn/signs";
 
 const HOUSE_NAMES = ["1st House", "2nd House", "3rd House", "4th House", "5th House", "6th House", "7th House", "8th House", "9th House", "10th House", "11th House", "12th House"];
 

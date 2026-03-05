@@ -53,12 +53,12 @@ export const compositionalPlanets: PlanetData[] = [
             notableTrait: "Holds 99.8% of the solar system's mass"
         },
         astrology: {
-            archetype: "The Self / The King",
+            archetype: "King",
             rules: "Leo",
             element: "Fire",
             controls: "Identity, ego, willpower, life force, self-expression",
             body: "Heart, spine, circulatory system",
-            polarity: "Masculine / Yang"
+            polarity: "Masculine"
         }
     },
     {
@@ -79,12 +79,12 @@ export const compositionalPlanets: PlanetData[] = [
             moons: "0"
         },
         astrology: {
-            archetype: "The Mother / The Soul",
+            archetype: "Soul",
             rules: "Cancer",
             element: "Water",
             controls: "Emotions, instincts, memory, subconscious, home",
             body: "Stomach, breasts, bodily fluids, womb",
-            polarity: "Feminine / Yin"
+            polarity: "Feminine"
         }
     },
     {
@@ -107,9 +107,9 @@ export const compositionalPlanets: PlanetData[] = [
             notableTrait: "Orbital Velocity: 47.87 km/s (fastest planet)"
         },
         astrology: {
-            archetype: "The Messenger / The Trickster",
+            archetype: "Messenger",
             rules: "Gemini, Virgo",
-            element: "Air (Gemini) / Earth (Virgo)",
+            element: "Air, Earth",
             controls: "Communication, thought, logic, short travel, contracts",
             body: "Nervous system, lungs, hands, tongue",
             specialRole: "Retrogrades ~3× per year; associated with miscommunication, delays"
@@ -135,12 +135,12 @@ export const compositionalPlanets: PlanetData[] = [
             notableTrait: "Albedo: 0.65 (brightest planet in sky)"
         },
         astrology: {
-            archetype: "The Lover / The Artist",
+            archetype: "Artist",
             rules: "Taurus, Libra",
-            element: "Earth (Taurus) / Air (Libra)",
+            element: "Earth, Air",
             controls: "Love, beauty, pleasure, values, money, aesthetics",
             body: "Throat, kidneys, skin, reproductive system",
-            polarity: "Feminine / Yin"
+            polarity: "Feminine"
         }
     },
     {
@@ -162,12 +162,12 @@ export const compositionalPlanets: PlanetData[] = [
             moons: "2 (Phobos, Deimos)"
         },
         astrology: {
-            archetype: "The Warrior / The Drive",
+            archetype: "Warrior",
             rules: "Aries",
             element: "Fire",
             controls: "Action, ambition, anger, sex drive, courage, conflict",
             body: "Muscles, adrenal glands, head, blood, iron",
-            polarity: "Masculine / Yang"
+            polarity: "Masculine"
         }
     },
     {
@@ -190,7 +190,7 @@ export const compositionalPlanets: PlanetData[] = [
             notableTrait: "Great Red Spot: Storm active for 350+ years"
         },
         astrology: {
-            archetype: "The Benefactor / The Philosopher",
+            archetype: "Philosopher",
             rules: "Sagittarius",
             element: "Fire",
             controls: "Expansion, luck, wisdom, abundance, higher learning, faith",
@@ -218,7 +218,7 @@ export const compositionalPlanets: PlanetData[] = [
             notableTrait: "Density: 0.687 g/cm³ (less dense than water)"
         },
         astrology: {
-            archetype: "The Taskmaster / Father Time",
+            archetype: "Taskmaster",
             rules: "Capricorn",
             element: "Earth",
             controls: "Discipline, structure, karma, limitations, responsibility",
@@ -246,7 +246,7 @@ export const compositionalPlanets: PlanetData[] = [
             notableTrait: "Axial Tilt: 97.77° (orbits on its side)"
         },
         astrology: {
-            archetype: "The Revolutionary / The Awakener",
+            archetype: "Awakener",
             rules: "Aquarius",
             element: "Air",
             controls: "Rebellion, innovation, sudden change, freedom, technology",
@@ -273,7 +273,7 @@ export const compositionalPlanets: PlanetData[] = [
             notableTrait: "Wind Speed: Up to 2,100 km/h (fastest in solar system)"
         },
         astrology: {
-            archetype: "The Mystic / The Dreamer",
+            archetype: "Dreamer",
             rules: "Pisces",
             element: "Water",
             controls: "Dreams, illusion, spirituality, compassion, dissolution",
@@ -299,7 +299,7 @@ export const compositionalPlanets: PlanetData[] = [
             moons: "5 (Charon, Styx, Nix, Kerberos, Hydra)"
         },
         astrology: {
-            archetype: "The Transformer / The Destroyer",
+            archetype: "Transformer",
             rules: "Scorpio",
             element: "Water",
             controls: "Death, rebirth, power, obsession, transformation, the underworld",

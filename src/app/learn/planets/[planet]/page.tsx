@@ -10,10 +10,35 @@ import { useParams, notFound } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
     TbTelescope, TbCompass, TbArrowLeft, TbRulerMeasure,
-    TbTemperature, TbMoon, TbClock, TbRefresh, TbActivityHeartbeat, TbFlame
+    TbTemperature, TbMoon, TbClock, TbRefresh, TbActivityHeartbeat, TbFlame,
+    TbFingerprint, TbCrown, TbHexagon, TbYinYang
 } from "react-icons/tb";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { PlanetTitleBlock } from "@/components/learn/planets/planet-title-block";
+import { PlanetSpecsGrid } from "@/components/learn/planets/planet-specs-grid";
+import { PlanetEssence } from "@/components/learn/planets/planet-essence";
+import { zodiacUIConfig } from "@/config/zodiac-ui";
+import { GiFlame, GiStonePile, GiTornado, GiWaveCrest } from "react-icons/gi";
+import { IconType } from "react-icons";
+
+const getElementIcons = (elementStr: string): IconType[] => {
+    return elementStr.split(", ")
+        .map(e => e.trim().toLowerCase())
+        .map(e => {
+            if (e.includes("fire")) return GiFlame;
+            if (e.includes("earth")) return GiStonePile;
+            if (e.includes("air")) return GiTornado;
+            if (e.includes("water")) return GiWaveCrest;
+            return null;
+        })
+        .filter(Boolean) as IconType[];
+};
+
+const getSignIcons = (rulesStr: string): IconType[] => {
+    return rulesStr.split(", ")
+        .map(r => zodiacUIConfig[r.trim().toLowerCase()]?.icon)
+        .filter(Boolean) as IconType[];
+};
 
 export default function PlanetDetailPage() {
     const params = useParams();
@@ -76,7 +101,7 @@ export default function PlanetDetailPage() {
                         { label: "Learn", href: "/learn" },
                         { label: "Planets", href: "/learn/planets" },
                     ]}
-                    currentPage={`${data.name} // ${data.astrology?.archetype || 'Luminary'}`}
+                    currentPage={`${data.name} ${ui.rulerSymbol}`}
                     currentPageColor={glowColor}
                 />
 
@@ -89,10 +114,22 @@ export default function PlanetDetailPage() {
                             planetName={data.name}
                             classification={data.astronomy?.classification || 'Celestial Point'}
                             verbPhrase={data.compositionalVerbPhrase}
-                            psychologicalFunction={data.psychologicalFunction || ""}
                             glowColor={glowColor}
                             rulerSymbol={ui.rulerSymbol}
                         />
+
+                        {data.astrology && (
+                            <PlanetSpecsGrid
+                                specs={[
+                                    { label: "Archetype", value: data.astrology.archetype, icon: TbFingerprint },
+                                    { label: "Rulership", value: data.astrology.rules, icon: TbCrown, icons: getSignIcons(data.astrology.rules) },
+                                    { label: "Element", value: data.astrology.element, icon: TbHexagon, icons: getElementIcons(data.astrology.element) },
+                                    { label: "Polarity", value: data.astrology.polarity || "N/A", icon: TbYinYang },
+                                ]}
+                            />
+                        )}
+
+                        <PlanetEssence psychologicalFunction={data.psychologicalFunction || ""} />
                     </div>
 
                     {/* Right Massive Visual */}
@@ -274,26 +311,6 @@ export default function PlanetDetailPage() {
                                 </p>
                             </div>
 
-                            {data.astrology && (
-                                <div className="grid grid-cols-2 gap-6 bg-white/2 p-6 rounded-lg border border-white/5">
-                                    <div>
-                                        <span className="text-[10px] font-mono uppercase text-white/30 block mb-1">Archetype</span>
-                                        <span className="text-white/80 text-sm">{data.astrology.archetype}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-[10px] font-mono uppercase text-white/30 block mb-1">Rulership</span>
-                                        <span className="text-white/80 text-sm">{data.astrology.rules}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-[10px] font-mono uppercase text-white/30 block mb-1">Element</span>
-                                        <span className="text-white/80 text-sm">{data.astrology.element}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-[10px] font-mono uppercase text-white/30 block mb-1">Polarity</span>
-                                        <span className="text-white/80 text-sm">{data.astrology.polarity || "N/A"}</span>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </motion.section>

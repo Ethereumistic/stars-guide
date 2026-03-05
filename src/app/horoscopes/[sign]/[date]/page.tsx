@@ -14,8 +14,9 @@ import { motion } from "motion/react";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { GiFlame, GiStonePile, GiTornado, GiWaveCrest } from "react-icons/gi";
 import { TbTriangleSquareCircle, TbCompass, TbBrandTether, TbSparkles } from "react-icons/tb";
-import { SignTitleBlock, ConstellationGraphic, HoroscopeContentCard, SignSpecsGrid } from "@/components/layout/signs";
+import { SignTitleBlock, ConstellationGraphic, SignSpecsGrid } from "@/components/learn/signs";
 import { planetUIConfig, PlanetUIConfig } from "@/config/planet-ui";
+import { HoroscopeContentCard } from "@/components/horoscopes/horoscope-content-card";
 
 const HOUSE_NAMES = ["1st House", "2nd House", "3rd House", "4th House", "5th House", "6th House", "7th House", "8th House", "9th House", "10th House", "11th House", "12th House"];
 

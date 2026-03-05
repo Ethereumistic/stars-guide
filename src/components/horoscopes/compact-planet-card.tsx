@@ -57,7 +57,7 @@ export function CompactPlanetCard({ data, ui, isActive = false, href }: CompactP
 
     const activeClass = isActiveMobile ? "scale-[1.03]" : "";
     const activeOpacity = isActiveMobile ? "opacity-20" : "opacity-0";
-    const activePlanet = isActiveMobile ? "opacity-40 scale-100 right-[30%]" : "";
+    const activePlanet = isActiveMobile ? "opacity-40 scale-100 right-[50%]" : "";
     const activeGlow = isActiveMobile ? "opacity-30" : "opacity-0";
     const activeText = isActiveMobile ? "text-white" : "";
     const activeArchetype = isActiveMobile ? "opacity-100" : "opacity-0";
@@ -69,33 +69,19 @@ export function CompactPlanetCard({ data, ui, isActive = false, href }: CompactP
                 href={linkHref}
                 className="group relative block h-full"
             >
-                <Card className={`relative h-full overflow-hidden rounded-xl bg-transparent border-0 shadow-none transition-all duration-500 group-hover:scale-[1.03] ${activeClass} min-h-[160px]`}>
+                <Card className={`relative h-full overflow-hidden rounded-xl bg-transparent border border-border/30 shadow-none transition-all duration-500 group-hover:scale-[1.03] ${activeClass} min-h-[160px]`}>
                     {/* Card background with gradient */}
                     <div
-                        className="absolute inset-0 backdrop-blur-[0.5px]"
+                        className="absolute inset-0 backdrop-blur-[0.5px] rounded-xl"
                         style={{
-                            background: `linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 10%)`,
-                        }}
-                    />
-                    {/* Border with theme color - lower opacity */}
-                    <div
-                        className="absolute inset-0 opacity-30 pointer-events-none"
-                        style={{
-                            borderWidth: '1px',
-                            borderStyle: 'solid',
-                            borderImage: `linear-gradient(135deg, ${glowColor}, transparent) 1`
+                            background: `linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%)`
                         }}
                     />
 
                     {/* Element gradient overlay */}
                     <div
                         className={`absolute inset-0 transition-opacity duration-500 ${activeOpacity} group-hover:opacity-20`}
-                        style={{ background: `linear-gradient(135deg, transparent 0%, ${glowColor} 100%)`, opacity: 0.1 }}
-                    />
-                    {/* Hover state overlay */}
-                    <div
-                        className={`absolute inset-0 transition-opacity duration-500 opacity-0 group-hover:opacity-20`}
-                        style={{ background: `linear-gradient(135deg, ${glowColor} 0%, transparent 100%)` }}
+                        style={{ background: `linear-gradient(135deg, transparent 0%, ${glowColor} 100%)` }}
                     />
 
                     {/* Planet watermark (Replacing Constellation watermark) */}
@@ -103,9 +89,9 @@ export function CompactPlanetCard({ data, ui, isActive = false, href }: CompactP
                         <img
                             src={ui.imageUrl}
                             alt={data.name}
-                            className={`absolute top-1/2 right-[-5%] -translate-y-1/2 h-full object-contain opacity-40 scale-[1.35] transition-all duration-700 group-hover:opacity-80 group-hover:scale-[1.2] group-hover:right-[15%] ${activePlanet}`}
+                            className={`absolute top-1/2 right-[-20%] -translate-y-1/2 h-full object-contain opacity-20 scale-125 transition-all duration-700 group-hover:opacity-40 group-hover:scale-100 group-hover:right-[40%] ${activePlanet}`}
                             style={{
-                                filter: `drop-shadow(0 0 15px ${glowColor}) drop-shadow(0 0 30px rgba(0,0,0,0.8))`
+                                filter: `drop-shadow(0 0 10px ${glowColor})`
                             }}
                         />
                     </div>

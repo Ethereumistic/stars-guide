@@ -6,7 +6,6 @@ interface PlanetTitleBlockProps {
     planetName: string;
     classification: string;
     verbPhrase: string;
-    psychologicalFunction: string;
     glowColor: string;
     rulerSymbol: string;
 }
@@ -15,7 +14,6 @@ export function PlanetTitleBlock({
     planetName,
     classification,
     verbPhrase,
-    psychologicalFunction,
     glowColor,
     rulerSymbol,
 }: PlanetTitleBlockProps) {
@@ -55,12 +53,6 @@ export function PlanetTitleBlock({
             >
                 "{verbPhrase}"
             </p>
-
-            {/* Additional paragraph for planets missing in signs block but essential for the planet hub */}
-            <p className="text-lg md:text-xl text-white/70 font-sans leading-relaxed pt-2">
-                {psychologicalFunction}
-            </p>
-
         </motion.div>
     );
 }
