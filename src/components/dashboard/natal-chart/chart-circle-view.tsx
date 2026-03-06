@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { ChartData } from "@/lib/astrology";
+import { type ChartData } from "@/lib/birth-chart/full-chart";
 import { compositionalSigns } from "@/astrology/signs";
 import { planetUIConfig } from "@/config/planet-ui";
 

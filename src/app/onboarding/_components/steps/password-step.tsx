@@ -38,16 +38,14 @@ export function PasswordStep() {
         setError(null)
 
         try {
-            const { sunSign, moonSign, risingSign } = calculatedSigns
+            const { placements } = calculatedSigns
             const dateStr = `${birthDate.year}-${birthDate.month.toString().padStart(2, '0')}-${birthDate.day.toString().padStart(2, '0')}`
 
             const fullBirthData = {
                 date: dateStr,
                 time: birthTime || "12:00",
                 location: birthLocation,
-                sunSign,
-                moonSign,
-                risingSign
+                placements
             }
 
             await signIn("password", {

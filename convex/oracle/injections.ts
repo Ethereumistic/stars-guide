@@ -2,8 +2,6 @@ import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAdmin } from "../lib/adminGuard";
 
-// ─── PUBLIC QUERIES ───────────────────────────────────────────────────────
-
 export const getCategoryContext = query({
     args: { categoryId: v.id("oracle_categories") },
     handler: async (ctx, { categoryId }) => {
@@ -24,7 +22,15 @@ export const getScenarioInjection = query({
     },
 });
 
-// ─── ADMIN QUERIES ────────────────────────────────────────────────────────
+export const getFeatureInjection = query({
+    args: { featureKey: v.string() },
+    handler: async (ctx, { featureKey }) => {
+        return await ctx.db
+            .query("oracle_feature_injections")
+            .withIndex("by_feature", (q) => q.eq("featureKey", featureKey))
+            .first();
+    },
+});
 
 export const listAllCategoryContexts = query({
     args: {},
@@ -32,7 +38,6 @@ export const listAllCategoryContexts = query({
         await requireAdmin(ctx);
         const contexts = await ctx.db.query("oracle_category_contexts").collect();
 
-        // Attach category info
         return await Promise.all(
             contexts.map(async (c) => {
                 const category = await ctx.db.get(c.categoryId);
@@ -68,7 +73,13 @@ export const listAllScenarioInjections = query({
     },
 });
 
-// ─── ADMIN MUTATIONS ──────────────────────────────────────────────────────
+export const listAllFeatureInjections = query({
+    args: {},
+    handler: async (ctx) => {
+        await requireAdmin(ctx);
+        return await ctx.db.query("oracle_feature_injections").collect();
+    },
+});
 
 export const saveCategoryContext = mutation({
     args: {
@@ -85,7 +96,6 @@ export const saveCategoryContext = mutation({
             .first();
 
         if (existing) {
-            // Save version before overwriting
             await ctx.db.insert("oracle_prompt_versions", {
                 entityType: "category_context",
                 entityId: existing._id as string,
@@ -134,7 +144,6 @@ export const saveScenarioInjection = mutation({
             .first();
 
         if (existing) {
-            // Save version before overwriting
             const versionContent = existing.useRawText
                 ? existing.rawInjectionText ?? ""
                 : JSON.stringify({
@@ -172,14 +181,57 @@ export const saveScenarioInjection = mutation({
     },
 });
 
-// ─── VERSION HISTORY ──────────────────────────────────────────────────────
+export const saveFeatureInjection = mutation({
+    args: {
+        featureKey: v.string(),
+        contextText: v.string(),
+    },
+    handler: async (ctx, { featureKey, contextText }) => {
+        const { userId } = await requireAdmin(ctx);
+        const now = Date.now();
+
+        const existing = await ctx.db
+            .query("oracle_feature_injections")
+            .withIndex("by_feature", (q) => q.eq("featureKey", featureKey))
+            .first();
+
+        if (existing) {
+            await ctx.db.insert("oracle_prompt_versions", {
+                entityType: "feature_injection",
+                entityId: existing._id as string,
+                content: existing.contextText,
+                version: existing.version + 1,
+                savedBy: userId,
+                savedAt: now,
+            });
+
+            await ctx.db.patch(existing._id, {
+                contextText,
+                version: existing.version + 1,
+                isActive: true,
+                updatedAt: now,
+            });
+        } else {
+            await ctx.db.insert("oracle_feature_injections", {
+                featureKey,
+                contextText,
+                isActive: true,
+                version: 1,
+                createdAt: now,
+                updatedAt: now,
+            });
+        }
+    },
+});
 
 export const getVersionHistory = query({
     args: {
         entityType: v.union(
             v.literal("soul_prompt"),
+            v.literal("soul_doc"),
             v.literal("category_context"),
             v.literal("scenario_injection"),
+            v.literal("feature_injection"),
         ),
         entityId: v.string(),
     },

@@ -181,18 +181,12 @@ Crisis responses do not consume quota. The increment only fires after a successf
 
 ## Model Fallback Chain
 
-Configured in `oracle_settings` as `model_a`, `model_b`, `model_c`. All selectable from admin using this list:
+Configured in `oracle_settings` as `model_a`, `model_b`, `model_c`. All selectable from admin using this list (using free ones since testing):
 
 ```
-x-ai/grok-4.1-fast          (default A — fast, cost-efficient)
-x-ai/grok-4.1
-google/gemini-2.5-flash-lite
-google/gemini-2.5-flash      (recommended A)
-anthropic/claude-sonnet-4    (recommended B — best quality)
-openai/gpt-4.1-mini
-arcee-ai/trinity-large-preview:free
-stepfun/step-3.5-flash:free
-z-ai/glm-4.5-air:free
+arcee-ai/trinity-large-preview:free  (recommended A)
+stepfun/step-3.5-flash:free  (recommended B)
+z-ai/glm-4.5-air:free   (recommended C)
 NONE                         (disables the slot)
 ```
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { calculateFullChart } from "@/lib/astrology";
+import { calculateFullChart } from "@/lib/birth-chart/full-chart";
 import { ChartTableView } from "./chart-table-view";
 import { ChartCircleView } from "./chart-circle-view";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

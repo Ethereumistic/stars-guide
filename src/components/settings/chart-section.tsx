@@ -22,9 +22,7 @@ interface BirthData {
         country: string
         countryCode?: string
     }
-    sunSign: string
-    moonSign: string
-    risingSign: string
+    placements: { body: string; sign: string; house: number; }[]
 }
 
 interface ChartSectionProps {

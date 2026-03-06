@@ -1,12 +1,7 @@
 import { create } from "zustand";
 import { Id } from "../../convex/_generated/dataModel";
+import type { OracleFeatureKey } from "@/lib/oracle/features";
 
-/**
- * Oracle State Machine
- * 
- * States: IDLE → TEMPLATE_SELECTION → FOLLOW_UP_COLLECTION → ORACLE_RESPONDING → CONVERSATION_ACTIVE
- * See PHASE5_FRONTEND.md §2
- */
 export type OracleState =
     | "idle"
     | "template_selection"
@@ -41,36 +36,29 @@ export interface FollowUpData {
 }
 
 interface OracleStore {
-    // ─── Routing / Session ────────────────────────────────────────────
     sessionId: Id<"oracle_sessions"> | null;
     state: OracleState;
-
-    // ─── Category + Template ──────────────────────────────────────────
     selectedCategorySlug: string | null;
     selectedCategoryId: Id<"oracle_categories"> | null;
     selectedTemplateId: Id<"oracle_templates"> | null;
     selectedTemplateRequiresThirdParty: boolean;
+    selectedFeatureKey: OracleFeatureKey | null;
     pendingQuestion: string;
-
-    // ─── Follow-up flow ───────────────────────────────────────────────
     followUps: FollowUpData[];
     currentFollowUpIndex: number;
-    followUpAnswers: Record<string, string>; // followUpId → answer
-
-    // ─── Messages ─────────────────────────────────────────────────────
+    followUpAnswers: Record<string, string>;
     messages: OracleMessage[];
     streamingContent: string;
     isStreaming: boolean;
-
-    // ─── Quota ─────────────────────────────────────────────────────────
     quotaRemaining: number | null;
     quotaResetAt: number | null;
     quotaExhausted: boolean;
-
-    // ─── Actions ──────────────────────────────────────────────────────
     selectCategory: (slug: string, id: Id<"oracle_categories">) => void;
     deselectCategory: () => void;
     selectTemplate: (templateId: Id<"oracle_templates">, questionText: string, requiresThirdParty: boolean) => void;
+    setSelectedFeature: (featureKey: OracleFeatureKey | null) => void;
+    clearSelectedFeature: () => void;
+    hydrateSessionFeature: (featureKey: OracleFeatureKey | null) => void;
     setPendingQuestion: (text: string) => void;
     startFollowUpCollection: (followUps: FollowUpData[]) => void;
     answerFollowUp: (followUpId: string, answer: string) => void;
@@ -88,13 +76,13 @@ interface OracleStore {
 }
 
 export const useOracleStore = create<OracleStore>((set, get) => ({
-    // ─── Initial State ────────────────────────────────────────────────
     sessionId: null,
     state: "idle",
     selectedCategorySlug: null,
     selectedCategoryId: null,
     selectedTemplateId: null,
     selectedTemplateRequiresThirdParty: false,
+    selectedFeatureKey: null,
     pendingQuestion: "",
     followUps: [],
     currentFollowUpIndex: 0,
@@ -106,14 +94,11 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
     quotaResetAt: null,
     quotaExhausted: false,
 
-    // ─── Actions ──────────────────────────────────────────────────────
-
     selectCategory: (slug, id) =>
         set({
             selectedCategorySlug: slug,
             selectedCategoryId: id,
             state: "template_selection",
-            // Reset template selection when changing category
             selectedTemplateId: null,
             selectedTemplateRequiresThirdParty: false,
             pendingQuestion: "",
@@ -135,6 +120,12 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
             selectedTemplateRequiresThirdParty: requiresThirdParty,
             pendingQuestion: questionText,
         }),
+
+    setSelectedFeature: (featureKey) => set({ selectedFeatureKey: featureKey }),
+
+    clearSelectedFeature: () => set({ selectedFeatureKey: null }),
+
+    hydrateSessionFeature: (featureKey) => set({ selectedFeatureKey: featureKey }),
 
     setPendingQuestion: (text) => set({ pendingQuestion: text }),
 
@@ -200,6 +191,7 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
             selectedCategoryId: null,
             selectedTemplateId: null,
             selectedTemplateRequiresThirdParty: false,
+            selectedFeatureKey: null,
             pendingQuestion: "",
             followUps: [],
             currentFollowUpIndex: 0,

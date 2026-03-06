@@ -36,9 +36,7 @@ interface OnboardingState {
 
     // Calculated results (cached from Step 7)
     calculatedSigns: {
-        sunSign: string;
-        moonSign: string;
-        risingSign: string;
+        placements: { body: string; sign: string; house: number; }[];
     } | null;
 
     // Actions

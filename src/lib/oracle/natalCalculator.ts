@@ -8,7 +8,7 @@
  * This is Oracle's critical advantage — every user's chart is pre-loaded.
  */
 
-import { calculateFullChart, type ChartData } from "@/lib/astrology";
+import { calculateFullChart, type ChartData } from "@/lib/birth-chart/full-chart";
 
 export interface NatalContext {
     raw: ChartData;
@@ -28,9 +28,7 @@ export function calculateNatalContext(birthData: {
         city: string;
         country: string;
     };
-    sunSign: string;
-    moonSign: string;
-    risingSign: string;
+    placements: { body: string; sign: string; house: number; }[];
 }): NatalContext {
     // Parse birth date and time
     const [year, month, day] = birthData.date.split("-").map(Number);
@@ -62,9 +60,7 @@ function formatNatalContext(
         date: string;
         time: string;
         location: { city: string; country: string };
-        sunSign: string;
-        moonSign: string;
-        risingSign: string;
+        placements: { body: string; sign: string; house: number; }[];
     },
     chart: ChartData,
 ): string {
@@ -72,7 +68,11 @@ function formatNatalContext(
 
     lines.push("---NATAL CONTEXT---");
     lines.push(`Born: ${birthData.date} at ${birthData.time}, ${birthData.location.city}, ${birthData.location.country}`);
-    lines.push(`Sun: ${birthData.sunSign} | Moon: ${birthData.moonSign} | Rising: ${birthData.risingSign}`);
+    const sunSign = birthData.placements.find(p => p.body === "Sun")?.sign || "Unknown";
+    const moonSign = birthData.placements.find(p => p.body === "Moon")?.sign || "Unknown";
+    const risingSign = birthData.placements.find(p => p.body === "Ascendant")?.sign || "Unknown";
+    
+    lines.push(`Sun: ${sunSign} | Moon: ${moonSign} | Rising: ${risingSign}`);
     lines.push("");
 
     // Planet positions
@@ -124,8 +124,7 @@ export function calculateDegradedNatalContext(birthData: {
         city: string;
         country: string;
     };
-    sunSign: string;
-    moonSign: string;
+    placements: { body: string; sign: string; house: number; }[];
 }): NatalContext {
     const [year, month, day] = birthData.date.split("-").map(Number);
 
@@ -143,7 +142,10 @@ export function calculateDegradedNatalContext(birthData: {
     const lines: string[] = [];
     lines.push("---NATAL CONTEXT---");
     lines.push(`Born: ${birthData.date} (exact time unknown — noon chart approximation), ${birthData.location.city}, ${birthData.location.country}`);
-    lines.push(`Sun: ${birthData.sunSign} | Moon: ${birthData.moonSign} (approximate) | Rising: Unknown (requires exact birth time)`);
+    const sunSign = birthData.placements.find(p => p.body === "Sun")?.sign || "Unknown";
+    const moonSign = birthData.placements.find(p => p.body === "Moon")?.sign || "Unknown";
+
+    lines.push(`Sun: ${sunSign} | Moon: ${moonSign} (approximate) | Rising: Unknown (requires exact birth time)`);
     lines.push("⚠ NOTE: Without exact birth time, house placements and Rising sign are approximate. Interpret Ascendant-dependent insights with this caveat.");
     lines.push("");
 

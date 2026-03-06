@@ -74,10 +74,12 @@ export default defineSchema({
                 countryCode: v.optional(v.string()),
                 displayName: v.optional(v.string()),
             }),
-            // Cached Placements (So we don't recalculate on every render)
-            sunSign: v.string(),
-            moonSign: v.string(),
-            risingSign: v.string(),
+            // Full array of calculated planetary placements
+            placements: v.array(v.object({
+                body: v.string(),
+                sign: v.string(),
+                house: v.number(),
+            })),
         })),
 
     })
@@ -122,7 +124,7 @@ export default defineSchema({
         resetAt: v.number(), // timestamp for when the limit resets
     }).index("by_userId_action", ["userId", "action"]),
 
-    // ─── DAILY HOROSCOPE ENGINE ───────────────────────────────────────
+    // в”Ђв”Ђв”Ђ DAILY HOROSCOPE ENGINE в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
     // 5. SYSTEM SETTINGS (Master Prompt Storage)
     systemSettings: defineTable({
@@ -142,7 +144,7 @@ export default defineSchema({
         createdAt: v.number(),
     }).index("by_createdAt", ["createdAt"]),
 
-    // 7. HOROSCOPES (Generated Content — the product)
+    // 7. HOROSCOPES (Generated Content вЂ” the product)
     horoscopes: defineTable({
         zeitgeistId: v.id("zeitgeists"),
         sign: v.string(),             // One of the 12 canonical sign names
@@ -183,20 +185,20 @@ export default defineSchema({
     }).index("by_status", ["status"])
         .index("by_admin", ["adminUserId"]),
 
-    // 9. COSMIC WEATHER (Astronomical Data — computed daily)
+    // 9. COSMIC WEATHER (Astronomical Data вЂ” computed daily)
     cosmicWeather: defineTable({
-        date: v.string(),                  // "YYYY-MM-DD" UTC — primary lookup key
+        date: v.string(),                  // "YYYY-MM-DD" UTC вЂ” primary lookup key
         planetPositions: v.array(
             v.object({
                 planet: v.string(),            // e.g. "Mars"
                 sign: v.string(),              // e.g. "Gemini"
-                degreeInSign: v.number(),      // 0–29.99
+                degreeInSign: v.number(),      // 0вЂ“29.99
                 isRetrograde: v.boolean(),     // true if planet is retrograde
             })
         ),
         moonPhase: v.object({
             name: v.string(),                // e.g. "Waxing Gibbous"
-            illuminationPercent: v.number(), // 0–100
+            illuminationPercent: v.number(), // 0вЂ“100
         }),
         activeAspects: v.array(
             v.object({
@@ -209,23 +211,23 @@ export default defineSchema({
         generatedAt: v.number(),           // Date.now() timestamp for audit
     }).index("by_date", ["date"]),
 
-    // 10. HOOKS (Hook Archetype Library — DB-driven, zero deploy updates)
+    // 10. HOOKS (Hook Archetype Library вЂ” DB-driven, zero deploy updates)
     hooks: defineTable({
         name: v.string(),                    // e.g. "The Mirror Hook"
         description: v.string(),             // One-sentence description
-        examples: v.array(v.string()),       // 2–5 example lines
+        examples: v.array(v.string()),       // 2вЂ“5 example lines
         isActive: v.boolean(),
         moonPhaseMapping: v.optional(v.string()),  // e.g. "full_moon", "waxing", "new_moon", "waning"
         createdAt: v.number(),
         updatedAt: v.number(),
     }).index("by_active", ["isActive"]),
 
-    // ─── ORACLE AI ASTROLOGY GUIDE ────────────────────────────────────────
+    // в”Ђв”Ђв”Ђ ORACLE AI ASTROLOGY GUIDE в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
     // 11. ORACLE CATEGORIES (The 6 domain badges)
     oracle_categories: defineTable({
         name: v.string(),                    // "Love", "Work", "Self", etc.
-        slug: v.string(),                    // "love", "work" — URL-safe, unique
+        slug: v.string(),                    // "love", "work" вЂ” URL-safe, unique
         icon: v.string(),                    // Lucide icon name or emoji string
         description: v.string(),             // Short description for admin panel
         displayOrder: v.number(),            // Sort order in UI (0-based)
@@ -318,10 +320,21 @@ export default defineSchema({
     })
         .index("by_category", ["categoryId"]),
 
-    // 17. ORACLE SETTINGS (Key-value config: soul prompt, models, limits, etc.)
+    // 17. ORACLE FEATURE INJECTIONS (Per-feature prompt blocks)
+    oracle_feature_injections: defineTable({
+        featureKey: v.string(),
+        contextText: v.string(),
+        isActive: v.boolean(),
+        version: v.number(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_feature", ["featureKey"]),
+
+    // 18. ORACLE SETTINGS (Key-value config: soul prompt, models, limits, etc.)
     oracle_settings: defineTable({
         key: v.string(),
-        value: v.string(),                   // Always stored as string — parsed at app layer
+        value: v.string(),                   // Always stored as string вЂ” parsed at app layer
         valueType: v.union(
             v.literal("string"),
             v.literal("number"),
@@ -340,9 +353,11 @@ export default defineSchema({
     // 18. ORACLE PROMPT VERSIONS (Version history for prompt content rollback)
     oracle_prompt_versions: defineTable({
         entityType: v.union(
-            v.literal("soul_prompt"),
+            v.literal("soul_prompt"),         // Legacy single-prompt format
+            v.literal("soul_doc"),            // New granular soul document format
             v.literal("category_context"),
             v.literal("scenario_injection"),
+            v.literal("feature_injection"),
         ),
         entityId: v.string(),               // Convex ID of the entity (as string)
         content: v.string(),                 // Full content snapshot
@@ -354,7 +369,7 @@ export default defineSchema({
         .index("by_entity", ["entityType", "entityId"])
         .index("by_entity_version", ["entityType", "entityId", "version"]),
 
-    // 19. ORACLE QUOTA USAGE (Server-authoritative question tracking)
+    // 20. ORACLE QUOTA USAGE (Server-authoritative question tracking)
     oracle_quota_usage: defineTable({
         userId: v.id("users"),
         // For roles with rolling 24h reset:
@@ -368,12 +383,13 @@ export default defineSchema({
     })
         .index("by_user", ["userId"]),
 
-    // 20. ORACLE SESSIONS (User conversation sessions)
+    // 21. ORACLE SESSIONS (User conversation sessions)
     oracle_sessions: defineTable({
         userId: v.id("users"),
         title: v.string(),                   // Auto-generated from first question (~40 chars)
         categoryId: v.optional(v.id("oracle_categories")),
         templateId: v.optional(v.id("oracle_templates")),
+        featureKey: v.optional(v.string()),
         status: v.union(
             v.literal("collecting_context"),  // In follow-up flow
             v.literal("active"),              // Oracle answered, conversation ongoing
@@ -391,7 +407,7 @@ export default defineSchema({
         .index("by_user", ["userId"])
         .index("by_user_updated", ["userId", "updatedAt"]),
 
-    // 21. ORACLE MESSAGES (Individual messages in a session)
+    // 22. ORACLE MESSAGES (Individual messages in a session)
     oracle_messages: defineTable({
         sessionId: v.id("oracle_sessions"),
         role: v.union(
@@ -421,7 +437,7 @@ export default defineSchema({
     oracle_follow_up_answers: defineTable({
         sessionId: v.id("oracle_sessions"),
         followUpId: v.id("oracle_follow_ups"),
-        answer: v.string(),                  // Serialized — JSON for multi_select
+        answer: v.string(),                  // Serialized вЂ” JSON for multi_select
         skipped: v.boolean(),                // true if user skipped optional question
         answeredAt: v.number(),
     })
@@ -429,3 +445,8 @@ export default defineSchema({
         .index("by_session_followup", ["sessionId", "followUpId"]),
 
 });
+
+
+
+
+

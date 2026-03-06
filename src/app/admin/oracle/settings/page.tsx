@@ -1,613 +1,387 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
-import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "convex/react";
+import Link from "next/link";
+import { useMutation, useQuery } from "convex/react";
+import { Loader2, Save, AlertTriangle, CheckCircle } from "lucide-react";
 import { api } from "../../../../../convex/_generated/api";
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
+  DEFAULT_TOKEN_LIMITS,
+  buildTokenLimitRecord,
+  TOKEN_LIMIT_DEFINITIONS,
+} from "../../../../../lib/oracle/soul";
+import { TokenLimitsEditor } from "@/components/oracle-admin/token-limits-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-    Loader2,
-    Save,
-    AlertTriangle,
-    CheckCircle,
-    Eye,
-} from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 const MODEL_OPTIONS = [
-    { value: "x-ai/grok-4.1-fast", label: "Grok 4.1 Fast", provider: "xAI" },
-    { value: "x-ai/grok-4.1", label: "Grok 4.1", provider: "xAI" },
-    { value: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite", provider: "Google" },
-    { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", provider: "Google" },
-    { value: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4", provider: "Anthropic" },
-    { value: "openai/gpt-4.1-mini", label: "GPT-4.1 Mini", provider: "OpenAI" },
-    { value: "arcee-ai/trinity-large-preview:free", label: "Trinity Large Preview (Free)", provider: "Arcee AI" },
-    { value: "stepfun/step-3.5-flash:free", label: "Step 3.5 Flash (Free)", provider: "Step Fun" },
-    { value: "z-ai/glm-4.5-air:free", label: "GLM 4.5 Air (Free)", provider: "Z-AI" },
-    { value: "NONE", label: "Disabled", provider: "—" },
+  { value: "arcee-ai/trinity-large-preview:free", label: "Trinity Large Preview" },
+  { value: "stepfun/step-3.5-flash:free", label: "Step 3.5 Flash" },
+  { value: "z-ai/glm-4.5-air:free", label: "GLM 4.5 Air" },
+  { value: "x-ai/grok-4.1-fast", label: "Grok 4.1 Fast" },
+  { value: "x-ai/grok-4.1", label: "Grok 4.1" },
+  { value: "NONE", label: "Disabled" },
 ];
 
 export default function OracleSettingsPage() {
-    const settings = useQuery(api.oracle.settings.listAllSettings);
-    const upsertSetting = useMutation(api.oracle.settings.upsertSetting);
-    const saveSoulPrompt = useMutation(api.oracle.settings.saveSoulPrompt);
+  const settings = useQuery(api.oracle.settings.listAllSettings);
+  const upsertSetting = useMutation(api.oracle.settings.upsertSetting);
 
-    // Local state for form fields
-    const [soulPrompt, setSoulPrompt] = useState("");
-    const [modelA, setModelA] = useState("");
-    const [modelB, setModelB] = useState("");
-    const [modelC, setModelC] = useState("");
-    const [temperature, setTemperature] = useState(0.82);
-    const [maxTokens, setMaxTokens] = useState(600);
-    const [topP, setTopP] = useState(0.92);
-    const [streamEnabled, setStreamEnabled] = useState(true);
-    const [fallbackResponse, setFallbackResponse] = useState("");
-    const [crisisResponse, setCrisisResponse] = useState("");
-    const [oracleEnabled, setOracleEnabled] = useState(true);
-    const [confirmKillSwitch, setConfirmKillSwitch] = useState("");
-    const [showKillSwitchDialog, setShowKillSwitchDialog] = useState(false);
+  const [modelA, setModelA] = React.useState("google/gemini-2.5-flash");
+  const [modelB, setModelB] = React.useState("anthropic/claude-sonnet-4");
+  const [modelC, setModelC] = React.useState("x-ai/grok-4.1-fast");
+  const [temperature, setTemperature] = React.useState(0.82);
+  const [topP, setTopP] = React.useState(0.92);
+  const [streamEnabled, setStreamEnabled] = React.useState(true);
+  const [fallbackResponse, setFallbackResponse] = React.useState("");
+  const [crisisResponse, setCrisisResponse] = React.useState("");
+  const [oracleEnabled, setOracleEnabled] = React.useState(true);
+  const [confirmKillSwitch, setConfirmKillSwitch] = React.useState("");
+  const [showKillSwitchDialog, setShowKillSwitchDialog] = React.useState(false);
+  const [quotaValues, setQuotaValues] = React.useState<Record<string, string>>({
+    user: "5",
+    popular: "5",
+    premium: "10",
+    moderator: "10",
+    admin: "999",
+  });
+  const [tokenLimits, setTokenLimits] = React.useState(DEFAULT_TOKEN_LIMITS);
+  const [savingKey, setSavingKey] = React.useState<string | null>(null);
 
-    // Quota states
-    const [quotaFree, setQuotaFree] = useState("5");
-    const [quotaPopular, setQuotaPopular] = useState("5");
-    const [quotaPremium, setQuotaPremium] = useState("10");
-    const [quotaModerator, setQuotaModerator] = useState("10");
-    const [quotaAdmin, setQuotaAdmin] = useState("999");
-
-    const [saving, setSaving] = useState<string | null>(null);
-    const [dirty, setDirty] = useState<Record<string, boolean>>({});
-
-    // Load settings into form
-    useEffect(() => {
-        if (!settings) return;
-
-        const get = (key: string) => settings.find((s) => s.key === key)?.value;
-
-        setSoulPrompt(get("soul_prompt") ?? "");
-        setModelA(get("model_a") ?? "google/gemini-2.5-flash");
-        setModelB(get("model_b") ?? "anthropic/claude-sonnet-4");
-        setModelC(get("model_c") ?? "x-ai/grok-4.1-fast");
-        setTemperature(parseFloat(get("temperature") ?? "0.82"));
-        setMaxTokens(parseInt(get("max_tokens") ?? "600"));
-        setTopP(parseFloat(get("top_p") ?? "0.92"));
-        setStreamEnabled(get("stream_enabled") === "true");
-        setFallbackResponse(get("fallback_response_text") ?? "");
-        setCrisisResponse(get("crisis_response_text") ?? "");
-        // kill_switch="true" means Oracle is OFF → oracleEnabled = false
-        setOracleEnabled(get("kill_switch") !== "true");
-        setQuotaFree(get("quota_limit_user") ?? "5");
-        setQuotaPopular(get("quota_limit_popular") ?? "5");
-        setQuotaPremium(get("quota_limit_premium") ?? "10");
-        setQuotaModerator(get("quota_limit_moderator") ?? "10");
-        setQuotaAdmin(get("quota_limit_admin") ?? "999");
-    }, [settings]);
-
-    const markDirty = (section: string) => setDirty((p) => ({ ...p, [section]: true }));
-
-    const saveSetting = async (key: string, value: string, valueType: "string" | "number" | "boolean" | "json", label: string, group: string) => {
-        setSaving(key);
-        try {
-            await upsertSetting({ key, value, valueType, label, group, description: "" });
-            setDirty((p) => ({ ...p, [group]: false }));
-            toast.success(`${label} saved`);
-        } catch (e: any) {
-            toast.error(`Failed to save: ${e.message}`);
-        } finally {
-            setSaving(null);
-        }
-    };
-
-    const handleSaveSoulPrompt = async () => {
-        setSaving("soul_prompt");
-        try {
-            await saveSoulPrompt({ content: soulPrompt });
-            setDirty((p) => ({ ...p, content: false }));
-            toast.success("Soul Prompt saved with version history");
-        } catch (e: any) {
-            toast.error(`Failed to save: ${e.message}`);
-        } finally {
-            setSaving(null);
-        }
-    };
-
-    const handleSaveModelConfig = async () => {
-        setSaving("model");
-        try {
-            await Promise.all([
-                upsertSetting({ key: "model_a", value: modelA, valueType: "string", label: "Primary Model", group: "model" }),
-                upsertSetting({ key: "model_b", value: modelB, valueType: "string", label: "Fallback Model B", group: "model" }),
-                upsertSetting({ key: "model_c", value: modelC, valueType: "string", label: "Fallback Model C", group: "model" }),
-                upsertSetting({ key: "temperature", value: temperature.toString(), valueType: "number", label: "Temperature", group: "model" }),
-                upsertSetting({ key: "max_tokens", value: maxTokens.toString(), valueType: "number", label: "Max Output Tokens", group: "model" }),
-                upsertSetting({ key: "top_p", value: topP.toString(), valueType: "number", label: "Top-p", group: "model" }),
-                upsertSetting({ key: "stream_enabled", value: streamEnabled.toString(), valueType: "boolean", label: "Streaming", group: "model" }),
-            ]);
-            setDirty((p) => ({ ...p, model: false }));
-            toast.success("Model configuration saved");
-        } catch (e: any) {
-            toast.error(`Failed to save: ${e.message}`);
-        } finally {
-            setSaving(null);
-        }
-    };
-
-    const handleSaveQuota = async (role: string, value: string, label: string) => {
-        await saveSetting(`quota_limit_${role}`, value, "number", label, "quota");
-    };
-
-    const handleToggleOracle = async () => {
-        if (oracleEnabled) {
-            // Turning OFF — require confirmation
-            setShowKillSwitchDialog(true);
-        } else {
-            // Turning ON — set kill_switch to "false"
-            setOracleEnabled(true);
-            await saveSetting("kill_switch", "false", "boolean", "Oracle Kill Switch", "operations");
-            toast.success("Oracle is now LIVE");
-        }
-    };
-
-    const handleConfirmKillSwitch = async () => {
-        if (confirmKillSwitch !== "CONFIRM") return;
-        setOracleEnabled(false);
-        setShowKillSwitchDialog(false);
-        setConfirmKillSwitch("");
-        // kill_switch="true" means Oracle is OFF
-        await saveSetting("kill_switch", "true", "boolean", "Oracle Kill Switch", "operations");
-        toast.warning("Oracle is now OFFLINE");
-    };
-
+  React.useEffect(() => {
     if (!settings) {
-        return (
-            <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-        );
+      return;
     }
 
+    const get = (key: string) => settings.find((setting) => setting.key === key)?.value;
+    setModelA(get("model_a") ?? "google/gemini-2.5-flash");
+    setModelB(get("model_b") ?? "anthropic/claude-sonnet-4");
+    setModelC(get("model_c") ?? "x-ai/grok-4.1-fast");
+    setTemperature(Number.parseFloat(get("temperature") ?? "0.82"));
+    setTopP(Number.parseFloat(get("top_p") ?? "0.92"));
+    setStreamEnabled(get("stream_enabled") !== "false");
+    setFallbackResponse(get("fallback_response_text") ?? "");
+    setCrisisResponse(get("crisis_response_text") ?? "");
+    setOracleEnabled(get("kill_switch") !== "true");
+    setQuotaValues({
+      user: get("quota_limit_user") ?? "5",
+      popular: get("quota_limit_popular") ?? "5",
+      premium: get("quota_limit_premium") ?? "10",
+      moderator: get("quota_limit_moderator") ?? "10",
+      admin: get("quota_limit_admin") ?? "999",
+    });
+    setTokenLimits(buildTokenLimitRecord(Object.fromEntries(settings.map((setting) => [setting.key, setting.value]))));
+  }, [settings]);
+
+  async function saveBatch(items: Array<{ key: string; value: string; valueType: "string" | "number" | "boolean" | "json"; label: string; group: string; description?: string }>, savingState: string, successMessage: string) {
+    setSavingKey(savingState);
+    try {
+      await Promise.all(
+        items.map((item) =>
+          upsertSetting({
+            ...item,
+            description: item.description ?? "",
+          }),
+        ),
+      );
+      toast.success(successMessage);
+    } catch (error: any) {
+      toast.error(error?.message ?? "Failed to save settings");
+    } finally {
+      setSavingKey(null);
+    }
+  }
+
+  if (!settings) {
     return (
-        <div className="space-y-8 max-w-4xl">
-            <div>
-                <h1 className="text-2xl font-serif font-bold">Oracle Settings</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Soul prompt, model configuration, quotas, and operational controls
-                </p>
-            </div>
-
-            <Tabs defaultValue="soul" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-4">
-                    <TabsTrigger value="soul">Soul Prompt</TabsTrigger>
-                    <TabsTrigger value="model">Model Config</TabsTrigger>
-                    <TabsTrigger value="quota">Quotas</TabsTrigger>
-                    <TabsTrigger value="ops">Operations</TabsTrigger>
-                </TabsList>
-
-                {/* ─── TAB 1: Soul Prompt ─── */}
-                <TabsContent value="soul" className="space-y-4">
-                    <Card className="bg-card/50 border-border/50">
-                        <CardHeader>
-                            <CardTitle className="text-base">Oracle Soul Prompt</CardTitle>
-                            <CardDescription>
-                                The core personality and behavioral rules — this is the most important content in the system.
-                                Uses [SECTION_NAME] format. Changes are versioned for rollback.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <Textarea
-                                value={soulPrompt}
-                                onChange={(e) => {
-                                    setSoulPrompt(e.target.value);
-                                    markDirty("content");
-                                }}
-                                className="min-h-[500px] font-mono text-sm bg-black/20 border-white/10"
-                                placeholder="[IDENTITY]&#10;You are Oracle..."
-                            />
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs text-muted-foreground">
-                                    {soulPrompt.length} characters · ~{Math.round(soulPrompt.length / 4)} tokens
-                                </span>
-                                <Button
-                                    onClick={handleSaveSoulPrompt}
-                                    disabled={saving === "soul_prompt" || !dirty.content}
-                                    className="gap-2"
-                                >
-                                    {saving === "soul_prompt" ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                        <Save className="w-4 h-4" />
-                                    )}
-                                    Save Soul Prompt
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                {/* ─── TAB 2: Model Configuration ─── */}
-                <TabsContent value="model" className="space-y-4">
-                    <Card className="bg-card/50 border-border/50">
-                        <CardHeader>
-                            <CardTitle className="text-base">Model Fallback Chain</CardTitle>
-                            <CardDescription>
-                                Oracle tries Model A first. On failure, falls to B, then C, then hardcoded Response D.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            {/* Model A */}
-                            <div className="space-y-2">
-                                <Label className="flex items-center gap-2">
-                                    <Badge variant="outline" className="border-emerald-500/50 text-emerald-400 text-[10px]">A</Badge>
-                                    Primary Model
-                                </Label>
-                                <Select value={modelA} onValueChange={(v) => { setModelA(v); markDirty("model"); }}>
-                                    <SelectTrigger className="bg-black/20 border-white/10">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {MODEL_OPTIONS.map((m) => (
-                                            <SelectItem key={m.value} value={m.value}>
-                                                {m.label} <span className="text-muted-foreground ml-1">({m.provider})</span>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            {/* Model B */}
-                            <div className="space-y-2">
-                                <Label className="flex items-center gap-2">
-                                    <Badge variant="outline" className="border-amber-500/50 text-amber-400 text-[10px]">B</Badge>
-                                    Fallback Model — used if A fails
-                                </Label>
-                                <Select value={modelB} onValueChange={(v) => { setModelB(v); markDirty("model"); }}>
-                                    <SelectTrigger className="bg-black/20 border-white/10">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {MODEL_OPTIONS.map((m) => (
-                                            <SelectItem key={m.value} value={m.value}>
-                                                {m.label} <span className="text-muted-foreground ml-1">({m.provider})</span>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            {/* Model C */}
-                            <div className="space-y-2">
-                                <Label className="flex items-center gap-2">
-                                    <Badge variant="outline" className="border-red-500/50 text-red-400 text-[10px]">C</Badge>
-                                    Last Resort Model — used if A and B fail
-                                </Label>
-                                <Select value={modelC} onValueChange={(v) => { setModelC(v); markDirty("model"); }}>
-                                    <SelectTrigger className="bg-black/20 border-white/10">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {MODEL_OPTIONS.map((m) => (
-                                            <SelectItem key={m.value} value={m.value}>
-                                                {m.label} <span className="text-muted-foreground ml-1">({m.provider})</span>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <Separator className="opacity-20" />
-
-                            {/* Temperature */}
-                            <div className="space-y-3">
-                                <Label>Temperature: {temperature.toFixed(2)}</Label>
-                                <div className="flex items-center gap-4">
-                                    <span className="text-xs text-muted-foreground">🎯 Precise</span>
-                                    <input
-                                        type="range"
-                                        min="0"
-                                        max="1"
-                                        step="0.05"
-                                        value={temperature}
-                                        onChange={(e) => { setTemperature(parseFloat(e.target.value)); markDirty("model"); }}
-                                        className="flex-1 accent-galactic h-2 rounded-lg appearance-none cursor-pointer bg-white/10"
-                                    />
-                                    <span className="text-xs text-muted-foreground">🌀 Creative</span>
-                                </div>
-                                <p className="text-[11px] text-muted-foreground">
-                                    Recommended: 0.82 · Below 0.7 feels clinical. Above 0.9 risks hallucinating chart details.
-                                </p>
-                            </div>
-
-                            {/* Max Tokens */}
-                            <div className="space-y-2">
-                                <Label>Max Output Tokens</Label>
-                                <div className="flex items-center gap-3">
-                                    <Input
-                                        type="number"
-                                        min={200}
-                                        max={1500}
-                                        value={maxTokens}
-                                        onChange={(e) => { setMaxTokens(parseInt(e.target.value) || 600); markDirty("model"); }}
-                                        className="w-32 bg-black/20 border-white/10"
-                                    />
-                                    <span className="text-xs text-muted-foreground">
-                                        ≈{Math.round(maxTokens / 1.33)} words
-                                    </span>
-                                </div>
-                                <p className="text-[11px] text-muted-foreground">
-                                    Recommended: 600 (~450 words). This is the mystical sweet spot.
-                                </p>
-                            </div>
-
-                            {/* Top-p */}
-                            <div className="space-y-3">
-                                <Label>Top-p: {topP.toFixed(2)}</Label>
-                                <input
-                                    type="range"
-                                    min="0.5"
-                                    max="1"
-                                    step="0.01"
-                                    value={topP}
-                                    onChange={(e) => { setTopP(parseFloat(e.target.value)); markDirty("model"); }}
-                                    className="w-full accent-galactic h-2 rounded-lg appearance-none cursor-pointer bg-white/10"
-                                />
-                                <p className="text-[11px] text-muted-foreground">
-                                    Recommended: 0.92 · 0.90–0.95 is ideal for Oracle.
-                                </p>
-                            </div>
-
-                            {/* Streaming */}
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <Label>Streaming</Label>
-                                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                                        Enable the &quot;Oracle speaking&quot; streaming effect
-                                    </p>
-                                </div>
-                                <Switch
-                                    checked={streamEnabled}
-                                    onCheckedChange={(v) => { setStreamEnabled(v); markDirty("model"); }}
-                                />
-                            </div>
-
-                            <Separator className="opacity-20" />
-
-                            <div className="flex justify-end">
-                                <Button
-                                    onClick={handleSaveModelConfig}
-                                    disabled={saving === "model" || !dirty.model}
-                                    className="gap-2"
-                                >
-                                    {saving === "model" ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                        <Save className="w-4 h-4" />
-                                    )}
-                                    Save Model Config
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                {/* ─── TAB 3: Quotas ─── */}
-                <TabsContent value="quota" className="space-y-4">
-                    <Card className="bg-card/50 border-border/50">
-                        <CardHeader>
-                            <CardTitle className="text-base">Quota Limits</CardTitle>
-                            <CardDescription>
-                                Configure how many Oracle questions each tier can ask. Changes apply immediately.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-4">
-                                {[
-                                    { role: "user", label: "Free Tier", value: quotaFree, setter: setQuotaFree, reset: "Never (lifetime)" },
-                                    { role: "popular", label: "Popular", value: quotaPopular, setter: setQuotaPopular, reset: "24h rolling" },
-                                    { role: "premium", label: "Premium", value: quotaPremium, setter: setQuotaPremium, reset: "24h rolling" },
-                                    { role: "moderator", label: "Moderator", value: quotaModerator, setter: setQuotaModerator, reset: "24h rolling" },
-                                    { role: "admin", label: "Admin", value: quotaAdmin, setter: setQuotaAdmin, reset: "24h rolling" },
-                                ].map((tier) => (
-                                    <div key={tier.role} className="flex items-center gap-4 bg-white/3 rounded-lg border border-white/8 p-4">
-                                        <div className="flex-1 min-w-0">
-                                            <span className="text-sm font-medium">{tier.label}</span>
-                                            <span className="text-xs text-muted-foreground ml-2">({tier.reset})</span>
-                                        </div>
-                                        <Input
-                                            type="number"
-                                            min={1}
-                                            value={tier.value}
-                                            onChange={(e) => tier.setter(e.target.value)}
-                                            className="w-24 bg-black/20 border-white/10"
-                                        />
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handleSaveQuota(tier.role, tier.value, tier.label)}
-                                            disabled={saving === `quota_limit_${tier.role}`}
-                                            className="border-white/10"
-                                        >
-                                            {saving === `quota_limit_${tier.role}` ? (
-                                                <Loader2 className="w-3 h-3 animate-spin" />
-                                            ) : (
-                                                <Save className="w-3 h-3" />
-                                            )}
-                                        </Button>
-                                    </div>
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                {/* ─── TAB 4: Operations ─── */}
-                <TabsContent value="ops" className="space-y-4">
-                    {/* Kill Switch */}
-                    <Card className={`border-2 transition-colors ${oracleEnabled
-                        ? "bg-emerald-500/5 border-emerald-500/20"
-                        : "bg-red-500/5 border-red-500/20"
-                        }`}>
-                        <CardContent className="pt-6">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${oracleEnabled
-                                        ? "bg-emerald-500/15"
-                                        : "bg-red-500/15"
-                                        }`}>
-                                        {oracleEnabled ? (
-                                            <CheckCircle className="w-6 h-6 text-emerald-400" />
-                                        ) : (
-                                            <AlertTriangle className="w-6 h-6 text-red-400" />
-                                        )}
-                                    </div>
-                                    <div>
-                                        <p className="text-lg font-semibold">
-                                            {oracleEnabled ? "Oracle is LIVE" : "Oracle is OFFLINE"}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">
-                                            {oracleEnabled
-                                                ? "Users can access Oracle normally"
-                                                : "All users see the offline message"
-                                            }
-                                        </p>
-                                    </div>
-                                </div>
-                                <Switch
-                                    checked={oracleEnabled}
-                                    onCheckedChange={handleToggleOracle}
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Kill Switch Dialog */}
-                    <Dialog open={showKillSwitchDialog} onOpenChange={setShowKillSwitchDialog}>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle className="text-red-400">Take Oracle Offline</DialogTitle>
-                                <DialogDescription>
-                                    This will immediately prevent all users from accessing Oracle.
-                                    They will see the fallback response instead. Type CONFIRM to proceed.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <Input
-                                value={confirmKillSwitch}
-                                onChange={(e) => setConfirmKillSwitch(e.target.value)}
-                                placeholder="Type CONFIRM"
-                                className="bg-black/20 border-white/10"
-                            />
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setShowKillSwitchDialog(false)}>
-                                    Cancel
-                                </Button>
-                                <Button
-                                    variant="destructive"
-                                    onClick={handleConfirmKillSwitch}
-                                    disabled={confirmKillSwitch !== "CONFIRM"}
-                                >
-                                    Take Offline
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-
-                    {/* Crisis Response */}
-                    <Card className="bg-card/50 border-border/50">
-                        <CardHeader>
-                            <CardTitle className="text-base flex items-center gap-2">
-                                <AlertTriangle className="w-4 h-4 text-amber-400" />
-                                Crisis Response
-                            </CardTitle>
-                            <CardDescription>
-                                Shown when crisis keywords are detected — no LLM call is made.
-                                Must not be empty.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <Textarea
-                                value={crisisResponse}
-                                onChange={(e) => setCrisisResponse(e.target.value)}
-                                className="min-h-[100px] bg-black/20 border-white/10"
-                            />
-                            <div className="flex justify-end">
-                                <Button
-                                    onClick={() => saveSetting("crisis_response_text", crisisResponse, "string", "Crisis Response", "safety")}
-                                    disabled={!crisisResponse.trim() || saving === "crisis_response_text"}
-                                    size="sm"
-                                    className="gap-2"
-                                >
-                                    {saving === "crisis_response_text" ? (
-                                        <Loader2 className="w-3 h-3 animate-spin" />
-                                    ) : (
-                                        <Save className="w-3 h-3" />
-                                    )}
-                                    Save Crisis Response
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Fallback Response D */}
-                    <Card className="bg-card/50 border-border/50">
-                        <CardHeader>
-                            <CardTitle className="text-base">Fallback Response (D)</CardTitle>
-                            <CardDescription>
-                                Shown when all 3 models fail — no LLM call. This is the last resort.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <Textarea
-                                value={fallbackResponse}
-                                onChange={(e) => setFallbackResponse(e.target.value)}
-                                className="min-h-[80px] bg-black/20 border-white/10"
-                            />
-                            <div className="flex justify-end">
-                                <Button
-                                    onClick={() => saveSetting("fallback_response_text", fallbackResponse, "string", "Fallback Response D", "safety")}
-                                    disabled={saving === "fallback_response_text"}
-                                    size="sm"
-                                    className="gap-2"
-                                >
-                                    {saving === "fallback_response_text" ? (
-                                        <Loader2 className="w-3 h-3 animate-spin" />
-                                    ) : (
-                                        <Save className="w-3 h-3" />
-                                    )}
-                                    Save Fallback Response
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-            </Tabs>
-        </div>
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
     );
+  }
+
+  return (
+    <div className="max-w-5xl space-y-8">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-serif font-bold">Oracle Settings</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Runtime models, token tiers, quotas, and operational controls.
+          </p>
+        </div>
+        <Link href="/admin/oracle/soul" className="text-sm text-galactic hover:underline">
+          Open Soul Editor
+        </Link>
+      </div>
+
+      <Tabs defaultValue="model" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="model">Model</TabsTrigger>
+          <TabsTrigger value="tokens">Token Limits</TabsTrigger>
+          <TabsTrigger value="quota">Quotas</TabsTrigger>
+          <TabsTrigger value="ops">Operations</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="model" className="space-y-4">
+          <Card className="border-border/50 bg-card/50">
+            <CardHeader>
+              <CardTitle className="text-base">Model Fallback Chain</CardTitle>
+              <CardDescription>
+                Oracle tries A, then B, then C. Token ceiling now lives in the Token Limits tab.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {[{ label: "Primary Model", value: modelA, set: setModelA }, { label: "Fallback Model B", value: modelB, set: setModelB }, { label: "Fallback Model C", value: modelC, set: setModelC }].map((item) => (
+                <div key={item.label} className="space-y-2">
+                  <Label>{item.label}</Label>
+                  <Select value={item.value} onValueChange={item.set}>
+                    <SelectTrigger className="border-white/10 bg-black/20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MODEL_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+
+              <div className="space-y-3">
+                <Label>Temperature: {temperature.toFixed(2)}</Label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={temperature}
+                  onChange={(event) => setTemperature(Number.parseFloat(event.target.value))}
+                  className="w-full accent-galactic"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <Label>Top-p: {topP.toFixed(2)}</Label>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="1"
+                  step="0.01"
+                  value={topP}
+                  onChange={(event) => setTopP(Number.parseFloat(event.target.value))}
+                  className="w-full accent-galactic"
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div>
+                  <Label>Streaming</Label>
+                  <p className="mt-1 text-xs text-muted-foreground">Enable token-by-token Oracle streaming.</p>
+                </div>
+                <Switch checked={streamEnabled} onCheckedChange={setStreamEnabled} />
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={() =>
+                    saveBatch(
+                      [
+                        { key: "model_a", value: modelA, valueType: "string", label: "Primary Model", group: "model" },
+                        { key: "model_b", value: modelB, valueType: "string", label: "Fallback Model B", group: "model" },
+                        { key: "model_c", value: modelC, valueType: "string", label: "Fallback Model C", group: "model" },
+                        { key: "temperature", value: String(temperature), valueType: "number", label: "Temperature", group: "model" },
+                        { key: "top_p", value: String(topP), valueType: "number", label: "Top-p", group: "model" },
+                        { key: "stream_enabled", value: String(streamEnabled), valueType: "boolean", label: "Streaming", group: "model" },
+                      ],
+                      "model",
+                      "Model settings saved",
+                    )
+                  }
+                  disabled={savingKey === "model"}
+                  className="gap-2"
+                >
+                  <Save className="h-4 w-4" />
+                  {savingKey === "model" ? "Saving..." : "Save Model Config"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="tokens" className="space-y-4">
+          <TokenLimitsEditor
+            initialValues={tokenLimits}
+            isSaving={savingKey === "token_limits"}
+            onSave={async (values) => {
+              await saveBatch(
+                Object.entries(values).map(([key, value]) => ({
+                  key,
+                  value: String(value),
+                  valueType: "number" as const,
+                  label: TOKEN_LIMIT_DEFINITIONS[key as keyof typeof TOKEN_LIMIT_DEFINITIONS].label,
+                  description: TOKEN_LIMIT_DEFINITIONS[key as keyof typeof TOKEN_LIMIT_DEFINITIONS].description,
+                  group: "token_limits",
+                })),
+                "token_limits",
+                "Token limits saved",
+              );
+              setTokenLimits(values);
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="quota" className="space-y-4">
+          <Card className="border-border/50 bg-card/50">
+            <CardHeader>
+              <CardTitle className="text-base">Quota Limits</CardTitle>
+              <CardDescription>Per-role Oracle usage ceilings.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {["user", "popular", "premium", "moderator", "admin"].map((role) => (
+                <div key={role} className="flex items-center gap-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium capitalize">{role}</p>
+                    <p className="text-xs text-muted-foreground">{role === "user" ? "Lifetime" : "Rolling 24h"}</p>
+                  </div>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={quotaValues[role]}
+                    onChange={(event) => setQuotaValues((current) => ({ ...current, [role]: event.target.value }))}
+                    className="w-28 border-white/10 bg-black/20"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      saveBatch(
+                        [{ key: `quota_limit_${role}`, value: quotaValues[role], valueType: "number", label: `${role} quota`, group: "quota" }],
+                        `quota_${role}`,
+                        `${role} quota saved`,
+                      )
+                    }
+                    disabled={savingKey === `quota_${role}`}
+                  >
+                    Save
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="ops" className="space-y-4">
+          <Card className={oracleEnabled ? "border-emerald-500/20 bg-emerald-500/5" : "border-red-500/20 bg-red-500/5"}>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className={oracleEnabled ? "rounded-2xl bg-emerald-500/15 p-3" : "rounded-2xl bg-red-500/15 p-3"}>
+                    {oracleEnabled ? <CheckCircle className="h-6 w-6 text-emerald-400" /> : <AlertTriangle className="h-6 w-6 text-red-400" />}
+                  </div>
+                  <div>
+                    <p className="text-lg font-semibold">{oracleEnabled ? "Oracle is LIVE" : "Oracle is OFFLINE"}</p>
+                    <p className="text-sm text-muted-foreground">Users either reach Oracle normally or see the fallback message immediately.</p>
+                  </div>
+                </div>
+                <Switch checked={oracleEnabled} onCheckedChange={(checked) => {
+                  if (!checked) {
+                    setShowKillSwitchDialog(true);
+                    return;
+                  }
+                  setOracleEnabled(true);
+                  saveBatch([{ key: "kill_switch", value: "false", valueType: "boolean", label: "Oracle Kill Switch", group: "operations" }], "kill_switch", "Oracle is live");
+                }} />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/50 bg-card/50">
+            <CardHeader>
+              <CardTitle className="text-base">Crisis Response</CardTitle>
+              <CardDescription>Fast-path response used before the model is called.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Textarea value={crisisResponse} onChange={(event) => setCrisisResponse(event.target.value)} className="min-h-[120px] border-white/10 bg-black/20" />
+              <div className="flex justify-end">
+                <Button onClick={() => saveBatch([{ key: "crisis_response_text", value: crisisResponse, valueType: "string", label: "Crisis Response", group: "safety" }], "crisis_response", "Crisis response saved")} disabled={savingKey === "crisis_response" || !crisisResponse.trim()}>
+                  Save Crisis Response
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/50 bg-card/50">
+            <CardHeader>
+              <CardTitle className="text-base">Fallback Response</CardTitle>
+              <CardDescription>Last-resort copy when every model fails or Oracle is offline.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Textarea value={fallbackResponse} onChange={(event) => setFallbackResponse(event.target.value)} className="min-h-[100px] border-white/10 bg-black/20" />
+              <div className="flex justify-end">
+                <Button onClick={() => saveBatch([{ key: "fallback_response_text", value: fallbackResponse, valueType: "string", label: "Fallback Response", group: "safety" }], "fallback_response", "Fallback response saved")} disabled={savingKey === "fallback_response" || !fallbackResponse.trim()}>
+                  Save Fallback Response
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={showKillSwitchDialog} onOpenChange={setShowKillSwitchDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Take Oracle offline</DialogTitle>
+            <DialogDescription>
+              Type CONFIRM to enable the kill switch immediately.
+            </DialogDescription>
+          </DialogHeader>
+          <Input value={confirmKillSwitch} onChange={(event) => setConfirmKillSwitch(event.target.value)} placeholder="CONFIRM" />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowKillSwitchDialog(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={confirmKillSwitch !== "CONFIRM"}
+              onClick={async () => {
+                setShowKillSwitchDialog(false);
+                setConfirmKillSwitch("");
+                setOracleEnabled(false);
+                await saveBatch([{ key: "kill_switch", value: "true", valueType: "boolean", label: "Oracle Kill Switch", group: "operations" }], "kill_switch", "Oracle is offline");
+              }}
+            >
+              Take Offline
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }

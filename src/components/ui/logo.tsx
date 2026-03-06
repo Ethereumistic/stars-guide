@@ -33,7 +33,7 @@ export function Logo({
 
     const logomark = (
         <Image
-            src="https://cdn.jsdelivr.net/gh/Ethereumistic/stars-guide-assets/logo/500x500.svg"
+            src="https://cdn.jsdelivr.net/gh/Ethereumistic/stars-guide-assets/logo/500x500.webp"
             alt="DB Productions Logo"
             width={dimensions.width || width}
             height={dimensions.height || height}

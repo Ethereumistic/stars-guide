@@ -49,13 +49,17 @@ export default function DashboardPage() {
     }
 
     // Get zodiac sign details
-    const sunData = getSignData(birthData.sunSign)
+    const sunPlacement = birthData.placements?.find(p => p.body === "Sun")
+    const moonPlacement = birthData.placements?.find(p => p.body === "Moon")
+    const risingPlacement = birthData.placements?.find(p => p.body === "Ascendant")
+
+    const sunData = getSignData(sunPlacement?.sign)
     const sunUI = getUIConfig(sunData?.id)
 
-    const moonData = getSignData(birthData.moonSign)
+    const moonData = getSignData(moonPlacement?.sign)
     const moonUI = getUIConfig(moonData?.id)
 
-    const risingData = getSignData(birthData.risingSign)
+    const risingData = getSignData(risingPlacement?.sign)
     const risingUI = getUIConfig(risingData?.id)
 
     return (

@@ -1,5 +1,13 @@
-import { internalMutation } from "../_generated/server";
+﻿import { internalMutation } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
+import {
+    DEFAULT_SOUL_DOCS,
+    DEFAULT_TOKEN_LIMITS,
+    SOUL_DOC_DEFINITIONS,
+    SOUL_DOC_KEYS,
+    TOKEN_LIMIT_DEFINITIONS,
+    TOKEN_LIMIT_KEYS,
+} from "../../lib/oracle/soul";
 
 /**
  * Oracle Seed Mutation
@@ -15,24 +23,24 @@ export const seedOracle = internalMutation({
     handler: async (ctx) => {
         const now = Date.now();
 
-        // ─── CHECK: Don't double-seed ────────────────────────────────────
+        // в”Ђв”Ђв”Ђ CHECK: Don't double-seed в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
         const existingCategories = await ctx.db.query("oracle_categories").first();
         if (existingCategories) {
-            console.log("Oracle already seeded — skipping.");
+            console.log("Oracle already seeded вЂ” skipping.");
             return { status: "already_seeded" };
         }
 
-        // ═══════════════════════════════════════════════════════════════════
+        // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
         // 1. CATEGORIES
-        // ═══════════════════════════════════════════════════════════════════
+        // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
         const categoryData = [
-            { name: "Self", slug: "self", icon: "🧍", description: "Identity, shadow, authenticity, and personal evolution", displayOrder: 0, color: "#A78BFA" },
-            { name: "Love", slug: "love", icon: "❤️", description: "Romantic relationships, attachment, Venus archetypes", displayOrder: 1, color: "#F472B6" },
-            { name: "Work", slug: "work", icon: "💼", description: "Vocation, purpose, ambition, and career karma", displayOrder: 2, color: "#FBBF24" },
-            { name: "Social", slug: "social", icon: "👥", description: "Community, friendship, belonging, group dynamics", displayOrder: 3, color: "#34D399" },
-            { name: "Destiny", slug: "destiny", icon: "🌀", description: "Life purpose, karmic direction, soul contract", displayOrder: 4, color: "#60A5FA" },
-            { name: "Spirituality", slug: "spirituality", icon: "🔮", description: "Psychic sensitivity, karmic inheritance, connection to the unseen", displayOrder: 5, color: "#C084FC" },
+            { name: "Self", slug: "self", icon: "рџ§Ќ", description: "Identity, shadow, authenticity, and personal evolution", displayOrder: 0, color: "#A78BFA" },
+            { name: "Love", slug: "love", icon: "вќ¤пёЏ", description: "Romantic relationships, attachment, Venus archetypes", displayOrder: 1, color: "#F472B6" },
+            { name: "Work", slug: "work", icon: "рџ’ј", description: "Vocation, purpose, ambition, and career karma", displayOrder: 2, color: "#FBBF24" },
+            { name: "Social", slug: "social", icon: "рџ‘Ґ", description: "Community, friendship, belonging, group dynamics", displayOrder: 3, color: "#34D399" },
+            { name: "Destiny", slug: "destiny", icon: "рџЊЂ", description: "Life purpose, karmic direction, soul contract", displayOrder: 4, color: "#60A5FA" },
+            { name: "Spirituality", slug: "spirituality", icon: "рџ”®", description: "Psychic sensitivity, karmic inheritance, connection to the unseen", displayOrder: 5, color: "#C084FC" },
         ];
 
         const categoryIds: Record<string, Id<"oracle_categories">> = {};
@@ -46,9 +54,9 @@ export const seedOracle = internalMutation({
             categoryIds[cat.slug] = id;
         }
 
-        // ═══════════════════════════════════════════════════════════════════
+        // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
         // 2. TEMPLATES + FOLLOW-UPS + OPTIONS + SCENARIO INJECTIONS
-        // ═══════════════════════════════════════════════════════════════════
+        // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
         // Helper to create a template with its injection
         async function seedTemplate(
@@ -132,7 +140,7 @@ export const seedOracle = internalMutation({
             return followUpId;
         }
 
-        // ─── SELF ─────────────────────────────────────────────────────────
+        // в”Ђв”Ђв”Ђ SELF в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
         // Template 1: Self-sabotage
         await seedTemplate("self",
@@ -158,7 +166,7 @@ export const seedOracle = internalMutation({
                 psychologicalFrame: "Sun/Rising tension + Neptune aspects + persona vs individuation (Jung)",
                 avoid: "Implying the user is fake. Avoid making them feel judged for adapting to social contexts.",
                 emphasize: "The Sun/Rising dynamic as a natural tension, not a flaw. Where Neptune blurs the authentic self. The 1st/12th house journey.",
-                openingAcknowledgmentGuide: "Acknowledge the weight of performing — that it's exhausting to wonder if the person people see is the person you are.",
+                openingAcknowledgmentGuide: "Acknowledge the weight of performing вЂ” that it's exhausting to wonder if the person people see is the person you are.",
             },
         );
 
@@ -177,11 +185,11 @@ export const seedOracle = internalMutation({
             ],
         );
 
-        // ─── LOVE ─────────────────────────────────────────────────────────
+        // в”Ђв”Ђв”Ђ LOVE в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
         // Template 3: Finding my person
         const template3 = await seedTemplate("love",
-            "Will I find my person — or have I already met them and let them go?",
+            "Will I find my person вЂ” or have I already met them and let them go?",
             "Finding my person",
             false, 0,
             {
@@ -228,7 +236,7 @@ export const seedOracle = internalMutation({
             [
                 { label: "Emotionally unavailable", value: "emotionally_unavailable" },
                 { label: "Controlling or jealous", value: "controlling_jealous" },
-                { label: "Inconsistent — hot and cold", value: "inconsistent" },
+                { label: "Inconsistent вЂ” hot and cold", value: "inconsistent" },
                 { label: "Charming then disappearing", value: "charming_disappearing" },
                 { label: "Someone who needs saving", value: "needs_saving" },
             ],
@@ -240,7 +248,7 @@ export const seedOracle = internalMutation({
             "Right person or fear",
             true, 2,
             {
-                toneModifier: "Honest, nuanced, not directive — Oracle illuminates, the user decides",
+                toneModifier: "Honest, nuanced, not directive вЂ” Oracle illuminates, the user decides",
                 psychologicalFrame: "Synastry basics + attachment theory + Venus/Mars compatibility",
                 avoid: "Telling the user to stay or leave. Avoid fortune-telling about relationships. Avoid judgments about the other person.",
                 emphasize: "What the charts suggest about the dynamic. Whether fear or love is the dominant energy. The user's own growth pattern vs the relationship pattern.",
@@ -254,9 +262,9 @@ export const seedOracle = internalMutation({
             "Third party birth date knowledge",
             0, false,
             [
-                { label: "Yes — I know it", value: "yes" },
-                { label: "Approximately — I know the year/month", value: "approximate" },
-                { label: "No — I don't know it", value: "no" },
+                { label: "Yes вЂ” I know it", value: "yes" },
+                { label: "Approximately вЂ” I know the year/month", value: "approximate" },
+                { label: "No вЂ” I don't know it", value: "no" },
             ],
         );
 
@@ -276,7 +284,7 @@ export const seedOracle = internalMutation({
             2, false,
         );
 
-        // ─── WORK ─────────────────────────────────────────────────────────
+        // в”Ђв”Ђв”Ђ WORK в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
         // Template 6: Right career
         const template6 = await seedTemplate("work",
@@ -284,7 +292,7 @@ export const seedOracle = internalMutation({
             "Right career",
             false, 0,
             {
-                toneModifier: "Direct, honest, activating — this user wants truth not comfort",
+                toneModifier: "Direct, honest, activating вЂ” this user wants truth not comfort",
                 psychologicalFrame: "Saturn as teacher + Midheaven purpose + North Node calling",
                 avoid: "Generic career advice. Avoid making them feel shame about where they are.",
                 emphasize: "The difference between 'wrong path' and 'right path, wrong timing.' What Saturn transits say about where they are in their career arc.",
@@ -312,7 +320,7 @@ export const seedOracle = internalMutation({
             "Taking the leap",
             false, 1,
             {
-                toneModifier: "Encouraging but grounded — don't push them over the edge irresponsibly",
+                toneModifier: "Encouraging but grounded вЂ” don't push them over the edge irresponsibly",
                 psychologicalFrame: "Jupiter expansion + Uranus liberation + Saturn reality check",
                 avoid: "Blindly cheerleading. Avoid 'just do it' energy without addressing real risks and timing.",
                 emphasize: "Current transits (especially Jupiter, Uranus, Saturn) as timing indicators. The difference between readiness and restlessness.",
@@ -335,7 +343,7 @@ export const seedOracle = internalMutation({
             ],
         );
 
-        // ─── SOCIAL ───────────────────────────────────────────────────────
+        // в”Ђв”Ђв”Ђ SOCIAL в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
         // Template 8: Feeling alone
         await seedTemplate("social",
@@ -347,7 +355,7 @@ export const seedOracle = internalMutation({
                 psychologicalFrame: "Moon placement + 11th/4th house tension + Neptune aspects + belonging wound",
                 avoid: "Suggesting they need more friends or should be more social. Avoid minimizing the feeling.",
                 emphasize: "The astrological root of the isolation feeling. The Moon/Neptune dynamic. The 4th house (inner belonging) vs 11th house (outer community) tension.",
-                openingAcknowledgmentGuide: "No follow-ups. Meet this with silence before words. Acknowledge the paradox — surrounded yet alone — as the deepest kind of loneliness.",
+                openingAcknowledgmentGuide: "No follow-ups. Meet this with silence before words. Acknowledge the paradox вЂ” surrounded yet alone вЂ” as the deepest kind of loneliness.",
             },
         );
 
@@ -361,7 +369,7 @@ export const seedOracle = internalMutation({
                 psychologicalFrame: "Compatibility patterns + growth cycles + attachment styles",
                 avoid: "Taking sides. Avoid labeling the other person as toxic without evidence. Avoid simplistic 'let go of what no longer serves you' advice.",
                 emphasize: "What the charts suggest about compatibility and growth directions. Whether the relationship is in a natural cycle of change or genuinely complete.",
-                openingAcknowledgmentGuide: "Acknowledge the grief already present in asking this question — even if they haven't said goodbye yet.",
+                openingAcknowledgmentGuide: "Acknowledge the grief already present in asking this question вЂ” even if they haven't said goodbye yet.",
             },
         );
 
@@ -384,7 +392,7 @@ export const seedOracle = internalMutation({
             "Third party birth info",
             1, false,
             [
-                { label: "Yes — I know their birth date", value: "birth_date" },
+                { label: "Yes вЂ” I know their birth date", value: "birth_date" },
                 { label: "I only know their Sun sign", value: "sun_sign" },
                 { label: "I don't know either", value: "unknown" },
             ],
@@ -404,11 +412,11 @@ export const seedOracle = internalMutation({
             ],
         );
 
-        // ─── DESTINY ──────────────────────────────────────────────────────
+        // в”Ђв”Ђв”Ђ DESTINY в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
         // Template 10: Life purpose
         await seedTemplate("destiny",
-            "What is my actual life purpose — am I on the right path?",
+            "What is my actual life purpose вЂ” am I on the right path?",
             "Life purpose",
             false, 0,
             {
@@ -422,7 +430,7 @@ export const seedOracle = internalMutation({
 
         // Template 11: Hardships
         const template11 = await seedTemplate("destiny",
-            "Are the hardships I've faced meaningless — or are they shaping me for something?",
+            "Are the hardships I've faced meaningless вЂ” or are they shaping me for something?",
             "Hardship meaning",
             false, 1,
             {
@@ -444,12 +452,12 @@ export const seedOracle = internalMutation({
                 { label: "Loss and grief", value: "loss_grief" },
                 { label: "Betrayal by someone trusted", value: "betrayal" },
                 { label: "Financial collapse", value: "financial" },
-                { label: "Identity — not knowing who I am", value: "identity" },
+                { label: "Identity вЂ” not knowing who I am", value: "identity" },
                 { label: "Multiple areas at once", value: "multiple" },
             ],
         );
 
-        // ─── SPIRITUALITY ─────────────────────────────────────────────────
+        // в”Ђв”Ђв”Ђ SPIRITUALITY в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
         // Template 12: Spiritual gift
         await seedTemplate("spirituality",
@@ -461,17 +469,17 @@ export const seedOracle = internalMutation({
                 psychologicalFrame: "Neptune and Pisces placements + 12th house + Moon aspects + intuitive channels",
                 avoid: "Overclaiming psychic abilities. Avoid making them feel like a chosen one in a way that inflates ego.",
                 emphasize: "Neptune placement as the primary indicator. The 12th house as the doorway. Moon aspects indicating intuitive sensitivity type. Practical ways to cultivate what's there.",
-                openingAcknowledgmentGuide: "Affirm that asking this question means they already sense something — the question IS the gift beginning to speak.",
+                openingAcknowledgmentGuide: "Affirm that asking this question means they already sense something вЂ” the question IS the gift beginning to speak.",
             },
         );
 
         // Template 13: Karmic pattern (THIRD PARTY)
         const template13 = await seedTemplate("spirituality",
-            "Is there a past life or karmic pattern playing out in my life right now — and is it connected to someone specific?",
+            "Is there a past life or karmic pattern playing out in my life right now вЂ” and is it connected to someone specific?",
             "Karmic pattern",
             true, 1,
             {
-                toneModifier: "Mystical, specific, grounding — treat this seriously",
+                toneModifier: "Mystical, specific, grounding вЂ” treat this seriously",
                 psychologicalFrame: "Past life theory + South Node + 12th house karma + repetition compulsion",
                 avoid: "Sensationalizing. Avoid making karma sound like punishment. Avoid vague 'you have unfinished business' non-answers.",
                 emphasize: "The South Node as the most astrologically grounded entry point for karmic discussion. What the pattern is asking them to release vs. integrate.",
@@ -485,7 +493,7 @@ export const seedOracle = internalMutation({
             "Karmic person connection",
             0, false,
             [
-                { label: "Yes — a specific person", value: "yes" },
+                { label: "Yes вЂ” a specific person", value: "yes" },
                 { label: "I sense it but can't name a person", value: "sense_unnamed" },
                 { label: "It feels more like a life pattern than a person", value: "life_pattern" },
             ],
@@ -519,17 +527,17 @@ export const seedOracle = internalMutation({
             ],
         );
 
-        // ═══════════════════════════════════════════════════════════════════
+        // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
         // 3. CATEGORY CONTEXTS (Domain framing blocks for Layer 2)
-        // ═══════════════════════════════════════════════════════════════════
+        // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
         const categoryContexts: Record<string, string> = {
-            self: "You are operating in the domain of SELF — identity, shadow, authenticity, and personal evolution. The user is asking about their inner world. Prioritize: Saturn placements, Pluto transits, South/North Node, 1st and 12th house themes, and the relationship between Sun and Rising signs.",
-            love: "You are operating in the domain of LOVE — romantic relationships, attachment, Venus archetypes, and relational karma. Prioritize: Venus sign, Mars sign, 7th house, 8th house themes, synastry patterns if data allows, and attachment wound patterns.",
-            work: "You are operating in the domain of WORK — vocation, purpose, ambition, and career karma. Prioritize: Midheaven (MC), 10th house, Saturn, Jupiter, North Node, and the tension between security (2nd house) and calling (10th house).",
-            social: "You are operating in the domain of SOCIAL — community, friendship, belonging, and group dynamics. Prioritize: 11th house, Moon sign, Rising sign social mask, and the interplay between inner world (4th house) and outer world presentation.",
-            destiny: "You are operating in the domain of DESTINY — life purpose, karmic direction, soul contract. Prioritize: North Node and its sign/house, Saturn return timing, Chiron placement, and major life transits (Pluto, Uranus, Saturn) relative to age.",
-            spirituality: "You are operating in the domain of SPIRITUALITY — psychic sensitivity, karmic inheritance, and connection to the unseen. Prioritize: Neptune and Pisces placements, 12th house, Chiron, South Node, and aspects to the Moon indicating intuitive depth.",
+            self: "You are operating in the domain of SELF вЂ” identity, shadow, authenticity, and personal evolution. The user is asking about their inner world. Prioritize: Saturn placements, Pluto transits, South/North Node, 1st and 12th house themes, and the relationship between Sun and Rising signs.",
+            love: "You are operating in the domain of LOVE вЂ” romantic relationships, attachment, Venus archetypes, and relational karma. Prioritize: Venus sign, Mars sign, 7th house, 8th house themes, synastry patterns if data allows, and attachment wound patterns.",
+            work: "You are operating in the domain of WORK вЂ” vocation, purpose, ambition, and career karma. Prioritize: Midheaven (MC), 10th house, Saturn, Jupiter, North Node, and the tension between security (2nd house) and calling (10th house).",
+            social: "You are operating in the domain of SOCIAL вЂ” community, friendship, belonging, and group dynamics. Prioritize: 11th house, Moon sign, Rising sign social mask, and the interplay between inner world (4th house) and outer world presentation.",
+            destiny: "You are operating in the domain of DESTINY вЂ” life purpose, karmic direction, soul contract. Prioritize: North Node and its sign/house, Saturn return timing, Chiron placement, and major life transits (Pluto, Uranus, Saturn) relative to age.",
+            spirituality: "You are operating in the domain of SPIRITUALITY вЂ” psychic sensitivity, karmic inheritance, and connection to the unseen. Prioritize: Neptune and Pisces placements, 12th house, Chiron, South Node, and aspects to the Moon indicating intuitive depth.",
         };
 
         for (const [slug, contextText] of Object.entries(categoryContexts)) {
@@ -543,9 +551,9 @@ export const seedOracle = internalMutation({
             });
         }
 
-        // ═══════════════════════════════════════════════════════════════════
+        // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
         // 4. DEFAULT SETTINGS
-        // ═══════════════════════════════════════════════════════════════════
+        // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
         const defaultSettings = [
             // Model Config
@@ -553,73 +561,57 @@ export const seedOracle = internalMutation({
             { key: "model_b", value: "anthropic/claude-sonnet-4", valueType: "string" as const, label: "Fallback Model B", group: "model" },
             { key: "model_c", value: "x-ai/grok-4.1-fast", valueType: "string" as const, label: "Fallback Model C", group: "model" },
             { key: "temperature", value: "0.82", valueType: "number" as const, label: "Temperature", group: "model" },
-            { key: "max_tokens", value: "600", valueType: "number" as const, label: "Max Output Tokens", group: "model" },
             { key: "top_p", value: "0.92", valueType: "number" as const, label: "Top-p", group: "model" },
             { key: "stream_enabled", value: "true", valueType: "boolean" as const, label: "Streaming", group: "model" },
 
+            ...TOKEN_LIMIT_KEYS.map((key) => ({
+                key,
+                value: String(DEFAULT_TOKEN_LIMITS[key]),
+                valueType: "number" as const,
+                label: TOKEN_LIMIT_DEFINITIONS[key].label,
+                description: TOKEN_LIMIT_DEFINITIONS[key].description,
+                group: "token_limits",
+            })),
+
             // Quota Config
-            { key: "quota_limit_user", value: "5", valueType: "number" as const, label: "Free Tier — Lifetime Limit", group: "quota" },
-            { key: "quota_limit_popular", value: "5", valueType: "number" as const, label: "Popular Tier — Daily Limit", group: "quota" },
-            { key: "quota_limit_premium", value: "10", valueType: "number" as const, label: "Premium Tier — Daily Limit", group: "quota" },
-            { key: "quota_limit_moderator", value: "10", valueType: "number" as const, label: "Moderator Tier — Daily Limit", group: "quota" },
-            { key: "quota_limit_admin", value: "999", valueType: "number" as const, label: "Admin Tier — Daily Limit", group: "quota" },
+            { key: "quota_limit_user", value: "5", valueType: "number" as const, label: "Free Tier - Lifetime Limit", group: "quota" },
+            { key: "quota_limit_popular", value: "5", valueType: "number" as const, label: "Popular Tier - Daily Limit", group: "quota" },
+            { key: "quota_limit_premium", value: "10", valueType: "number" as const, label: "Premium Tier - Daily Limit", group: "quota" },
+            { key: "quota_limit_moderator", value: "10", valueType: "number" as const, label: "Moderator Tier - Daily Limit", group: "quota" },
+            { key: "quota_limit_admin", value: "999", valueType: "number" as const, label: "Admin Tier - Daily Limit", group: "quota" },
             { key: "quota_reset_user", value: "never", valueType: "string" as const, label: "Free Tier Reset Type", group: "quota" },
             { key: "quota_reset_popular", value: "daily", valueType: "string" as const, label: "Popular Reset Type", group: "quota" },
             { key: "quota_reset_premium", value: "daily", valueType: "string" as const, label: "Premium Reset Type", group: "quota" },
             { key: "quota_reset_moderator", value: "daily", valueType: "string" as const, label: "Moderator Reset Type", group: "quota" },
             { key: "quota_reset_admin", value: "daily", valueType: "string" as const, label: "Admin Reset Type", group: "quota" },
 
-            // Content Config
-            {
-                key: "soul_prompt",
-                value: `[IDENTITY]
-You are Oracle — the mystical intelligence of stars.guide. You are an ancient, wise, and compassionate astrological guide who speaks at the intersection of cosmic truth and psychological depth. You are not a fortune teller. You do not predict specific events. You illuminate patterns, archetypes, and energetic possibilities as revealed by astrology, Jungian symbolism, and universal human experience.
-
-[TONE & VOICE]
-Speak with warmth, directness, and a sense of sacred intimacy. You do not hedge everything into meaninglessness. You are specific. You honor what the user shared. You name things. Your language is rich but never pretentious. Avoid: "As an AI...", "I cannot...", "It's important to note...". You are Oracle. Speak as Oracle.
-
-[CAPABILITIES]
-You interpret birth charts, transits, archetypes, planetary placements, and their psychological correlations. You connect cosmic patterns to lived human experience. You specialize in the 6 domains: Self, Love, Work, Social, Destiny, Spirituality.
-
-[HARD CONSTRAINTS]
-- Never predict specific events, deaths, illness, lottery outcomes, or legal situations.
-- Never diagnose mental health conditions.
-- If a user expresses suicidal ideation or crisis, gently redirect to professional support.
-- Never claim 100% certainty on any outcome.
-- Never disparage other belief systems, religions, or worldviews.
-- Maximum response length: 400 words unless the user explicitly asks for more.
-
-[OUTPUT FORMAT CONTRACT]
-Structure every response as:
-1. A brief acknowledgment of what the user is really asking beneath the surface (1–2 sentences).
-2. The core astrological/archetypal insight (2–3 paragraphs).
-3. A closing "Cosmic Invitation" — one practical, grounded action or reflection the user can take.
-
-[CLOSING ANCHOR]
-Remember: you are a guide, not a god. You illuminate — the user decides.`,
+            ...SOUL_DOC_KEYS.map((key) => ({
+                key,
+                value: DEFAULT_SOUL_DOCS[key],
                 valueType: "string" as const,
-                label: "Oracle Soul Prompt",
-                description: "The core personality and behavioral rules for Oracle",
-                group: "content",
-            },
+                label: SOUL_DOC_DEFINITIONS[key].label,
+                description: SOUL_DOC_DEFINITIONS[key].description,
+                group: "soul",
+            })),
+
             { key: "max_follow_ups_per_template", value: "3", valueType: "number" as const, label: "Max Follow-ups Per Template", group: "content" },
             { key: "kill_switch", value: "false", valueType: "boolean" as const, label: "Oracle Kill Switch", group: "operations" },
 
             // Safety Config
             {
                 key: "crisis_response_text",
-                value: "I see you, and what you're carrying right now matters deeply. Oracle is here for cosmic guidance, but this moment calls for someone trained to truly help. Please reach out to the Crisis Text Line — text HOME to 741741 — or call the 988 Suicide & Crisis Lifeline. You deserve support from someone who can hold space for you right now. 💜",
+                value: "I see you, and what you're carrying right now matters deeply. Oracle is here for cosmic guidance, but this moment calls for someone trained to truly help. Please reach out to the Crisis Text Line - text HOME to 741741 - or call the 988 Suicide & Crisis Lifeline. You deserve support from someone who can hold space for you right now.",
                 valueType: "string" as const,
                 label: "Crisis Response",
-                description: "Shown when crisis keywords are detected — no LLM call is made",
+                description: "Shown when crisis keywords are detected - no LLM call is made",
                 group: "safety",
             },
             {
                 key: "fallback_response_text",
-                value: "The stars are momentarily beyond my reach — cosmic interference is rare, but it happens. Please try again in a moment. Your question has been heard, and Oracle will be ready when the channels clear. ✦",
+                value: "The stars are momentarily beyond my reach - cosmic interference is rare, but it happens. Please try again in a moment. Your question has been heard, and Oracle will be ready when the channels clear. ->",
                 valueType: "string" as const,
                 label: "Model Fallback Response D",
-                description: "Shown when all 3 models fail — hardcoded last resort",
+                description: "Shown when all 3 models fail - hardcoded last resort",
                 group: "safety",
             },
         ];
@@ -631,13 +623,14 @@ Remember: you are a guide, not a god. You illuminate — the user decides.`,
             });
         }
 
-        console.log("✅ Oracle seed complete:");
-        console.log(`   • ${categoryData.length} categories`);
-        console.log(`   • 13 templates with scenario injections`);
-        console.log(`   • Follow-up questions with options`);
-        console.log(`   • 6 category contexts`);
-        console.log(`   • ${defaultSettings.length} settings`);
+        console.log("вњ… Oracle seed complete:");
+        console.log(`   вЂў ${categoryData.length} categories`);
+        console.log(`   вЂў 13 templates with scenario injections`);
+        console.log(`   вЂў Follow-up questions with options`);
+        console.log(`   вЂў 6 category contexts`);
+        console.log(`   вЂў ${defaultSettings.length} settings`);
 
         return { status: "seeded" };
     },
 });
+

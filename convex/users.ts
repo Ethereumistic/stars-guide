@@ -25,9 +25,11 @@ export const updateBirthData = mutation({
             countryCode: v.optional(v.string()),
             displayName: v.optional(v.string()),
         }),
-        sunSign: v.string(),
-        moonSign: v.string(),
-        risingSign: v.string(),
+        placements: v.array(v.object({
+            body: v.string(),
+            sign: v.string(),
+            house: v.number(),
+        })),
     },
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);
@@ -40,9 +42,7 @@ export const updateBirthData = mutation({
                 date: args.date,
                 time: args.time,
                 location: args.location,
-                sunSign: args.sunSign,
-                moonSign: args.moonSign,
-                risingSign: args.risingSign,
+                placements: args.placements,
             },
         });
 

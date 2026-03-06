@@ -471,7 +471,7 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
 /**
  * Get zodiac sign by date using fixed date boundaries.
  * 
- * @deprecated Use `calculateSunSign` from `@/lib/astrology` instead.
+ * @deprecated Use `calculateSunSign` from `@/lib/birth-chart/calculations` instead.
  * This function uses approximate date boundaries which can be off by a day
  * near cusp dates. The astronomy-engine version calculates precise ecliptic
  * longitude for accurate results.

@@ -9,7 +9,6 @@ import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import {
     Send,
-    Plus,
     Copy,
     Check,
     Loader2,
@@ -20,12 +19,13 @@ import {
     Clock,
 } from "lucide-react";
 import { GiCursedStar } from "react-icons/gi";
+import { OracleInput } from "@/components/oracle/input/oracle-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getFeatureDefaultPrompt, isImplementedFeature, type OracleFeatureKey } from "@/lib/oracle/features";
 import { useOracleStore, type FollowUpData } from "@/store/use-oracle-store";
 import { useUserStore } from "@/store/use-user-store";
 
-/* ─── Zodiac sign picker data ─── */
 const ZODIAC_SIGNS = [
     { id: "aries", symbol: "♈", name: "Aries" },
     { id: "taurus", symbol: "♉", name: "Taurus" },
@@ -55,14 +55,17 @@ export default function OracleChatPage() {
     const hasInvokedRef = useRef(false);
     const initialLoadDoneRef = useRef(false);
 
-    // Zustand store
     const {
         state,
         isStreaming,
         followUps,
         currentFollowUpIndex,
         followUpAnswers,
+        selectedFeatureKey,
         setSessionId,
+        setSelectedFeature,
+        clearSelectedFeature,
+        hydrateSessionFeature,
         setOracleResponding,
         setConversationActive,
         setIsStreaming,
@@ -72,7 +75,6 @@ export default function OracleChatPage() {
         advanceFollowUp,
     } = useOracleStore();
 
-    // Convex queries
     const sessionData = useQuery(api.oracle.sessions.getSessionWithMessages, { sessionId });
     const followUpsData = useQuery(
         api.oracle.followUps.getFollowUpsByTemplate,
@@ -81,38 +83,38 @@ export default function OracleChatPage() {
     const quota = useQuery(api.oracle.quota.checkQuota);
     const quotaExhausted = quota && !quota.allowed;
 
-    // Convex mutations & actions
     const addMessageMutation = useMutation(api.oracle.sessions.addMessage);
     const saveFollowUpAnswer = useMutation(api.oracle.sessions.saveFollowUpAnswer);
-    const updateSessionStatus = useMutation(api.oracle.sessions.updateSessionStatus);
+    const updateSessionFeatureMutation = useMutation(api.oracle.sessions.updateSessionFeature);
     const invokeOracle = useAction(api.oracle.llm.invokeOracle);
 
-    // Redirect if session not found
     useEffect(() => {
         if (sessionData === null) {
             router.push("/oracle/new");
         }
     }, [sessionData, router]);
 
-    // Load session state on mount (once per status change, NOT per message count)
     useEffect(() => {
         if (!sessionData || !sessionData.messages) return;
 
+        const featureKey = (sessionData.featureKey as OracleFeatureKey | null) ?? null;
+
         if (sessionData.status === "collecting_context" && followUpsData) {
             setSessionId(sessionId);
+            hydrateSessionFeature(featureKey);
             startFollowUpCollection(followUpsData as FollowUpData[]);
         } else if ((sessionData.status === "active" || sessionData.status === "completed") && !initialLoadDoneRef.current) {
-            // Only set state on first load — don't clobber state during active operations
             initialLoadDoneRef.current = true;
             setSessionId(sessionId);
+            hydrateSessionFeature(featureKey);
             setConversationActive();
         } else if (state === "oracle_responding" && !initialLoadDoneRef.current) {
             initialLoadDoneRef.current = true;
             setSessionId(sessionId);
+            hydrateSessionFeature(featureKey);
         }
-    }, [sessionData?.status, followUpsData]);
+    }, [sessionData?.status, sessionData?.featureKey, followUpsData, hydrateSessionFeature, sessionId, setConversationActive, setSessionId, startFollowUpCollection, state]);
 
-    // Clear pending user message when it appears in Convex data
     useEffect(() => {
         if (!sessionData?.messages || !pendingUserMessage) return;
         const found = sessionData.messages.some(
@@ -121,7 +123,6 @@ export default function OracleChatPage() {
         if (found) setPendingUserMessage(null);
     }, [sessionData?.messages?.length, pendingUserMessage]);
 
-    // Invoke Oracle when state transitions to responding
     useEffect(() => {
         if (state !== "oracle_responding" || !sessionId || !sessionData) return;
         if (hasInvokedRef.current) return;
@@ -130,7 +131,6 @@ export default function OracleChatPage() {
         const lastUserMessage = userMessages[userMessages.length - 1];
         if (!lastUserMessage) return;
 
-        // Already responded to all user messages
         const assistantCount = sessionData.messages.filter((m) => m.role === "assistant").length;
         if (assistantCount >= userMessages.length) {
             setConversationActive();
@@ -141,8 +141,6 @@ export default function OracleChatPage() {
 
         const callOracle = async () => {
             setIsStreaming(true);
-
-            // Brief pause before streaming begins
             await new Promise((resolve) => setTimeout(resolve, 500));
 
             try {
@@ -150,7 +148,6 @@ export default function OracleChatPage() {
                     sessionId,
                     userQuestion: lastUserMessage.content,
                 });
-                // Don't addMessage — invokeOracle saves to Convex, reactive query shows it
             } catch (error) {
                 console.error("Oracle invocation failed:", error);
             } finally {
@@ -161,21 +158,18 @@ export default function OracleChatPage() {
         };
 
         callOracle();
-    }, [state, sessionId, sessionData?.messages?.length]);
+    }, [state, sessionId, sessionData?.messages?.length, sessionData, invokeOracle, setConversationActive, setIsStreaming]);
 
-    // Auto-scroll to bottom
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [sessionData?.messages?.length, isStreaming, currentFollowUpIndex, pendingUserMessage]);
 
-    // Copy message to clipboard
     const handleCopy = useCallback((content: string, id: string) => {
         navigator.clipboard.writeText(content);
         setCopied(id);
         setTimeout(() => setCopied(null), 2000);
     }, []);
 
-    // Handle follow-up answer
     const handleFollowUpAnswer = useCallback(async (followUpId: string, answer: string) => {
         answerFollowUp(followUpId, answer);
 
@@ -186,19 +180,16 @@ export default function OracleChatPage() {
             skipped: false,
         });
 
-        // Wait 400ms then advance
         setTimeout(() => {
             const { currentFollowUpIndex, followUps } = useOracleStore.getState();
             if (currentFollowUpIndex < followUps.length - 1) {
                 advanceFollowUp();
             } else {
-                // All follow-ups answered → invoke Oracle
                 setOracleResponding();
             }
         }, 400);
     }, [sessionId, answerFollowUp, saveFollowUpAnswer, advanceFollowUp, setOracleResponding]);
 
-    // Handle follow-up skip
     const handleFollowUpSkip = useCallback(async (followUpId: string) => {
         skipFollowUp(followUpId);
 
@@ -219,23 +210,41 @@ export default function OracleChatPage() {
         }, 400);
     }, [sessionId, skipFollowUp, saveFollowUpAnswer, advanceFollowUp, setOracleResponding]);
 
+    const handleFeatureSelect = useCallback(async (featureKey: OracleFeatureKey) => {
+        if (!isImplementedFeature(featureKey)) return;
+
+        // Session feature changes are persisted here on purpose. This is the single
+        // place where a mid-chat feature switch becomes the active feature for the
+        // current and future turns of this session.
+        setSelectedFeature(featureKey);
+        await updateSessionFeatureMutation({
+            sessionId,
+            featureKey,
+        });
+        inputRef.current?.focus();
+    }, [sessionId, setSelectedFeature, updateSessionFeatureMutation]);
+
+    const handleFeatureClear = useCallback(async () => {
+        clearSelectedFeature();
+        await updateSessionFeatureMutation({
+            sessionId,
+            featureKey: undefined,
+        });
+    }, [clearSelectedFeature, sessionId, updateSessionFeatureMutation]);
+
     const handleSendFollowUp = useCallback(async () => {
-        if (!followUpInput.trim() || isStreaming) return;
+        const content = followUpInput.trim() || getFeatureDefaultPrompt(selectedFeatureKey);
+        if (!content || isStreaming) return;
 
-        const content = followUpInput.trim();
         setFollowUpInput("");
-
-        // Show optimistic user message immediately
         setPendingUserMessage(content);
 
-        // Save to Convex (reactive query will pick it up)
         await addMessageMutation({
             sessionId,
             role: "user",
             content,
         });
 
-        // Invoke Oracle
         setIsStreaming(true);
         await new Promise((resolve) => setTimeout(resolve, 500));
 
@@ -244,14 +253,12 @@ export default function OracleChatPage() {
                 sessionId,
                 userQuestion: content,
             });
-            // Don't addMessage — invokeOracle saves to Convex, reactive query shows it
         } catch (error) {
             console.error("Follow-up Oracle call failed:", error);
         } finally {
             setIsStreaming(false);
         }
-    }, [followUpInput, isStreaming, sessionId, addMessageMutation, invokeOracle, setIsStreaming]);
-
+    }, [followUpInput, selectedFeatureKey, isStreaming, sessionId, addMessageMutation, invokeOracle, setIsStreaming]);
     /* ─── Render a Follow-Up Answer Widget ─── */
     const renderAnswerWidget = (fu: FollowUpData) => {
         switch (fu.questionType) {
@@ -658,44 +665,19 @@ export default function OracleChatPage() {
                     ) : (
                         /* ─── Normal Input Bar ─── */
                         <>
-                            <div className="relative group">
-                                <div className="absolute -inset-1 bg-linear-to-r from-galactic/20 via-primary/10 to-galactic/20 rounded-2xl blur opacity-30 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
-                                <div className="relative flex items-center bg-background/90 backdrop-blur-2xl border border-white/10 focus-within:border-galactic/50 rounded-2xl p-1.5 shadow-xl transition-all h-14 gap-1">
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="shrink-0 text-white/40 hover:text-white hover:bg-white/10 focus-visible:ring-0 transition-colors h-10 w-10 rounded-xl"
-                                        aria-label="Attach"
-                                    >
-                                        <Plus className="w-5 h-5" />
-                                    </Button>
-
-                                    <Input
-                                        ref={inputRef}
-                                        type="text"
-                                        value={followUpInput}
-                                        onChange={(e) => setFollowUpInput(e.target.value)}
-                                        onKeyDown={(e) => e.key === "Enter" && handleSendFollowUp()}
-                                        placeholder={inputPlaceholder}
-                                        disabled={isInputDisabled}
-                                        className="flex-1 bg-transparent border-none outline-none hover:bg-transparent hover:border-0 hover:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-white placeholder:text-white/30 text-sm md:text-base font-sans px-2 shadow-none disabled:opacity-50"
-                                        aria-label="Message input"
-                                    />
-
-                                    <Button
-                                        size="icon"
-                                        onClick={handleSendFollowUp}
-                                        disabled={!followUpInput.trim() || isInputDisabled}
-                                        className={`shrink-0 rounded-xl transition-all h-10 w-10 ${followUpInput.length > 0 && !isInputDisabled
-                                            ? "bg-galactic text-white shadow-[0_0_15px_rgba(157,78,221,0.5)] hover:bg-galactic/90"
-                                            : "bg-white/10 text-white/30 hover:bg-white/20 hover:text-white/50"
-                                            }`}
-                                        aria-label="Send message"
-                                    >
-                                        <Send className="w-4 h-4 ml-0.5" />
-                                    </Button>
-                                </div>
-                            </div>
+                            <OracleInput
+                                inputRef={inputRef}
+                                value={followUpInput}
+                                onValueChange={setFollowUpInput}
+                                onSubmit={handleSendFollowUp}
+                                placeholder={inputPlaceholder}
+                                disabled={isInputDisabled}
+                                canSubmit={Boolean(followUpInput.trim() || selectedFeatureKey)}
+                                featureKey={selectedFeatureKey}
+                                onFeatureSelect={handleFeatureSelect}
+                                onFeatureClear={handleFeatureClear}
+                                birthData={user?.birthData}
+                            />
 
                             {/* Quota indicator */}
                             {quota && quota.remaining !== undefined && state === "conversation_active" && (
@@ -704,7 +686,7 @@ export default function OracleChatPage() {
                                         }`}>
                                         {quota.remaining} question{quota.remaining !== 1 ? "s" : ""} remaining
                                         {quota.resetsAt
-                                            ? ` · resets ${new Date(quota.resetsAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
+                                            ? ` � resets ${new Date(quota.resetsAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
                                             : " (lifetime)"}
                                     </span>
                                 </div>

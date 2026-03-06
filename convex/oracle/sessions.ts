@@ -2,8 +2,6 @@ import { query, mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
-// ─── PUBLIC QUERIES ───────────────────────────────────────────────────────
-
 export const getUserSessions = query({
     args: {},
     handler: async (ctx) => {
@@ -16,7 +14,6 @@ export const getUserSessions = query({
             .order("desc")
             .take(50);
 
-        // Attach category info for sidebar display
         const withCategory = await Promise.all(
             sessions.map(async (s) => {
                 const category = s.categoryId
@@ -68,12 +65,11 @@ export const getSessionWithMessages = query({
     },
 });
 
-// ─── MUTATIONS ────────────────────────────────────────────────────────────
-
 export const createSession = mutation({
     args: {
         categoryId: v.optional(v.id("oracle_categories")),
         templateId: v.optional(v.id("oracle_templates")),
+        featureKey: v.optional(v.string()),
         questionText: v.string(),
         requiresFollowUps: v.boolean(),
     },
@@ -91,6 +87,7 @@ export const createSession = mutation({
             title,
             categoryId: args.categoryId,
             templateId: args.templateId,
+            featureKey: args.featureKey,
             status: args.requiresFollowUps ? "collecting_context" : "active",
             messageCount: 1,
             createdAt: now,
@@ -98,7 +95,6 @@ export const createSession = mutation({
             lastMessageAt: now,
         });
 
-        // Insert the user's initial question as the first message
         await ctx.db.insert("oracle_messages", {
             sessionId,
             role: "user",
@@ -195,6 +191,27 @@ export const updateSessionStatus = mutation({
     },
 });
 
+export const updateSessionFeature = mutation({
+    args: {
+        sessionId: v.id("oracle_sessions"),
+        featureKey: v.optional(v.string()),
+    },
+    handler: async (ctx, { sessionId, featureKey }) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Not authenticated");
+
+        const session = await ctx.db.get(sessionId);
+        if (!session || session.userId !== userId) {
+            throw new Error("Session not found");
+        }
+
+        await ctx.db.patch(sessionId, {
+            featureKey,
+            updatedAt: Date.now(),
+        });
+    },
+});
+
 export const saveFollowUpAnswer = mutation({
     args: {
         sessionId: v.id("oracle_sessions"),
@@ -220,8 +237,6 @@ export const saveFollowUpAnswer = mutation({
         });
     },
 });
-
-// ─── STREAMING INTERNALS (called from LLM action only) ───────────────────
 
 export const createStreamingMessage = internalMutation({
     args: { sessionId: v.id("oracle_sessions") },

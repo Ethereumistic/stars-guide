@@ -6,60 +6,36 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import {
-    Send,
-    Plus,
-    ChevronDown,
-    Sparkles,
-    Wand2,
-    Search,
-    Zap,
-    Heart,
-    BookOpen,
-} from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { GiCursedStar } from "react-icons/gi";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { OracleInput } from "@/components/oracle/input/oracle-input";
+import { getFeatureDefaultPrompt, isImplementedFeature, type OracleFeatureKey } from "@/lib/oracle/features";
 import { useOracleStore } from "@/store/use-oracle-store";
 import { useUserStore } from "@/store/use-user-store";
-
-/* ─── Tool items for the dropdown ─── */
-const toolItems = [
-    { label: "Natal Chart Analysis", icon: Zap },
-    { label: "Transit Reading", icon: Search },
-    { label: "Synastry Report", icon: Heart },
-    { label: "Birth Chart Summary", icon: BookOpen },
-];
 
 export default function OracleNewPage() {
     const router = useRouter();
     const inputRef = useRef<HTMLInputElement>(null);
     const { user } = useUserStore();
 
-    // Zustand state
     const {
-        state,
         selectedCategorySlug,
         selectedCategoryId,
         selectedTemplateId,
         selectedTemplateRequiresThirdParty,
         pendingQuestion,
+        selectedFeatureKey,
         selectCategory,
         deselectCategory,
         selectTemplate,
         setPendingQuestion,
+        setSelectedFeature,
+        clearSelectedFeature,
         setSessionId,
         setOracleResponding,
         setQuota,
     } = useOracleStore();
 
-    // Convex queries
     const categories = useQuery(api.oracle.categories.listActiveCategories);
     const templates = useQuery(
         api.oracle.templates.listTemplatesByCategory,
@@ -69,10 +45,8 @@ export default function OracleNewPage() {
     const killSwitch = useQuery(api.oracle.settings.getSetting, { key: "kill_switch" });
     const isOracleOffline = killSwitch?.value === "true";
 
-    // Convex mutations
     const createSession = useMutation(api.oracle.sessions.createSession);
 
-    // Update quota in store when it changes
     useEffect(() => {
         if (quota) {
             setQuota(quota.remaining ?? null, quota.resetsAt ?? null);
@@ -82,7 +56,6 @@ export default function OracleNewPage() {
     const firstName = user?.username?.split(/[_\s]/)[0] ?? "Seeker";
     const isCategoryActive = selectedCategorySlug !== null;
 
-    // Auto-focus input when category selected
     useEffect(() => {
         if (isCategoryActive && inputRef.current) {
             inputRef.current.focus();
@@ -108,28 +81,37 @@ export default function OracleNewPage() {
         [selectTemplate],
     );
 
+    const handleFeatureSelect = useCallback(
+        (featureKey: OracleFeatureKey) => {
+            if (!isImplementedFeature(featureKey)) {
+                return;
+            }
+
+            setSelectedFeature(featureKey);
+            inputRef.current?.focus();
+        },
+        [setSelectedFeature],
+    );
+
     const handleSubmit = useCallback(async () => {
-        if (!pendingQuestion.trim()) return;
+        const questionText = pendingQuestion.trim() || getFeatureDefaultPrompt(selectedFeatureKey);
+        if (!questionText) return;
         if (quota && !quota.allowed) return;
 
         try {
-            // Create session in Convex
             const sessionId = await createSession({
                 categoryId: selectedCategoryId ?? undefined,
                 templateId: selectedTemplateId ?? undefined,
-                questionText: pendingQuestion,
+                featureKey: selectedFeatureKey ?? undefined,
+                questionText,
                 requiresFollowUps: selectedTemplateRequiresThirdParty,
             });
 
-            // Update store
             setSessionId(sessionId);
 
-            // Route based on whether this template requires follow-ups
             if (selectedTemplateRequiresThirdParty) {
-                // Chat page will detect collecting_context status and start follow-up flow
                 router.push(`/oracle/chat/${sessionId}`);
             } else {
-                // Skip follow-ups → go straight to Oracle response
                 setOracleResponding();
                 router.push(`/oracle/chat/${sessionId}`);
             }
@@ -138,6 +120,7 @@ export default function OracleNewPage() {
         }
     }, [
         pendingQuestion,
+        selectedFeatureKey,
         quota,
         createSession,
         selectedCategoryId,
@@ -148,78 +131,21 @@ export default function OracleNewPage() {
         router,
     ]);
 
-    /* ─── Input Bar ─── */
     const renderInputBar = (variant: "center" | "footer") => (
         <div className={variant === "center" ? "w-full max-w-2xl mx-auto" : "max-w-3xl mx-auto w-full"}>
-            <div className="relative group">
-                {/* Glow */}
-                <div className="absolute -inset-1 bg-linear-to-r from-galactic/20 via-primary/10 to-galactic/20 rounded-2xl blur opacity-30 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
-                <div className="relative flex items-center bg-background/90 backdrop-blur-2xl border border-white/10 focus-within:border-galactic/50 rounded-2xl p-1.5 shadow-xl transition-all h-14 gap-1">
-                    {/* + Attach button */}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="shrink-0 text-white/40 hover:text-white hover:bg-white/10 focus-visible:ring-0 transition-colors h-10 w-10 rounded-xl"
-                    >
-                        <Plus className="w-5 h-5" />
-                    </Button>
+            <OracleInput
+                inputRef={inputRef}
+                value={pendingQuestion}
+                onValueChange={setPendingQuestion}
+                onSubmit={handleSubmit}
+                placeholder="Ask the stars anything..."
+                canSubmit={Boolean(pendingQuestion.trim() || selectedFeatureKey)}
+                featureKey={selectedFeatureKey}
+                onFeatureSelect={handleFeatureSelect}
+                onFeatureClear={clearSelectedFeature}
+                birthData={user?.birthData}
+            />
 
-                    {/* Input */}
-                    <Input
-                        ref={inputRef}
-                        type="text"
-                        value={pendingQuestion}
-                        onChange={(e) => setPendingQuestion(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                        placeholder="Ask the stars anything..."
-                        className="flex-1 bg-transparent border-none outline-none hover:bg-transparent hover:border-0 hover:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-white placeholder:text-white/30 text-sm md:text-base font-sans px-2 shadow-none"
-                    />
-
-                    {/* Tools dropdown */}
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="shrink-0 text-white/40 hover:text-white hover:bg-white/10 focus-visible:ring-0 transition-colors rounded-xl h-10 px-3 gap-1.5 text-xs font-medium tracking-wider uppercase"
-                            >
-                                <Wand2 className="w-4 h-4" />
-                                <span className="hidden sm:inline">Tools</span>
-                                <ChevronDown className="w-3 h-3" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                            className="w-56 border-galactic/20 bg-background/95 backdrop-blur-xl"
-                            align="end"
-                        >
-                            {toolItems.map((tool) => {
-                                const Icon = tool.icon;
-                                return (
-                                    <DropdownMenuItem key={tool.label} className="gap-2.5 cursor-pointer text-white/80 hover:text-white focus:text-white">
-                                        <Icon className="w-4 h-4 text-galactic" />
-                                        <span className="text-sm">{tool.label}</span>
-                                    </DropdownMenuItem>
-                                );
-                            })}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    {/* Send */}
-                    <Button
-                        size="icon"
-                        onClick={handleSubmit}
-                        disabled={!pendingQuestion.trim() || (quota !== undefined && !quota?.allowed)}
-                        className={`shrink-0 rounded-xl transition-all h-10 w-10 ${pendingQuestion.length > 0
-                            ? "bg-galactic text-white shadow-[0_0_15px_rgba(157,78,221,0.5)] hover:bg-galactic/90"
-                            : "bg-white/10 text-white/30 hover:bg-white/20 hover:text-white/50"
-                            }`}
-                    >
-                        <Send className="w-4 h-4 ml-0.5" />
-                    </Button>
-                </div>
-            </div>
-
-            {/* Quota indicator */}
             {quota && quota.remaining !== undefined && (
                 <div className="flex justify-end mt-2 px-2">
                     <span className={`text-[10px] tracking-wide ${quota.remaining <= 1
@@ -227,7 +153,7 @@ export default function OracleNewPage() {
                         : "text-white/25"
                         }`}>
                         {quota.remaining} question{quota.remaining !== 1 ? "s" : ""} remaining
-                        {quota.resetsAt ? ` · resets ${new Date(quota.resetsAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}` : " (lifetime)"}
+                        {quota.resetsAt ? ` � resets ${new Date(quota.resetsAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}` : " (lifetime)"}
                     </span>
                 </div>
             )}
@@ -237,7 +163,6 @@ export default function OracleNewPage() {
     return (
         <AnimatePresence mode="wait">
             {isOracleOffline ? (
-                /* ─── ORACLE OFFLINE ─── */
                 <motion.div
                     key="offline"
                     initial={{ opacity: 0 }}
@@ -253,7 +178,6 @@ export default function OracleNewPage() {
                     <p className="text-sm text-white/20 font-serif italic">Return soon.</p>
                 </motion.div>
             ) : !isCategoryActive ? (
-                /* ─── IDLE: Centered welcome ─── */
                 <motion.div
                     key="initial"
                     initial={{ opacity: 0 }}
@@ -262,7 +186,6 @@ export default function OracleNewPage() {
                     transition={{ duration: 0.5 }}
                     className="flex-1 flex flex-col items-center justify-center px-4 z-10"
                 >
-                    {/* Oracle icon */}
                     <motion.div
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -275,7 +198,6 @@ export default function OracleNewPage() {
                         </div>
                     </motion.div>
 
-                    {/* Welcome text */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -290,7 +212,6 @@ export default function OracleNewPage() {
                         </p>
                     </motion.div>
 
-                    {/* Centered Input */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -300,7 +221,6 @@ export default function OracleNewPage() {
                         {renderInputBar("center")}
                     </motion.div>
 
-                    {/* Category pills — from Convex */}
                     <motion.div
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -325,7 +245,6 @@ export default function OracleNewPage() {
                     </motion.div>
                 </motion.div>
             ) : (
-                /* ─── TEMPLATE_SELECTION: Cards + footer input ─── */
                 <motion.div
                     key="category-view"
                     initial={{ opacity: 0 }}
@@ -334,7 +253,6 @@ export default function OracleNewPage() {
                     transition={{ duration: 0.4 }}
                     className="flex-1 flex flex-col overflow-hidden z-10"
                 >
-                    {/* Category pill bar at top */}
                     <div className="flex items-center justify-center gap-2 md:gap-3 py-4 px-4 shrink-0">
                         {categories?.map((cat) => {
                             const isActive = selectedCategorySlug === cat.slug;
@@ -354,7 +272,6 @@ export default function OracleNewPage() {
                         })}
                     </div>
 
-                    {/* Template question cards — from Convex */}
                     <div className="flex-1 overflow-y-auto px-4 pb-4 scrollbar-thin scrollbar-thumb-white/10">
                         <div className="max-w-4xl mx-auto w-full">
                             <AnimatePresence mode="wait">
@@ -378,7 +295,6 @@ export default function OracleNewPage() {
                                                 : "bg-white/4 border-white/8 hover:bg-galactic/10 hover:border-galactic/30 hover:shadow-[0_0_30px_rgba(157,78,221,0.1)]"
                                                 }`}
                                         >
-                                            {/* Gradient overlay */}
                                             <div className="absolute inset-0 bg-linear-to-br from-galactic/5 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity duration-500 rounded-2xl" />
 
                                             <div className="relative shrink-0 mt-0.5 w-8 h-8 rounded-lg bg-galactic/10 border border-galactic/20 flex items-center justify-center group-hover/card:bg-galactic/20 group-hover/card:border-galactic/40 transition-all duration-300">
@@ -390,7 +306,7 @@ export default function OracleNewPage() {
                                                     {tpl.questionText}
                                                 </span>
                                                 <span className="text-[10px] uppercase tracking-[0.2em] text-white/20 group-hover/card:text-galactic/50 mt-2 block transition-colors duration-300">
-                                                    {categories?.find((c) => c._id === tpl.categoryId)?.name} · Tap to ask
+                                                    {categories?.find((c) => c._id === tpl.categoryId)?.name} � Tap to ask
                                                 </span>
                                             </div>
                                         </motion.button>
@@ -400,7 +316,6 @@ export default function OracleNewPage() {
                         </div>
                     </div>
 
-                    {/* Footer input bar */}
                     <motion.div
                         initial={{ y: 40, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}

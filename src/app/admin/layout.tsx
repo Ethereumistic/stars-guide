@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -120,7 +120,7 @@ export default function AdminLayout({
         );
     }
 
-    // Layer 3: Server-side role check — redirect non-admins
+    // Layer 3: Server-side role check вЂ” redirect non-admins
     if (!user || user.role !== "admin") {
         redirect("/dashboard");
     }
@@ -223,3 +223,4 @@ export default function AdminLayout({
         </SidebarProvider>
     );
 }
+

@@ -2,7 +2,7 @@
 
 import { compositionalPlanets, PlanetData } from "@/astrology/planets";
 import { planetUIConfig } from "@/config/planet-ui";
-import { getPlanetTelemetry, PlanetTelemetry } from "@/lib/astrology";
+import { getPlanetTelemetry, type PlanetTelemetry } from "@/lib/planets/telemetry";
 import { compositionalSigns } from "@/astrology/signs";
 import { motion } from "motion/react";
 import Link from "next/link";
