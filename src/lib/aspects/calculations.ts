@@ -1,4 +1,4 @@
-import { type ChartPlanet, type ChartAspect } from '@/lib/birth-chart/full-chart';
+import { type ChartPlanet, type ChartAspect } from '../birth-chart/full-chart';
 
 // Aspect configuration with standard orbs
 export const aspectConfig = [
@@ -46,3 +46,4 @@ export function calculateAspects(planets: ChartPlanet[]): ChartAspect[] {
 
     return aspects;
 }
+

@@ -5,10 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { useOnboardingStore } from "@/store/use-onboarding-store"
 import { useUserStore } from "@/store/use-user-store"
-import { calculateSunSign, calculateMoonSign, calculateAscendant } from "@/lib/birth-chart/calculations"
-import { localBirthTimeToUTC } from "@/lib/birth-chart/core"
-import { estimateRisingSign } from "@/lib/onboarding/calculations"
-import { calculateFullChart } from "@/lib/birth-chart/full-chart"
+import { buildStoredBirthData } from "@/lib/birth-chart/storage"
 import { useMutation } from "convex/react"
 import { api } from "../../../../../convex/_generated/api"
 import { motion } from "motion/react"
@@ -25,7 +22,6 @@ export function CalculationStep() {
         birthTime,
         birthTimeKnown,
         timeOfDay,
-        detectiveAnswers,
         setCalculatedSigns,
         nextStep,
         reset
@@ -52,118 +48,51 @@ export function CalculationStep() {
     }, [])
 
     const signs = React.useMemo(() => {
-        if (!birthDate || !birthLocation) return null;
+        if (!birthDate || !birthLocation) return null
 
-        const [hours, minutes] = birthTimeKnown && birthTime
-            ? birthTime.split(':').map(Number)
-            : [12, 0];
+        const date = `${birthDate.year}-${birthDate.month.toString().padStart(2, "0")}-${birthDate.day.toString().padStart(2, "0")}`
+        const time = birthTimeKnown && birthTime ? birthTime : "12:00"
 
-        const birthDateTimeUTC = localBirthTimeToUTC(
-            birthDate.year,
-            birthDate.month,
-            birthDate.day,
-            hours,
-            minutes,
-            birthLocation.lat,
-            birthLocation.long
-        );
+        return buildStoredBirthData({
+            date,
+            time,
+            location: birthLocation,
+        })
+    }, [birthDate, birthLocation, birthTime, birthTimeKnown])
 
-        const sunSignData = calculateSunSign(birthDateTimeUTC);
-        const moonSignData = calculateMoonSign(birthDateTimeUTC);
-
-        let risingSignData;
-        if (birthTimeKnown && birthTime) {
-            risingSignData = calculateAscendant(
-                birthDateTimeUTC,
-                birthLocation.lat,
-                birthLocation.long
-            );
-        } else {
-            risingSignData = estimateRisingSign(sunSignData.id, timeOfDay, detectiveAnswers);
-        }
-
-        const fullChartData = calculateFullChart(
-            birthDate.year,
-            birthDate.month,
-            birthDate.day,
-            hours,
-            minutes,
-            birthLocation.lat,
-            birthLocation.long
-        );
-
-        const placements = fullChartData.planets.map(p => {
-            const bodyName = p.id.charAt(0).toUpperCase() + p.id.slice(1);
-            const signName = compositionalSigns.find(s => s.id === p.signId)?.name || p.signId;
-            return {
-                body: bodyName,
-                sign: signName,
-                house: p.houseId
-            };
-        });
-
-        if (fullChartData.ascendant) {
-            const ascSignName = compositionalSigns.find(s => s.id === fullChartData.ascendant!.signId)?.name || fullChartData.ascendant.signId;
-            placements.unshift({
-                body: "Ascendant",
-                sign: ascSignName,
-                house: 1
-            });
-        }
-
-        return {
-            placements: placements
-        };
-    }, [birthDate, birthTime, birthTimeKnown, birthLocation, timeOfDay, detectiveAnswers]);
-
-    // Save to DB as soon as progress hits 100 (during loading phase)
     React.useEffect(() => {
         if (progress === 100 && signs && !isSaved) {
             const saveData = async () => {
-                setCalculatedSigns({ placements: signs.placements })
+                setCalculatedSigns(signs)
 
                 if (isAuthenticated()) {
-                    if (!birthDate || !birthLocation) return
-
-                    const dateStr = `${birthDate.year}-${birthDate.month.toString().padStart(2, '0')}-${birthDate.day.toString().padStart(2, '0')}`
-
                     try {
-                        await updateBirthData({
-                            date: dateStr,
-                            time: birthTime || "12:00",
-                            location: birthLocation,
-                            placements: signs.placements
-                        })
+                        await updateBirthData(signs)
                         setIsSaved(true)
                     } catch (error) {
                         console.error("Failed to save birth data:", error)
                     }
                 }
 
-                // Show the cards after a brief delay
                 const timer = setTimeout(() => setIsCalculating(false), 500)
                 return () => clearTimeout(timer)
             }
 
             if (!isAuthenticated()) {
-                // For non-auth users, auto-calculate and skip to email/signup
-                setCalculatedSigns({
-                    placements: signs.placements
-                })
+                setCalculatedSigns(signs)
                 const timer = setTimeout(() => nextStep(), 800)
                 return () => clearTimeout(timer)
-            } else {
-                saveData()
             }
+
+            saveData()
         }
-    }, [progress, signs, isSaved, isAuthenticated, birthDate, birthLocation, birthTime, setCalculatedSigns, updateBirthData, nextStep]);
+    }, [progress, signs, isSaved, isAuthenticated, setCalculatedSigns, updateBirthData, nextStep])
 
     const handleEnterSanctuary = () => {
-        reset() // Reset onboarding store so step goes back to 1
+        reset()
         router.push("/dashboard")
     }
 
-    // ── Loading state ──────────────────────────────────────────────
     if (isCalculating) {
         return (
             <div className="text-center space-y-8 py-12">
@@ -190,7 +119,6 @@ export function CalculationStep() {
         )
     }
 
-    // ── Results state ──────────────────────────────────────────────
     return (
         <div className="max-w-4xl mx-auto">
             <div className="text-center">
@@ -204,14 +132,13 @@ export function CalculationStep() {
                 <h2 className="text-4xl font-serif mb-16">Your Cosmic Blueprint is Ready</h2>
             </div>
 
-            {/* Sign cards grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 my-6">
                 {signs && (
                     <>
                         {(() => {
-                            const sunPlacement = signs.placements.find((p: any) => p.body === "Sun");
-                            const sunData = compositionalSigns.find(s => s.name === sunPlacement?.sign);
-                            const sunUI = sunData ? zodiacUIConfig[sunData.id] : undefined;
+                            const sunPlacement = signs.placements.find((p) => p.body === "Sun")
+                            const sunData = compositionalSigns.find(s => s.name === sunPlacement?.sign)
+                            const sunUI = sunData ? zodiacUIConfig[sunData.id] : undefined
                             return (
                                 <RevealSignCard
                                     label="☉ Sun Sign"
@@ -220,12 +147,12 @@ export function CalculationStep() {
                                     enterDelay={0}
                                     revealDelay={1.6}
                                 />
-                            );
+                            )
                         })()}
                         {(() => {
-                            const moonPlacement = signs.placements.find((p: any) => p.body === "Moon");
-                            const moonData = compositionalSigns.find(s => s.name === moonPlacement?.sign);
-                            const moonUI = moonData ? zodiacUIConfig[moonData.id] : undefined;
+                            const moonPlacement = signs.placements.find((p) => p.body === "Moon")
+                            const moonData = compositionalSigns.find(s => s.name === moonPlacement?.sign)
+                            const moonUI = moonData ? zodiacUIConfig[moonData.id] : undefined
                             return (
                                 <RevealSignCard
                                     label="☽ Moon Sign"
@@ -234,12 +161,12 @@ export function CalculationStep() {
                                     enterDelay={0.4}
                                     revealDelay={1.6}
                                 />
-                            );
+                            )
                         })()}
                         {(() => {
-                            const risingPlacement = signs.placements.find((p: any) => p.body === "Ascendant");
-                            const risingData = compositionalSigns.find(s => s.name === risingPlacement?.sign);
-                            const risingUI = risingData ? zodiacUIConfig[risingData.id] : undefined;
+                            const risingPlacement = signs.placements.find((p) => p.body === "Ascendant")
+                            const risingData = compositionalSigns.find(s => s.name === risingPlacement?.sign)
+                            const risingUI = risingData ? zodiacUIConfig[risingData.id] : undefined
                             return (
                                 <RevealSignCard
                                     label={birthTimeKnown ? "↑ Rising Sign" : "↑ Rising Sign · Detective Match"}
@@ -248,7 +175,7 @@ export function CalculationStep() {
                                     enterDelay={0.8}
                                     revealDelay={1.6}
                                 />
-                            );
+                            )
                         })()}
                     </>
                 )}
@@ -267,7 +194,7 @@ export function CalculationStep() {
                     </div>
                     <p className="text-sm text-muted-foreground leading-relaxed">
                         Based on your born-at-<span className="text-foreground font-medium">{timeOfDay}</span> window
-                        and your <span className="text-foreground font-medium">"{signs?.placements.find((p: any) => p.body === "Ascendant")?.sign}"-like</span> personality traits,
+                        and your <span className="text-foreground font-medium">"{signs?.placements.find((p) => p.body === "Ascendant")?.sign}"-like</span> personality traits,
                         this rising sign is our strongest candidate.
                     </p>
                     <p className="text-[11px] text-muted-foreground/60 italic">
@@ -290,4 +217,3 @@ export function CalculationStep() {
         </div>
     )
 }
-

@@ -66,6 +66,9 @@ export default defineSchema({
         birthData: v.optional(v.object({
             date: v.string(), // ISO 8601
             time: v.string(), // "14:30"
+            timezone: v.optional(v.string()),
+            utcTimestamp: v.optional(v.string()),
+            houseSystem: v.optional(v.literal("whole_sign")),
             location: v.object({
                 lat: v.number(),
                 long: v.number(),
@@ -74,11 +77,52 @@ export default defineSchema({
                 countryCode: v.optional(v.string()),
                 displayName: v.optional(v.string()),
             }),
-            // Full array of calculated planetary placements
             placements: v.array(v.object({
                 body: v.string(),
                 sign: v.string(),
                 house: v.number(),
+            })),
+            chart: v.optional(v.object({
+                ascendant: v.union(
+                    v.object({
+                        longitude: v.number(),
+                        signId: v.string(),
+                    }),
+                    v.null(),
+                ),
+                planets: v.array(v.object({
+                    id: v.string(),
+                    signId: v.string(),
+                    houseId: v.number(),
+                    longitude: v.number(),
+                    retrograde: v.boolean(),
+                    dignity: v.union(
+                        v.literal("domicile"),
+                        v.literal("exaltation"),
+                        v.literal("detriment"),
+                        v.literal("fall"),
+                        v.literal("peregrine"),
+                        v.null(),
+                    ),
+                })),
+                houses: v.array(v.object({
+                    id: v.number(),
+                    signId: v.string(),
+                    longitude: v.number(),
+                })),
+                aspects: v.array(v.object({
+                    planet1: v.string(),
+                    planet2: v.string(),
+                    type: v.union(
+                        v.literal("conjunction"),
+                        v.literal("sextile"),
+                        v.literal("square"),
+                        v.literal("trine"),
+                        v.literal("opposition"),
+                    ),
+                    angle: v.number(),
+                    orb: v.number(),
+                })),
             })),
         })),
 
@@ -124,7 +168,7 @@ export default defineSchema({
         resetAt: v.number(), // timestamp for when the limit resets
     }).index("by_userId_action", ["userId", "action"]),
 
-    // в”Ђв”Ђв”Ђ DAILY HOROSCOPE ENGINE в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+    // РІвЂќР‚РІвЂќР‚РІвЂќР‚ DAILY HOROSCOPE ENGINE РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚
 
     // 5. SYSTEM SETTINGS (Master Prompt Storage)
     systemSettings: defineTable({
@@ -144,7 +188,7 @@ export default defineSchema({
         createdAt: v.number(),
     }).index("by_createdAt", ["createdAt"]),
 
-    // 7. HOROSCOPES (Generated Content вЂ” the product)
+    // 7. HOROSCOPES (Generated Content РІР‚вЂќ the product)
     horoscopes: defineTable({
         zeitgeistId: v.id("zeitgeists"),
         sign: v.string(),             // One of the 12 canonical sign names
@@ -185,20 +229,20 @@ export default defineSchema({
     }).index("by_status", ["status"])
         .index("by_admin", ["adminUserId"]),
 
-    // 9. COSMIC WEATHER (Astronomical Data вЂ” computed daily)
+    // 9. COSMIC WEATHER (Astronomical Data РІР‚вЂќ computed daily)
     cosmicWeather: defineTable({
-        date: v.string(),                  // "YYYY-MM-DD" UTC вЂ” primary lookup key
+        date: v.string(),                  // "YYYY-MM-DD" UTC РІР‚вЂќ primary lookup key
         planetPositions: v.array(
             v.object({
                 planet: v.string(),            // e.g. "Mars"
                 sign: v.string(),              // e.g. "Gemini"
-                degreeInSign: v.number(),      // 0вЂ“29.99
+                degreeInSign: v.number(),      // 0РІР‚вЂњ29.99
                 isRetrograde: v.boolean(),     // true if planet is retrograde
             })
         ),
         moonPhase: v.object({
             name: v.string(),                // e.g. "Waxing Gibbous"
-            illuminationPercent: v.number(), // 0вЂ“100
+            illuminationPercent: v.number(), // 0РІР‚вЂњ100
         }),
         activeAspects: v.array(
             v.object({
@@ -211,23 +255,23 @@ export default defineSchema({
         generatedAt: v.number(),           // Date.now() timestamp for audit
     }).index("by_date", ["date"]),
 
-    // 10. HOOKS (Hook Archetype Library вЂ” DB-driven, zero deploy updates)
+    // 10. HOOKS (Hook Archetype Library РІР‚вЂќ DB-driven, zero deploy updates)
     hooks: defineTable({
         name: v.string(),                    // e.g. "The Mirror Hook"
         description: v.string(),             // One-sentence description
-        examples: v.array(v.string()),       // 2вЂ“5 example lines
+        examples: v.array(v.string()),       // 2РІР‚вЂњ5 example lines
         isActive: v.boolean(),
         moonPhaseMapping: v.optional(v.string()),  // e.g. "full_moon", "waxing", "new_moon", "waning"
         createdAt: v.number(),
         updatedAt: v.number(),
     }).index("by_active", ["isActive"]),
 
-    // в”Ђв”Ђв”Ђ ORACLE AI ASTROLOGY GUIDE в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+    // РІвЂќР‚РІвЂќР‚РІвЂќР‚ ORACLE AI ASTROLOGY GUIDE РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚
 
     // 11. ORACLE CATEGORIES (The 6 domain badges)
     oracle_categories: defineTable({
         name: v.string(),                    // "Love", "Work", "Self", etc.
-        slug: v.string(),                    // "love", "work" вЂ” URL-safe, unique
+        slug: v.string(),                    // "love", "work" РІР‚вЂќ URL-safe, unique
         icon: v.string(),                    // Lucide icon name or emoji string
         description: v.string(),             // Short description for admin panel
         displayOrder: v.number(),            // Sort order in UI (0-based)
@@ -334,7 +378,7 @@ export default defineSchema({
     // 18. ORACLE SETTINGS (Key-value config: soul prompt, models, limits, etc.)
     oracle_settings: defineTable({
         key: v.string(),
-        value: v.string(),                   // Always stored as string вЂ” parsed at app layer
+        value: v.string(),                   // Always stored as string РІР‚вЂќ parsed at app layer
         valueType: v.union(
             v.literal("string"),
             v.literal("number"),
@@ -437,7 +481,7 @@ export default defineSchema({
     oracle_follow_up_answers: defineTable({
         sessionId: v.id("oracle_sessions"),
         followUpId: v.id("oracle_follow_ups"),
-        answer: v.string(),                  // Serialized вЂ” JSON for multi_select
+        answer: v.string(),                  // Serialized РІР‚вЂќ JSON for multi_select
         skipped: v.boolean(),                // true if user skipped optional question
         answeredAt: v.number(),
     })
@@ -445,6 +489,9 @@ export default defineSchema({
         .index("by_session_followup", ["sessionId", "followUpId"]),
 
 });
+
+
+
 
 
 

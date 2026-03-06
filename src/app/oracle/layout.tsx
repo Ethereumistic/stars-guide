@@ -53,6 +53,7 @@ import {
 import { useOracleStore } from "@/store/use-oracle-store";
 import { useUserStore } from "@/store/use-user-store";
 import { OracleChatSearchModal } from "@/components/oracle-chat-search-modal";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 function formatRelativeTime(timestamp: number): string {
     const now = Date.now();
@@ -135,7 +136,7 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
                 style={{ "--sidebar-width-icon": "3.75rem" } as React.CSSProperties}
                 className="fixed inset-0 z-40 flex min-h-0! h-auto! w-full overflow-hidden"
             >
-                <Sidebar variant="sidebar" collapsible="icon" className="border-r border-white/10 bg-black/25 backdrop-blur-xl">
+                <Sidebar variant="sidebar" collapsible="icon" className="border-r border-white/10 bg-black/25 backdrop-blur-xl overflow-hidden">
                     <SidebarHeader className="h-[76px] shrink-0 border-b border-white/10 px-2">
                         <div className="flex h-full items-center">
                             <div className="flex w-full items-center justify-between gap-2 group-data-[collapsible=icon]:hidden">
@@ -154,7 +155,7 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
                         </div>
                     </SidebarHeader>
 
-                    <SidebarContent className="scrollbar-thin scrollbar-thumb-white/10 overflow-y-auto p-2">
+                    <SidebarContent className="flex flex-col overflow-hidden scrollbar-thin scrollbar-thumb-white/10 p-2">
                         <SidebarMenu className="px-2 pt-2">
                             <SidebarMenuItem>
                                 <SidebarMenuButton
@@ -187,51 +188,54 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
                             </SidebarMenuItem>
                         </SidebarMenu>
 
-                        <SidebarGroup className="mt-2 group-data-[collapsible=icon]:hidden">
+                        <SidebarGroup className="mt-2 min-h-0 flex-1 group-data-[collapsible=icon]:hidden">
                             <SidebarGroupLabel className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-white/40">
                                 <MessageSquare className="h-3 w-3 text-white/40" />
                                 <span>Past Whispers</span>
                             </SidebarGroupLabel>
-                            <SidebarGroupContent>
-                                <SidebarMenu>
-                                    {sessions === undefined ? (
-                                        <div className="flex items-center justify-center py-4">
-                                            <Loader2 className="h-4 w-4 animate-spin text-white/30" />
-                                        </div>
-                                    ) : sessions.length === 0 ? (
-                                        <div className="px-3 py-4 text-center">
-                                            <GiCursedStar className="mx-auto mb-2 h-5 w-5 text-white/15" />
-                                            <p className="text-[11px] italic leading-relaxed text-white/25">
-                                                Your whispers from the stars will appear here
-                                            </p>
-                                        </div>
-                                    ) : (
-                                        sessions.map((session) => {
-                                            const isActive = pathname?.includes(session._id);
-                                            return (
-                                                <SidebarMenuItem key={session._id}>
-                                                    <SidebarMenuButton
-                                                        asChild
-                                                        isActive={isActive}
-                                                        className="h-auto min-h-12 items-start px-2.5 py-2 text-sm text-white/70 transition-colors hover:bg-white/5 hover:text-white"
-                                                    >
-                                                        <Link href={`/oracle/chat/${session._id}`} className="flex w-full min-w-0 items-center gap-2.5">
-                                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center text-base leading-none">
-                                                                {session.categoryIcon ?? "*"}
-                                                            </span>
-                                                            <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 leading-tight group-data-[collapsible=icon]:hidden">
-                                                                <span className="truncate text-sm text-white/80">{session.title}</span>
-                                                                <span className="text-[10px] text-white/35">
-                                                                    {formatRelativeTime(session.lastMessageAt)}
+                            <SidebarGroupContent className="h-full">
+                                <ScrollArea className="h-[calc(100%-60px)] -mr-2 pr-2">
+                                    <SidebarMenu>
+                                        {sessions === undefined ? (
+                                            <div className="flex items-center justify-center py-4">
+                                                <Loader2 className="h-4 w-4 animate-spin text-white/30" />
+                                            </div>
+                                        ) : sessions.length === 0 ? (
+                                            <div className="px-3 py-4 text-center">
+                                                <GiCursedStar className="mx-auto mb-2 h-5 w-5 text-white/15" />
+                                                <p className="text-[11px] italic leading-relaxed text-white/25">
+                                                    Your whispers from the stars will appear here
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            sessions.map((session) => {
+                                                const isActive = pathname?.includes(session._id);
+                                                return (
+                                                    <SidebarMenuItem key={session._id}>
+                                                        <SidebarMenuButton
+                                                            asChild
+                                                            isActive={isActive}
+                                                            className="h-auto min-h-12 items-start px-2.5 py-2 text-sm text-white/70 transition-colors hover:bg-white/5 hover:text-white overflow-hidden"
+                                                        >
+                                                            <Link href={`/oracle/chat/${session._id}`} className="flex w-full min-w-0 items-center gap-2.5">
+                                                                <span className="flex h-6 w-6 shrink-0 items-center justify-center text-base leading-none">
+                                                                    {session.categoryIcon ?? "*"}
                                                                 </span>
-                                                            </span>
-                                                        </Link>
-                                                    </SidebarMenuButton>
-                                                </SidebarMenuItem>
-                                            );
-                                        })
-                                    )}
-                                </SidebarMenu>
+                                                                <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 leading-tight group-data-[collapsible=icon]:hidden">
+                                                                    <span className="truncate max-w-[25ch] text-sm text-white/80">{session.title}</span>
+                                                                    <span className="text-[10px] text-white/35">
+                                                                        {formatRelativeTime(session.lastMessageAt)}
+                                                                    </span>
+                                                                </span>
+                                                            </Link>
+                                                        </SidebarMenuButton>
+                                                    </SidebarMenuItem>
+                                                );
+                                            })
+                                        )}
+                                    </SidebarMenu>
+                                    <ScrollBar className="w-2 border-l-0 " />
+                                </ScrollArea>
                             </SidebarGroupContent>
                         </SidebarGroup>
                     </SidebarContent>

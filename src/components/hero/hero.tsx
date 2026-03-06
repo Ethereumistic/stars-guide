@@ -7,6 +7,7 @@ import { ShootingStars } from "@/components/hero/shooting-stars"
 import { StarsBackground } from "@/components/hero/stars-background"
 import { GiAstrolabe, GiCrystalBall, GiCursedStar } from "react-icons/gi"
 import { ArrowRight, Sparkles } from "lucide-react"
+import { Avatar, AvatarImage } from "@/components/ui/avatar"
 import { motion } from "motion/react"
 
 export function Hero() {
@@ -125,11 +126,13 @@ export function Hero() {
                     >
                         <div className="flex items-center gap-2">
                             <div className="flex -space-x-2">
-                                {[1, 2, 3, 4].map((i) => (
-                                    <div
-                                        key={i}
-                                        className="size-8 rounded-full bg-linear-to-br from-primary/60 to-primary/30 border-2 border-background"
-                                    />
+                                {["cura", "mihaela", "rada", "maria"].map((name) => (
+                                    <Avatar key={name} className="size-8 border-2 border-background">
+                                        <AvatarImage
+                                            src={`https://cdn.jsdelivr.net/gh/Ethereumistic/stars-guide-assets/testimonials/${name}.webp`}
+                                            alt={name}
+                                        />
+                                    </Avatar>
                                 ))}
                             </div>
                             <span className="font-sans italic">Join 10,000+ cosmic seekers</span>

@@ -1,76 +1,123 @@
-import tzlookup from 'tz-lookup';
-import { compositionalSigns, type SignData } from '@/astrology/signs';
+import tzlookup from "tz-lookup";
+import { compositionalSigns, type SignData } from "../../astrology/signs";
+
+const ZONED_PARTS_OPTIONS: Intl.DateTimeFormatOptions = {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+};
 
 /**
- * Convert ecliptic longitude (0-360°) to tropical zodiac sign.
- * Each sign spans exactly 30° starting from 0° Aries.
+ * Convert ecliptic longitude (0-360 degrees) to tropical zodiac sign.
+ * Each sign spans exactly 30 degrees starting from 0 degrees Aries.
  */
 export function eclipticLongitudeToSign(longitude: number): SignData {
-    // Normalize to 0-360° range
-    const normalizedLongitude = ((longitude % 360) + 360) % 360;
-    // Each sign is 30°, so index = floor(longitude / 30)
-    const signIndex = Math.floor(normalizedLongitude / 30);
-    return compositionalSigns[signIndex];
+  const normalizedLongitude = ((longitude % 360) + 360) % 360;
+  const signIndex = Math.floor(normalizedLongitude / 30);
+  return compositionalSigns[signIndex];
+}
+
+function getZonedDateParts(timeZone: string, date: Date): Record<string, number> {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    ...ZONED_PARTS_OPTIONS,
+    timeZone,
+  });
+
+  const values: Record<string, number> = {};
+  for (const part of formatter.formatToParts(date)) {
+    if (part.type !== "literal") {
+      values[part.type] = Number(part.value);
+    }
+  }
+
+  return values;
+}
+
+function getTimezoneOffsetMilliseconds(timeZone: string, date: Date): number {
+  const parts = getZonedDateParts(timeZone, date);
+  const zonedAsUtc = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+    0,
+  );
+
+  return zonedAsUtc - date.getTime();
+}
+
+export function getTimezoneName(latitude: number, longitude: number): string {
+  return tzlookup(latitude, longitude);
 }
 
 /**
- * Get the timezone offset in hours for a given location and date.
- * Uses the IANA timezone database via tz-lookup.
- * 
- * @param latitude - Location latitude
- * @param longitude - Location longitude  
- * @param date - The date (for DST calculation)
- * @returns Offset in hours (e.g., -5 for EST, +2 for EET)
+ * Get the timezone offset in hours for a given location and instant.
+ * Positive values indicate the zone is ahead of UTC.
  */
-export function getTimezoneOffset(latitude: number, longitude: number, date: Date): number {
-    try {
-        // Get IANA timezone name from coordinates (e.g., "America/New_York")
-        const timezoneName = tzlookup(latitude, longitude);
+export function getTimezoneOffset(
+  latitude: number,
+  longitude: number,
+  date: Date,
+): number {
+  const timezoneName = getTimezoneName(latitude, longitude);
+  return getTimezoneOffsetMilliseconds(timezoneName, date) / (1000 * 60 * 60);
+}
 
-        // Create a date string in the target timezone and compare to UTC
-        const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
-        const localDate = new Date(date.toLocaleString('en-US', { timeZone: timezoneName }));
+export function resolveBirthDateTime(
+  year: number,
+  month: number,
+  day: number,
+  hours: number,
+  minutes: number,
+  latitude: number,
+  longitude: number,
+): {
+  timezone: string;
+  utcDate: Date;
+  utcTimestamp: string;
+} {
+  const timezone = getTimezoneName(latitude, longitude);
+  const localAsUtc = Date.UTC(year, month - 1, day, hours, minutes, 0, 0);
 
-        // Offset in hours (positive = ahead of UTC)
-        return (localDate.getTime() - utcDate.getTime()) / (1000 * 60 * 60);
-    } catch {
-        // Fallback: estimate offset from longitude (rough approximation)
-        // Each 15° of longitude = 1 hour offset
-        return Math.round(longitude / 15);
-    }
+  let utcDate = new Date(localAsUtc);
+  for (let iteration = 0; iteration < 2; iteration += 1) {
+    const offsetMs = getTimezoneOffsetMilliseconds(timezone, utcDate);
+    utcDate = new Date(localAsUtc - offsetMs);
+  }
+
+  return {
+    timezone,
+    utcDate,
+    utcTimestamp: utcDate.toISOString(),
+  };
 }
 
 /**
  * Convert a local birth time to UTC.
- * 
- * @param year - Birth year
- * @param month - Birth month (1-12)
- * @param day - Birth day
- * @param hours - Birth hour in local time (0-23)
- * @param minutes - Birth minutes
- * @param latitude - Birth location latitude
- * @param longitude - Birth location longitude
- * @returns Date object in UTC
  */
 export function localBirthTimeToUTC(
-    year: number,
-    month: number,
-    day: number,
-    hours: number,
-    minutes: number,
-    latitude: number,
-    longitude: number
+  year: number,
+  month: number,
+  day: number,
+  hours: number,
+  minutes: number,
+  latitude: number,
+  longitude: number,
 ): Date {
-    // First, create an approximate date to determine timezone offset
-    // (needed because DST depends on the date)
-    const approximateDate = new Date(Date.UTC(year, month - 1, day, hours, minutes));
-
-    // Get the timezone offset for this location and approximate date
-    const offsetHours = getTimezoneOffset(latitude, longitude, approximateDate);
-
-    // Subtract the offset to convert local time to UTC
-    // If local time is UTC+2, we need to subtract 2 hours to get UTC
-    const utcHours = hours - offsetHours;
-
-    return new Date(Date.UTC(year, month - 1, day, utcHours, minutes));
+  return resolveBirthDateTime(
+    year,
+    month,
+    day,
+    hours,
+    minutes,
+    latitude,
+    longitude,
+  ).utcDate;
 }
+

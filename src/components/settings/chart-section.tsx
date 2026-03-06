@@ -11,29 +11,16 @@ import {
     MapPin,
     Pencil
 } from "lucide-react"
-
-interface BirthData {
-    date: string
-    time: string
-    location: {
-        lat: number
-        long: number
-        city: string
-        country: string
-        countryCode?: string
-    }
-    placements: { body: string; sign: string; house: number; }[]
-}
+import type { StoredBirthData } from "@/lib/birth-chart/types"
 
 interface ChartSectionProps {
-    birthData: BirthData | undefined
+    birthData: StoredBirthData | undefined
     delay?: number
 }
 
 export function ChartSection({ birthData, delay = 0.1 }: ChartSectionProps) {
     const router = useRouter()
 
-    // Format date nicely
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr)
         return date.toLocaleDateString('en-US', {
@@ -43,7 +30,6 @@ export function ChartSection({ birthData, delay = 0.1 }: ChartSectionProps) {
         })
     }
 
-    // Format time nicely
     const formatTime = (timeStr: string) => {
         const [hours, minutes] = timeStr.split(':')
         const hour = parseInt(hours)

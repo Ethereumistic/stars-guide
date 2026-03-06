@@ -1,6 +1,16 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { buildStoredBirthData } from "../src/lib/birth-chart/storage";
+
+const dignityValidator = v.union(
+    v.literal("domicile"),
+    v.literal("exaltation"),
+    v.literal("detriment"),
+    v.literal("fall"),
+    v.literal("peregrine"),
+    v.null(),
+);
 
 export const current = query({
     args: {},
@@ -17,6 +27,9 @@ export const updateBirthData = mutation({
     args: {
         date: v.string(),
         time: v.string(),
+        timezone: v.string(),
+        utcTimestamp: v.string(),
+        houseSystem: v.literal("whole_sign"),
         location: v.object({
             lat: v.number(),
             long: v.number(),
@@ -30,6 +43,41 @@ export const updateBirthData = mutation({
             sign: v.string(),
             house: v.number(),
         })),
+        chart: v.object({
+            ascendant: v.union(
+                v.object({
+                    longitude: v.number(),
+                    signId: v.string(),
+                }),
+                v.null(),
+            ),
+            planets: v.array(v.object({
+                id: v.string(),
+                signId: v.string(),
+                houseId: v.number(),
+                longitude: v.number(),
+                retrograde: v.boolean(),
+                dignity: dignityValidator,
+            })),
+            houses: v.array(v.object({
+                id: v.number(),
+                signId: v.string(),
+                longitude: v.number(),
+            })),
+            aspects: v.array(v.object({
+                planet1: v.string(),
+                planet2: v.string(),
+                type: v.union(
+                    v.literal("conjunction"),
+                    v.literal("sextile"),
+                    v.literal("square"),
+                    v.literal("trine"),
+                    v.literal("opposition"),
+                ),
+                angle: v.number(),
+                orb: v.number(),
+            })),
+        }),
     },
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);
@@ -41,12 +89,15 @@ export const updateBirthData = mutation({
             birthData: {
                 date: args.date,
                 time: args.time,
+                timezone: args.timezone,
+                utcTimestamp: args.utcTimestamp,
+                houseSystem: args.houseSystem,
                 location: args.location,
                 placements: args.placements,
+                chart: args.chart,
             },
         });
 
-        // Referral System: Reward referrer if this user was pending
         const pendingReferral = await ctx.db
             .query("referrals")
             .withIndex("by_refereeId", (q) => q.eq("refereeId", userId))
@@ -56,16 +107,62 @@ export const updateBirthData = mutation({
         if (pendingReferral) {
             const referrer = await ctx.db.get(pendingReferral.referrerId);
             if (referrer) {
-                // Reward referrer
                 await ctx.db.patch(referrer._id, {
                     stardust: (referrer.stardust || 0) + pendingReferral.rewardAmount,
                 });
-                // Mark referral as complete
                 await ctx.db.patch(pendingReferral._id, {
                     status: "completed",
                 });
             }
         }
+    },
+});
+
+export const backfillBirthDataCharts = internalMutation({
+    args: {
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const users = await ctx.db.query("users").collect();
+        const limit = args.limit ?? 50;
+        let processed = 0;
+        let updated = 0;
+        let skipped = 0;
+
+        for (const user of users) {
+            if (!user.birthData || processed >= limit) {
+                continue;
+            }
+
+            processed += 1;
+
+            if (
+                user.birthData.chart &&
+                user.birthData.timezone &&
+                user.birthData.utcTimestamp &&
+                user.birthData.houseSystem
+            ) {
+                skipped += 1;
+                continue;
+            }
+
+            const enrichedBirthData = buildStoredBirthData({
+                date: user.birthData.date,
+                time: user.birthData.time,
+                location: user.birthData.location,
+            });
+
+            await ctx.db.patch(user._id, {
+                birthData: enrichedBirthData,
+            });
+            updated += 1;
+        }
+
+        return {
+            processed,
+            updated,
+            skipped,
+        };
     },
 });
 
@@ -126,7 +223,6 @@ export const checkUsernameAvailability = mutation({
             return { available: false, valid: false };
         }
 
-        // Apply strict 10 checks per 5-minute window Rate Limit
         const MAX_CHECKS = 10;
         const WINDOW_MS = 5 * 60 * 1000;
         const now = Date.now();
@@ -140,12 +236,10 @@ export const checkUsernameAvailability = mutation({
 
         if (limit) {
             if (now > limit.resetAt) {
-                // Window passed, reset count
                 await ctx.db.patch(limit._id, { count: 1, resetAt: now + WINDOW_MS });
             } else if (limit.count >= MAX_CHECKS) {
                 throw new Error("RATE_LIMITED");
             } else {
-                // Inside window, increment
                 await ctx.db.patch(limit._id, { count: limit.count + 1 });
             }
         } else {
@@ -183,13 +277,11 @@ export const updateUsername = mutation({
             throw new Error("Invalid username format. Use 1-15 letters, numbers, and underscores.");
         }
 
-        // Check 30 day limit
         const COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
         if (user.lastUsernameChangeAt && Date.now() - user.lastUsernameChangeAt < COOLDOWN_MS) {
             throw new Error("You can only change your username once every 30 days.");
         }
 
-        // Check availability
         const existing = await ctx.db
             .query("users")
             .withIndex("by_username", (q) => q.eq("username", normalized))

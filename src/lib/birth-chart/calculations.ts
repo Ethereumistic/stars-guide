@@ -1,11 +1,11 @@
 import * as Astronomy from 'astronomy-engine';
-import { type SignData } from '@/astrology/signs';
+import { type SignData } from '../../astrology/signs';
 import { eclipticLongitudeToSign, localBirthTimeToUTC } from './core';
 
 /**
  * Calculate the Sun's zodiac sign for a given date/time.
  * 
- * The Sun moves approximately 1° per day through the ecliptic,
+ * The Sun moves approximately 1В° per day through the ecliptic,
  * spending roughly 30 days in each sign.
  * 
  * @param date - Birth date/time as UTC
@@ -19,7 +19,7 @@ export function calculateSunSign(date: Date): SignData {
 /**
  * Calculate the Moon's zodiac sign for a given date/time.
  * 
- * The Moon moves approximately 13° per day through the ecliptic,
+ * The Moon moves approximately 13В° per day through the ecliptic,
  * spending roughly 2.5 days in each sign. This makes the Moon sign
  * highly sensitive to birth time.
  * 
@@ -64,15 +64,15 @@ export function calculateAscendant(date: Date, latitude: number, longitude: numb
     const latRad = latitude * (Math.PI / 180);
 
     // Ascendant formula:
-    // ASC = atan2(cos(RAMC), -(sin(ε) * tan(φ)) - (cos(ε) * sin(RAMC)))
-    // where ε = obliquity, φ = latitude, RAMC = local sidereal time
+    // ASC = atan2(cos(RAMC), -(sin(Оµ) * tan(П†)) - (cos(Оµ) * sin(RAMC)))
+    // where Оµ = obliquity, П† = latitude, RAMC = local sidereal time
     const y = Math.cos(lstRad);
     const x = -(Math.sin(oblRad) * Math.tan(latRad)) - (Math.cos(oblRad) * Math.sin(lstRad));
 
     let ascRad = Math.atan2(y, x);
     let ascDeg = ascRad * (180 / Math.PI);
 
-    // Normalize to 0-360° range
+    // Normalize to 0-360В° range
     ascDeg = ((ascDeg % 360) + 360) % 360;
 
     return eclipticLongitudeToSign(ascDeg);
@@ -120,3 +120,5 @@ export function calculateBigThree(
 
     return { sun, moon, rising };
 }
+
+

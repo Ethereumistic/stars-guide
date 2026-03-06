@@ -5,8 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useOnboardingStore } from "@/store/use-onboarding-store"
 import { useAuthActions } from "@convex-dev/auth/react"
-import { useMutation } from "convex/react"
-import { api } from "../../../../../convex/_generated/api"
 import { motion } from "motion/react"
 import { Lock, ArrowRight, ChevronLeft, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -17,13 +15,11 @@ export function PasswordStep() {
         email,
         birthDate,
         birthLocation,
-        birthTime,
         prevStep,
         reset,
         calculatedSigns
     } = useOnboardingStore()
     const { signIn } = useAuthActions()
-    const updateBirthData = useMutation(api.users.updateBirthData)
     const router = useRouter()
     const [password, setPassword] = React.useState("")
     const [isLoading, setIsLoading] = React.useState(false)
@@ -38,28 +34,15 @@ export function PasswordStep() {
         setError(null)
 
         try {
-            const { placements } = calculatedSigns
-            const dateStr = `${birthDate.year}-${birthDate.month.toString().padStart(2, '0')}-${birthDate.day.toString().padStart(2, '0')}`
-
-            const fullBirthData = {
-                date: dateStr,
-                time: birthTime || "12:00",
-                location: birthLocation,
-                placements
-            }
-
             await signIn("password", {
                 email,
                 password,
                 flow: "signUp",
-                birthData: JSON.stringify(fullBirthData)
+                birthData: JSON.stringify(calculatedSigns)
             })
 
             toast.success("Account created! Welcome to the stars.")
-
-            // Reset the store explicitly before navigation
             reset()
-
             router.push("/dashboard")
         } catch (error) {
             console.error("Finalization failed:", error)
