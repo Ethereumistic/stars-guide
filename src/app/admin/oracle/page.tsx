@@ -33,7 +33,8 @@ export default function OracleOverviewPage() {
     const getSetting = (key: string) =>
         settings?.find((s) => s.key === key)?.value;
 
-    const oracleEnabled = getSetting("oracle_enabled") === "true";
+    // kill_switch="true" means Oracle is OFF → oracleEnabled = false
+    const oracleEnabled = getSetting("kill_switch") !== "true";
     const modelA = getSetting("model_a") ?? "Not set";
     const modelB = getSetting("model_b") ?? "Not set";
     const modelC = getSetting("model_c") ?? "Not set";

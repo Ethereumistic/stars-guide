@@ -603,7 +603,7 @@ Remember: you are a guide, not a god. You illuminate — the user decides.`,
                 group: "content",
             },
             { key: "max_follow_ups_per_template", value: "3", valueType: "number" as const, label: "Max Follow-ups Per Template", group: "content" },
-            { key: "oracle_enabled", value: "true", valueType: "boolean" as const, label: "Oracle Kill Switch", group: "content" },
+            { key: "kill_switch", value: "false", valueType: "boolean" as const, label: "Oracle Kill Switch", group: "operations" },
 
             // Safety Config
             {

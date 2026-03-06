@@ -45,12 +45,16 @@ import {
 import { toast } from "sonner";
 
 const MODEL_OPTIONS = [
-    { value: "arcee-ai/trinity-large-preview:free", label: "Trinity Large Preview", provider: "Arcee AI" },
-    { value: "stepfun/step-3.5-flash:free", label: "Step 3.5 Flash", provider: "Step Fun" },
-    { value: "z-ai/glm-4.5-air:free", label: "GLM 4.5 Air", provider: "Z-AI" },
     { value: "x-ai/grok-4.1-fast", label: "Grok 4.1 Fast", provider: "xAI" },
     { value: "x-ai/grok-4.1", label: "Grok 4.1", provider: "xAI" },
-    { value: "NONE", label: "NONE", provider: "NONE" },
+    { value: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite", provider: "Google" },
+    { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", provider: "Google" },
+    { value: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4", provider: "Anthropic" },
+    { value: "openai/gpt-4.1-mini", label: "GPT-4.1 Mini", provider: "OpenAI" },
+    { value: "arcee-ai/trinity-large-preview:free", label: "Trinity Large Preview (Free)", provider: "Arcee AI" },
+    { value: "stepfun/step-3.5-flash:free", label: "Step 3.5 Flash (Free)", provider: "Step Fun" },
+    { value: "z-ai/glm-4.5-air:free", label: "GLM 4.5 Air (Free)", provider: "Z-AI" },
+    { value: "NONE", label: "Disabled", provider: "—" },
 ];
 
 export default function OracleSettingsPage() {
@@ -99,7 +103,8 @@ export default function OracleSettingsPage() {
         setStreamEnabled(get("stream_enabled") === "true");
         setFallbackResponse(get("fallback_response_text") ?? "");
         setCrisisResponse(get("crisis_response_text") ?? "");
-        setOracleEnabled(get("oracle_enabled") === "true");
+        // kill_switch="true" means Oracle is OFF → oracleEnabled = false
+        setOracleEnabled(get("kill_switch") !== "true");
         setQuotaFree(get("quota_limit_user") ?? "5");
         setQuotaPopular(get("quota_limit_popular") ?? "5");
         setQuotaPremium(get("quota_limit_premium") ?? "10");
@@ -165,9 +170,10 @@ export default function OracleSettingsPage() {
             // Turning OFF — require confirmation
             setShowKillSwitchDialog(true);
         } else {
-            // Turning ON — just do it
+            // Turning ON — set kill_switch to "false"
             setOracleEnabled(true);
-            await saveSetting("oracle_enabled", "true", "boolean", "Oracle Kill Switch", "content");
+            await saveSetting("kill_switch", "false", "boolean", "Oracle Kill Switch", "operations");
+            toast.success("Oracle is now LIVE");
         }
     };
 
@@ -176,7 +182,8 @@ export default function OracleSettingsPage() {
         setOracleEnabled(false);
         setShowKillSwitchDialog(false);
         setConfirmKillSwitch("");
-        await saveSetting("oracle_enabled", "false", "boolean", "Oracle Kill Switch", "content");
+        // kill_switch="true" means Oracle is OFF
+        await saveSetting("kill_switch", "true", "boolean", "Oracle Kill Switch", "operations");
         toast.warning("Oracle is now OFFLINE");
     };
 

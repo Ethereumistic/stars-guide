@@ -192,9 +192,9 @@ export const invokeOracle = action({
         };
 
         const models = [
-            { model: modelA?.value ?? "arcee-ai/trinity-large-preview:free", tier: "A" as const },
-            { model: modelB?.value ?? "stepfun/step-3.5-flash:free", tier: "B" as const },
-            { model: modelC?.value ?? "z-ai/glm-4.5-air:free", tier: "C" as const },
+            { model: modelA?.value ?? "google/gemini-2.5-flash", tier: "A" as const },
+            { model: modelB?.value ?? "anthropic/claude-sonnet-4", tier: "B" as const },
+            { model: modelC?.value ?? "x-ai/grok-4.1-fast", tier: "C" as const },
         ];
 
         // ─── 6. Try each model with STREAMING ───────────────────────────
