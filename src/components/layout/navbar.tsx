@@ -53,6 +53,7 @@ export function Navbar() {
         return () => window.removeEventListener("scroll", handleScroll)
     }, [])
 
+
     // Lock body scroll when mobile menu is open
     React.useEffect(() => {
         if (isMobileMenuOpen) {
@@ -64,10 +65,11 @@ export function Navbar() {
 
     const { isAuthenticated: isAuthConvex } = useConvexAuth()
     const { signOut } = useAuthActions()
-    const { user: currentUser, isLoading } = useUserStore()
+    const { user: currentUser } = useUserStore()
 
     // We can use either or both, but the store is now our primary source for UI
     const isAuthenticated = isAuthConvex && !!currentUser
+    if (isOracle) return null
 
     return (
         <>
@@ -79,14 +81,12 @@ export function Navbar() {
                         : "bg-transparent py-2"
                 )}
             >
-                <div className={cn("mx-auto flex h-16 items-center px-4 sm:px-6 lg:px-8", isOracle ? "w-full" : "max-w-[90rem]")}>
-                    {/* --- Left Section: Logo (hidden on Oracle, shown in sidebar instead) --- */}
+                <div className="mx-auto flex h-16 w-full max-w-[90rem] items-center px-4 sm:px-6 lg:px-8">
+                    {/* --- Left Section: Logo --- */}
                     <div className="flex-1 flex items-center">
-                        {!isOracle && (
-                            <Link href="/" className="transition-transform duration-300 hover:scale-[1.02] z-50 relative">
-                                <Logo size="sm" />
-                            </Link>
-                        )}
+                        <Link href="/" className="transition-transform duration-300 hover:scale-[1.02] z-50 relative">
+                            <Logo size="sm" />
+                        </Link>
                     </div>
 
                     {/* --- Center Section: Desktop Nav links --- */}
@@ -315,3 +315,5 @@ export function Navbar() {
         </>
     );
 }
+
+

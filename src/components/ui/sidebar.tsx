@@ -73,6 +73,13 @@ function SidebarProvider({
   // We use openProp and setOpenProp for control from outside the component.
   const [_open, _setOpen] = React.useState(defaultOpen)
   const open = openProp ?? _open
+  const emitSidebarState = React.useCallback((openState: boolean) => {
+    window.dispatchEvent(
+      new CustomEvent("sidebar:state", {
+        detail: { open: openState },
+      })
+    )
+  }, [])
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
       const openState = typeof value === "function" ? value(open) : value
@@ -84,8 +91,9 @@ function SidebarProvider({
 
       // This sets the cookie to keep the sidebar state.
       document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+      emitSidebarState(openState)
     },
-    [setOpenProp, open]
+    [setOpenProp, open, emitSidebarState]
   )
 
   // Helper to toggle the sidebar.
@@ -108,6 +116,10 @@ function SidebarProvider({
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [toggleSidebar])
+
+  React.useEffect(() => {
+    emitSidebarState(open)
+  }, [open, emitSidebarState])
 
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.
@@ -539,6 +551,7 @@ function SidebarMenuButton({
         side="right"
         align="center"
         hidden={state !== "collapsed" || isMobile}
+        className="ml-5"
         {...tooltip}
       />
     </Tooltip>
@@ -724,3 +737,4 @@ export {
   SidebarTrigger,
   useSidebar,
 }
+
