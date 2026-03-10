@@ -24,10 +24,8 @@ export default defineSchema({
         // Subscription State
         tier: v.union(
             v.literal("free"),
-            v.literal("cosmic"),      // Standard $9.99/mo
-            v.literal("astral"),      // Premium $29.99/mo
-            v.literal("vip"),   // OTC / Comped
-            v.literal("lifetime")  // Early adopter
+            v.literal("popular"),
+            v.literal("premium")
         ),
         subscriptionStatus: v.union(
             v.literal("active"),
@@ -42,8 +40,6 @@ export default defineSchema({
         // Identity & Access
         role: v.union(
             v.literal("user"),
-            v.literal("popular"),
-            v.literal("premium"),
             v.literal("admin"),
             v.literal("moderator")
         ),

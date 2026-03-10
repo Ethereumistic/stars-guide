@@ -1,4 +1,4 @@
-﻿import { internalMutation } from "../_generated/server";
+import { internalMutation } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
 import {
     DEFAULT_SOUL_DOCS,
@@ -574,12 +574,12 @@ export const seedOracle = internalMutation({
             })),
 
             // Quota Config
-            { key: "quota_limit_user", value: "5", valueType: "number" as const, label: "Free Tier - Lifetime Limit", group: "quota" },
+            { key: "quota_limit_free", value: "5", valueType: "number" as const, label: "Free Tier - Lifetime Limit", group: "quota" },
             { key: "quota_limit_popular", value: "5", valueType: "number" as const, label: "Popular Tier - Daily Limit", group: "quota" },
             { key: "quota_limit_premium", value: "10", valueType: "number" as const, label: "Premium Tier - Daily Limit", group: "quota" },
             { key: "quota_limit_moderator", value: "10", valueType: "number" as const, label: "Moderator Tier - Daily Limit", group: "quota" },
             { key: "quota_limit_admin", value: "999", valueType: "number" as const, label: "Admin Tier - Daily Limit", group: "quota" },
-            { key: "quota_reset_user", value: "never", valueType: "string" as const, label: "Free Tier Reset Type", group: "quota" },
+            { key: "quota_reset_free", value: "never", valueType: "string" as const, label: "Free Tier Reset Type", group: "quota" },
             { key: "quota_reset_popular", value: "daily", valueType: "string" as const, label: "Popular Reset Type", group: "quota" },
             { key: "quota_reset_premium", value: "daily", valueType: "string" as const, label: "Premium Reset Type", group: "quota" },
             { key: "quota_reset_moderator", value: "daily", valueType: "string" as const, label: "Moderator Reset Type", group: "quota" },

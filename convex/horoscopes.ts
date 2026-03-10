@@ -25,7 +25,7 @@ export const getPublished = query({
         // 1. Fetch the user's tier
         const userId = await getAuthUserId(ctx);
         const user = userId ? await ctx.db.get(userId) : null;
-        const userTier = user?.role || "user";
+        const userTier = user?.tier || "free";
 
         // 2. Fetch the requested horoscope
         const horoscope = await ctx.db
@@ -47,8 +47,8 @@ export const getPublished = query({
         // 4. Enforce Paywall Rules
         let isAllowed = false;
 
-        if (userTier === "premium" || userTier === "admin") {
-            // Give admin same or higher privileges
+        if (userTier === "premium") {
+            // Give premium privileges
             isAllowed = diff <= 7; // All past, up to 7 days future
         } else if (userTier === "popular") {
             isAllowed = diff >= -1 && diff <= 1; // Yesterday, Today, Tomorrow

@@ -16,8 +16,8 @@ interface PricingCardProps {
 }
 
 export function PricingCard({ plan, index, isYearly }: PricingCardProps) {
-    const isPopular = plan.role === "popular";
-    const isPremium = plan.role === "premium";
+    const isPopular = plan.tier === "popular";
+    const isPremium = plan.tier === "premium";
     const [isHovered, setIsHovered] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const cardRef = useRef<HTMLDivElement>(null);

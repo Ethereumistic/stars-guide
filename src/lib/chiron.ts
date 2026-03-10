@@ -1,4 +1,6 @@
-import { CHIRON_TABLE } from "@/data/chironEphemeris";
+import { CHIRON_TABLE } from "../data/chironEphemeris";
+
+type EphemerisEntry = { year: number; month: number; lon: number; retrograde: boolean };
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -12,13 +14,13 @@ export function getChironForDate(date: Date): {
 
   // Find the two surrounding monthly samples
   const before = CHIRON_TABLE.find(
-    (e) => e.year === year && e.month === month
+    (e: EphemerisEntry) => e.year === year && e.month === month
   );
 
   const afterMonth = month === 12 ? 1 : month + 1;
   const afterYear  = month === 12 ? year + 1 : year;
   const after = CHIRON_TABLE.find(
-    (e) => e.year === afterYear && e.month === afterMonth
+    (e: EphemerisEntry) => e.year === afterYear && e.month === afterMonth
   );
 
   if (!before || !after) {

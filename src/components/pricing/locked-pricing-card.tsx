@@ -8,7 +8,7 @@ import { ShootingStars } from "@/components/hero/shooting-stars";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getPlanByRole, IconMap } from "./pricing-data";
+import { getPlanByTier, IconMap } from "./pricing-data";
 
 interface LockedPricingCardProps {
     requiredTier: "popular" | "premium";
@@ -18,7 +18,7 @@ export function LockedPricingCard({ requiredTier }: LockedPricingCardProps) {
     const [isHovered, setIsHovered] = useState(false);
     const [isYearly, setIsYearly] = useState(false);
 
-    const plan = getPlanByRole(requiredTier);
+    const plan = getPlanByTier(requiredTier);
     if (!plan) return null;
 
     const Icon = IconMap[plan.icon];

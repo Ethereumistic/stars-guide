@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import Link from "next/link";
@@ -67,7 +67,7 @@ export default function OracleSettingsPage() {
   const [confirmKillSwitch, setConfirmKillSwitch] = React.useState("");
   const [showKillSwitchDialog, setShowKillSwitchDialog] = React.useState(false);
   const [quotaValues, setQuotaValues] = React.useState<Record<string, string>>({
-    user: "5",
+    free: "5",
     popular: "5",
     premium: "10",
     moderator: "10",
@@ -92,7 +92,7 @@ export default function OracleSettingsPage() {
     setCrisisResponse(get("crisis_response_text") ?? "");
     setOracleEnabled(get("kill_switch") !== "true");
     setQuotaValues({
-      user: get("quota_limit_user") ?? "5",
+      free: get("quota_limit_free") ?? "5",
       popular: get("quota_limit_popular") ?? "5",
       premium: get("quota_limit_premium") ?? "10",
       moderator: get("quota_limit_moderator") ?? "10",
@@ -267,11 +267,11 @@ export default function OracleSettingsPage() {
               <CardDescription>Per-role Oracle usage ceilings.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {["user", "popular", "premium", "moderator", "admin"].map((role) => (
+              {["free", "popular", "premium", "moderator", "admin"].map((role) => (
                 <div key={role} className="flex items-center gap-4 rounded-2xl border border-white/10 bg-black/20 p-4">
                   <div className="flex-1">
                     <p className="text-sm font-medium capitalize">{role}</p>
-                    <p className="text-xs text-muted-foreground">{role === "user" ? "Lifetime" : "Rolling 24h"}</p>
+                    <p className="text-xs text-muted-foreground">{role === "free" ? "Lifetime" : "Rolling 24h"}</p>
                   </div>
                   <Input
                     type="number"

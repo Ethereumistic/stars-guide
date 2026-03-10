@@ -69,12 +69,10 @@ function formatRelativeTime(timestamp: number): string {
     return new Date(timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-const roleLabels: Record<"user" | "popular" | "premium" | "moderator" | "admin", string> = {
-    user: "user (free)",
+const tierLabels: Record<"free" | "popular" | "premium", string> = {
+    free: "user (free)",
     popular: "popular (Cosmic Flow)",
     premium: "premium (Oracle)",
-    moderator: "moderator (Mod)",
-    admin: "admin (Admin)",
 };
 
 function CollapsedOracleToggle() {
@@ -125,10 +123,10 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
         return null;
     }
 
-    const role = (user?.role ?? "user") as "user" | "popular" | "premium" | "moderator" | "admin";
-    const roleLabel = roleLabels[role] ?? roleLabels.user;
-    const shouldShowUpgrade = role === "user" || role === "popular";
-    const centerCtaLabel = role === "user" || role === "popular" ? "Get Cosmic Flow" : "Get Oracle";
+    const plan = user?.tier ?? "free";
+    const tierLabel = tierLabels[plan as keyof typeof tierLabels] ?? tierLabels.free;
+    const shouldShowUpgrade = plan === "free" || plan === "popular";
+    const centerCtaLabel = plan === "free" || plan === "popular" ? "Get Cosmic Flow" : "Get Oracle";
 
     return (
         <>
@@ -256,7 +254,7 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
                                     </Avatar>
                                     <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
                                         <p className="truncate text-sm font-medium text-white">{user?.username ?? "Seeker"}</p>
-                                        <p className="truncate text-[11px] uppercase tracking-wide text-white/45">{roleLabel}</p>
+                                        <p className="truncate text-[11px] uppercase tracking-wide text-white/45">{tierLabel}</p>
                                     </div>
                                     <ChevronsUpDown className="h-4 w-4 text-white/50 group-data-[collapsible=icon]:hidden" />
                                 </Button>
@@ -269,7 +267,7 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
                                 <DropdownMenuLabel className="font-normal">
                                     <div className="space-y-0.5">
                                         <p className="truncate text-sm font-medium">{user?.username ?? "Seeker"}</p>
-                                        <p className="truncate text-xs uppercase tracking-wide text-white/55">{roleLabel}</p>
+                                        <p className="truncate text-xs uppercase tracking-wide text-white/55">{tierLabel}</p>
                                     </div>
                                 </DropdownMenuLabel>
                                 <DropdownMenuSeparator className="bg-white/10" />

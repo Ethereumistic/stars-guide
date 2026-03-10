@@ -19,7 +19,7 @@ export interface PricingPlan {
         yearly: string;
     };
     description: string;
-    role: "user" | "popular" | "premium";
+    tier: "free" | "popular" | "premium";
     features: PricingFeature[];
     cta: string;
     href: string;
@@ -52,7 +52,7 @@ export const plans: PricingPlan[] = [
         price: { monthly: "€0", yearly: "€0", yearlyMonthly: "€0" },
         setup: { monthly: "Always free", yearly: "Always free" },
         description: "Your daily connection to the cosmos.",
-        role: "user",
+        tier: "free",
         features: [
             { text: "Daily Horoscope & 1 Birth Chart", included: true },
             { text: "Accurate Astronomical Charting", included: true },
@@ -83,7 +83,7 @@ export const plans: PricingPlan[] = [
         price: { monthly: "€9", yearly: "€60", yearlyMonthly: "€5" },
         setup: { monthly: "Billed monthly", yearly: "Billed yearly" },
         description: "Align your daily routine with the stars.",
-        role: "popular",
+        tier: "popular",
         features: [
             { text: "Everything in Free", included: true },
             { text: "Journal Memory", included: true },
@@ -115,7 +115,7 @@ export const plans: PricingPlan[] = [
         price: { monthly: "€27", yearly: "€180", yearlyMonthly: "€15" },
         setup: { monthly: "Billed monthly", yearly: "Billed yearly" },
         description: "The ultimate spiritual operating system.",
-        role: "premium",
+        tier: "premium",
         features: [
             { text: "Everything in Cosmic Flow", included: true },
             { text: "Infinite Birth Charts & Synastry", included: true },
@@ -141,6 +141,6 @@ export const plans: PricingPlan[] = [
     },
 ];
 
-export function getPlanByRole(role: "user" | "popular" | "premium"): PricingPlan | undefined {
-    return plans.find(plan => plan.role === role);
+export function getPlanByTier(tier: "free" | "popular" | "premium"): PricingPlan | undefined {
+    return plans.find(plan => plan.tier === tier);
 }

@@ -20,11 +20,11 @@ export const checkQuota = query({
         const user = await ctx.db.get(userId);
         if (!user) return { allowed: false, reason: "unauthenticated" as const, remaining: 0 };
 
-        const role = user.role as string;
+        const plan = (user.role === "admin" || user.role === "moderator") ? user.role : user.tier as string;
 
         // Read limits from settings
-        const limitKey = `quota_limit_${role}`;
-        const resetTypeKey = `quota_reset_${role}`;
+        const limitKey = `quota_limit_${plan}`;
+        const resetTypeKey = `quota_reset_${plan}`;
 
         const limitSetting = await ctx.db
             .query("oracle_settings")
@@ -88,10 +88,10 @@ export const incrementQuota = mutation({
         const user = await ctx.db.get(userId);
         if (!user) throw new Error("User not found");
 
-        const role = user.role as string;
+        const plan = (user.role === "admin" || user.role === "moderator") ? user.role : user.tier as string;
         const resetTypeSetting = await ctx.db
             .query("oracle_settings")
-            .withIndex("by_key", (q) => q.eq("key", `quota_reset_${role}`))
+            .withIndex("by_key", (q) => q.eq("key", `quota_reset_${plan}`))
             .first();
         const resetType = resetTypeSetting?.value ?? "never";
 
