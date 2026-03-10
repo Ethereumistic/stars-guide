@@ -21,7 +21,11 @@ import {
     Pencil,
     Check,
     X,
-    Loader2
+    Loader2,
+    Calendar,
+    Clock,
+    MapPin,
+    Lock
 } from "lucide-react"
 import type { Doc } from "@/../convex/_generated/dataModel"
 
@@ -322,6 +326,59 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
                     )}
                 </div>
             </div>
+
+            <Separator className="my-4" />
+
+            {/* Birth Data — read only, set at onboarding */}
+            {user.birthData && (
+                <div className="space-y-3">
+                    <div className="flex items-center gap-1.5 mb-3">
+                        <Lock className="h-3 w-3 text-white/20" />
+                        <span className="font-mono text-[9px] uppercase tracking-[0.35em] text-white/25">
+                            Birth Data — permanent
+                        </span>
+                    </div>
+
+                    {/* Date */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Date</span>
+                        </div>
+                        <span className="text-sm font-medium">
+                            {new Date(user.birthData.date).toLocaleDateString('en-US', {
+                                year: 'numeric', month: 'long', day: 'numeric'
+                            })}
+                        </span>
+                    </div>
+
+                    {/* Time */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Time</span>
+                        </div>
+                        <span className="text-sm font-medium">
+                            {(() => {
+                                const [h, m] = user.birthData.time.split(':')
+                                const hr = parseInt(h)
+                                return `${hr % 12 || 12}:${m} ${hr >= 12 ? 'PM' : 'AM'}`
+                            })()}
+                        </span>
+                    </div>
+
+                    {/* Place */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <MapPin className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Place</span>
+                        </div>
+                        <span className="text-sm font-medium text-right max-w-[55%] text-ellipsis overflow-hidden">
+                            {user.birthData.location.city}, {user.birthData.location.country}
+                        </span>
+                    </div>
+                </div>
+            )}
 
             <Separator className="my-4" />
 

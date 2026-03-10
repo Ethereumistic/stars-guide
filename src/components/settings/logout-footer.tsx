@@ -9,9 +9,10 @@ import { LogOut } from "lucide-react"
 
 interface LogoutFooterProps {
     delay?: number
+    compact?: boolean
 }
 
-export function LogoutFooter({ delay = 0.4 }: LogoutFooterProps) {
+export function LogoutFooter({ delay = 0.4, compact = false }: LogoutFooterProps) {
     const { signOut } = useAuthActions()
     const router = useRouter()
     const [isSigningOut, setIsSigningOut] = useState(false)
@@ -25,6 +26,23 @@ export function LogoutFooter({ delay = 0.4 }: LogoutFooterProps) {
             console.error("Sign out failed:", error)
             setIsSigningOut(false)
         }
+    }
+
+    if (compact) {
+        return (
+            <button
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+                className="group flex items-center gap-3 w-full px-4 py-3 rounded-md border border-transparent
+                           text-white/30 hover:text-red-400 hover:border-red-500/20 hover:bg-red-500/5
+                           transition-all duration-200 text-left"
+            >
+                <LogOut className="size-4 shrink-0 transition-colors text-white/20 group-hover:text-red-400" />
+                <span className="font-mono text-xs uppercase tracking-[0.15em] leading-tight">
+                    {isSigningOut ? "Signing out..." : "Log out"}
+                </span>
+            </button>
+        )
     }
 
     return (

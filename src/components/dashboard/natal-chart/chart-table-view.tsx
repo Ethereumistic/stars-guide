@@ -84,7 +84,7 @@ export function ChartTableView({ data }: { data: ChartData }) {
     }, [chartItems]);
 
     return (
-        <div className="w-full max-w-lg mx-auto overflow-hidden bg-black/50 rounded-md border border-white/10 text-white/90 font-mono text-sm relative flex">
+        <div className="-mt-24 -mb-24 w-full max-w-2xl mx-auto overflow-hidden bg-black/50 rounded-md border border-white/10 text-white/90 font-mono text-sm relative flex scale-80">
             {/* S I G N S column */}
             {/* <div className="w-8 border-r border-white/10 flex flex-col items-center justify-start py-6 shrink-0 z-10">
                 <div className="[writing-mode:vertical-lr] tracking-[0.3em] text-white text-xs mt-2">
@@ -92,8 +92,8 @@ export function ChartTableView({ data }: { data: ChartData }) {
                 </div>
             </div> */}
 
-            <div className="flex-1">
-                <table className="w-full border-collapse">
+            <div className="flex-1 ">
+                <table className="w-full border-collapse ">
                     <tbody>
                         {groupedBySign.map((group, groupIndex) => (
                             <React.Fragment key={group.signId}>

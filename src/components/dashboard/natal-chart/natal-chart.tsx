@@ -61,12 +61,14 @@ export function NatalChart({ birthData }: { birthData: BirthData }) {
 
     return (
         <div className="w-full max-w-lg mx-auto">
-            <Tabs defaultValue="table" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-6 bg-[#0F0F0F] border border-white/10">
-                    <TabsTrigger value="table" className="font-mono tracking-widest uppercase data-[state=active]:bg-white/10 data-[state=active]:text-white">
+
+
+            <Tabs defaultValue="table" className="w-auto">
+                <TabsList className="flex w-full grid-cols-2 mb-6  items-center p-1 bg-white/5 border border-white/10 shadow-lg backdrop-blur-sm h-auto">
+                    <TabsTrigger value="table" className="relative w-24 text-center px-4 py-2 text-xs font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300">
                         Table
                     </TabsTrigger>
-                    <TabsTrigger value="circle" className="font-mono tracking-widest uppercase data-[state=active]:bg-white/10 data-[state=active]:text-white">
+                    <TabsTrigger value="circle" className="relative w-24 text-center px-4 py-2 text-xs font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300">
                         Circle
                     </TabsTrigger>
                 </TabsList>

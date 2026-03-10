@@ -20,8 +20,8 @@ export function SupportSection({ delay = 0.3 }: SupportSectionProps) {
     return (
         <SettingsSection
             icon={<LifeBuoy className="h-5 w-5" />}
-            title="Support"
-            description="Resources and help"
+            title="Help"
+            description="Support / FAQ"
             delay={delay}
         >
             <div className="space-y-2">
