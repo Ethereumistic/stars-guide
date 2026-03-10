@@ -66,9 +66,17 @@ export function Navbar() {
     const { isAuthenticated: isAuthConvex } = useConvexAuth()
     const { signOut } = useAuthActions()
     const { user: currentUser } = useUserStore()
-
-    // We can use either or both, but the store is now our primary source for UI
     const isAuthenticated = isAuthConvex && !!currentUser
+    const hasBirthData = !!currentUser?.birthData
+
+    // CTA logic based on auth and birthData
+    const ctaLabel = isAuthenticated && hasBirthData ? "MY STARS" : "BIRTH CHART"
+    const ctaHref = isAuthenticated
+        ? hasBirthData
+            ? "/dashboard"
+            : "/onboarding"
+        : "/onboarding"
+
     if (isOracle) return null
 
     return (
@@ -141,16 +149,16 @@ export function Navbar() {
                     <div className="flex-1 flex items-center justify-end gap-3">
                         <div className="hidden sm:flex items-center gap-3">
 
-                            {/* CTA - Natal Chart - ALWAYS VISIBLE ICON */}
+                            {/* CTA - Conditional based on auth/birthData */}
                             <Button
                                 variant="default"
                                 size="default"
                                 asChild
                                 className="hidden font-serif sm:inline-flex uppercase tracking-wider group/cta shadow-lg hover:shadow-primary/20"
                             >
-                                <Link href={isAuthenticated ? "/natal-chart" : "/onboarding"} className="flex items-center gap-2">
+                                <Link href={ctaHref} className="flex items-center gap-2">
                                     <GiAstrolabe className="size-5 shrink-0" />
-                                    <span>Natal Chart</span>
+                                    <span>{ctaLabel}</span>
                                 </Link>
                             </Button>
                         </div>
@@ -275,19 +283,19 @@ export function Navbar() {
 
                         {/* Mobile CTA Link */}
                         <Link
-                            href={isAuthenticated ? "/natal-chart" : "/onboarding"}
+                            href={ctaHref}
                             onClick={() => setIsMobileMenuOpen(false)}
                             className="text-2xl font-serif italic text-primary font-medium hover:text-primary/80 transition-all flex items-center group/nav mt-2"
                         >
                             <div className={cn(
                                 "flex items-center justify-center transition-all duration-500 ease-in-out w-8 mr-2",
-                                (pathname === "/onboarding" || pathname === "/natal-chart")
+                                (pathname === "/onboarding" || pathname === "/dashboard" || pathname === "/natal-chart")
                                     ? "opacity-100 translate-x-0"
                                     : "opacity-0 -translate-x-2 group-hover/nav:opacity-100 group-hover/nav:translate-x-0"
                             )}>
                                 <GiAstrolabe className="size-6 shrink-0" />
                             </div>
-                            Natal Chart
+                            {ctaLabel}
                         </Link>
                     </nav>
 

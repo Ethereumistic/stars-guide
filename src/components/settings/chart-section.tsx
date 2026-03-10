@@ -41,7 +41,7 @@ export function ChartSection({ birthData, delay = 0.1 }: ChartSectionProps) {
     return (
         <SettingsSection
             icon={<Sparkles className="h-5 w-5" />}
-            title="Chart"
+            title="Charts"
             description="Your birth chart data"
             delay={delay}
         >

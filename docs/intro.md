@@ -223,7 +223,7 @@ Suggest one micro-ritual to channel this energy.
 **Tech:** Convex built-in Vector Search (no separate Pinecone/Weaviate needed)
 
 ### 5. Astral Cards (Generative Art)
-**Feature:** Daily AI-generated tarot-style card representing cosmic energy.
+**Feature:** AI-generated tarot-style card representing cosmic energy.
 
 **Flow:**
 1. Identify primary transit (e.g., "Mars enters Aries")

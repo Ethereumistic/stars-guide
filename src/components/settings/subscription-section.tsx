@@ -13,24 +13,24 @@ import {
     ChevronRight
 } from "lucide-react"
 
-// Tier display info
-const tierInfo: Record<string, { name: string; color: string; icon: React.ElementType }> = {
-    free: { name: "Free", color: "text-muted-foreground", icon: User },
-    cosmic: { name: "Cosmic", color: "text-primary", icon: Star },
-    astral: { name: "Astral", color: "text-galactic", icon: Sparkles },
-    vip: { name: "VIP", color: "text-primary", icon: Crown },
-    lifetime: { name: "Lifetime", color: "text-primary", icon: Zap },
-}
+import { plans, getPlanByTier, PricingPlan } from "@/components/pricing/pricing-data"
 
 interface SubscriptionSectionProps {
-    tier: string
+    tier: "free" | "popular" | "premium"
     subscriptionStatus: string
     delay?: number
 }
 
 export function SubscriptionSection({ tier, subscriptionStatus, delay = 0.2 }: SubscriptionSectionProps) {
-    const currentTier = tierInfo[tier] || tierInfo.free
-    const TierIcon = currentTier.icon
+    const plan = getPlanByTier(tier) || plans[0]
+    const TierIcon = plan.iconComponent
+
+    const planIndex = plans.findIndex(p => p.tier === tier)
+    const nextPlan = planIndex !== -1 && planIndex < plans.length - 1 ? plans[planIndex + 1] : null
+
+    // Map tier to color for settings UI
+    const tierColor = tier === 'free' ? 'text-muted-foreground' : 
+                     tier === 'popular' ? 'text-primary' : 'text-galactic'
 
     return (
         <SettingsSection
@@ -41,12 +41,12 @@ export function SubscriptionSection({ tier, subscriptionStatus, delay = 0.2 }: S
         >
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg bg-primary/10 ${currentTier.color}`}>
+                    <div className={`p-2 rounded-lg bg-primary/10 ${tierColor}`}>
                         <TierIcon className="h-5 w-5" />
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
-                            <p className="font-medium">{currentTier.name}</p>
+                            <p className="font-medium">{plan.name}</p>
                             <Badge variant={tier === 'free' ? 'secondary' : 'default'}>
                                 {subscriptionStatus}
                             </Badge>
@@ -60,18 +60,18 @@ export function SubscriptionSection({ tier, subscriptionStatus, delay = 0.2 }: S
                 </div>
             </div>
 
-            {tier === 'free' && (
-                <Button className="w-full group" size="lg">
-                    <Zap className="h-4 w-4 mr-2 group-hover:animate-pulse" />
-                    Upgrade to Cosmic
-                    <ChevronRight className="h-4 w-4 ml-2 transition-transform group-hover:translate-x-1" />
-                </Button>
-            )}
-
-            {tier === 'cosmic' && (
-                <Button className="w-full group" variant="outline" size="lg">
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Upgrade to Astral
+            {nextPlan && (
+                <Button 
+                    className="w-full group" 
+                    variant={tier === 'free' ? 'default' : 'outline'} 
+                    size="lg"
+                >
+                    {tier === 'free' ? (
+                        <Zap className="h-4 w-4 mr-2 group-hover:animate-pulse" />
+                    ) : (
+                        <Sparkles className="h-4 w-4 mr-2" />
+                    )}
+                    Upgrade to {nextPlan.name}
                     <ChevronRight className="h-4 w-4 ml-2 transition-transform group-hover:translate-x-1" />
                 </Button>
             )}

@@ -26,7 +26,7 @@ export function SettingsSection({ icon, title, description, children, delay = 0 
                         </div>
                         <div>
                             <CardTitle className="text-lg font-serif">{title}</CardTitle>
-                            <CardDescription className="text-xs">{description}</CardDescription>
+                            {/* <CardDescription className="text-xs">{description}</CardDescription> */}
                         </div>
                     </div>
                 </CardHeader>
