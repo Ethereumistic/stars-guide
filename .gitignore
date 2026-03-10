@@ -6,6 +6,10 @@
 # $ git config --global mergetool.keepBackup false
 *.orig
 
+swisseph
+node_modules/swisseph
+ephe/
+
 # Created by git when using merge tools for conflicts
 *.BACKUP.*
 *.BASE.*

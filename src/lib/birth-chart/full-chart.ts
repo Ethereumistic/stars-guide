@@ -3,6 +3,7 @@ import { compositionalSigns } from "../../astrology/signs";
 import { calculateAspects } from "../aspects/calculations";
 import { calculateAscendant } from "./calculations";
 import { eclipticLongitudeToSign, localBirthTimeToUTC } from "./core";
+import { getChironForDate } from "../chiron";
 import type {
   ChartAspectType,
   PlanetDignity,
@@ -147,7 +148,7 @@ function isRetrograde(body: Astronomy.Body, dateUTC: Date): boolean {
   return diff < 0;
 }
 
-function findNearestAscendingNodeTime(dateUTC: Date): Date {
+export function findNearestAscendingNodeTime(dateUTC: Date): Date {
   const searchStart = new Date(dateUTC.getTime() - NODE_SEARCH_WINDOW_DAYS * RETROGRADE_LOOKAHEAD_MS);
   let node = Astronomy.SearchMoonNode(searchStart);
   let nearestAscending: Astronomy.NodeEventInfo | null = null;
@@ -169,7 +170,7 @@ function findNearestAscendingNodeTime(dateUTC: Date): Date {
   return nearestAscending?.time.date ?? dateUTC;
 }
 
-function calculateAscendingNodeLongitude(dateUTC: Date): number {
+export function calculateAscendingNodeLongitude(dateUTC: Date): number {
   const nodeTime = findNearestAscendingNodeTime(dateUTC);
   return r2(normalizeLongitude(Astronomy.EclipticGeoMoon(nodeTime).lon));
 }
@@ -237,12 +238,15 @@ export function calculateFullChartFromUtcDate(
     sun,
     moon,
   );
+  
+  const chironData = getChironForDate(dateUTC);
 
   const planets: ChartPlanet[] = [
     ...primaryPlanets,
     createPoint("north_node", northNodeLongitude, houses, true),
     createPoint("south_node", southNodeLongitude, houses, true),
     createPoint("part_of_fortune", partOfFortuneLongitude, houses, false),
+    createPoint("chiron", chironData.longitude, houses, chironData.retrograde),
   ];
 
   const aspects = calculateAspects(primaryPlanets).map((aspect) => ({

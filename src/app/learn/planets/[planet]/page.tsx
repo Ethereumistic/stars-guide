@@ -159,11 +159,17 @@ export default function PlanetDetailPage() {
                                 }}
                             />
 
-                            <img
-                                src={ui.imageUrl}
-                                alt={data.name}
-                                className="relative z-10 w-full h-full object-contain filter drop-shadow-[0_0_20px_rgba(255,255,255,0.1)] opacity-95 scale-[1.35] hover:scale-[1.45] transition-transform duration-700 ease-out"
-                            />
+                            {ui.imageUrl ? (
+                                <img
+                                    src={ui.imageUrl}
+                                    alt={data.name}
+                                    className="relative z-10 w-full h-full object-contain filter drop-shadow-[0_0_20px_rgba(255,255,255,0.1)] opacity-95 scale-[1.35] hover:scale-[1.45] transition-transform duration-700 ease-out"
+                                />
+                            ) : (
+                                <div className="relative z-10 text-[180px] md:text-[240px] font-serif leading-none opacity-80" style={{ color: glowColor }}>
+                                    {ui.rulerSymbol}
+                                </div>
+                            )}
                         </div>
 
                         <div className="absolute bottom-6 left-6 font-mono text-[10px] uppercase tracking-widest text-white/30 hidden lg:block">

@@ -79,7 +79,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
                 preferences: {
                     dailySparkTime: "07:00",
                     notifications: true,
-                    theme: "system"
+                    theme: "dark"
                 },
                 featureFlags: {
                     canAccessOracle: false,

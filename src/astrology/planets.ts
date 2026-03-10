@@ -316,7 +316,7 @@ export const compositionalPlanets: PlanetData[] = [
         compositionalVerbPhrase: "catalyzes healing and confronts deep-seated wounds"
     },
     {
-        id: "north node",
+        id: "north_node",
         name: "North Node",
         domain: "direction of karmic growth",
         psychologicalFunction: "The North Node represents the uncharted territory of the soul's evolution. It points toward the uncomfortable necessary growth edge and the skills that must be developed in this lifetime.",
@@ -325,12 +325,21 @@ export const compositionalPlanets: PlanetData[] = [
         compositionalVerbPhrase: "pursues karmic ambition and future growth"
     },
     {
-        id: "south node",
+        id: "south_node",
         name: "South Node",
         domain: "comfortable but outgrown tendencies",
         psychologicalFunction: "The South Node represents the reservoir of innate talents and past karma. It is the deeply familiar default mode that provides an initial foundation but must eventually be released.",
         coreDrives: ["Falling back on established mastery", "Releasing karmic attachments", "Shedding obsolete psychological skin"],
         shadowExpression: "When overused, it becomes a trap of rigid repetition, preventing the individual from evolving and embracing necessary vulnerability.",
         compositionalVerbPhrase: "releases outgrown patterns and purges attachments"
+    },
+    {
+        id: "part_of_fortune",
+        name: "Part of Fortune",
+        domain: "innate potential for prosperity",
+        psychologicalFunction: "The Part of Fortune is the intersection of the Sun, Moon, and Ascendant. It represents where the individual finds the most natural flow of success and material/spiritual well-being.",
+        coreDrives: ["Attaining natural success", "Finding harmonic equilibrium", "Radiating inner prosperity"],
+        shadowExpression: "When ignored, life feels like a constant uphill struggle against one's own natural rhythm, leading to burnout and lack of fulfillment.",
+        compositionalVerbPhrase: "manifests innate prosperity and finds ease"
     }
 ];

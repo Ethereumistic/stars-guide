@@ -62,6 +62,8 @@ export default function DashboardPage() {
     const risingData = getSignData(risingPlacement?.sign)
     const risingUI = getUIConfig(risingData?.id)
 
+
+
     return (
         <div className="min-h-[calc(100vh-5rem)] w-full py-8 px-4 md:px-8">
             <div className="max-w-5xl mx-auto space-y-8">

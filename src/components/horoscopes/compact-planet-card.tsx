@@ -85,16 +85,18 @@ export function CompactPlanetCard({ data, ui, isActive = false, href }: CompactP
                     />
 
                     {/* Planet watermark (Replacing Constellation watermark) */}
-                    <div className="absolute inset-y-0 right-0 w-1/2 pointer-events-none">
-                        <img
-                            src={ui.imageUrl}
-                            alt={data.name}
-                            className={`absolute top-1/2 right-[-20%] -translate-y-1/2 h-full object-contain opacity-20 scale-125 transition-all duration-700 group-hover:opacity-40 group-hover:scale-100 group-hover:right-[40%] ${activePlanet}`}
-                            style={{
-                                filter: `drop-shadow(0 0 10px ${glowColor})`
-                            }}
-                        />
-                    </div>
+                    {ui.imageUrl && (
+                        <div className="absolute inset-y-0 right-0 w-1/2 pointer-events-none">
+                            <img
+                                src={ui.imageUrl}
+                                alt={data.name}
+                                className={`absolute top-1/2 right-[-20%] -translate-y-1/2 h-full object-contain opacity-20 scale-125 transition-all duration-700 group-hover:opacity-40 group-hover:scale-100 group-hover:right-[40%] ${activePlanet}`}
+                                style={{
+                                    filter: `drop-shadow(0 0 10px ${glowColor})`
+                                }}
+                            />
+                        </div>
+                    )}
 
                     {/* Radial glow effect */}
                     <div

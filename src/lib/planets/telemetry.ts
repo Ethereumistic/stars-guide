@@ -1,5 +1,7 @@
 import * as Astronomy from 'astronomy-engine';
 import { eclipticLongitudeToSign } from '@/lib/birth-chart/core';
+import { getChironForDate } from '@/lib/chiron';
+import { calculateAscendingNodeLongitude } from '@/lib/birth-chart/full-chart';
 
 export interface PlanetTelemetry {
     longitude: number;
@@ -13,6 +15,39 @@ export interface PlanetTelemetry {
  * Used for the Planet Hub to display "Live Telemetry"
  */
 export function getPlanetTelemetry(planetId: string, targetDate: Date = new Date()): PlanetTelemetry | null {
+    const id = planetId.toLowerCase();
+
+    // Special points not in Astronomy Engine body enum
+    if (id === 'chiron') {
+        const chironData = getChironForDate(targetDate);
+        return {
+            longitude: chironData.longitude,
+            signId: eclipticLongitudeToSign(chironData.longitude).id,
+            retrograde: chironData.retrograde,
+            distanceAu: null,
+        };
+    }
+
+    if (id === 'north_node' || id === 'south_node') {
+        let lon = calculateAscendingNodeLongitude(targetDate);
+        if (id === 'south_node') lon = (lon + 180) % 360;
+        
+        let futureLon = calculateAscendingNodeLongitude(new Date(targetDate.getTime() + 1000 * 60 * 60 * 24)); // 1 day future for better resolution
+        if (id === 'south_node') futureLon = (futureLon + 180) % 360;
+        
+        let diff = futureLon - lon;
+        if (diff < -180) diff += 360;
+        if (diff > 180) diff -= 360;
+        const retrograde = diff < 0;
+
+        return {
+            longitude: lon,
+            signId: eclipticLongitudeToSign(lon).id,
+            retrograde,
+            distanceAu: null,
+        };
+    }
+
     // Maps planet ID to the Astronomy-Engine Body
     const bodyMap: Record<string, Astronomy.Body> = {
         sun: Astronomy.Body.Sun,
@@ -27,7 +62,7 @@ export function getPlanetTelemetry(planetId: string, targetDate: Date = new Date
         pluto: Astronomy.Body.Pluto,
     };
 
-    const body = bodyMap[planetId.toLowerCase()];
+    const body = bodyMap[id];
     if (!body) return null;
 
     let eclipticLon = 0;

@@ -1,8 +1,10 @@
 import * as Astronomy from 'astronomy-engine';
 import { AspectData, compositionalAspects } from '@/astrology/aspects';
 import { compositionalPlanets, PlanetData } from '@/astrology/planets';
+import { getChironForDate } from '@/lib/chiron';
+import { calculateAscendingNodeLongitude } from '@/lib/birth-chart/full-chart';
 
-export const ASTRO_BODIES = [
+export const ASTRO_BODIES: Array<{ id: string; body: Astronomy.Body | null }> = [
     { id: "sun", body: Astronomy.Body.Sun },
     { id: "moon", body: Astronomy.Body.Moon },
     { id: "mercury", body: Astronomy.Body.Mercury },
@@ -13,16 +15,28 @@ export const ASTRO_BODIES = [
     { id: "uranus", body: Astronomy.Body.Uranus },
     { id: "neptune", body: Astronomy.Body.Neptune },
     { id: "pluto", body: Astronomy.Body.Pluto },
+    { id: "north_node", body: null },
+    { id: "south_node", body: null },
+    { id: "chiron", body: null },
 ];
 
-export function getEclipticLongitude(body: Astronomy.Body, date: Date): number {
+export function getEclipticLongitude(id: string, date: Date, body: Astronomy.Body | null): number {
     if (body === Astronomy.Body.Sun) {
         return Astronomy.SunPosition(date).elon;
     } else if (body === Astronomy.Body.Moon) {
         return Astronomy.EclipticGeoMoon(date).lon;
-    } else {
+    } else if (body !== null) {
         return Astronomy.Ecliptic(Astronomy.GeoVector(body, date, true)).elon;
+    } else {
+        if (id === 'chiron') {
+            return getChironForDate(date).longitude;
+        } else if (id === 'north_node') {
+            return calculateAscendingNodeLongitude(date);
+        } else if (id === 'south_node') {
+            return (calculateAscendingNodeLongitude(date) + 180) % 360;
+        }
     }
+    return 0;
 }
 
 export interface ActiveAspect {
@@ -44,8 +58,8 @@ export function getActiveAspects(date: Date, aspectId?: string): ActiveAspect[] 
     const positions = ASTRO_BODIES.map(b => ({
         id: b.id,
         planet: compositionalPlanets.find(p => p.id === b.id)!,
-        lon: (getEclipticLongitude(b.body, date) + 360) % 360,
-        futureLon: (getEclipticLongitude(b.body, futureDate) + 360) % 360
+        lon: (getEclipticLongitude(b.id, date, b.body) + 360) % 360,
+        futureLon: (getEclipticLongitude(b.id, futureDate, b.body) + 360) % 360
     }));
 
     for (let i = 0; i < positions.length; i++) {
