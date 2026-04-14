@@ -97,9 +97,9 @@ export function DetectiveStepTwo() {
     }
 
     return (
-        <div className="max-w-md md:max-w-6xl mx-auto space-y-8">
-            <div className="text-center space-y-4">
-                <h2 className="text-3xl font-serif leading-tight">
+        <div className="max-w-md md:max-w-6xl mx-auto space-y-6 md:space-y-8">
+            <div className="text-center space-y-3 md:space-y-4">
+                <h2 className="text-2xl md:text-3xl font-serif leading-tight">
                     {currentQuestion.text}
                 </h2>
                 <div className="flex justify-center gap-1">
@@ -112,18 +112,18 @@ export function DetectiveStepTwo() {
                 </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2 md:space-y-3">
                 <RadioGroup
                     value={currentAnswer}
                     onValueChange={(val) => setDetectiveAnswer(currentQuestion.id, val)}
-                    className=" grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 justify-center gap-3"
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3"
                 >
                     {currentQuestion.options.map((opt) => (
                         <div
                             key={opt.value}
                             onClick={() => setDetectiveAnswer(currentQuestion.id, opt.value)}
                             className={`group flex items-center justify-center text-center 
-                                        px-4 py-3 border rounded-md bg-background/30 cursor-pointer 
+                                        px-3 py-2.5 md:px-4 md:py-3 border rounded-md bg-background/30 cursor-pointer 
                                         transition-all hover:bg-primary/5 hover:border-primary/30 
                                         ${currentAnswer === opt.value ? 'border-primary bg-primary/10 ring-1 ring-primary shadow-[0_0_25px_-5px_oklch(var(--primary)/0.4)] shadow-primary/40' : 'border-border'}`}
                         >
@@ -134,7 +134,7 @@ export function DetectiveStepTwo() {
                             />
                             <Label
                                 htmlFor={`${currentQuestion.id}-${opt.value}`}
-                                className="cursor-pointer text-base font-normal"
+                                className="cursor-pointer text-sm md:text-base font-normal leading-snug"
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 {opt.label}
@@ -145,7 +145,7 @@ export function DetectiveStepTwo() {
             </div>
 
 
-            <div className="flex justify-between items-center pt-4 max-w-md mx-auto">
+            <div className="flex justify-between items-center pt-2 md:pt-4 max-w-md mx-auto">
                 <Button variant="outline" onClick={handleBack} className="text-muted-foreground">
                     <ChevronLeft className="size-5" />
                 </Button>
@@ -162,4 +162,3 @@ export function DetectiveStepTwo() {
         </div>
     )
 }
-

@@ -12,8 +12,20 @@ import { motion } from "motion/react"
 import { Sparkles, ArrowRight } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { RevealSignCard } from "@/components/onboarding/reveal-sign-card"
+import { RevealCompactSignCard } from "@/components/onboarding/reveal-compact-sign-card"
 import { compositionalSigns } from "@/astrology/signs"
 import { zodiacUIConfig } from "@/config/zodiac-ui"
+
+function useIsMobile() {
+    const [isMobile, setIsMobile] = React.useState(false)
+    React.useEffect(() => {
+        const check = () => setIsMobile(window.innerWidth < 768)
+        check()
+        window.addEventListener("resize", check)
+        return () => window.removeEventListener("resize", check)
+    }, [])
+    return isMobile
+}
 
 export function CalculationStep() {
     const {
@@ -28,6 +40,8 @@ export function CalculationStep() {
     } = useOnboardingStore()
 
     const { isAuthenticated } = useUserStore()
+    const isMobile = useIsMobile()
+    const CardComponent = isMobile ? RevealCompactSignCard : RevealSignCard
     const [progress, setProgress] = React.useState(0)
     const [isCalculating, setIsCalculating] = React.useState(true)
     const [isSaved, setIsSaved] = React.useState(false)
@@ -129,10 +143,10 @@ export function CalculationStep() {
                 >
 
                 </motion.div>
-                <h2 className="text-4xl font-serif mb-16">Your Cosmic Blueprint is Ready</h2>
+                <h2 className="text-2xl md:text-4xl font-serif mb-6 md:mb-16">Your Cosmic Blueprint is Ready</h2>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 my-6">
+            <div className={`grid gap-3 md:gap-6 my-3 md:my-6 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-3'}`}>
                 {signs && (
                     <>
                         {(() => {
@@ -140,7 +154,7 @@ export function CalculationStep() {
                             const sunData = compositionalSigns.find(s => s.name === sunPlacement?.sign)
                             const sunUI = sunData ? zodiacUIConfig[sunData.id] : undefined
                             return (
-                                <RevealSignCard
+                                <CardComponent
                                     label="☉ Sun Sign"
                                     data={sunData}
                                     ui={sunUI}
@@ -154,7 +168,7 @@ export function CalculationStep() {
                             const moonData = compositionalSigns.find(s => s.name === moonPlacement?.sign)
                             const moonUI = moonData ? zodiacUIConfig[moonData.id] : undefined
                             return (
-                                <RevealSignCard
+                                <CardComponent
                                     label="☽ Moon Sign"
                                     data={moonData}
                                     ui={moonUI}
@@ -168,7 +182,7 @@ export function CalculationStep() {
                             const risingData = compositionalSigns.find(s => s.name === risingPlacement?.sign)
                             const risingUI = risingData ? zodiacUIConfig[risingData.id] : undefined
                             return (
-                                <RevealSignCard
+                                <CardComponent
                                     label={birthTimeKnown ? "↑ Rising Sign" : "↑ Rising Sign · Detective Match"}
                                     data={risingData}
                                     ui={risingUI}
@@ -207,7 +221,7 @@ export function CalculationStep() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 3.8 }}
-                className="flex flex-col gap-4 items-center pt-4"
+                className="flex flex-col gap-4 items-center pt-4 pb-8 md:pb-0"
             >
                 <Button size="lg" className="px-12 h-16 text-xl group w-full sm:w-auto font-serif " onClick={handleEnterSanctuary}>
                     Enter the Sanctuary

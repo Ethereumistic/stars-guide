@@ -211,7 +211,7 @@ export function LocationAutocomplete({
                         className="overflow-hidden"
                     >
                         <div className="space-y-3">
-                            <ScrollArea className="h-[306px] rounded-md border border-primary/10 bg-background/40 backdrop-blur-md shadow-inner">
+                            <ScrollArea className="h-[200px] md:h-[306px] rounded-md border border-primary/10 bg-background/40 backdrop-blur-md shadow-inner">
                                 <div className="p-2 ">
                                     {results.map((result, idx) => (
                                         <Item
