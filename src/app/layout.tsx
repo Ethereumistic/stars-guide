@@ -54,13 +54,6 @@ export default function RootLayout({
 								<div className="relative min-h-screen flex flex-col">
 									<Navbar />
 									<div className="fixed inset-0 z-0">
-										{/* <StarsPureCSS
-											starDensity={0.0002}
-											allStarsTwinkle={true}
-											twinkleProbability={0.8}
-											minTwinkleSpeed={0.3}
-											maxTwinkleSpeed={1.2}
-										/> */}
 										<ShootingStars
 											minSpeed={15}
 											maxSpeed={35}

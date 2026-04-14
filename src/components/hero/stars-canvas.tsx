@@ -50,8 +50,8 @@ function generateStars(width: number, height: number, density: number): StarData
     return Array.from({ length: count }, () => ({
         x: Math.random() * width,
         y: Math.random() * height,
-        radius: Math.random() * 0.8 + 0.4,
-        opacity: Math.random() * 0.5 + 0.5,
+        radius: Math.random() * 0.6 + 0.3,
+        opacity: (Math.random() * 0.5 + 0.5) * 0.85,
     }));
 }
 
@@ -70,8 +70,8 @@ function injectTwinkleStyles() {
     sheet.id = TWINKLE_STYLE_ID;
     sheet.textContent = `
 @keyframes twinkle-canvas {
-    0%   { opacity: 0.2; transform: scale(0.6); }
-    100% { opacity: 1;   transform: scale(1.3); }
+    0%   { opacity: 0.15; transform: scale(0.6); }
+    100% { opacity: 0.75;   transform: scale(1.2); }
 }
 `;
     document.head.appendChild(sheet);
@@ -132,7 +132,7 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
 
         for (let i = 0; i < twinkleCount; i++) {
             const dot = document.createElement("div");
-            const size = rand(1.5, 3);
+            const size = rand(1.0, 2.0);
             dot.style.cssText = `
                 position: absolute;
                 width: ${size}px;
@@ -144,7 +144,7 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
                 opacity: 0.5;
                 pointer-events: none;
                 will-change: opacity, transform;
-                animation: twinkle-canvas ${rand(minTwinkleSpeed, maxTwinkleSpeed).toFixed(2)}s ease-in-out ${rand(0, 3).toFixed(2)}s infinite alternate;
+                animation: twinkle-canvas ${(rand(minTwinkleSpeed, maxTwinkleSpeed) * 1.8).toFixed(2)}s ease-in-out ${rand(0, 4).toFixed(2)}s infinite alternate;
             `;
             container.appendChild(dot);
             twinklersRef.current.push(dot);
@@ -240,13 +240,13 @@ export const ShootingStars: React.FC<ShootingStarsProps> = ({
         const edge = Math.floor(Math.random() * 4);
         let x: number, y: number, angle: number;
         switch (edge) {
-            case 0: x = rand(0, vw); y = -5; angle = rand(20, 70); break;
-            case 1: x = vw + 5; y = rand(0, vh); angle = rand(110, 160); break;
-            case 2: x = rand(0, vw); y = vh + 5; angle = rand(200, 250); break;
-            default: x = -5; y = rand(0, vh); angle = rand(290, 340); break;
+            case 0: x = rand(0, vw); y = -20; angle = rand(20, 70); break;
+            case 1: x = vw + 20; y = rand(0, vh); angle = rand(110, 160); break;
+            case 2: x = rand(0, vw); y = vh + 20; angle = rand(200, 250); break;
+            default: x = -20; y = rand(0, vh); angle = rand(290, 340); break;
         }
 
-        const speed = rand(minSpeed, maxSpeed);
+        const speed = rand(minSpeed, maxSpeed) * 0.9;
         starRef.current = {
             x,
             y,

@@ -70,6 +70,7 @@ export default function SignDetailPage() {
                     ]}
                     currentPage={`${data.name} // ${data.modality.toUpperCase()}`}
                     currentPageColor={styles.primary}
+                    showBorder={false}
                 />
 
                 {/* Hero Layout */}
