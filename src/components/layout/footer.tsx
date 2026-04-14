@@ -172,7 +172,6 @@ export function Footer() {
                             <Mail className="size-3" />
                             <span>oracle@stars.guide</span>
                         </div>
-                        <ThemeSwitch />
                     </div>
                 </div>
             </div>
