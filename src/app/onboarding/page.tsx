@@ -11,6 +11,7 @@ import { DetectiveStepTwo } from "./_components/steps/detective-step-two"
 import { CalculationStep } from "./_components/steps/calculation-step"
 import { EmailStep } from "./_components/steps/email-step"
 import { PasswordStep } from "./_components/steps/password-step"
+import { RevealStep } from "./_components/steps/reveal-step"
 import { Progress } from "@/components/ui/progress"
 import { useOnboardingProgress } from "@/store/use-onboarding-store"
 import { useUserStore } from "@/store/use-user-store"
@@ -20,21 +21,34 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 
 export default function OnboardingPage() {
-    const { step, setStep } = useOnboardingStore()
+    const { step, setStep, authMethod, calculatedSigns } = useOnboardingStore()
     const { progress } = useOnboardingProgress()
     const { user, isAuthenticated, isLoading } = useUserStore()
     const router = useRouter()
 
-    // Redirect if already has birth data (but NOT while on step 7 — calculation/results)
-    // Step 7 saves birthData to DB during loading, but we still need to show the cards
+    // Handle OAuth return: if user is authenticated and step is 8 with authMethod='oauth',
+    // advance to step 10 (RevealStep). This handles the edge case where the persisted
+    // step didn't get saved as 10 before the OAuth redirect occurred.
     useEffect(() => {
-        if (user?.birthData && step !== 7) {
+        if (!isLoading && isAuthenticated() && step === 8 && authMethod === 'oauth' && calculatedSigns) {
+            setStep(10)
+        }
+    }, [isLoading, isAuthenticated, step, authMethod, calculatedSigns, setStep])
+
+    // Redirect if already has birth data (but NOT while on step 7 or 10 — calculation/results)
+    // Step 7 saves birthData to DB during loading, but we still need to show the cards
+    // Step 10 is the reveal animation that must not be interrupted
+    // Also don't redirect while auth is still loading (OAuth return race condition)
+    useEffect(() => {
+        if (isLoading) return
+        if (user?.birthData && step !== 7 && step !== 10) {
             router.replace("/dashboard")
         }
-    }, [user, router, step])
+    }, [user, router, step, isLoading])
 
-    // Prevent flashing content if user is already onboarded (but not on step 7)
-    if (user?.birthData && step !== 7) return null;
+    // Prevent flashing content if user is already onboarded (but not on step 7 or 10)
+    // Also don't hide while auth is still loading
+    if (!isLoading && user?.birthData && step !== 7 && step !== 10) return null;
 
     const renderStep = () => {
         switch (step) {
@@ -47,6 +61,7 @@ export default function OnboardingPage() {
             case 7: return <CalculationStep />
             case 8: return <EmailStep />
             case 9: return <PasswordStep />
+            case 10: return <RevealStep />
             default: return <BirthDateStep />
         }
     }

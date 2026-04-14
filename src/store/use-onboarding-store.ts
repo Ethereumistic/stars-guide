@@ -21,6 +21,7 @@ interface OnboardingState {
     detectiveQuestionIndex: number;
     email: string | null;
     password: string | null;
+    authMethod: 'email' | 'oauth' | null;
     calculatedSigns: EnrichedBirthData | null;
     setStep: (step: number) => void;
     nextStep: () => void;
@@ -34,6 +35,7 @@ interface OnboardingState {
     setDetectiveQuestionIndex: (index: number) => void;
     setEmail: (email: string) => void;
     setPassword: (password: string) => void;
+    setAuthMethod: (authMethod: OnboardingState['authMethod']) => void;
     setCalculatedSigns: (signs: OnboardingState['calculatedSigns']) => void;
     isComplete: () => boolean;
     reset: () => void;
@@ -50,6 +52,7 @@ const initialState = {
     detectiveQuestionIndex: 0,
     email: null,
     password: null,
+    authMethod: null as 'email' | 'oauth' | null,
     calculatedSigns: null,
 };
 
@@ -72,6 +75,7 @@ export const useOnboardingStore = create<OnboardingState>()(
             setDetectiveQuestionIndex: (index) => set({ detectiveQuestionIndex: index }),
             setEmail: (email) => set({ email }),
             setPassword: (password) => set({ password }),
+            setAuthMethod: (authMethod) => set({ authMethod }),
             setCalculatedSigns: (calculatedSigns) => set({ calculatedSigns }),
             isComplete: () => {
                 const state = get();
@@ -86,6 +90,7 @@ export const useOnboardingStore = create<OnboardingState>()(
         {
             name: 'stars-guide-onboarding',
             partialize: (state) => ({
+                step: state.step,
                 birthDate: state.birthDate,
                 birthLocation: state.birthLocation,
                 birthTimeKnown: state.birthTimeKnown,
@@ -93,6 +98,8 @@ export const useOnboardingStore = create<OnboardingState>()(
                 timeOfDay: state.timeOfDay,
                 detectiveAnswers: state.detectiveAnswers,
                 email: state.email,
+                authMethod: state.authMethod,
+                calculatedSigns: state.calculatedSigns,
             }),
         }
     )
@@ -121,6 +128,7 @@ export const useOnboardingProgress = () => {
         case 7:
         case 8:
         case 9:
+        case 10:
             progress = 100;
             break;
         default: progress = 0;
@@ -131,4 +139,3 @@ export const useOnboardingProgress = () => {
         progress,
     };
 };
-

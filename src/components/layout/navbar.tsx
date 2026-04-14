@@ -313,10 +313,6 @@ export function Navbar() {
                             </Link>
                         </Button>
 
-                        <div className="flex items-center gap-4">
-                            <span className="text-sm text-muted-foreground">Switch Theme</span>
-                            <ThemeSwitch />
-                        </div>
                     </div>
                 </div>
             </div>

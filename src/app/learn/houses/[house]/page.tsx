@@ -63,6 +63,7 @@ export default function HouseDetailPage() {
                     ]}
                     currentPage={`${data.name} // ${data.angularity.toUpperCase()}`}
                     currentPageColor={themeColor}
+                    showBorder={false}
                 />
 
                 {/* Hero Layout — mirrors sign page 1:1 */}

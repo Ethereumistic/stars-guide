@@ -7,7 +7,6 @@ import { useOnboardingStore } from "@/store/use-onboarding-store"
 import { useAuthActions } from "@convex-dev/auth/react"
 import { motion } from "motion/react"
 import { Lock, ArrowRight, ChevronLeft, Loader2 } from "lucide-react"
-import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 export function PasswordStep() {
@@ -16,12 +15,12 @@ export function PasswordStep() {
         birthDate,
         birthLocation,
         prevStep,
-        reset,
-        calculatedSigns
+        calculatedSigns,
+        setAuthMethod,
+        setStep
     } = useOnboardingStore()
     const { signIn } = useAuthActions()
-    const router = useRouter()
-    const [password, setPassword] = React.useState("")
+    const [password, setLocalPassword] = React.useState("")
     const [isLoading, setIsLoading] = React.useState(false)
     const [error, setError] = React.useState<string | null>(null)
 
@@ -34,6 +33,7 @@ export function PasswordStep() {
         setError(null)
 
         try {
+            setAuthMethod('email')
             await signIn("password", {
                 email,
                 password,
@@ -42,8 +42,7 @@ export function PasswordStep() {
             })
 
             toast.success("Account created! Welcome to the stars.")
-            reset()
-            router.push("/dashboard")
+            setStep(10)
         } catch (error) {
             console.error("Finalization failed:", error)
             const errorMessage = error instanceof Error ? error.message : "Something went wrong. Please try again."
@@ -82,7 +81,7 @@ export function PasswordStep() {
                         type="password"
                         placeholder="Choose a strong password"
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onChange={(e) => setLocalPassword(e.target.value)}
                         className="h-12 bg-background/40 backdrop-blur-md text-lg text-center"
                     />
                 </div>

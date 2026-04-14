@@ -111,6 +111,7 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
                     ]}
                     currentPage={`${data.name} // ${displayDate}`}
                     currentPageColor={styles.primary}
+                    showBorder={false}
                 />
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
