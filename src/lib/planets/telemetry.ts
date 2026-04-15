@@ -73,6 +73,8 @@ export function getPlanetTelemetry(planetId: string, targetDate: Date = new Date
     } else if (body === Astronomy.Body.Moon) {
         eclipticLon = Astronomy.EclipticGeoMoon(targetDate).lon;
     } else {
+        // GeoVector returns J2000 equatorial (EQJ), but Ecliptic() internally
+        // applies precession + nutation to convert to true ecliptic of date.
         const geoVector = Astronomy.GeoVector(body, targetDate, true);
         eclipticLon = Astronomy.Ecliptic(geoVector).elon;
     }
