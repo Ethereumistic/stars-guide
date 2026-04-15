@@ -44,16 +44,16 @@ export function SignSeason({ signData, signId, telemetry, debugPlanetId }: SignS
                 {/* ── TITLE ── */}
                 <div className="flex items-center justify-center gap-3 mb-8">
                     <span
-                        className="text-3xl md:text-[2.4rem] font-serif leading-none"
-                        style={{ color: styles.primary }}
+                        className="text-3xl md:text-5xl font-serif leading-none"
+                    // style={{ color: styles.primary }}
                     >
                         {planetUi?.rulerSymbol}
                     </span>
                     <h3
-                        className="text-3xl md:text-[2.4rem] font-serif tracking-tight leading-[0.85]"
-                        style={{ color: styles.primary }}
+                        className="text-3xl md:text-5xl font-serif tracking-tight leading-[0.85]"
+                    // style={{ color: styles.primary }}
                     >
-                        {planetName} is Ruling
+                        {planetName} Ruling
                     </h3>
                 </div>
 
@@ -116,7 +116,7 @@ export function SignSeason({ signData, signId, telemetry, debugPlanetId }: SignS
                             <span className="font-mono text-[8px] uppercase tracking-[0.35em] block mb-1.5" style={{ color: styles.primary }}>
                                 Current Season
                             </span>
-                            <h3 className="text-3xl md:text-[2.4rem] font-serif tracking-tight leading-[0.85] mb-2">
+                            <h3 className="text-3xl font-serif tracking-tight leading-[0.85] mb-2">
                                 {signData.name}
                             </h3>
                             <div className="flex items-center gap-3 mb-3">

@@ -3,8 +3,6 @@
 import * as React from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ShootingStars } from "@/components/hero/shooting-stars"
-import { StarsBackground } from "@/components/hero/stars-background"
 import { GiAstrolabe, GiCrystalBall, GiCursedStar } from "react-icons/gi"
 import { ArrowRight, Sparkles } from "lucide-react"
 import { Avatar, AvatarImage } from "@/components/ui/avatar"
@@ -18,17 +16,10 @@ export function Hero() {
     }, [])
 
     return (
-        <section className="relative min-h-[calc(100vh-5rem)] flex items-center justify-center overflow-hidden">
+        <section className="relative min-h-[calc(100vh-5rem)] flex items-center justify-center">
             {/* Content Container */}
             <div className="relative z-10 mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
                 <div className="flex flex-col items-center text-center space-y-8">
-
-                    <div
-                        className="absolute top-[-30%] left-1/2 -translate-x-1/2 w-[150vw] h-[150vh] opacity-7 mix-blend-screen pointer-events-none blur-3xl"
-                        style={{
-                            background: `radial-gradient(circle at center, var(--galactic) 0%, transparent 60%)`
-                        }}
-                    />
 
                     {/* Eyebrow Badge */}
                     <motion.div

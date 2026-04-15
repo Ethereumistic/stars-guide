@@ -13,6 +13,7 @@ import { ElementType } from "@/astrology/elements";
 import { TbArrowRight } from "react-icons/tb";
 import { SignSeason } from "./cosmic-today/sign-season";
 import { LunarPhase } from "./cosmic-today/lunar-phase";
+import { Retrograde } from "./cosmic-today/retrograde";
 
 const PLANET_IDS = ["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune", "pluto"] as const;
 
@@ -38,12 +39,21 @@ function getMoonPhaseInfo(phaseAngle: number): { name: string; illumination: num
     return { name: "Waning Crescent", illumination: illum };
 }
 
-export function CosmicToday() {
+interface CosmicTodayProps {
+    /** Force a retrograde card for debugging. Pass a planet ID to fake it. The debug props are passed to the Retrograde component. */
+    debugRetrogradePlanet?: string;
+    debugEndDate?: string;
+    debugStartDate?: string;
+}
+
+export function CosmicToday({ debugRetrogradePlanet, debugEndDate, debugStartDate }: CosmicTodayProps = {}) {
     const [transits, setTransits] = useState<TransitEntry[]>([]);
     const [moonPhase, setMoonPhase] = useState<{ name: string; illumination: number } | null>(null);
     const [moonPhaseAngle, setMoonPhaseAngle] = useState<number>(0);
     const [sunEntry, setSunEntry] = useState<TransitEntry | null>(null);
     const [moonEntry, setMoonEntry] = useState<TransitEntry | null>(null);
+
+    const [debugRetroEntry, setDebugRetroEntry] = useState<TransitEntry | null>(null);
 
     useEffect(() => {
         const now = new Date();
@@ -74,10 +84,10 @@ export function CosmicToday() {
         setSunEntry(results.find(e => e.id === "sun") ?? null);
         setMoonEntry(results.find(e => e.id === "moon") ?? null);
 
-        const illum = Astronomy.Illumination(Astronomy.Body.Moon, now);
-        const phaseInfo = getMoonPhaseInfo(illum.phase_angle);
+        const moonElongation = Astronomy.MoonPhase(now); // 0–360° elongation: 0=New, 180=Full
+        const phaseInfo = getMoonPhaseInfo(moonElongation);
         setMoonPhase(phaseInfo);
-        setMoonPhaseAngle(illum.phase_angle);
+        setMoonPhaseAngle(moonElongation);
     }, []);
 
     const majorTransits = useMemo(() =>
@@ -90,12 +100,39 @@ export function CosmicToday() {
         [transits]
     );
 
+    useEffect(() => {
+        if (!debugRetrogradePlanet) { setDebugRetroEntry(null); return; }
+        const now = new Date();
+        const t = getPlanetTelemetry(debugRetrogradePlanet, now);
+        const ui = planetUIConfig[debugRetrogradePlanet];
+        if (!t || !ui) { setDebugRetroEntry(null); return; }
+        const sign = compositionalSigns.find(s => s.id === t.signId);
+        const signUi = zodiacUIConfig[t.signId];
+        const elUi = elementUIConfig[sign?.element ?? "Fire"];
+        if (!sign || !signUi) { setDebugRetroEntry(null); return; }
+        setDebugRetroEntry({
+            id: debugRetrogradePlanet,
+            name: debugRetrogradePlanet.charAt(0).toUpperCase() + debugRetrogradePlanet.slice(1),
+            telemetry: t,
+            signName: sign.name,
+            signData: sign,
+            signIcon: signUi.icon,
+            elementStyles: elUi.styles,
+        });
+    }, [debugRetrogradePlanet]);
+
     if (!sunEntry) return null;
+
+    // Real retrogrades + optional debug entry (avoid duplicate)
+    const retrogradeEntries = transits.filter(e => e.telemetry.retrograde);
+    const hasDebugEntry = debugRetroEntry && !retrogradeEntries.some(e => e.id === debugRetroEntry.id);
+    const allRetroEntries = hasDebugEntry ? [...retrogradeEntries, debugRetroEntry!] : retrogradeEntries;
+    const showGrid = allRetroEntries.length > 0;
 
     return (
         <section className="relative w-full overflow-hidden">
             {/* Section Header */}
-            <motion.div
+            {/* <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-100px" }}
@@ -115,10 +152,11 @@ export function CosmicToday() {
                     Today in the <span className="text-primary">Sky</span>
                 </h2>
 
-            </motion.div>
+            </motion.div> */}
 
             {/* ═════════════ MAIN FEATURE ═════════════ */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl mx-auto mb-8">
+            <div className={`grid grid-cols-1 gap-6 max-w-[1600px] mx-auto mb-8 ${showGrid ? "lg:grid-cols-3" : "lg:grid-cols-2"
+                }`}>
 
                 <SignSeason
                     signData={sunEntry.signData}
@@ -133,9 +171,24 @@ export function CosmicToday() {
                         telemetry={moonEntry.telemetry}
                         moonPhase={moonPhase}
                         phaseAngle={moonPhaseAngle}
-                        debugPhaseAngle={60}
                     />
                 )}
+
+                {allRetroEntries.map((entry) => {
+                    const isDebug = debugRetrogradePlanet === entry.id && !!hasDebugEntry;
+                    return (
+                        <Retrograde
+                            key={entry.id}
+                            planetId={entry.id}
+                            planetName={entry.name}
+                            telemetry={entry.telemetry}
+                            signData={entry.signData}
+                            debug={isDebug}
+                            debugEndDate={isDebug ? debugEndDate : undefined}
+                            debugStartDate={isDebug ? debugStartDate : undefined}
+                        />
+                    );
+                })}
             </div>
 
             {/* ═════════════ TRANSITS STRIP ═════════════ */}
@@ -144,7 +197,7 @@ export function CosmicToday() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: 0.2 }}
-                className="max-w-5xl mx-auto"
+                className="max-w-[1080px] mx-auto"
             >
                 <div className="border border-white/[0.06] rounded-md overflow-hidden bg-black/20">
                     <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">

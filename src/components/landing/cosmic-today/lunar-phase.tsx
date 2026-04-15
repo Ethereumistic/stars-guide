@@ -161,11 +161,11 @@ export function LunarPhase({ signData, signId, telemetry, moonPhase, phaseAngle,
                 {/* ── TITLE ── */}
                 <div className="flex items-center justify-center gap-3 mb-8">
                     <span
-                        className="text-3xl md:text-[2.4rem] font-serif leading-none text-white/90"
+                        className="text-3xl md:text-5xl font-serif leading-none text-white/90"
                     >
                         {planetUi?.rulerSymbol}
                     </span>
-                    <h3 className="text-3xl md:text-[2.4rem] font-serif tracking-tight leading-[0.85] text-white/90">
+                    <h3 className="text-3xl md:text-5xl font-serif tracking-tight leading-[0.85] text-white/90">
                         Lunar Phase
                     </h3>
                 </div>
@@ -230,12 +230,12 @@ export function LunarPhase({ signData, signId, telemetry, moonPhase, phaseAngle,
 
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-3 mb-3">
-                                <span className="font-mono text-[8px] uppercase tracking-[0.2em]" style={{ color: styles.primary, opacity: 0.7 }}>
+                                <span className="font-mono text-[8px] uppercase tracking-[0.2em]" style={{ color: styles.primary }}>
                                     Transiting {signData.name}
                                 </span>
                             </div>
 
-                            <h3 className="text-3xl md:text-[2.4rem] font-serif tracking-tight leading-[0.85] mb-2 text-white/90">
+                            <h3 className="text-3xl font-serif tracking-tight leading-[0.85] mb-2 text-nowrap text-white/90">
                                 {moonPhase.name}
                             </h3>
 

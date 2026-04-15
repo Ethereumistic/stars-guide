@@ -86,23 +86,23 @@ function getGeocentricLongitude(body: Astronomy.Body, date: Date): number {
 // ─── MOON PHASE ──────────────────────────────────────────────────────────
 
 /**
- * Determine moon phase name and illumination from the phase angle.
- * Phase angle: 0° = New Moon, 180° = Full Moon.
+ * Determine moon phase name and illumination from Moon-Sun elongation.
+ * Uses Astronomy.MoonPhase() which returns 0–360° elongation:
+ *   0° = New Moon, 90° = First Quarter, 180° = Full Moon, 270° = Third Quarter.
  */
 function getMoonPhaseName(date: Date): { name: string; illuminationPercent: number } {
-    const illum = Astronomy.Illumination(Astronomy.Body.Moon, date);
-    const phaseDeg = illum.phase_angle; // 0 = new, 180 = full
-    const illumPct = parseFloat((illum.phase_fraction * 100).toFixed(1));
+    const elongation = Astronomy.MoonPhase(date); // 0–360°
+    const illumPct = parseFloat(((1 - Math.cos(elongation * Math.PI / 180)) / 2 * 100).toFixed(1));
 
     let name: string;
-    if (phaseDeg < 22.5) name = "New Moon";
-    else if (phaseDeg < 67.5) name = "Waxing Crescent";
-    else if (phaseDeg < 112.5) name = "First Quarter";
-    else if (phaseDeg < 157.5) name = "Waxing Gibbous";
-    else if (phaseDeg < 202.5) name = "Full Moon";
-    else if (phaseDeg < 247.5) name = "Waning Gibbous";
-    else if (phaseDeg < 292.5) name = "Last Quarter";
-    else if (phaseDeg < 337.5) name = "Waning Crescent";
+    if (elongation < 22.5) name = "New Moon";
+    else if (elongation < 67.5) name = "Waxing Crescent";
+    else if (elongation < 112.5) name = "First Quarter";
+    else if (elongation < 157.5) name = "Waxing Gibbous";
+    else if (elongation < 202.5) name = "Full Moon";
+    else if (elongation < 247.5) name = "Waning Gibbous";
+    else if (elongation < 292.5) name = "Last Quarter";
+    else if (elongation < 337.5) name = "Waning Crescent";
     else name = "New Moon";
 
     return { name, illuminationPercent: illumPct };
