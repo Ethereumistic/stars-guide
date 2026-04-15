@@ -155,8 +155,9 @@ export function LunarPhase({ signData, signId, telemetry, moonPhase, phaseAngle,
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7, delay: 0.1 }}
+            className="h-full"
         >
-            <div className="group">
+            <div className="group h-full flex flex-col">
                 {/* ── TITLE ── */}
                 <div className="flex items-center justify-center gap-3 mb-8">
                     <span
@@ -181,12 +182,7 @@ export function LunarPhase({ signData, signId, telemetry, moonPhase, phaseAngle,
                         {isMoon ? (
                             <div
                                 className="relative w-full h-full rounded-full overflow-hidden"
-                                style={{
-                                    boxShadow: `
-                                        0 0 80px rgba(224,224,224,0.05),
-                                        0 0 160px rgba(224,224,224,0.02)
-                                    `,
-                                }}
+
                             >
                                 <img
                                     src={planetUi!.imageUrl}
@@ -218,26 +214,22 @@ export function LunarPhase({ signData, signId, telemetry, moonPhase, phaseAngle,
                     className="relative p-5 md:p-6 border border-white/[0.06] bg-black/40 overflow-hidden"
                     style={{ borderRadius: "4px" }}
                 >
-                    <div className="relative z-10 flex items-start gap-4">
+                    <div className="relative z-10 flex items-center gap-5">
                         {/* Moon sign transit badge */}
                         <div className="shrink-0 relative flex items-center justify-center">
                             <img
                                 src={elementUi.frameUrl}
                                 alt=""
-                                className="w-16 h-16 md:w-[72px] md:h-[72px] object-cover opacity-90"
+                                className="w-[88px] h-[88px] md:w-[100px] md:h-[100px] object-cover opacity-90"
                             />
                             <MIcon
-                                className="absolute w-6 h-6 md:w-7 md:h-7 drop-shadow-lg"
+                                className="absolute w-9 h-9 md:w-10 md:h-10 drop-shadow-lg"
                                 style={{ color: styles.primary }}
                             />
                         </div>
 
                         <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1.5">
-                                <span className="font-mono text-[8px] uppercase tracking-[0.35em] text-white/30">
-                                    Lunar Phase
-                                </span>
-                                <span className="text-white/10">·</span>
+                            <div className="flex items-center gap-3 mb-3">
                                 <span className="font-mono text-[8px] uppercase tracking-[0.2em]" style={{ color: styles.primary, opacity: 0.7 }}>
                                     Transiting {signData.name}
                                 </span>

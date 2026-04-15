@@ -133,7 +133,7 @@ export function CosmicToday() {
                         telemetry={moonEntry.telemetry}
                         moonPhase={moonPhase}
                         phaseAngle={moonPhaseAngle}
-                        debugPhaseAngle={90}
+                        debugPhaseAngle={60}
                     />
                 )}
             </div>

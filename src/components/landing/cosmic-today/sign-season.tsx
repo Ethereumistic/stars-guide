@@ -35,10 +35,11 @@ export function SignSeason({ signData, signId, telemetry, debugPlanetId }: SignS
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7 }}
+            className="h-full"
         >
             <Link
                 href={`/learn/signs/${signId}`}
-                className="group block"
+                className="group block h-full flex flex-col"
             >
                 {/* ── TITLE ── */}
                 <div className="flex items-center justify-center gap-3 mb-8">
@@ -97,25 +98,25 @@ export function SignSeason({ signData, signId, telemetry, debugPlanetId }: SignS
                         style={{ backgroundColor: styles.glow }}
                     />
 
-                    <div className="relative z-10 flex items-start gap-4">
+                    <div className="relative z-10 flex items-center gap-5">
                         {/* Element frame + sign icon badge */}
                         <div className="shrink-0 relative flex items-center justify-center">
                             <img
                                 src={elementUi.frameUrl}
                                 alt=""
-                                className="w-16 h-16 md:w-[72px] md:h-[72px] object-cover opacity-90"
+                                className="w-[88px] h-[88px] md:w-[100px] md:h-[100px] object-cover opacity-90"
                             />
                             <Icon
-                                className="absolute w-6 h-6 md:w-7 md:h-7 drop-shadow-lg"
+                                className="absolute w-9 h-9 md:w-10 md:h-10 drop-shadow-lg"
                                 style={{ color: styles.primary }}
                             />
                         </div>
 
                         <div className="flex-1 min-w-0">
-                            <span className="font-mono text-[8px] uppercase tracking-[0.35em] block mb-1.5" style={{ color: styles.primary, opacity: 0.6 }}>
+                            <span className="font-mono text-[8px] uppercase tracking-[0.35em] block mb-1.5" style={{ color: styles.primary }}>
                                 Current Season
                             </span>
-                            <h3 className="text-3xl md:text-[2.4rem] font-serif tracking-tight leading-[0.85] mb-2" style={{ color: styles.primary }}>
+                            <h3 className="text-3xl md:text-[2.4rem] font-serif tracking-tight leading-[0.85] mb-2">
                                 {signData.name}
                             </h3>
                             <div className="flex items-center gap-3 mb-3">
