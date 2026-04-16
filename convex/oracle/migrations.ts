@@ -105,11 +105,6 @@ export const migrateOracleSettingsV2 = internalMutation({
   },
 });
 
-/**
- * V3 Migration: Add multi-provider support.
- * Creates providers_config and model_chain settings if they don't exist.
- * Builds model_chain from existing model_a/b/c if those are set.
- */
 export const migrateOracleSettingsV3 = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -186,3 +181,4 @@ export const migrateOracleSettingsV3 = internalMutation({
     };
   },
 });
+

@@ -427,7 +427,7 @@ export default defineSchema({
     oracle_sessions: defineTable({
         userId: v.id("users"),
         title: v.string(),                   // Auto-generated from first question (~40 chars)
-        titleIcon: v.optional(v.string()),
+        titleGenerated: v.optional(v.boolean()), // Set true after AI title generation, prevents re-trigger
         categoryId: v.optional(v.id("oracle_categories")),
         templateId: v.optional(v.id("oracle_templates")),
         featureKey: v.optional(v.string()),
@@ -441,7 +441,7 @@ export default defineSchema({
         primaryModelUsed: v.optional(v.string()),
         // Was fallback triggered?
         usedFallback: v.optional(v.boolean()),
-        isStarred: v.optional(v.boolean()),
+        starType: v.optional(v.union(v.literal("beveled"), v.literal("cursed"))), // Two pin tiers: cursed > beveled
         createdAt: v.number(),
         updatedAt: v.number(),
         lastMessageAt: v.number(),

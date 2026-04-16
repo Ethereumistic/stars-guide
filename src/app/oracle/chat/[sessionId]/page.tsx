@@ -102,8 +102,8 @@ export default function OracleChatPage() {
         if (isStreaming) return;
         if (!sessionData) return;
         if (titleGenTriggeredRef.current) return;
-        // Skip if AI already assigned a title
-        if (sessionData.titleIcon) return;
+        // Skip if AI already auto-generated a title for this session
+        if ((sessionData as any).titleGenerated) return;
 
         const hasCompleteAssistant = sessionData.messages.some(
             (m) => m.role === "assistant" && m.content.length > 20

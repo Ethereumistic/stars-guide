@@ -15,7 +15,6 @@ import { cn } from "@/lib/utils";
 type SessionItem = {
     _id: string;
     title: string;
-    titleIcon?: string | null;
     lastMessageAt: number;
 };
 
@@ -73,7 +72,7 @@ export function OracleChatSearchModal({
     React.useEffect(() => {
         const timer = window.setTimeout(() => {
             setDebouncedTerm(searchInput.trim().toLowerCase());
-        }, 2000);
+        }, 250);
 
         return () => window.clearTimeout(timer);
     }, [searchInput]);
@@ -180,7 +179,7 @@ export function OracleChatSearchModal({
                                             "text-white/90 hover:bg-white/8"
                                         )}
                                     >
-                                    <span className="shrink-0 text-base leading-none">{session.titleIcon ?? "✨"}</span>
+                                        <span className="shrink-0 text-base leading-none">✦</span>
                                         <span className="truncate">{session.title}</span>
                                     </button>
                                 ))}

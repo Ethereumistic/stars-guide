@@ -314,12 +314,11 @@ export const updateSessionTitle = internalMutation({
     args: {
         sessionId: v.id("oracle_sessions"),
         title: v.string(),
-        titleIcon: v.string(),
     },
     handler: async (ctx, args) => {
         await ctx.db.patch(args.sessionId, {
             title: args.title,
-            titleIcon: args.titleIcon,
+            titleGenerated: true,
             updatedAt: Date.now(),
         });
     },
@@ -344,9 +343,10 @@ export const renameSession = mutation({
     },
 });
 
-export const toggleStarSession = mutation({
+export const setSessionStarType = mutation({
     args: {
         sessionId: v.id("oracle_sessions"),
+        starType: v.optional(v.union(v.literal("beveled"), v.literal("cursed"), v.literal("none"))),
     },
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);
@@ -356,7 +356,10 @@ export const toggleStarSession = mutation({
         if (!session || session.userId !== userId) throw new Error("Session not found");
 
         await ctx.db.patch(args.sessionId, {
-            isStarred: !session.isStarred,
+            // "none" means unstar — clear the field entirely
+            ...(args.starType === "none" || !args.starType
+                ? { starType: undefined }
+                : { starType: args.starType }),
             updatedAt: Date.now(),
         });
     },
@@ -427,11 +430,10 @@ export const generateSessionTitle = action({
         const providers = (runtimeSettings as any).providers || [];
         const modelChain = (runtimeSettings as any).modelChain || [];
 
-        const systemPrompt = `You are a helpful assistant that generates a short, engaging title and a single representative emoji for a user's question.
+        const systemPrompt = `You are a helpful assistant that generates a short, engaging title for a user's question.
 Rules:
 1. Max 5 words for title.
-2. Single emoji.
-3. Output MUST be ONLY valid JSON in format: {"title": "Title Here", "icon": "🔮"}`;
+2. Output MUST be ONLY valid JSON in format: {"title": "Title Here"}`;
 
         const config = {
             temperature: 0.3,
@@ -478,14 +480,10 @@ Rules:
                     try {
                         const parsed = JSON.parse(content);
                         const cleanTitle = parsed.title?.replace(/["']/g, "") || "New Reading";
-                        const emojiStr = parsed.icon || "✨";
-                        const iconArray = Array.from(emojiStr);
-                        const cleanIcon = typeof iconArray[0] === 'string' ? iconArray[0] : "✨";
                         
                         await ctx.runMutation(internal.oracle.sessions.updateSessionTitle, {
                             sessionId: args.sessionId,
                             title: cleanTitle,
-                            titleIcon: cleanIcon
                         });
                         return; // Done
                     } catch (e) {
