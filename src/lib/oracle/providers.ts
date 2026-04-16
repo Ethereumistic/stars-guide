@@ -52,7 +52,15 @@ export function parseProvidersConfig(raw: string | undefined): ProviderConfig[] 
   try {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_PROVIDERS;
-    return parsed as ProviderConfig[];
+    const validated = parsed.filter(p =>
+      p && typeof p === 'object' &&
+      typeof p.id === 'string' &&
+      typeof p.name === 'string' &&
+      PROVIDER_TYPES.includes(p.type) &&
+      typeof p.baseUrl === 'string' &&
+      typeof p.apiKeyEnvVar === 'string'
+    );
+    return validated.length > 0 ? (validated as ProviderConfig[]) : DEFAULT_PROVIDERS;
   } catch {
     return DEFAULT_PROVIDERS;
   }
@@ -63,10 +71,93 @@ export function parseModelChain(raw: string | undefined): ModelChainEntry[] {
   try {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_MODEL_CHAIN;
-    return parsed as ModelChainEntry[];
+    const validated = parsed.filter(e =>
+      e && typeof e === 'object' &&
+      typeof e.providerId === 'string' &&
+      typeof e.model === 'string'
+    );
+    return validated.length > 0 ? (validated as ModelChainEntry[]) : DEFAULT_MODEL_CHAIN;
   } catch {
     return DEFAULT_MODEL_CHAIN;
   }
+}
+
+export function validateProvidersConfig(providers: any[]): string[] {
+  const errors: string[] = [];
+  if (!Array.isArray(providers)) return ["Providers config must be an array."];
+
+  const seenIds = new Set<string>();
+
+  providers.forEach((p, idx) => {
+    if (!p || typeof p !== 'object') {
+      errors.push(`Provider at index ${idx} is not an object.`);
+      return;
+    }
+    if (!p.id || typeof p.id !== 'string') {
+      errors.push(`Provider at index ${idx} must have a valid 'id'.`);
+    } else {
+      if (seenIds.has(p.id)) {
+        errors.push(`Duplicate provider ID found: ${p.id}.`);
+      }
+      seenIds.add(p.id);
+    }
+    if (!p.name || typeof p.name !== 'string') {
+      errors.push(`Provider at index ${idx} must have a valid 'name'.`);
+    }
+    if (!PROVIDER_TYPES.includes(p.type)) {
+      errors.push(`Provider '${p.id}' has an invalid type: ${p.type}.`);
+    }
+    if (!p.baseUrl || typeof p.baseUrl !== 'string' || !p.baseUrl.startsWith('http')) {
+      errors.push(`Provider '${p.id}' has an invalid baseUrl.`);
+    }
+
+    // apiKeyEnvVar: non-empty for non-Ollama
+    if (p.type !== 'ollama') {
+      if (!p.apiKeyEnvVar || typeof p.apiKeyEnvVar !== 'string') {
+        errors.push(`Provider '${p.id}' must specify an apiKeyEnvVar.`);
+      }
+    } else {
+      if (p.apiKeyEnvVar && typeof p.apiKeyEnvVar !== 'string') {
+        errors.push(`Provider '${p.id}' apiKeyEnvVar must be a string if provided.`);
+      }
+    }
+  });
+
+  return errors;
+}
+
+export function validateModelChain(chain: any[], providers: ProviderConfig[]): string[] {
+  const errors: string[] = [];
+  if (!Array.isArray(chain)) return ["Model chain must be an array."];
+
+  const providerIds = new Set(providers.map(p => p.id));
+  const seenCombos = new Set<string>();
+
+  chain.forEach((entry, idx) => {
+    if (!entry || typeof entry !== 'object') {
+      errors.push(`Chain entry at index ${idx} is not an object.`);
+      return;
+    }
+    if (!entry.providerId || typeof entry.providerId !== 'string') {
+      errors.push(`Chain entry at index ${idx} missing 'providerId'.`);
+    } else if (!providerIds.has(entry.providerId)) {
+      errors.push(`Chain entry at index ${idx} references unknown providerId: ${entry.providerId}.`);
+    }
+
+    if (!entry.model || typeof entry.model !== 'string') {
+      errors.push(`Chain entry at index ${idx} missing 'model'.`);
+    }
+
+    if (entry.providerId && entry.model) {
+      const combo = `${entry.providerId}::${entry.model}`;
+      if (seenCombos.has(combo)) {
+        errors.push(`Duplicate model chain entry: ${entry.providerId} / ${entry.model}.`);
+      }
+      seenCombos.add(combo);
+    }
+  });
+
+  return errors;
 }
 
 /**
@@ -110,7 +201,56 @@ export function buildProviderUrl(provider: ProviderConfig): string {
 }
 
 /**
- * Known popular models per provider (for admin UI suggestions).
+ * Preset defaults when adding a new provider by type.
+ * Used by the admin UI to pre-fill the form.
+ */
+export const PROVIDER_TYPE_PRESETS: Record<
+  ProviderType,
+  { defaultName: string; defaultBaseUrl: string; defaultApiKeyEnvVar: string }
+> = {
+  openrouter: {
+    defaultName: "OpenRouter",
+    defaultBaseUrl: "https://openrouter.ai/api/v1",
+    defaultApiKeyEnvVar: "OPENROUTER_API_KEY",
+  },
+  ollama: {
+    defaultName: "Ollama",
+    defaultBaseUrl: "http://localhost:11434/v1",
+    defaultApiKeyEnvVar: "OLLAMA_API_KEY",
+  },
+  openai_compatible: {
+    defaultName: "OpenAI Compatible",
+    defaultBaseUrl: "https://api.openai.com/v1",
+    defaultApiKeyEnvVar: "OPENAI_API_KEY",
+  },
+};
+
+/**
+ * Human-readable labels and descriptions for each provider type.
+ */
+export const PROVIDER_TYPE_INFO: Record<
+  ProviderType,
+  { label: string; description: string; keyOptional: boolean }
+> = {
+  openrouter: {
+    label: "OpenRouter",
+    description: "Aggregator that proxies to many model providers.",
+    keyOptional: false,
+  },
+  ollama: {
+    label: "Ollama",
+    description: "Local or cloud-hosted Ollama. API key is optional for local instances.",
+    keyOptional: true,
+  },
+  openai_compatible: {
+    label: "OpenAI Compatible",
+    description: "Any OpenAI-compatible API endpoint (OpenAI, Together, Groq, etc.).",
+    keyOptional: false,
+  },
+};
+
+/**
+ * Known popular models per provider type (for admin UI suggestions).
  */
 export const KNOWN_MODELS_PER_PROVIDER_TYPE: Record<ProviderType, string[]> = {
   openrouter: [
@@ -130,20 +270,25 @@ export const KNOWN_MODELS_PER_PROVIDER_TYPE: Record<ProviderType, string[]> = {
   ollama: [
     "llama3.1",
     "llama3.2",
+    "llama3.3",
+    "llama3.3:70b",
     "mistral",
+    "mistral-nemo",
     "qwen2.5",
+    "qwen2.5:72b",
     "gemma2",
+    "gemma2:27b",
     "phi3",
+    "phi3.5",
     "codestral",
     "deepseek-r1",
-    "llama3.3",
+    "deepseek-r1:70b",
+    "command-r",
+    "llava",
+    "nomic-embed-text",
   ],
   openai_compatible: [
-    "gpt-4o",
-    "gpt-4o-mini",
-    "gpt-3.5-turbo",
-    "claude-3-5-sonnet-20241022",
-    "deepseek-chat",
-    "deepseek-reasoner",
+    "glm-5.1:cloud",
+    "minimax-m2.7:cloud",
   ],
 };

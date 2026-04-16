@@ -1,10 +1,16 @@
-﻿import { mutation, query } from "../_generated/server";
+import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAdmin } from "../lib/adminGuard";
 import {
   buildSoulDocRecord,
   buildTokenLimitRecord,
 } from "../../lib/oracle/soul";
+import {
+  parseProvidersConfig,
+  parseModelChain,
+  type ProviderConfig,
+  type ModelChainEntry,
+} from "../../lib/oracle/providers";
 
 function toSettingsMap(
   settings: Array<{ key: string; value: string }>,
@@ -35,7 +41,7 @@ export const getSettingsByGroup = query({
 export const getPromptRuntimeSettings = query({
   args: {},
   handler: async (ctx) => {
-    const [soulSettings, modelSettings, tokenLimitSettings] = await Promise.all([
+    const [soulSettings, modelSettings, tokenLimitSettings, providerSettings] = await Promise.all([
       ctx.db
         .query("oracle_settings")
         .withIndex("by_group", (q) => q.eq("group", "soul"))
@@ -48,11 +54,43 @@ export const getPromptRuntimeSettings = query({
         .query("oracle_settings")
         .withIndex("by_group", (q) => q.eq("group", "token_limits"))
         .collect(),
+      ctx.db
+        .query("oracle_settings")
+        .withIndex("by_group", (q) => q.eq("group", "provider"))
+        .collect(),
     ]);
 
     const soulMap = toSettingsMap(soulSettings);
     const modelMap = toSettingsMap(modelSettings);
     const tokenLimitMap = toSettingsMap(tokenLimitSettings);
+    const providerMap = toSettingsMap(providerSettings);
+
+    // Model chain: prefer new JSON-based chain, fall back to old model_a/b/c
+    const modelChain = parseModelChain(modelMap.model_chain);
+    const providers = parseProvidersConfig(providerMap.providers_config);
+
+    // DEPRECATED FALLBACK: If model_chain is just defaults but legacy model_a/b/c have been customized,
+    // build chain from legacy settings. This is kept for backward compatibility but the admin UI 
+    // now exclusively writes to model_chain and providers_config.
+    const hasCustomLegacyModels =
+      modelMap.model_a || modelMap.model_b || modelMap.model_c;
+
+    const effectiveModelChain =
+      modelMap.model_chain
+        ? modelChain
+        : hasCustomLegacyModels
+          ? [
+              ...(modelMap.model_a && modelMap.model_a !== "NONE"
+                ? [{ providerId: providers[0]?.id ?? "openrouter", model: modelMap.model_a }]
+                : []),
+              ...(modelMap.model_b && modelMap.model_b !== "NONE"
+                ? [{ providerId: providers[0]?.id ?? "openrouter", model: modelMap.model_b }]
+                : []),
+              ...(modelMap.model_c && modelMap.model_c !== "NONE"
+                ? [{ providerId: providers[0]?.id ?? "openrouter", model: modelMap.model_c }]
+                : []),
+            ]
+          : modelChain;
 
     return {
       soulDocs: buildSoulDocRecord(soulMap),
@@ -65,6 +103,8 @@ export const getPromptRuntimeSettings = query({
         topP: Number.parseFloat(modelMap.top_p ?? "0.92"),
         streamEnabled: modelMap.stream_enabled !== "false",
       },
+      providers,
+      modelChain: effectiveModelChain,
     };
   },
 });

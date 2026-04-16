@@ -556,7 +556,33 @@ export const seedOracle = internalMutation({
         // в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
         const defaultSettings = [
-            // Model Config
+            // Provider Config
+            {
+                key: "providers_config",
+                value: JSON.stringify([
+                    { id: "openrouter", name: "OpenRouter", type: "openrouter", baseUrl: "https://openrouter.ai/api/v1", apiKeyEnvVar: "OPENROUTER_API_KEY" },
+                ]),
+                valueType: "json" as const,
+                label: "Provider Configuration",
+                description: "JSON array of AI providers",
+                group: "provider",
+            },
+
+            // Model Chain
+            {
+                key: "model_chain",
+                value: JSON.stringify([
+                    { providerId: "openrouter", model: "google/gemini-2.5-flash" },
+                    { providerId: "openrouter", model: "anthropic/claude-sonnet-4" },
+                    { providerId: "openrouter", model: "x-ai/grok-4.1-fast" },
+                ]),
+                valueType: "json" as const,
+                label: "Model Fallback Chain",
+                description: "Ordered list of provider+model pairs Oracle tries sequentially",
+                group: "model",
+            },
+
+            // Legacy Model Config (kept for backward compat)
             { key: "model_a", value: "google/gemini-2.5-flash", valueType: "string" as const, label: "Primary Model", group: "model" },
             { key: "model_b", value: "anthropic/claude-sonnet-4", valueType: "string" as const, label: "Fallback Model B", group: "model" },
             { key: "model_c", value: "x-ai/grok-4.1-fast", valueType: "string" as const, label: "Fallback Model C", group: "model" },

@@ -5,7 +5,6 @@ import { action } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
 import {
-  buildOpenRouterPayload,
   buildPrompt,
   type ScenarioInjection,
 } from "../../lib/oracle/promptBuilder";
@@ -14,6 +13,15 @@ import {
   getOracleFeature,
   isOracleFeatureKey,
 } from "../../lib/oracle/features";
+import {
+  type ProviderConfig,
+  type ModelChainEntry,
+  parseProvidersConfig,
+  parseModelChain,
+  buildProviderHeaders,
+  buildProviderUrl,
+  tierForIndex,
+} from "../../lib/oracle/providers";
 
 const CRISIS_KEYWORDS = [
   "suicide",
@@ -25,13 +33,12 @@ const CRISIS_KEYWORDS = [
   "no reason to live",
 ];
 
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const STREAM_FLUSH_INTERVAL_MS = 300;
 
 interface LLMResponse {
   content: string;
   modelUsed: string;
-  fallbackTier: "A" | "B" | "C" | "D";
+  fallbackTier: string;
   promptTokens?: number;
   completionTokens?: number;
 }
@@ -199,9 +206,6 @@ export const invokeOracle = action({
     if (activeFeature?.requiresBirthData) {
       const user = await ctx.runQuery(api.users.current, {});
 
-      // This is the single prompt-assembly branch where a persisted session feature
-      // turns into feature-specific Oracle context. Future feature-specific behavior
-      // should be added here so feature prompt logic stays centralized.
       if (user?.birthData) {
         natalContext = buildFeatureContext(activeFeature.key, user.birthData);
       } else {
@@ -251,35 +255,29 @@ export const invokeOracle = action({
       stream: runtimeSettings.modelSettings.streamEnabled,
     };
 
-    const models = [
-      { model: runtimeSettings.modelSettings.modelA, tier: "A" as const },
-      { model: runtimeSettings.modelSettings.modelB, tier: "B" as const },
-      { model: runtimeSettings.modelSettings.modelC, tier: "C" as const },
-    ];
+    // ── Multi-Provider Model Chain ──
+    const providers = runtimeSettings.providers;
+    const modelChain = runtimeSettings.modelChain;
 
-    for (const { model, tier } of models) {
-      if (model === "NONE") {
+    for (let i = 0; i < modelChain.length; i++) {
+      const entry = modelChain[i];
+      const provider = providers.find((p: ProviderConfig) => p.id === entry.providerId);
+
+      if (!provider) {
+        console.error(`Oracle: Provider "${entry.providerId}" not found for model "${entry.model}", skipping`);
         continue;
       }
 
-      try {
-        const openRouterPayload = buildOpenRouterPayload(
-          prompt,
-          {
-            model,
-            temperature: config.temperature,
-            maxTokens: config.maxTokens,
-            topP: config.topP,
-            stream: config.stream,
-          },
-          historyWithoutCurrentQuestion,
-        );
+      const tier = tierForIndex(i);
 
-        const result = await callOpenRouterStreaming(
+      try {
+        const result = await callProviderStreaming(
           ctx,
-          model,
-          openRouterPayload.messages,
+          provider,
+          entry.model,
+          prompt,
           config,
+          historyWithoutCurrentQuestion,
           args.sessionId,
           tier,
         );
@@ -294,14 +292,14 @@ export const invokeOracle = action({
 
           return {
             content: result.content,
-            modelUsed: model,
+            modelUsed: `${provider.id}/${entry.model}`,
             fallbackTier: tier,
             promptTokens: result.promptTokens,
             completionTokens: result.completionTokens,
           };
         }
       } catch (error) {
-        console.error(`Oracle Model ${tier} (${model}) failed:`, error);
+        console.error(`Oracle ${provider.id}/${entry.model} (tier ${tier}) failed:`, error);
       }
     }
 
@@ -332,52 +330,67 @@ export const invokeOracle = action({
   },
 });
 
-async function callOpenRouterStreaming(
+/**
+ * Generic streaming call to any OpenAI-compatible chat completions endpoint.
+ * Works with OpenRouter, Ollama, and any OpenAI-compatible API.
+ */
+async function callProviderStreaming(
   ctx: any,
+  provider: ProviderConfig,
   model: string,
-  messages: { role: string; content: string }[],
-  config: { temperature: number; maxTokens: number; topP: number },
+  prompt: { systemPrompt: string; userMessage: string },
+  config: { temperature: number; maxTokens: number; topP: number; stream: boolean },
+  conversationHistory: { role: string; content: string }[],
   sessionId: Id<"oracle_sessions">,
-  tier: "A" | "B" | "C",
+  tier: string,
 ): Promise<{ content: string; promptTokens?: number; completionTokens?: number } | null> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    console.error("OPENROUTER_API_KEY not set");
+  const apiKey = process.env[provider.apiKeyEnvVar];
+
+  // Ollama (local) may not need an API key; others require one
+  if (provider.type !== "ollama" && !apiKey) {
+    console.error(`Oracle: ${provider.apiKeyEnvVar} not set for provider "${provider.id}"`);
     return null;
   }
 
+  // Build messages
+  const messages: { role: string; content: string }[] = [
+    { role: "system", content: prompt.systemPrompt },
+    ...conversationHistory,
+    { role: "user", content: prompt.userMessage },
+  ];
+
+  const url = buildProviderUrl(provider);
+  const headers = buildProviderHeaders(provider, apiKey);
+
+  const requestBody = {
+    model,
+    messages,
+    temperature: config.temperature,
+    max_tokens: config.maxTokens,
+    top_p: config.topP,
+    stream: true,
+  };
+
   let response: Response;
   try {
-    response = await fetch(OPENROUTER_API_URL, {
+    response = await fetch(url, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://stars.guide",
-        "X-Title": "Stars.Guide Oracle",
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: config.temperature,
-        max_tokens: config.maxTokens,
-        top_p: config.topP,
-        stream: true,
-      }),
+      headers,
+      body: JSON.stringify(requestBody),
     });
   } catch (error) {
-    console.error(`OpenRouter ${model} fetch failed:`, error);
+    console.error(`Oracle ${provider.id}/${model} fetch failed:`, error);
     return null;
   }
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`OpenRouter ${model} error: ${response.status} - ${errorText}`);
+    console.error(`Oracle ${provider.id}/${model} error: ${response.status} - ${errorText}`);
     return null;
   }
 
   if (!response.body) {
-    console.error(`OpenRouter ${model}: no response body for stream`);
+    console.error(`Oracle ${provider.id}/${model}: no response body for stream`);
     return null;
   }
 
@@ -442,7 +455,7 @@ async function callOpenRouterStreaming(
       }
     }
   } catch (error) {
-    console.error(`OpenRouter ${model} stream read error:`, error);
+    console.error(`Oracle ${provider.id}/${model} stream read error:`, error);
     if (!fullContent) {
       const recoveryText = "The cosmic channels wavered. Please try again. ->";
       await ctx.runMutation(internal.oracle.sessions.updateStreamingContent, {
@@ -461,7 +474,7 @@ async function callOpenRouterStreaming(
 
   if (!fullContent) {
     const emptyText = "The stars fell silent. Please try again. ->";
-    console.error(`OpenRouter ${model}: stream completed with no content`);
+    console.error(`Oracle ${provider.id}/${model}: stream completed with no content`);
     await ctx.runMutation(internal.oracle.sessions.updateStreamingContent, {
       messageId,
       content: emptyText,
@@ -479,7 +492,7 @@ async function callOpenRouterStreaming(
     messageId,
     sessionId,
     content: fullContent,
-    modelUsed: model,
+    modelUsed: `${provider.id}/${model}`,
     promptTokens,
     completionTokens,
     fallbackTierUsed: tier,
@@ -487,4 +500,3 @@ async function callOpenRouterStreaming(
 
   return { content: fullContent, promptTokens, completionTokens };
 }
-

@@ -30,6 +30,7 @@ import type * as oracle_sessions from "../oracle/sessions.js";
 import type * as oracle_settings from "../oracle/settings.js";
 import type * as oracle_soul from "../oracle/soul.js";
 import type * as oracle_templates from "../oracle/templates.js";
+import type * as oracle_upsertProviders from "../oracle/upsertProviders.js";
 import type * as referrals from "../referrals.js";
 import type * as users from "../users.js";
 
@@ -62,6 +63,7 @@ declare const fullApi: ApiFromModules<{
   "oracle/settings": typeof oracle_settings;
   "oracle/soul": typeof oracle_soul;
   "oracle/templates": typeof oracle_templates;
+  "oracle/upsertProviders": typeof oracle_upsertProviders;
   referrals: typeof referrals;
   users: typeof users;
 }>;

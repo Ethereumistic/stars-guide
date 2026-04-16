@@ -427,6 +427,7 @@ export default defineSchema({
     oracle_sessions: defineTable({
         userId: v.id("users"),
         title: v.string(),                   // Auto-generated from first question (~40 chars)
+        titleIcon: v.optional(v.string()),
         categoryId: v.optional(v.id("oracle_categories")),
         templateId: v.optional(v.id("oracle_templates")),
         featureKey: v.optional(v.string()),

@@ -192,7 +192,7 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
                                 <MessageSquare className="h-3 w-3 text-white/40" />
                                 <span>Past Whispers</span>
                             </SidebarGroupLabel>
-                            <SidebarGroupContent className="h-full w-full min-w-0">
+                            <SidebarGroupContent className="h-full w-full min-w-12">
                                 <ScrollArea className="h-[calc(100%-60px)] -mr-2 pr-2 w-full min-w-0">
                                     <SidebarMenu className="w-full min-w-0">
                                         {sessions === undefined ? (
@@ -216,7 +216,7 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
                                                             isActive={isActive}
                                                             className="h-auto min-h-12 w-full min-w-0 items-start px-2.5 py-2 text-sm text-white/70 transition-colors hover:bg-white/5 hover:text-white overflow-hidden"
                                                         >
-                                                            <Link href={`/oracle/chat/${session._id}`} className="flex w-full min-w-0 items-center gap-2.5">
+                                                            <Link href={`/oracle/chat/${session._id}`} className="flex w-full min-w-0 max-w-61 items-center gap-2.5">
                                                                 <span className="flex h-6 w-6 shrink-0 items-center justify-center text-base leading-none">
                                                                     {session.categoryIcon ?? "*"}
                                                                 </span>

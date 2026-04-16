@@ -10,7 +10,15 @@ import {
   buildTokenLimitRecord,
   TOKEN_LIMIT_DEFINITIONS,
 } from "../../../../../lib/oracle/soul";
+import {
+  parseProvidersConfig,
+  parseModelChain,
+  ProviderConfig,
+  ModelChainEntry,
+} from "../../../../../lib/oracle/providers";
 import { TokenLimitsEditor } from "@/components/oracle-admin/token-limits-editor";
+import { ProviderManager } from "@/components/oracle-admin/provider-manager";
+import { ModelChainEditor } from "@/components/oracle-admin/model-chain-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,34 +38,19 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
-const MODEL_OPTIONS = [
-  { value: "arcee-ai/trinity-large-preview:free", label: "Trinity Large Preview" },
-  { value: "stepfun/step-3.5-flash:free", label: "Step 3.5 Flash" },
-  { value: "z-ai/glm-4.5-air:free", label: "GLM 4.5 Air" },
-  { value: "x-ai/grok-4.1-fast", label: "Grok 4.1 Fast" },
-  { value: "x-ai/grok-4.1", label: "Grok 4.1" },
-  { value: "NONE", label: "Disabled" },
-];
-
 export default function OracleSettingsPage() {
   const settings = useQuery(api.oracle.settings.listAllSettings);
   const upsertSetting = useMutation(api.oracle.settings.upsertSetting);
+  const upsertProviders = useMutation(api.oracle.upsertProviders.upsertProvidersConfig);
 
-  const [modelA, setModelA] = React.useState("google/gemini-2.5-flash");
-  const [modelB, setModelB] = React.useState("anthropic/claude-sonnet-4");
-  const [modelC, setModelC] = React.useState("x-ai/grok-4.1-fast");
+  const [providers, setProviders] = React.useState<ProviderConfig[]>([]);
+  const [modelChain, setModelChain] = React.useState<ModelChainEntry[]>([]);
+
   const [temperature, setTemperature] = React.useState(0.82);
   const [topP, setTopP] = React.useState(0.92);
   const [streamEnabled, setStreamEnabled] = React.useState(true);
@@ -82,9 +75,10 @@ export default function OracleSettingsPage() {
     }
 
     const get = (key: string) => settings.find((setting) => setting.key === key)?.value;
-    setModelA(get("model_a") ?? "google/gemini-2.5-flash");
-    setModelB(get("model_b") ?? "anthropic/claude-sonnet-4");
-    setModelC(get("model_c") ?? "x-ai/grok-4.1-fast");
+    
+    setProviders(parseProvidersConfig(get("providers_config")));
+    setModelChain(parseModelChain(get("model_chain")));
+
     setTemperature(Number.parseFloat(get("temperature") ?? "0.82"));
     setTopP(Number.parseFloat(get("top_p") ?? "0.92"));
     setStreamEnabled(get("stream_enabled") !== "false");
@@ -120,6 +114,25 @@ export default function OracleSettingsPage() {
     }
   }
 
+  async function saveProvidersAndChain(providersToSave: ProviderConfig[], chainToSave: ModelChainEntry[], savingState: string, successMessage: string) {
+    setSavingKey(savingState);
+    try {
+      await upsertProviders({
+        providersConfig: JSON.stringify(providersToSave),
+        modelChain: JSON.stringify(chainToSave),
+      });
+      toast.success(successMessage);
+      
+      // Update local state proactively
+      setProviders(providersToSave);
+      setModelChain(chainToSave);
+    } catch (error: any) {
+      toast.error(error?.message ?? "Failed to save provider config");
+    } finally {
+      setSavingKey(null);
+    }
+  }
+
   if (!settings) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -142,40 +155,79 @@ export default function OracleSettingsPage() {
         </Link>
       </div>
 
-      <Tabs defaultValue="model" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="providers" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="providers">Providers</TabsTrigger>
           <TabsTrigger value="model">Model</TabsTrigger>
           <TabsTrigger value="tokens">Token Limits</TabsTrigger>
           <TabsTrigger value="quota">Quotas</TabsTrigger>
           <TabsTrigger value="ops">Operations</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="providers" className="space-y-4">
+          <Card className="border-border/50 bg-card/50">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="text-base">Inference Providers</CardTitle>
+                <CardDescription>Configure external API endpoints and keys.</CardDescription>
+              </div>
+              <Button
+                onClick={() => saveProvidersAndChain(providers, modelChain, "providers", "Providers saved successfully")}
+                disabled={savingKey === "providers"}
+                size="sm"
+                className="gap-2"
+              >
+                <Save className="h-4 w-4" />
+                {savingKey === "providers" ? "Saving..." : "Save Providers"}
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <ProviderManager providers={providers} onChange={setProviders} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="model" className="space-y-4">
           <Card className="border-border/50 bg-card/50">
-            <CardHeader>
-              <CardTitle className="text-base">Model Fallback Chain</CardTitle>
-              <CardDescription>
-                Oracle tries A, then B, then C. Token ceiling now lives in the Token Limits tab.
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="text-base">Model Fallback Chain</CardTitle>
+                <CardDescription>
+                  Oracle tries models in order. Drag to reorder, use dropdowns to add.
+                </CardDescription>
+              </div>
+              <Button
+                onClick={async () => {
+                  setSavingKey("model_chain");
+                  try {
+                    await upsertProviders({
+                      providersConfig: JSON.stringify(providers),
+                      modelChain: JSON.stringify(modelChain),
+                    });
+                    
+                    await Promise.all([
+                      upsertSetting({ key: "temperature", value: String(temperature), valueType: "number", label: "Temperature", group: "model", description: "" }),
+                      upsertSetting({ key: "top_p", value: String(topP), valueType: "number", label: "Top-p", group: "model", description: "" }),
+                      upsertSetting({ key: "stream_enabled", value: String(streamEnabled), valueType: "boolean", label: "Streaming", group: "model", description: "" }),
+                    ]);
+                    
+                    toast.success("Model chain and settings saved");
+                  } catch (e: any) {
+                    toast.error(e?.message ?? "Error saving models");
+                  } finally {
+                    setSavingKey(null);
+                  }
+                }}
+                disabled={savingKey === "model_chain"}
+                size="sm"
+                className="gap-2"
+              >
+                <Save className="h-4 w-4" />
+                {savingKey === "model_chain" ? "Saving..." : "Save Model Settings"}
+              </Button>
             </CardHeader>
             <CardContent className="space-y-6">
-              {[{ label: "Primary Model", value: modelA, set: setModelA }, { label: "Fallback Model B", value: modelB, set: setModelB }, { label: "Fallback Model C", value: modelC, set: setModelC }].map((item) => (
-                <div key={item.label} className="space-y-2">
-                  <Label>{item.label}</Label>
-                  <Select value={item.value} onValueChange={item.set}>
-                    <SelectTrigger className="border-white/10 bg-black/20">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MODEL_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ))}
+              <ModelChainEditor chain={modelChain} providers={providers} onChange={setModelChain} />
 
               <div className="space-y-3">
                 <Label>Temperature: {temperature.toFixed(2)}</Label>
@@ -209,30 +261,6 @@ export default function OracleSettingsPage() {
                   <p className="mt-1 text-xs text-muted-foreground">Enable token-by-token Oracle streaming.</p>
                 </div>
                 <Switch checked={streamEnabled} onCheckedChange={setStreamEnabled} />
-              </div>
-
-              <div className="flex justify-end">
-                <Button
-                  onClick={() =>
-                    saveBatch(
-                      [
-                        { key: "model_a", value: modelA, valueType: "string", label: "Primary Model", group: "model" },
-                        { key: "model_b", value: modelB, valueType: "string", label: "Fallback Model B", group: "model" },
-                        { key: "model_c", value: modelC, valueType: "string", label: "Fallback Model C", group: "model" },
-                        { key: "temperature", value: String(temperature), valueType: "number", label: "Temperature", group: "model" },
-                        { key: "top_p", value: String(topP), valueType: "number", label: "Top-p", group: "model" },
-                        { key: "stream_enabled", value: String(streamEnabled), valueType: "boolean", label: "Streaming", group: "model" },
-                      ],
-                      "model",
-                      "Model settings saved",
-                    )
-                  }
-                  disabled={savingKey === "model"}
-                  className="gap-2"
-                >
-                  <Save className="h-4 w-4" />
-                  {savingKey === "model" ? "Saving..." : "Save Model Config"}
-                </Button>
               </div>
             </CardContent>
           </Card>
