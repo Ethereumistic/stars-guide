@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "../../../convex/_generated/api";
 import {
@@ -21,6 +21,11 @@ import {
     LayoutDashboard,
     ChevronsUpDown,
     MoreHorizontal,
+    MoreVertical,
+    Star,
+    Edit2,
+    Share,
+    Trash2,
 } from "lucide-react";
 import { GiCursedStar, GiGiftOfKnowledge } from "react-icons/gi";
 import { Logo } from "@/components/ui/logo";
@@ -108,6 +113,9 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
     const [searchOpen, setSearchOpen] = React.useState(false);
 
     const sessions = useQuery(api.oracle.sessions.getUserSessions);
+    const deleteSession = useMutation(api.oracle.sessions.deleteSession);
+    const renameSession = useMutation(api.oracle.sessions.renameSession);
+    const toggleStarSession = useMutation(api.oracle.sessions.toggleStarSession);
 
     React.useEffect(() => {
         const timer = window.setTimeout(() => setShowTopLogo(true), 40);
@@ -210,27 +218,75 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
                                             sessions.map((session) => {
                                                 const isActive = pathname?.includes(session._id);
                                                 return (
-                                                    <SidebarMenuItem key={session._id} className="group/session w-full min-w-0">
+                                                    <SidebarMenuItem key={session._id} className="group/session w-full min-w-0 relative">
                                                         <SidebarMenuButton
                                                             asChild
                                                             isActive={isActive}
                                                             className="h-auto min-h-12 w-full min-w-0 items-start px-2.5 py-2 text-sm text-white/70 transition-colors hover:bg-white/5 hover:text-white overflow-hidden"
                                                         >
-                                                            <Link href={`/oracle/chat/${session._id}`} className="flex w-full min-w-0 max-w-61 items-center gap-2.5">
+                                                            <Link href={`/oracle/chat/${session._id}`} className="flex w-full min-w-0 max-w-61 items-center gap-2.5 pr-6">
                                                                 <span className="flex h-6 w-6 shrink-0 items-center justify-center text-base leading-none">
-                                                                    {session.categoryIcon ?? "*"}
+                                                                    {session.titleIcon ?? session.categoryIcon ?? "*"}
                                                                 </span>
                                                                 <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
                                                                     <span className="min-w-0 flex-1 truncate text-sm text-white/80">{session.title}</span>
-                                                                    <span
-                                                                        className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-white/30 opacity-0 group-hover/session:opacity-100 transition-opacity hover:bg-white/10 hover:text-white/70"
-                                                                        onClick={(e) => e.preventDefault()}
-                                                                    >
-                                                                        <MoreHorizontal className="h-3.5 w-3.5" />
-                                                                    </span>
+                                                                    {session.isStarred && (
+                                                                        <Star className="shrink-0 h-3 w-3 text-galactic fill-galactic" />
+                                                                    )}
                                                                 </span>
                                                             </Link>
                                                         </SidebarMenuButton>
+
+                                                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center shrink-0 opacity-0 group-hover/session:opacity-100 transition-opacity">
+                                                            <DropdownMenuRoot>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <button className="flex h-7 w-7 items-center justify-center rounded-md text-white/30 hover:bg-white/10 hover:text-white" aria-label="Chat options">
+                                                                        <MoreVertical className="h-4 w-4" />
+                                                                    </button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent side="right" align="start" className="w-48 border-white/15 bg-background/95 text-white backdrop-blur-xl">
+                                                                    <DropdownMenuItem 
+                                                                        onClick={() => toggleStarSession({ sessionId: session._id })}
+                                                                        className="gap-2 cursor-pointer"
+                                                                    >
+                                                                        <Star className={`h-4 w-4 ${session.isStarred ? 'fill-galactic text-galactic' : ''}`} />
+                                                                        {session.isStarred ? "Unstar" : "Star"}
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem 
+                                                                        onClick={() => { 
+                                                                            const newTitle = window.prompt("Rename chat:", session.title);
+                                                                            if (newTitle && newTitle.trim() !== '') {
+                                                                                 renameSession({ sessionId: session._id, title: newTitle });
+                                                                            }
+                                                                        }}
+                                                                        className="gap-2 cursor-pointer"
+                                                                    >
+                                                                        <Edit2 className="h-4 w-4" />
+                                                                        Rename
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem 
+                                                                        onClick={() => {}}
+                                                                        className="gap-2 cursor-pointer text-white/50"
+                                                                    >
+                                                                        <Share className="h-4 w-4" />
+                                                                        Share
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuSeparator className="bg-white/10" />
+                                                                    <DropdownMenuItem 
+                                                                        onClick={() => { 
+                                                                            if (window.confirm("Delete this whisper?")) {
+                                                                                deleteSession({ sessionId: session._id });
+                                                                                if (isActive) router.push("/oracle/new");
+                                                                            }
+                                                                        }}
+                                                                        className="gap-2 cursor-pointer text-red-500 hover:text-red-400 focus:text-red-400 focus:bg-red-500/10"
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                        Delete
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenuRoot>
+                                                        </div>
                                                     </SidebarMenuItem>
                                                 );
                                             })

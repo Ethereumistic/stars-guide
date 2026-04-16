@@ -441,6 +441,7 @@ export default defineSchema({
         primaryModelUsed: v.optional(v.string()),
         // Was fallback triggered?
         usedFallback: v.optional(v.boolean()),
+        isStarred: v.optional(v.boolean()),
         createdAt: v.number(),
         updatedAt: v.number(),
         lastMessageAt: v.number(),

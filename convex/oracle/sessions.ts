@@ -1,6 +1,8 @@
-import { query, mutation, internalMutation } from "../_generated/server";
+import { query, mutation, internalMutation, action, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { api, internal } from "../_generated/api";
+import { buildProviderUrl, buildProviderHeaders } from "../../lib/oracle/providers";
 
 export const getUserSessions = query({
     args: {},
@@ -306,4 +308,193 @@ export const finalizeStreamingMessage = internalMutation({
             updatedAt: Date.now(),
         });
     },
+});
+
+export const updateSessionTitle = internalMutation({
+    args: {
+        sessionId: v.id("oracle_sessions"),
+        title: v.string(),
+        titleIcon: v.string(),
+    },
+    handler: async (ctx, args) => {
+        await ctx.db.patch(args.sessionId, {
+            title: args.title,
+            titleIcon: args.titleIcon,
+            updatedAt: Date.now(),
+        });
+    },
+});
+
+export const renameSession = mutation({
+    args: {
+        sessionId: v.id("oracle_sessions"),
+        title: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Not authenticated");
+
+        const session = await ctx.db.get(args.sessionId);
+        if (!session || session.userId !== userId) throw new Error("Session not found");
+
+        await ctx.db.patch(args.sessionId, {
+            title: args.title,
+            updatedAt: Date.now(),
+        });
+    },
+});
+
+export const toggleStarSession = mutation({
+    args: {
+        sessionId: v.id("oracle_sessions"),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Not authenticated");
+
+        const session = await ctx.db.get(args.sessionId);
+        if (!session || session.userId !== userId) throw new Error("Session not found");
+
+        await ctx.db.patch(args.sessionId, {
+            isStarred: !session.isStarred,
+            updatedAt: Date.now(),
+        });
+    },
+});
+
+export const deleteSession = mutation({
+    args: {
+        sessionId: v.id("oracle_sessions"),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Not authenticated");
+
+        const session = await ctx.db.get(args.sessionId);
+        if (!session || session.userId !== userId) throw new Error("Session not found");
+
+        // First find related messages
+        const messages = await ctx.db
+            .query("oracle_messages")
+            .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+            .collect();
+        
+        for (const message of messages) {
+            await ctx.db.delete(message._id);
+        }
+
+        // Then related follow-up answers
+        const answers = await ctx.db
+            .query("oracle_follow_up_answers")
+            .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+            .collect();
+
+        for (const answer of answers) {
+            await ctx.db.delete(answer._id);
+        }
+
+        await ctx.db.delete(args.sessionId);
+    },
+});
+
+export const getFirstQuestion = internalQuery({
+    args: { sessionId: v.id("oracle_sessions") },
+    handler: async (ctx, { sessionId }) => {
+        const msg = await ctx.db
+            .query("oracle_messages")
+            .withIndex("by_session_created", (q) => q.eq("sessionId", sessionId))
+            .first();
+        return msg?.content;
+    }
+});
+
+export const generateSessionTitle = action({
+    args: {
+        sessionId: v.id("oracle_sessions"),
+    },
+    handler: async (ctx, args) => {
+        const questionText = await ctx.runQuery(internal.oracle.sessions.getFirstQuestion, {
+            sessionId: args.sessionId,
+        });
+
+        if (!questionText) return;
+
+        const runtimeSettings = await ctx.runQuery(
+            api.oracle.settings.getPromptRuntimeSettings,
+            {},
+        );
+
+        const providers = (runtimeSettings as any).providers || [];
+        const modelChain = (runtimeSettings as any).modelChain || [];
+
+        const systemPrompt = `You are a helpful assistant that generates a short, engaging title and a single representative emoji for a user's question.
+Rules:
+1. Max 5 words for title.
+2. Single emoji.
+3. Output MUST be ONLY valid JSON in format: {"title": "Title Here", "icon": "🔮"}`;
+
+        const config = {
+            temperature: 0.3,
+            maxTokens: 50,
+            topP: 0.9,
+        };
+
+        for (let i = 0; i < modelChain.length; i++) {
+            const entry = modelChain[i];
+            const provider = providers.find((p: any) => p.id === entry.providerId);
+            if (!provider) continue;
+
+            const apiKey = process.env[provider.apiKeyEnvVar];
+            if (provider.type !== "ollama" && !apiKey) continue;
+
+            const messages = [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: `Question: ${questionText}` }
+            ];
+
+            const url = buildProviderUrl(provider);
+            const headers = buildProviderHeaders(provider, apiKey);
+
+            try {
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers,
+                    body: JSON.stringify({
+                        model: entry.model,
+                        messages,
+                        temperature: config.temperature,
+                        max_tokens: config.maxTokens,
+                        top_p: config.topP,
+                        response_format: { type: "json_object" },
+                    })
+                });
+
+                if (!response.ok) continue;
+
+                const data = await response.json();
+                const content = (data as any).choices?.[0]?.message?.content;
+                
+                if (content) {
+                    try {
+                        const parsed = JSON.parse(content);
+                        const cleanTitle = parsed.title?.replace(/["']/g, "") || "New Reading";
+                        const emojiStr = parsed.icon || "✨";
+                        const iconArray = Array.from(emojiStr);
+                        const cleanIcon = typeof iconArray[0] === 'string' ? iconArray[0] : "✨";
+                        
+                        await ctx.runMutation(internal.oracle.sessions.updateSessionTitle, {
+                            sessionId: args.sessionId,
+                            title: cleanTitle,
+                            titleIcon: cleanIcon
+                        });
+                        return; // Done
+                    } catch (e) {
+                        console.error("Failed to parse JSON for title generation", e);
+                    }
+                }
+            } catch (err) {
+                console.error("Title generation fail for provider:", provider.id, err);
+            }
+        }
+    }
 });
