@@ -16,9 +16,7 @@ export default function Home() {
 
 			<div className="max-w-[1600px] mx-auto w-full px-6 md:px-12 py-24 md:py-32 space-y-24 md:space-y-32">
 				<CosmicToday
-					debugRetrogradePlanet="mercury"
-					debugStartDate="2026-03-15"
-					debugEndDate="2026-05-11"
+				// debugRetrogradePlanet="mercury"
 				/>
 				<LiveSkyRadar />
 			</div>

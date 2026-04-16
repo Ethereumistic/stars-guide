@@ -87,6 +87,34 @@ export default function OracleChatPage() {
     const saveFollowUpAnswer = useMutation(api.oracle.sessions.saveFollowUpAnswer);
     const updateSessionFeatureMutation = useMutation(api.oracle.sessions.updateSessionFeature);
     const invokeOracle = useAction(api.oracle.llm.invokeOracle);
+    const generateTitle = useAction(api.oracle.sessions.generateSessionTitle);
+
+    // Track whether we've already triggered title generation for this session
+    const titleGenTriggeredRef = useRef(false);
+
+    // Reset title gen tracking when session changes
+    useEffect(() => {
+        titleGenTriggeredRef.current = false;
+    }, [sessionId]);
+
+    // Trigger AI title generation after the first Oracle response completes
+    useEffect(() => {
+        if (isStreaming) return;
+        if (!sessionData) return;
+        if (titleGenTriggeredRef.current) return;
+        // Skip if AI already assigned a title
+        if (sessionData.titleIcon) return;
+
+        const hasCompleteAssistant = sessionData.messages.some(
+            (m) => m.role === "assistant" && m.content.length > 20
+        );
+        if (!hasCompleteAssistant) return;
+
+        titleGenTriggeredRef.current = true;
+        generateTitle({ sessionId }).catch((err) =>
+            console.error("Title generation failed:", err)
+        );
+    }, [isStreaming, sessionData, sessionId]);
 
     useEffect(() => {
         if (sessionData === null) {

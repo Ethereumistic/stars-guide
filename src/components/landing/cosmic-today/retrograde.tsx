@@ -57,15 +57,9 @@ interface RetrogradeProps {
     planetName: string;
     telemetry: PlanetTelemetry;
     signData: typeof compositionalSigns[number];
-    /** Force retrograde display for debugging, even if planet isn't actually retrograde. */
-    debug?: boolean;
-    /** Override end date for visual testing (e.g. "2026-05-15"). */
-    debugEndDate?: string;
-    /** Override start date for visual testing (e.g. "2026-03-15"). */
-    debugStartDate?: string;
 }
 
-export function Retrograde({ planetId, planetName, telemetry, signData, debug, debugEndDate, debugStartDate }: RetrogradeProps) {
+export function Retrograde({ planetId, planetName, telemetry, signData }: RetrogradeProps) {
     const planetUi = planetUIConfig[planetId];
     const signUi = zodiacUIConfig[telemetry.signId];
     const elementUi = elementUIConfig[signData.element];
@@ -82,8 +76,8 @@ export function Retrograde({ planetId, planetName, telemetry, signData, debug, d
     useEffect(() => {
         const now = new Date();
 
-        const end = debugEndDate ? new Date(debugEndDate) : findRetrogradeEndDate(planetId, now);
-        const start = debugStartDate ? new Date(debugStartDate) : findRetrogradeStartDate(planetId, now);
+        const end = findRetrogradeEndDate(planetId, now);
+        const start = findRetrogradeStartDate(planetId, now);
 
         setEndDate(end);
         setStartDate(start);
@@ -93,7 +87,7 @@ export function Retrograde({ planetId, planetName, telemetry, signData, debug, d
             const elapsed = daysBetween(start, now);
             setProgress(Math.max(0, Math.min(100, (elapsed / totalDays) * 100)));
         }
-    }, [planetId, debugEndDate, debugStartDate]);
+    }, [planetId]);
 
     const daysLeft = endDate ? daysBetween(new Date(), endDate) : null;
 

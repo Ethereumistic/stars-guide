@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, MessageCircle, PenSquare, Search, X } from "lucide-react";
+import { Loader2, PenSquare, Search, X } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 type SessionItem = {
     _id: string;
     title: string;
+    titleIcon?: string | null;
     lastMessageAt: number;
 };
 
@@ -179,7 +180,7 @@ export function OracleChatSearchModal({
                                             "text-white/90 hover:bg-white/8"
                                         )}
                                     >
-                                        <MessageCircle className="h-4 w-4 shrink-0 text-white/70" />
+                                    <span className="shrink-0 text-base leading-none">{session.titleIcon ?? "✨"}</span>
                                         <span className="truncate">{session.title}</span>
                                     </button>
                                 ))}

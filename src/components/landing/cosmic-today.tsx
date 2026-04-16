@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { motion } from "motion/react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import * as Astronomy from "astronomy-engine";
 import { getPlanetTelemetry, type PlanetTelemetry } from "@/lib/planets/telemetry";
 import { planetUIConfig } from "@/config/planet-ui";
@@ -10,10 +8,10 @@ import { compositionalSigns } from "@/astrology/signs";
 import { zodiacUIConfig } from "@/config/zodiac-ui";
 import { elementUIConfig } from "@/config/elements-ui";
 import { ElementType } from "@/astrology/elements";
-import { TbArrowRight } from "react-icons/tb";
 import { SignSeason } from "./cosmic-today/sign-season";
 import { LunarPhase } from "./cosmic-today/lunar-phase";
 import { Retrograde } from "./cosmic-today/retrograde";
+import { CosmicConnections } from "./cosmic-today/cosmic-connections";
 
 const PLANET_IDS = ["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune", "pluto"] as const;
 
@@ -21,10 +19,7 @@ interface TransitEntry {
     id: string;
     name: string;
     telemetry: PlanetTelemetry;
-    signName: string;
     signData: typeof compositionalSigns[number];
-    signIcon: typeof zodiacUIConfig[string]["icon"];
-    elementStyles: typeof elementUIConfig[ElementType]["styles"];
 }
 
 function getMoonPhaseInfo(phaseAngle: number): { name: string; illumination: number } {
@@ -39,121 +34,75 @@ function getMoonPhaseInfo(phaseAngle: number): { name: string; illumination: num
     return { name: "Waning Crescent", illumination: illum };
 }
 
-interface CosmicTodayProps {
-    /** Force a retrograde card for debugging. Pass a planet ID to fake it. The debug props are passed to the Retrograde component. */
-    debugRetrogradePlanet?: string;
-    debugEndDate?: string;
-    debugStartDate?: string;
+/**
+ * Build a TransitEntry for a given planet ID. Returns null if data is missing.
+ */
+function buildTransitEntry(id: string): TransitEntry | null {
+    const t = getPlanetTelemetry(id, new Date());
+    const ui = planetUIConfig[id];
+    if (!t || !ui) return null;
+    const sign = compositionalSigns.find(s => s.id === t.signId);
+    const signUi = zodiacUIConfig[t.signId];
+    if (!sign || !signUi) return null;
+    return {
+        id,
+        name: id.charAt(0).toUpperCase() + id.slice(1),
+        telemetry: t,
+        signData: sign,
+    };
 }
 
-export function CosmicToday({ debugRetrogradePlanet, debugEndDate, debugStartDate }: CosmicTodayProps = {}) {
+export interface CosmicTodayProps {
+    /**
+     * Force a retrograde card for a planet, even if it's not currently retrograde.
+     * Set to a planet ID like "mercury" to debug. Remove or set to undefined to go live.
+     */
+    debugRetrogradePlanet?: string;
+}
+
+export function CosmicToday({ debugRetrogradePlanet }: CosmicTodayProps = {}) {
     const [transits, setTransits] = useState<TransitEntry[]>([]);
     const [moonPhase, setMoonPhase] = useState<{ name: string; illumination: number } | null>(null);
     const [moonPhaseAngle, setMoonPhaseAngle] = useState<number>(0);
     const [sunEntry, setSunEntry] = useState<TransitEntry | null>(null);
     const [moonEntry, setMoonEntry] = useState<TransitEntry | null>(null);
 
-    const [debugRetroEntry, setDebugRetroEntry] = useState<TransitEntry | null>(null);
-
     useEffect(() => {
         const now = new Date();
         const results: TransitEntry[] = [];
 
         for (const id of PLANET_IDS) {
-            const t = getPlanetTelemetry(id, now);
-            const ui = planetUIConfig[id];
-            if (!t || !ui) continue;
-            const sign = compositionalSigns.find(s => s.id === t.signId);
-            const signUi = zodiacUIConfig[t.signId];
-            const elUi = elementUIConfig[sign?.element ?? "Fire"];
-            if (!sign || !signUi) continue;
-
-            const entry: TransitEntry = {
-                id,
-                name: id.charAt(0).toUpperCase() + id.slice(1),
-                telemetry: t,
-                signName: sign.name,
-                signData: sign,
-                signIcon: signUi.icon,
-                elementStyles: elUi.styles,
-            };
-            results.push(entry);
+            const entry = buildTransitEntry(id);
+            if (entry) results.push(entry);
         }
 
         setTransits(results);
         setSunEntry(results.find(e => e.id === "sun") ?? null);
         setMoonEntry(results.find(e => e.id === "moon") ?? null);
 
-        const moonElongation = Astronomy.MoonPhase(now); // 0–360° elongation: 0=New, 180=Full
+        const moonElongation = Astronomy.MoonPhase(now);
         const phaseInfo = getMoonPhaseInfo(moonElongation);
         setMoonPhase(phaseInfo);
         setMoonPhaseAngle(moonElongation);
     }, []);
 
-    const majorTransits = useMemo(() =>
-        transits.filter(t => ["mercury", "venus", "mars", "jupiter", "saturn"].includes(t.id)),
-        [transits]
-    );
-
-    const outerTransits = useMemo(() =>
-        transits.filter(t => ["uranus", "neptune", "pluto"].includes(t.id)),
-        [transits]
-    );
-
-    useEffect(() => {
-        if (!debugRetrogradePlanet) { setDebugRetroEntry(null); return; }
-        const now = new Date();
-        const t = getPlanetTelemetry(debugRetrogradePlanet, now);
-        const ui = planetUIConfig[debugRetrogradePlanet];
-        if (!t || !ui) { setDebugRetroEntry(null); return; }
-        const sign = compositionalSigns.find(s => s.id === t.signId);
-        const signUi = zodiacUIConfig[t.signId];
-        const elUi = elementUIConfig[sign?.element ?? "Fire"];
-        if (!sign || !signUi) { setDebugRetroEntry(null); return; }
-        setDebugRetroEntry({
-            id: debugRetrogradePlanet,
-            name: debugRetrogradePlanet.charAt(0).toUpperCase() + debugRetrogradePlanet.slice(1),
-            telemetry: t,
-            signName: sign.name,
-            signData: sign,
-            signIcon: signUi.icon,
-            elementStyles: elUi.styles,
-        });
-    }, [debugRetrogradePlanet]);
-
     if (!sunEntry) return null;
 
-    // Real retrogrades + optional debug entry (avoid duplicate)
+    // Real retrogrades (planets actually retrograde right now)
     const retrogradeEntries = transits.filter(e => e.telemetry.retrograde);
-    const hasDebugEntry = debugRetroEntry && !retrogradeEntries.some(e => e.id === debugRetroEntry.id);
-    const allRetroEntries = hasDebugEntry ? [...retrogradeEntries, debugRetroEntry!] : retrogradeEntries;
+
+    // If debug planet is set, ensure it's in the list (avoid duplicate if already retrograde)
+    const debugAlreadyRetro = retrogradeEntries.some(e => e.id === debugRetrogradePlanet);
+    let debugEntry: TransitEntry | null = null;
+    if (debugRetrogradePlanet && !debugAlreadyRetro) {
+        debugEntry = buildTransitEntry(debugRetrogradePlanet);
+    }
+
+    const allRetroEntries = [...retrogradeEntries, ...(debugEntry ? [debugEntry] : [])];
     const showGrid = allRetroEntries.length > 0;
 
     return (
         <section className="relative w-full overflow-hidden">
-            {/* Section Header */}
-            {/* <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-100px" }}
-                transition={{ duration: 0.6 }}
-                className="text-center mb-12 md:mb-16"
-            >
-                <div className="inline-flex items-center gap-2 mb-4">
-                    <span className="relative flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
-                    </span>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-green-400/80">
-                        Live Cosmic Weather
-                    </span>
-                </div>
-                <h2 className="text-3xl md:text-5xl font-serif text-foreground tracking-tight">
-                    Today in the <span className="text-primary">Sky</span>
-                </h2>
-
-            </motion.div> */}
-
             {/* ═════════════ MAIN FEATURE ═════════════ */}
             <div className={`grid grid-cols-1 gap-6 max-w-[1600px] mx-auto mb-8 ${showGrid ? "lg:grid-cols-3" : "lg:grid-cols-2"
                 }`}>
@@ -174,111 +123,19 @@ export function CosmicToday({ debugRetrogradePlanet, debugEndDate, debugStartDat
                     />
                 )}
 
-                {allRetroEntries.map((entry) => {
-                    const isDebug = debugRetrogradePlanet === entry.id && !!hasDebugEntry;
-                    return (
-                        <Retrograde
-                            key={entry.id}
-                            planetId={entry.id}
-                            planetName={entry.name}
-                            telemetry={entry.telemetry}
-                            signData={entry.signData}
-                            debug={isDebug}
-                            debugEndDate={isDebug ? debugEndDate : undefined}
-                            debugStartDate={isDebug ? debugStartDate : undefined}
-                        />
-                    );
-                })}
+                {allRetroEntries.map((entry) => (
+                    <Retrograde
+                        key={entry.id}
+                        planetId={entry.id}
+                        planetName={entry.name}
+                        telemetry={entry.telemetry}
+                        signData={entry.signData}
+                    />
+                ))}
             </div>
 
-            {/* ═════════════ TRANSITS STRIP ═════════════ */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="max-w-[1080px] mx-auto"
-            >
-                <div className="border border-white/[0.06] rounded-md overflow-hidden bg-black/20">
-                    <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
-                        <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/30">Planetary Transits</span>
-                        <div className="flex items-center gap-2">
-                            <span className="relative flex h-1.5 w-1.5">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
-                            </span>
-                            <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-green-500/60">live</span>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
-                        {majorTransits.map((entry) => {
-                            const ui = planetUIConfig[entry.id];
-                            const SignIcon = entry.signIcon;
-                            return (
-                                <Link
-                                    key={entry.id}
-                                    href={`/learn/planets/${entry.id}`}
-                                    className="group px-5 py-4 border-b border-r border-white/[0.03] last:border-r-0 hover:bg-white/[0.02] transition-colors"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        {ui?.imageUrl ? (
-                                            <img
-                                                src={ui.imageUrl}
-                                                alt={entry.name}
-                                                className="w-7 h-7 object-contain opacity-70 group-hover:opacity-100 transition-opacity"
-                                                style={{ filter: `drop-shadow(0 0 6px ${ui.themeColor}30)` }}
-                                            />
-                                        ) : (
-                                            <span className="text-lg font-serif" style={{ color: ui?.themeColor }}>{ui?.rulerSymbol}</span>
-                                        )}
-                                        <div className="min-w-0">
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="text-xs font-serif text-white/70 group-hover:text-white transition-colors">{entry.name}</span>
-                                                {entry.telemetry.retrograde && (
-                                                    <span className="text-[8px] font-mono text-orange-400 bg-orange-400/10 px-1 rounded-sm">R℞</span>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-1.5 mt-0.5">
-                                                <SignIcon className="w-2.5 h-2.5 text-white/20" />
-                                                <span className="text-[10px] font-mono text-white/40">{entry.signName}</span>
-                                                <span className="text-[9px] font-mono text-white/20">{entry.telemetry.longitude.toFixed(1)}°</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </Link>
-                            );
-                        })}
-                    </div>
-
-                    <div className="grid grid-cols-3 border-t border-white/[0.04]">
-                        {outerTransits.map((entry) => {
-                            const ui = planetUIConfig[entry.id];
-                            return (
-                                <Link
-                                    key={entry.id}
-                                    href={`/learn/planets/${entry.id}`}
-                                    className="group px-5 py-3 border-r border-white/[0.03] last:border-r-0 hover:bg-white/[0.02] transition-colors flex items-center gap-3"
-                                >
-                                    {ui?.imageUrl ? (
-                                        <img
-                                            src={ui.imageUrl}
-                                            alt={entry.name}
-                                            className="w-5 h-5 object-contain opacity-50 group-hover:opacity-80 transition-opacity"
-                                        />
-                                    ) : (
-                                        <span className="text-sm font-serif" style={{ color: ui?.themeColor }}>{ui?.rulerSymbol}</span>
-                                    )}
-                                    <span className="text-[10px] font-mono text-white/30 group-hover:text-white/50 transition-colors">{entry.name} in {entry.signName}</span>
-                                    {entry.telemetry.retrograde && (
-                                        <span className="text-[8px] font-mono text-orange-400/60">R℞</span>
-                                    )}
-                                </Link>
-                            );
-                        })}
-                    </div>
-                </div>
-            </motion.div>
+            {/* ═════════════ COSMIC CONNECTIONS ═════════════ */}
+            <CosmicConnections />
         </section>
     );
 }

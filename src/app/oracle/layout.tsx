@@ -20,13 +20,14 @@ import {
     Settings,
     LayoutDashboard,
     ChevronsUpDown,
+    MoreHorizontal,
 } from "lucide-react";
 import { GiCursedStar, GiGiftOfKnowledge } from "react-icons/gi";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-    DropdownMenu,
+    DropdownMenu as DropdownMenuRoot,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
@@ -186,14 +187,14 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
                             </SidebarMenuItem>
                         </SidebarMenu>
 
-                        <SidebarGroup className="mt-2 min-h-0 flex-1 group-data-[collapsible=icon]:hidden">
+                        <SidebarGroup className="mt-2 min-h-0 flex-1 w-full min-w-0 group-data-[collapsible=icon]:hidden">
                             <SidebarGroupLabel className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-white/40">
                                 <MessageSquare className="h-3 w-3 text-white/40" />
                                 <span>Past Whispers</span>
                             </SidebarGroupLabel>
-                            <SidebarGroupContent className="h-full">
-                                <ScrollArea className="h-[calc(100%-60px)] -mr-2 pr-2">
-                                    <SidebarMenu>
+                            <SidebarGroupContent className="h-full w-full min-w-0">
+                                <ScrollArea className="h-[calc(100%-60px)] -mr-2 pr-2 w-full min-w-0">
+                                    <SidebarMenu className="w-full min-w-0">
                                         {sessions === undefined ? (
                                             <div className="flex items-center justify-center py-4">
                                                 <Loader2 className="h-4 w-4 animate-spin text-white/30" />
@@ -209,20 +210,23 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
                                             sessions.map((session) => {
                                                 const isActive = pathname?.includes(session._id);
                                                 return (
-                                                    <SidebarMenuItem key={session._id}>
+                                                    <SidebarMenuItem key={session._id} className="group/session w-full min-w-0">
                                                         <SidebarMenuButton
                                                             asChild
                                                             isActive={isActive}
-                                                            className="h-auto min-h-12 items-start px-2.5 py-2 text-sm text-white/70 transition-colors hover:bg-white/5 hover:text-white overflow-hidden"
+                                                            className="h-auto min-h-12 w-full min-w-0 items-start px-2.5 py-2 text-sm text-white/70 transition-colors hover:bg-white/5 hover:text-white overflow-hidden"
                                                         >
                                                             <Link href={`/oracle/chat/${session._id}`} className="flex w-full min-w-0 items-center gap-2.5">
                                                                 <span className="flex h-6 w-6 shrink-0 items-center justify-center text-base leading-none">
                                                                     {session.categoryIcon ?? "*"}
                                                                 </span>
-                                                                <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 leading-tight group-data-[collapsible=icon]:hidden">
-                                                                    <span className="truncate max-w-[25ch] text-sm text-white/80">{session.title}</span>
-                                                                    <span className="text-[10px] text-white/35">
-                                                                        {formatRelativeTime(session.lastMessageAt)}
+                                                                <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                                                                    <span className="min-w-0 flex-1 truncate text-sm text-white/80">{session.title}</span>
+                                                                    <span
+                                                                        className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md text-white/30 opacity-0 group-hover/session:opacity-100 transition-opacity hover:bg-white/10 hover:text-white/70"
+                                                                        onClick={(e) => e.preventDefault()}
+                                                                    >
+                                                                        <MoreHorizontal className="h-3.5 w-3.5" />
                                                                     </span>
                                                                 </span>
                                                             </Link>
@@ -240,7 +244,7 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
 
                     <SidebarSeparator className="mx-2 bg-white/10" />
                     <SidebarFooter className="p-2">
-                        <DropdownMenu>
+                        <DropdownMenuRoot>
                             <DropdownMenuTrigger asChild>
                                 <Button
                                     variant="ghost"
@@ -308,7 +312,7 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
                                     Log out
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
-                        </DropdownMenu>
+                        </DropdownMenuRoot>
                     </SidebarFooter>
                 </Sidebar>
 
