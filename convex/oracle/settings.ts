@@ -8,6 +8,7 @@ import {
 import {
   parseProvidersConfig,
   parseModelChain,
+  parseTitleChain,
   type ProviderConfig,
   type ModelChainEntry,
 } from "../../lib/oracle/providers";
@@ -67,6 +68,7 @@ export const getPromptRuntimeSettings = query({
 
     // Model chain: prefer new JSON-based chain, fall back to old model_a/b/c
     const modelChain = parseModelChain(modelMap.model_chain);
+    const titleChain = parseTitleChain(modelMap.title_generation_chain);
     const providers = parseProvidersConfig(providerMap.providers_config);
 
     // DEPRECATED FALLBACK: If model_chain is just defaults but legacy model_a/b/c have been customized,
@@ -105,6 +107,7 @@ export const getPromptRuntimeSettings = query({
       },
       providers,
       modelChain: effectiveModelChain,
+      titleChain,
     };
   },
 });

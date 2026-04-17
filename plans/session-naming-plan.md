@@ -202,3 +202,4 @@ These models are suitable for title generation — they are cheap, fast, and com
 | `mistralai/mistral-small-3.1-24b-instruct:free` | OpenRouter | Free | Another free option |
 
 The default chain should be a single entry: `[{ providerId: "openrouter", model: "stepfun/step-3.5-flash:free" }]` — it costs fractions of a cent per request and responds in under 500ms. Admins can add a free model like `google/gemini-2.5-flash:free` as Tier B fallback if desired.
+

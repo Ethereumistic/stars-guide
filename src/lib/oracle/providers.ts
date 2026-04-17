@@ -37,6 +37,10 @@ export const DEFAULT_MODEL_CHAIN: ModelChainEntry[] = [
   { providerId: "openrouter", model: "x-ai/grok-4.1-fast" },
 ];
 
+export const DEFAULT_TITLE_CHAIN: ModelChainEntry[] = [
+  { providerId: "openrouter", model: "stepfun/step-3.5-flash:free" },
+];
+
 /**
  * Tier labels for the first N chain entries.
  * Index 0 => "A", 1 => "B", ... 25 => "Z"
@@ -79,6 +83,22 @@ export function parseModelChain(raw: string | undefined): ModelChainEntry[] {
     return validated.length > 0 ? (validated as ModelChainEntry[]) : DEFAULT_MODEL_CHAIN;
   } catch {
     return DEFAULT_MODEL_CHAIN;
+  }
+}
+
+export function parseTitleChain(raw: string | undefined): ModelChainEntry[] {
+  if (!raw) return DEFAULT_TITLE_CHAIN;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_TITLE_CHAIN;
+    const validated = parsed.filter(e =>
+      e && typeof e === 'object' &&
+      typeof e.providerId === 'string' &&
+      typeof e.model === 'string'
+    );
+    return validated.length > 0 ? (validated as ModelChainEntry[]) : DEFAULT_TITLE_CHAIN;
+  } catch {
+    return DEFAULT_TITLE_CHAIN;
   }
 }
 

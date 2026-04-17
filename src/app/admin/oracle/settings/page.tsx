@@ -13,6 +13,7 @@ import {
 import {
   parseProvidersConfig,
   parseModelChain,
+  parseTitleChain,
   ProviderConfig,
   ModelChainEntry,
 } from "../../../../../lib/oracle/providers";
@@ -50,6 +51,7 @@ export default function OracleSettingsPage() {
 
   const [providers, setProviders] = React.useState<ProviderConfig[]>([]);
   const [modelChain, setModelChain] = React.useState<ModelChainEntry[]>([]);
+  const [titleChain, setTitleChain] = React.useState<ModelChainEntry[]>([]);
 
   const [temperature, setTemperature] = React.useState(0.82);
   const [topP, setTopP] = React.useState(0.92);
@@ -78,6 +80,7 @@ export default function OracleSettingsPage() {
     
     setProviders(parseProvidersConfig(get("providers_config")));
     setModelChain(parseModelChain(get("model_chain")));
+    setTitleChain(parseTitleChain(get("title_generation_chain")));
 
     setTemperature(Number.parseFloat(get("temperature") ?? "0.82"));
     setTopP(Number.parseFloat(get("top_p") ?? "0.92"));
@@ -114,18 +117,20 @@ export default function OracleSettingsPage() {
     }
   }
 
-  async function saveProvidersAndChain(providersToSave: ProviderConfig[], chainToSave: ModelChainEntry[], savingState: string, successMessage: string) {
+  async function saveProvidersAndChain(providersToSave: ProviderConfig[], chainToSave: ModelChainEntry[], titleChainToSave: ModelChainEntry[], savingState: string, successMessage: string) {
     setSavingKey(savingState);
     try {
       await upsertProviders({
         providersConfig: JSON.stringify(providersToSave),
         modelChain: JSON.stringify(chainToSave),
+        titleGenerationChain: JSON.stringify(titleChainToSave),
       });
       toast.success(successMessage);
       
       // Update local state proactively
       setProviders(providersToSave);
       setModelChain(chainToSave);
+      setTitleChain(titleChainToSave);
     } catch (error: any) {
       toast.error(error?.message ?? "Failed to save provider config");
     } finally {
@@ -172,7 +177,7 @@ export default function OracleSettingsPage() {
                 <CardDescription>Configure external API endpoints and keys.</CardDescription>
               </div>
               <Button
-                onClick={() => saveProvidersAndChain(providers, modelChain, "providers", "Providers saved successfully")}
+                onClick={() => saveProvidersAndChain(providers, modelChain, titleChain, "providers", "Providers saved successfully")}
                 disabled={savingKey === "providers"}
                 size="sm"
                 className="gap-2"
@@ -191,9 +196,9 @@ export default function OracleSettingsPage() {
           <Card className="border-border/50 bg-card/50">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <div>
-                <CardTitle className="text-base">Model Fallback Chain</CardTitle>
+                <CardTitle className="text-base">Model Settings</CardTitle>
                 <CardDescription>
-                  Oracle tries models in order. Drag to reorder, use dropdowns to add.
+                  Configure inference and title generation models, plus tuning parameters.
                 </CardDescription>
               </div>
               <Button
@@ -203,6 +208,7 @@ export default function OracleSettingsPage() {
                     await upsertProviders({
                       providersConfig: JSON.stringify(providers),
                       modelChain: JSON.stringify(modelChain),
+                      titleGenerationChain: JSON.stringify(titleChain),
                     });
                     
                     await Promise.all([
@@ -211,7 +217,7 @@ export default function OracleSettingsPage() {
                       upsertSetting({ key: "stream_enabled", value: String(streamEnabled), valueType: "boolean", label: "Streaming", group: "model", description: "" }),
                     ]);
                     
-                    toast.success("Model chain and settings saved");
+                    toast.success("Model settings saved");
                   } catch (e: any) {
                     toast.error(e?.message ?? "Error saving models");
                   } finally {
@@ -226,41 +232,63 @@ export default function OracleSettingsPage() {
                 {savingKey === "model_chain" ? "Saving..." : "Save Model Settings"}
               </Button>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <ModelChainEditor chain={modelChain} providers={providers} onChange={setModelChain} />
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left column — Oracle Inference */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    Oracle Inference
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Models tried in order for Oracle responses. Fallback tiers ensure resilience.
+                  </p>
+                  <ModelChainEditor chain={modelChain} providers={providers} onChange={setModelChain} />
 
-              <div className="space-y-3">
-                <Label>Temperature: {temperature.toFixed(2)}</Label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={temperature}
-                  onChange={(event) => setTemperature(Number.parseFloat(event.target.value))}
-                  className="w-full accent-galactic"
-                />
-              </div>
+                  <div className="space-y-3">
+                    <Label>Temperature: {temperature.toFixed(2)}</Label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={temperature}
+                      onChange={(event) => setTemperature(Number.parseFloat(event.target.value))}
+                      className="w-full accent-galactic"
+                    />
+                  </div>
 
-              <div className="space-y-3">
-                <Label>Top-p: {topP.toFixed(2)}</Label>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="1"
-                  step="0.01"
-                  value={topP}
-                  onChange={(event) => setTopP(Number.parseFloat(event.target.value))}
-                  className="w-full accent-galactic"
-                />
-              </div>
+                  <div className="space-y-3">
+                    <Label>Top-p: {topP.toFixed(2)}</Label>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="1"
+                      step="0.01"
+                      value={topP}
+                      onChange={(event) => setTopP(Number.parseFloat(event.target.value))}
+                      className="w-full accent-galactic"
+                    />
+                  </div>
 
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4">
-                <div>
-                  <Label>Streaming</Label>
-                  <p className="mt-1 text-xs text-muted-foreground">Enable token-by-token Oracle streaming.</p>
+                  <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div>
+                      <Label>Streaming</Label>
+                      <p className="mt-1 text-xs text-muted-foreground">Enable token-by-token Oracle streaming.</p>
+                    </div>
+                    <Switch checked={streamEnabled} onCheckedChange={setStreamEnabled} />
+                  </div>
                 </div>
-                <Switch checked={streamEnabled} onCheckedChange={setStreamEnabled} />
+
+                {/* Right column — Session Title Generation */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    Session Title Generation
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Models used to generate short titles for chat sessions. Use cheap/fast models — this is a simple task. Select models that support JSON mode.
+                  </p>
+                  <ModelChainEditor chain={titleChain} providers={providers} onChange={setTitleChain} />
+                </div>
               </div>
             </CardContent>
           </Card>

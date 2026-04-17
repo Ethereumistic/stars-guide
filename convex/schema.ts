@@ -426,7 +426,7 @@ export default defineSchema({
     // 21. ORACLE SESSIONS (User conversation sessions)
     oracle_sessions: defineTable({
         userId: v.id("users"),
-        title: v.string(),                   // Auto-generated from first question (~40 chars)
+        title: v.string(),                   // Auto-generated from first question (~40 chars) as placeholder; replaced by AI-generated title from dedicated title chain
         titleGenerated: v.optional(v.boolean()), // Set true after AI title generation, prevents re-trigger
         categoryId: v.optional(v.id("oracle_categories")),
         templateId: v.optional(v.id("oracle_templates")),

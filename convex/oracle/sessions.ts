@@ -324,6 +324,13 @@ export const updateSessionTitle = internalMutation({
     },
 });
 
+export const markTitleGenerationAttempted = internalMutation({
+    args: { sessionId: v.id("oracle_sessions") },
+    handler: async (ctx, { sessionId }) => {
+        await ctx.db.patch(sessionId, { titleGenerated: true, updatedAt: Date.now() });
+    },
+});
+
 export const renameSession = mutation({
     args: {
         sessionId: v.id("oracle_sessions"),
@@ -416,82 +423,119 @@ export const generateSessionTitle = action({
         sessionId: v.id("oracle_sessions"),
     },
     handler: async (ctx, args) => {
-        const questionText = await ctx.runQuery(internal.oracle.sessions.getFirstQuestion, {
-            sessionId: args.sessionId,
-        });
+        try {
+            const questionText = await ctx.runQuery(internal.oracle.sessions.getFirstQuestion, {
+                sessionId: args.sessionId,
+            });
 
-        if (!questionText) return;
+            if (!questionText) {
+                await ctx.runMutation(internal.oracle.sessions.markTitleGenerationAttempted, {
+                    sessionId: args.sessionId,
+                });
+                return;
+            }
 
-        const runtimeSettings = await ctx.runQuery(
-            api.oracle.settings.getPromptRuntimeSettings,
-            {},
-        );
+            const runtimeSettings = await ctx.runQuery(
+                api.oracle.settings.getPromptRuntimeSettings,
+                {},
+            );
 
-        const providers = (runtimeSettings as any).providers || [];
-        const modelChain = (runtimeSettings as any).modelChain || [];
+            const providers = (runtimeSettings as any).providers || [];
+            const titleChain = (runtimeSettings as any).titleChain || [];
 
-        const systemPrompt = `You are a helpful assistant that generates a short, engaging title for a user's question.
+            const systemPrompt = `You are a helpful assistant that generates a short, engaging title for a user's question.
 Rules:
 1. Max 5 words for title.
 2. Output MUST be ONLY valid JSON in format: {"title": "Title Here"}`;
 
-        const config = {
-            temperature: 0.3,
-            maxTokens: 50,
-            topP: 0.9,
-        };
+            for (let i = 0; i < titleChain.length; i++) {
+                const entry = titleChain[i];
+                const provider = providers.find((p: any) => p.id === entry.providerId);
+                if (!provider) {
+                    console.warn(`[Title Gen] Tier ${String.fromCharCode(65 + i)}: Skipping — provider "${entry.providerId}" not found in config.`);
+                    continue;
+                }
 
-        for (let i = 0; i < modelChain.length; i++) {
-            const entry = modelChain[i];
-            const provider = providers.find((p: any) => p.id === entry.providerId);
-            if (!provider) continue;
+                const apiKey = process.env[provider.apiKeyEnvVar];
+                if (provider.type !== "ollama" && !apiKey) {
+                    console.warn(`[Title Gen] Tier ${String.fromCharCode(65 + i)}: Skipping — API key "${provider.apiKeyEnvVar}" not set for provider "${provider.id}".`);
+                    continue;
+                }
 
-            const apiKey = process.env[provider.apiKeyEnvVar];
-            if (provider.type !== "ollama" && !apiKey) continue;
+                const messages = [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: `Question: ${questionText}` }
+                ];
 
-            const messages = [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: `Question: ${questionText}` }
-            ];
+                const url = buildProviderUrl(provider);
+                const headers = buildProviderHeaders(provider, apiKey);
 
-            const url = buildProviderUrl(provider);
-            const headers = buildProviderHeaders(provider, apiKey);
+                try {
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 15_000);
 
-            try {
-                const response = await fetch(url, {
-                    method: "POST",
-                    headers,
-                    body: JSON.stringify({
-                        model: entry.model,
-                        messages,
-                        temperature: config.temperature,
-                        max_tokens: config.maxTokens,
-                        top_p: config.topP,
-                        response_format: { type: "json_object" },
-                    })
-                });
+                    const response = await fetch(url, {
+                        method: "POST",
+                        headers,
+                        body: JSON.stringify({
+                            model: entry.model,
+                            messages,
+                            temperature: 0.2,
+                            max_tokens: 30,
+                            top_p: 0.9,
+                            response_format: { type: "json_object" },
+                        }),
+                        signal: controller.signal,
+                    });
 
-                if (!response.ok) continue;
+                    clearTimeout(timeout);
 
-                const data = await response.json();
-                const content = (data as any).choices?.[0]?.message?.content;
-                
-                if (content) {
-                    try {
-                        const parsed = JSON.parse(content);
-                        const cleanTitle = parsed.title?.replace(/["']/g, "") || "New Reading";
-                        
-                        await ctx.runMutation(internal.oracle.sessions.updateSessionTitle, {
-                            sessionId: args.sessionId,
-                            title: cleanTitle,
-                        });
-                        return; // Done
-                    } catch (e) {
-                        console.error("Failed to parse JSON for title generation", e);
+                    if (!response.ok) {
+                        const body = await response.text().catch(() => "");
+                        console.warn(`[Title Gen] Tier ${String.fromCharCode(65 + i)}: HTTP ${response.status} from ${provider.id}/${entry.model} — ${body.slice(0, 200)}`);
+                        continue;
+                    }
+
+                    const data = await response.json();
+                    const content = (data as any).choices?.[0]?.message?.content;
+                    
+                    if (content) {
+                        try {
+                            const parsed = JSON.parse(content);
+                            const cleanTitle = parsed.title?.replace(/["']/g, "") || "New Reading";
+                            
+                            await ctx.runMutation(internal.oracle.sessions.updateSessionTitle, {
+                                sessionId: args.sessionId,
+                                title: cleanTitle,
+                            });
+                            return; // Success — done
+                        } catch (parseErr) {
+                            console.warn(`[Title Gen] Tier ${String.fromCharCode(65 + i)}: JSON parse failed for ${provider.id}/${entry.model}`, parseErr);
+                        }
+                    }
+                } catch (err: any) {
+                    if (err?.name === "AbortError") {
+                        console.warn(`[Title Gen] Tier ${String.fromCharCode(65 + i)}: Timeout (15s) for ${provider.id}/${entry.model}`);
+                    } else {
+                        console.warn(`[Title Gen] Tier ${String.fromCharCode(65 + i)}: Request error for ${provider.id}/${entry.model}`, err);
                     }
                 }
-            } catch (err) {
-                console.error("Title generation fail for provider:", provider.id, err);
+            }
+
+            // All tiers exhausted — mark as attempted so the client doesn't re-trigger
+            console.warn(`[Title Gen] All tiers exhausted for session ${args.sessionId}. Keeping truncated question as fallback title.`);
+            await ctx.runMutation(internal.oracle.sessions.markTitleGenerationAttempted, {
+                sessionId: args.sessionId,
+            });
+        } catch (outerErr) {
+            // Safety net — ensure titleGenerated is set even on unexpected errors
+            console.error(`[Title Gen] Unexpected error for session ${args.sessionId}:`, outerErr);
+            try {
+                await ctx.runMutation(internal.oracle.sessions.markTitleGenerationAttempted, {
+                    sessionId: args.sessionId,
+                });
+            } catch {
+                // Best effort — nothing more we can do
             }
         }
     }

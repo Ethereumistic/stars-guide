@@ -4,21 +4,25 @@ import { requireAdmin } from "../lib/adminGuard";
 import {
   parseProvidersConfig,
   parseModelChain,
+  parseTitleChain,
   validateProvidersConfig,
   validateModelChain,
 } from "../../lib/oracle/providers";
-import { internalMutation } from "../_generated/server"; // if needed, but not required based on plan
 
 export const upsertProvidersConfig = mutation({
   args: {
     providersConfig: v.string(), // JSON string of ProviderConfig[]
     modelChain: v.string(),      // JSON string of ModelChainEntry[]
+    titleGenerationChain: v.optional(v.string()), // JSON string of ModelChainEntry[] for title generation
   },
   handler: async (ctx, args) => {
     const { userId } = await requireAdmin(ctx);
 
     const parsedProviders = parseProvidersConfig(args.providersConfig);
     const parsedChain = parseModelChain(args.modelChain);
+    const parsedTitleChain = args.titleGenerationChain
+      ? parseTitleChain(args.titleGenerationChain)
+      : undefined;
 
     const providerErrors = validateProvidersConfig(parsedProviders);
     if (providerErrors.length > 0) {
@@ -28,6 +32,13 @@ export const upsertProvidersConfig = mutation({
     const chainErrors = validateModelChain(parsedChain, parsedProviders);
     if (chainErrors.length > 0) {
       throw new Error(`Model chain validation failed: ${chainErrors.join(" ")}`);
+    }
+
+    if (parsedTitleChain) {
+      const titleChainErrors = validateModelChain(parsedTitleChain, parsedProviders);
+      if (titleChainErrors.length > 0) {
+        throw new Error(`Title chain validation failed: ${titleChainErrors.join(" ")}`);
+      }
     }
 
     // Upsert providers_config
@@ -76,6 +87,32 @@ export const upsertProvidersConfig = mutation({
         updatedAt: Date.now(),
         updatedBy: userId,
       });
+    }
+
+    // Upsert title_generation_chain
+    if (args.titleGenerationChain) {
+      const existingTitleChain = await ctx.db
+        .query("oracle_settings")
+        .withIndex("by_key", (q) => q.eq("key", "title_generation_chain"))
+        .first();
+
+      if (existingTitleChain) {
+        await ctx.db.patch(existingTitleChain._id, {
+          value: args.titleGenerationChain,
+          updatedAt: Date.now(),
+          updatedBy: userId,
+        });
+      } else {
+        await ctx.db.insert("oracle_settings", {
+          key: "title_generation_chain",
+          value: args.titleGenerationChain,
+          valueType: "json",
+          label: "Title Generation Chain",
+          group: "model",
+          updatedAt: Date.now(),
+          updatedBy: userId,
+        });
+      }
     }
 
     return { ok: true };
