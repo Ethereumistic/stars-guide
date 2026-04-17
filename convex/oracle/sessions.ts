@@ -446,7 +446,8 @@ export const generateSessionTitle = action({
             const systemPrompt = `You are a helpful assistant that generates a short, engaging title for a user's question.
 Rules:
 1. Max 5 words for title.
-2. Output MUST be ONLY valid JSON in format: {"title": "Title Here"}`;
+2. Output MUST be ONLY valid JSON in format: {"title": "Title Here"}
+3. Do NOT include any thinking, reasoning, or explanation — only the JSON object.`;
 
             for (let i = 0; i < titleChain.length; i++) {
                 const entry = titleChain[i];
@@ -474,17 +475,20 @@ Rules:
                     const controller = new AbortController();
                     const timeout = setTimeout(() => controller.abort(), 15_000);
 
+                    // Build request body — omit response_format as it breaks many models
+                    // (reasoning models, older models, etc.) and parse JSON from the response instead.
+                    const requestBody: Record<string, any> = {
+                        model: entry.model,
+                        messages,
+                        temperature: 0.2,
+                        max_tokens: 100,
+                        top_p: 0.9,
+                    };
+
                     const response = await fetch(url, {
                         method: "POST",
                         headers,
-                        body: JSON.stringify({
-                            model: entry.model,
-                            messages,
-                            temperature: 0.2,
-                            max_tokens: 30,
-                            top_p: 0.9,
-                            response_format: { type: "json_object" },
-                        }),
+                        body: JSON.stringify(requestBody),
                         signal: controller.signal,
                     });
 
@@ -497,21 +501,41 @@ Rules:
                     }
 
                     const data = await response.json();
-                    const content = (data as any).choices?.[0]?.message?.content;
+                    const msg = (data as any).choices?.[0]?.message;
+                    // Some models (reasoning models via Ollama, etc.) put output in "reasoning"
+                    // or "content" — try both, preferring content.
+                    const rawContent: string = msg?.content || msg?.reasoning || "";
                     
-                    if (content) {
-                        try {
-                            const parsed = JSON.parse(content);
-                            const cleanTitle = parsed.title?.replace(/["']/g, "") || "New Reading";
-                            
-                            await ctx.runMutation(internal.oracle.sessions.updateSessionTitle, {
-                                sessionId: args.sessionId,
-                                title: cleanTitle,
-                            });
-                            return; // Success — done
-                        } catch (parseErr) {
-                            console.warn(`[Title Gen] Tier ${String.fromCharCode(65 + i)}: JSON parse failed for ${provider.id}/${entry.model}`, parseErr);
+                    if (rawContent) {
+                        // Try to extract JSON from the response — the model may wrap it in markdown or extra text
+                        const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
+                        if (jsonMatch) {
+                            try {
+                                const parsed = JSON.parse(jsonMatch[0]);
+                                const cleanTitle = parsed.title?.replace(/["']/g, "") || "New Reading";
+                                
+                                await ctx.runMutation(internal.oracle.sessions.updateSessionTitle, {
+                                    sessionId: args.sessionId,
+                                    title: cleanTitle,
+                                });
+                                return; // Success — done
+                            } catch (parseErr) {
+                                console.warn(`[Title Gen] Tier ${String.fromCharCode(65 + i)}: JSON parse failed for ${provider.id}/${entry.model}`, parseErr);
+                            }
+                        } else {
+                            // No JSON found — use the raw text as title (trimmed to 60 chars)
+                            const cleanTitle = rawContent.trim().replace(/^["']|["']$/g, "").slice(0, 60);
+                            if (cleanTitle.length > 0) {
+                                await ctx.runMutation(internal.oracle.sessions.updateSessionTitle, {
+                                    sessionId: args.sessionId,
+                                    title: cleanTitle,
+                                });
+                                return; // Success — done
+                            }
+                            console.warn(`[Title Gen] Tier ${String.fromCharCode(65 + i)}: No usable title extracted from ${provider.id}/${entry.model}`);
                         }
+                    } else {
+                        console.warn(`[Title Gen] Tier ${String.fromCharCode(65 + i)}: Empty content from ${provider.id}/${entry.model}`);
                     }
                 } catch (err: any) {
                     if (err?.name === "AbortError") {
