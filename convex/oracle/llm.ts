@@ -7,6 +7,7 @@ import { Id } from "../_generated/dataModel";
 import {
   buildPrompt,
   type ScenarioInjection,
+  parseTitleFromResponse,
 } from "../../lib/oracle/promptBuilder";
 import { buildFeatureContext } from "../../lib/oracle/featureContext";
 import {
@@ -41,6 +42,7 @@ interface LLMResponse {
   fallbackTier: string;
   promptTokens?: number;
   completionTokens?: number;
+  title?: string | null;
 }
 
 function buildUserContextBlock(params: {
@@ -290,8 +292,16 @@ export const invokeOracle = action({
             await ctx.runMutation(api.oracle.quota.incrementQuota, {});
           }
 
+          // Persist title on first response if model provided one
+          if (isFirstResponse && result.title) {
+            await ctx.runMutation(internal.oracle.sessions.updateSessionTitle, {
+              sessionId: args.sessionId,
+              title: result.title,
+            });
+          }
+
           return {
-            content: result.content,
+            content: result.contentWithoutTitle,
             modelUsed: `${provider.id}/${entry.model}`,
             fallbackTier: tier,
             promptTokens: result.promptTokens,
@@ -343,7 +353,7 @@ async function callProviderStreaming(
   conversationHistory: { role: string; content: string }[],
   sessionId: Id<"oracle_sessions">,
   tier: string,
-): Promise<{ content: string; promptTokens?: number; completionTokens?: number } | null> {
+): Promise<{ content: string; contentWithoutTitle: string; title: string | null; promptTokens?: number; completionTokens?: number } | null> {
   const apiKey = process.env[provider.apiKeyEnvVar];
 
   // Ollama (local) may not need an API key; others require one
@@ -488,15 +498,24 @@ async function callProviderStreaming(
     return null;
   }
 
+  // Parse title from the complete response before finalizing
+  const { title, contentWithoutTitle } = parseTitleFromResponse(fullContent);
+
+  // Final flush: update streaming content with the title-stripped version
+  await ctx.runMutation(internal.oracle.sessions.updateStreamingContent, {
+    messageId,
+    content: contentWithoutTitle,
+  });
+
   await ctx.runMutation(internal.oracle.sessions.finalizeStreamingMessage, {
     messageId,
     sessionId,
-    content: fullContent,
+    content: contentWithoutTitle,
     modelUsed: `${provider.id}/${model}`,
     promptTokens,
     completionTokens,
     fallbackTierUsed: tier,
   });
 
-  return { content: fullContent, promptTokens, completionTokens };
+  return { content: fullContent, contentWithoutTitle, title, promptTokens, completionTokens };
 }

@@ -195,6 +195,12 @@ dist
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,node,git
 
+### Project folders excluded from deployment ###
+plans/
+sage/
+.agents/
+docs/
+
 ### Wrangler ###
 .wrangler/
 .env*
