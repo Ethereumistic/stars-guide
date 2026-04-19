@@ -1,7 +1,6 @@
-﻿"use client";
+"use client";
 
 import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import { redirect } from "next/navigation";
 import {
     SidebarProvider,
@@ -25,14 +24,12 @@ import {
     Shield,
     Loader2,
     Anchor,
-    MessageCircle,
     Settings,
-    Tag,
-    Puzzle,
 } from "lucide-react";
 import { GiCursedStar } from "react-icons/gi";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { api } from "../../../convex/_generated/api";
 
 const adminNavItems = [
     {
@@ -74,26 +71,6 @@ const oracleNavItems = [
         icon: LayoutDashboard,
     },
     {
-        title: "Categories",
-        href: "/admin/oracle/categories",
-        icon: Tag,
-    },
-    {
-        title: "Templates",
-        href: "/admin/oracle/templates",
-        icon: MessageCircle,
-    },
-    {
-        title: "Follow-ups",
-        href: "/admin/oracle/follow-ups",
-        icon: Puzzle,
-    },
-    {
-        title: "Context & Injections",
-        href: "/admin/oracle/context-injection",
-        icon: FileText,
-    },
-    {
         title: "Settings",
         href: "/admin/oracle/settings",
         icon: Settings,
@@ -120,7 +97,7 @@ export default function AdminLayout({
         );
     }
 
-    // Layer 3: Server-side role check вЂ” redirect non-admins
+    // Layer 3: Server-side role check — redirect non-admins
     if (!user || user.role !== "admin") {
         redirect("/dashboard");
     }
@@ -223,4 +200,3 @@ export default function AdminLayout({
         </SidebarProvider>
     );
 }
-

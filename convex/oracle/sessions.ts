@@ -9,26 +9,11 @@ export const getUserSessions = query({
         const userId = await getAuthUserId(ctx);
         if (!userId) return [];
 
-        const sessions = await ctx.db
+        return await ctx.db
             .query("oracle_sessions")
             .withIndex("by_user_updated", (q) => q.eq("userId", userId))
             .order("desc")
             .take(50);
-
-        const withCategory = await Promise.all(
-            sessions.map(async (s) => {
-                const category = s.categoryId
-                    ? await ctx.db.get(s.categoryId)
-                    : null;
-                return {
-                    ...s,
-                    categoryName: category?.name ?? null,
-                    categoryIcon: category?.icon ?? null,
-                };
-            })
-        );
-
-        return withCategory;
     },
 });
 
@@ -47,32 +32,17 @@ export const getSessionWithMessages = query({
             .order("asc")
             .collect();
 
-        const followUpAnswers = await ctx.db
-            .query("oracle_follow_up_answers")
-            .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
-            .collect();
-
-        const category = session.categoryId
-            ? await ctx.db.get(session.categoryId)
-            : null;
-
         return {
             ...session,
             messages,
-            followUpAnswers,
-            categoryName: category?.name ?? null,
-            categoryIcon: category?.icon ?? null,
         };
     },
 });
 
 export const createSession = mutation({
     args: {
-        categoryId: v.optional(v.id("oracle_categories")),
-        templateId: v.optional(v.id("oracle_templates")),
         featureKey: v.optional(v.string()),
         questionText: v.string(),
-        requiresFollowUps: v.boolean(),
     },
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);
@@ -86,10 +56,8 @@ export const createSession = mutation({
         const sessionId = await ctx.db.insert("oracle_sessions", {
             userId,
             title,
-            categoryId: args.categoryId,
-            templateId: args.templateId,
             featureKey: args.featureKey,
-            status: args.requiresFollowUps ? "collecting_context" : "active",
+            status: "active",
             messageCount: 1,
             createdAt: now,
             updatedAt: now,
@@ -100,7 +68,6 @@ export const createSession = mutation({
             sessionId,
             role: "user",
             content: args.questionText,
-            isFollowUpQuestion: false,
             createdAt: now,
         });
 
@@ -114,11 +81,8 @@ export const addMessage = mutation({
         role: v.union(
             v.literal("user"),
             v.literal("assistant"),
-            v.literal("follow_up_prompt"),
         ),
         content: v.string(),
-        isFollowUpQuestion: v.optional(v.boolean()),
-        followUpId: v.optional(v.id("oracle_follow_ups")),
         modelUsed: v.optional(v.string()),
         promptTokens: v.optional(v.number()),
         completionTokens: v.optional(v.number()),
@@ -144,8 +108,6 @@ export const addMessage = mutation({
             sessionId: args.sessionId,
             role: args.role,
             content: args.content,
-            isFollowUpQuestion: args.isFollowUpQuestion ?? false,
-            followUpId: args.followUpId,
             modelUsed: args.modelUsed,
             promptTokens: args.promptTokens,
             completionTokens: args.completionTokens,
@@ -171,7 +133,6 @@ export const updateSessionStatus = mutation({
     args: {
         sessionId: v.id("oracle_sessions"),
         status: v.union(
-            v.literal("collecting_context"),
             v.literal("active"),
             v.literal("completed"),
         ),
@@ -213,32 +174,6 @@ export const updateSessionFeature = mutation({
     },
 });
 
-export const saveFollowUpAnswer = mutation({
-    args: {
-        sessionId: v.id("oracle_sessions"),
-        followUpId: v.id("oracle_follow_ups"),
-        answer: v.string(),
-        skipped: v.boolean(),
-    },
-    handler: async (ctx, args) => {
-        const userId = await getAuthUserId(ctx);
-        if (!userId) throw new Error("Not authenticated");
-
-        const session = await ctx.db.get(args.sessionId);
-        if (!session || session.userId !== userId) {
-            throw new Error("Session not found");
-        }
-
-        await ctx.db.insert("oracle_follow_up_answers", {
-            sessionId: args.sessionId,
-            followUpId: args.followUpId,
-            answer: args.answer,
-            skipped: args.skipped,
-            answeredAt: Date.now(),
-        });
-    },
-});
-
 export const createStreamingMessage = internalMutation({
     args: { sessionId: v.id("oracle_sessions") },
     handler: async (ctx, { sessionId }) => {
@@ -250,7 +185,6 @@ export const createStreamingMessage = internalMutation({
             sessionId,
             role: "assistant",
             content: "",
-            isFollowUpQuestion: false,
             createdAt: now,
         });
 
@@ -355,7 +289,6 @@ export const setSessionStarType = mutation({
         if (!session || session.userId !== userId) throw new Error("Session not found");
 
         await ctx.db.patch(args.sessionId, {
-            // "none" means unstar — clear the field entirely
             ...(args.starType === "none" || !args.starType
                 ? { starType: undefined }
                 : { starType: args.starType }),
@@ -375,7 +308,6 @@ export const deleteSession = mutation({
         const session = await ctx.db.get(args.sessionId);
         if (!session || session.userId !== userId) throw new Error("Session not found");
 
-        // First find related messages
         const messages = await ctx.db
             .query("oracle_messages")
             .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
@@ -383,16 +315,6 @@ export const deleteSession = mutation({
         
         for (const message of messages) {
             await ctx.db.delete(message._id);
-        }
-
-        // Then related follow-up answers
-        const answers = await ctx.db
-            .query("oracle_follow_up_answers")
-            .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
-            .collect();
-
-        for (const answer of answers) {
-            await ctx.db.delete(answer._id);
         }
 
         await ctx.db.delete(args.sessionId);

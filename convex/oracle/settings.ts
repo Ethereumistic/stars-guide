@@ -2,12 +2,15 @@ import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAdmin } from "../lib/adminGuard";
 import {
-  buildSoulDocRecord,
-  buildTokenLimitRecord,
+  DEFAULT_ORACLE_SOUL,
+  SOUL_DOC_KEY,
+  MAX_RESPONSE_TOKENS_DEFAULT,
+  MAX_CONTEXT_MESSAGES_DEFAULT,
 } from "../../lib/oracle/soul";
 import {
   parseProvidersConfig,
   parseModelChain,
+  DEFAULT_MODEL_CHAIN,
   type ProviderConfig,
   type ModelChainEntry,
 } from "../../lib/oracle/providers";
@@ -21,6 +24,7 @@ function toSettingsMap(
 export const getSetting = query({
   args: { key: v.string() },
   handler: async (ctx, { key }) => {
+    await requireAdmin(ctx);
     return await ctx.db
       .query("oracle_settings")
       .withIndex("by_key", (q) => q.eq("key", key))
@@ -31,6 +35,7 @@ export const getSetting = query({
 export const getSettingsByGroup = query({
   args: { group: v.string() },
   handler: async (ctx, { group }) => {
+    await requireAdmin(ctx);
     return await ctx.db
       .query("oracle_settings")
       .withIndex("by_group", (q) => q.eq("group", group))
@@ -41,6 +46,8 @@ export const getSettingsByGroup = query({
 export const getPromptRuntimeSettings = query({
   args: {},
   handler: async (ctx) => {
+    await requireAdmin(ctx);
+
     const [soulSettings, modelSettings, tokenLimitSettings, providerSettings] = await Promise.all([
       ctx.db
         .query("oracle_settings")
@@ -65,46 +72,22 @@ export const getPromptRuntimeSettings = query({
     const tokenLimitMap = toSettingsMap(tokenLimitSettings);
     const providerMap = toSettingsMap(providerSettings);
 
-    // Model chain: prefer new JSON-based chain, fall back to old model_a/b/c
     const modelChain = parseModelChain(modelMap.model_chain);
     const providers = parseProvidersConfig(providerMap.providers_config);
 
-    // DEPRECATED FALLBACK: If model_chain is just defaults but legacy model_a/b/c have been customized,
-    // build chain from legacy settings. This is kept for backward compatibility but the admin UI 
-    // now exclusively writes to model_chain and providers_config.
-    const hasCustomLegacyModels =
-      modelMap.model_a || modelMap.model_b || modelMap.model_c;
-
-    const effectiveModelChain =
-      modelMap.model_chain
-        ? modelChain
-        : hasCustomLegacyModels
-          ? [
-              ...(modelMap.model_a && modelMap.model_a !== "NONE"
-                ? [{ providerId: providers[0]?.id ?? "openrouter", model: modelMap.model_a }]
-                : []),
-              ...(modelMap.model_b && modelMap.model_b !== "NONE"
-                ? [{ providerId: providers[0]?.id ?? "openrouter", model: modelMap.model_b }]
-                : []),
-              ...(modelMap.model_c && modelMap.model_c !== "NONE"
-                ? [{ providerId: providers[0]?.id ?? "openrouter", model: modelMap.model_c }]
-                : []),
-            ]
-          : modelChain;
-
     return {
-      soulDocs: buildSoulDocRecord(soulMap),
-      tokenLimits: buildTokenLimitRecord(tokenLimitMap),
+      // Unified soul document: single string instead of 7 separate docs
+      soulDoc: soulMap[SOUL_DOC_KEY] ?? DEFAULT_ORACLE_SOUL,
+      // Simple token limits: max_response_tokens and max_context_messages
+      maxResponseTokens: Number.parseInt(tokenLimitMap.max_response_tokens ?? String(MAX_RESPONSE_TOKENS_DEFAULT), 10) || MAX_RESPONSE_TOKENS_DEFAULT,
+      maxContextMessages: Number.parseInt(tokenLimitMap.max_context_messages ?? String(MAX_CONTEXT_MESSAGES_DEFAULT), 10) || MAX_CONTEXT_MESSAGES_DEFAULT,
       modelSettings: {
-        modelA: modelMap.model_a ?? "google/gemini-2.5-flash",
-        modelB: modelMap.model_b ?? "anthropic/claude-sonnet-4",
-        modelC: modelMap.model_c ?? "x-ai/grok-4.1-fast",
         temperature: Number.parseFloat(modelMap.temperature ?? "0.82"),
         topP: Number.parseFloat(modelMap.top_p ?? "0.92"),
         streamEnabled: modelMap.stream_enabled !== "false",
       },
       providers,
-      modelChain: effectiveModelChain,
+      modelChain: modelChain.length > 0 ? modelChain : DEFAULT_MODEL_CHAIN,
     };
   },
 });

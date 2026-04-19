@@ -6,8 +6,8 @@ import { api, internal } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
 import {
   buildPrompt,
-  type ScenarioInjection,
   parseTitleFromResponse,
+  deriveTitleFromContent,
 } from "../../lib/oracle/promptBuilder";
 import { buildFeatureContext } from "../../lib/oracle/featureContext";
 import {
@@ -35,6 +35,7 @@ const CRISIS_KEYWORDS = [
 ];
 
 const STREAM_FLUSH_INTERVAL_MS = 300;
+const MAX_USER_QUESTION_LENGTH = 2000;
 
 interface LLMResponse {
   content: string;
@@ -45,48 +46,20 @@ interface LLMResponse {
   title?: string | null;
 }
 
-function buildUserContextBlock(params: {
-  categoryName: string;
-  followUpAnswers: Array<{
-    followUpId: Id<"oracle_follow_ups">;
-    answer: string;
-    skipped: boolean;
-  }>;
-  followUps: Array<{
-    _id: Id<"oracle_follow_ups">;
-    contextLabel: string;
-  }>;
-}): string {
-  if (!params.followUpAnswers.length) {
-    return "";
-  }
-
-  const followUpById = new Map(
-    params.followUps.map((followUp) => [followUp._id, followUp]),
-  );
-
-  const lines = ["---USER CONTEXT---", `Category: ${params.categoryName}`, ""];
-
-  for (const answer of params.followUpAnswers) {
-    if (answer.skipped) {
-      continue;
-    }
-
-    const followUp = followUpById.get(answer.followUpId);
-    const label = followUp?.contextLabel ?? "response";
-    lines.push(`- ${label}: ${answer.answer}`);
-  }
-
-  lines.push("---END USER CONTEXT---");
-  return lines.join("\n");
-}
-
 export const invokeOracle = action({
   args: {
     sessionId: v.id("oracle_sessions"),
     userQuestion: v.string(),
   },
   handler: async (ctx, args): Promise<LLMResponse> => {
+    // ── Input validation ──────────────────────────────────────────────────
+    if (args.userQuestion.length > MAX_USER_QUESTION_LENGTH) {
+      throw new Error(
+        `Question is too long (${args.userQuestion.length} characters). Maximum is ${MAX_USER_QUESTION_LENGTH} characters.`,
+      );
+    }
+
+    // ── Kill switch ───────────────────────────────────────────────────────
     const killSwitch = await ctx.runQuery(api.oracle.settings.getSetting, {
       key: "kill_switch",
     });
@@ -113,6 +86,7 @@ export const invokeOracle = action({
       };
     }
 
+    // ── Crisis detection ───────────────────────────────────────────────────
     const hasCrisisSignal = CRISIS_KEYWORDS.some((keyword) =>
       args.userQuestion.toLowerCase().includes(keyword),
     );
@@ -139,6 +113,7 @@ export const invokeOracle = action({
       };
     }
 
+    // ── Load session and runtime settings ─────────────────────────────────
     const session = await ctx.runQuery(api.oracle.sessions.getSessionWithMessages, {
       sessionId: args.sessionId,
     });
@@ -146,71 +121,34 @@ export const invokeOracle = action({
       throw new Error("Session not found");
     }
 
-    const runtimeSettings = await ctx.runQuery(
+    const config = await ctx.runQuery(
       api.oracle.settings.getPromptRuntimeSettings,
       {},
     );
 
-    let categoryContext = "";
-    if (session.categoryId) {
-      const categoryRecord = await ctx.runQuery(api.oracle.injections.getCategoryContext, {
-        categoryId: session.categoryId,
-      });
-      categoryContext = categoryRecord?.contextText ?? "";
-    }
-
-    let scenarioInjection: ScenarioInjection | null = null;
+    // ── Build feature injection and natal context ─────────────────────────
     let featureInjection = "";
     let natalContext = "";
-    let followUps: Array<{ _id: Id<"oracle_follow_ups">; contextLabel: string }> = [];
+
     const activeFeature = isOracleFeatureKey(session.featureKey)
       ? getOracleFeature(session.featureKey)
       : null;
 
-    if (session.templateId || activeFeature) {
-      const [injection, templateFollowUps, featureRecord] = await Promise.all([
-        session.templateId
-          ? ctx.runQuery(api.oracle.injections.getScenarioInjection, {
-              templateId: session.templateId,
-            })
-          : Promise.resolve(null),
-        session.templateId
-          ? ctx.runQuery(api.oracle.followUps.getFollowUpsByTemplate, {
-              templateId: session.templateId,
-            })
-          : Promise.resolve([]),
-        activeFeature
-          ? ctx.runQuery(api.oracle.injections.getFeatureInjection, {
-              featureKey: activeFeature.key,
-            })
+    if (activeFeature) {
+      const [featureRecord, user] = await Promise.all([
+        ctx.runQuery(api.oracle.features.getFeatureInjection, {
+          featureKey: activeFeature.key,
+        }),
+        activeFeature.requiresBirthData
+          ? ctx.runQuery(api.users.current, {})
           : Promise.resolve(null),
       ]);
 
-      if (injection) {
-        scenarioInjection = {
-          toneModifier: injection.toneModifier,
-          psychologicalFrame: injection.psychologicalFrame,
-          avoid: injection.avoid,
-          emphasize: injection.emphasize,
-          openingAcknowledgmentGuide: injection.openingAcknowledgmentGuide,
-          rawInjectionText: injection.rawInjectionText,
-          useRawText: injection.useRawText,
-        };
-      }
-
-      followUps = (templateFollowUps ?? []).map((followUp: any) => ({
-        _id: followUp._id,
-        contextLabel: followUp.contextLabel,
-      }));
       featureInjection = featureRecord?.contextText ?? "";
-    }
 
-    if (activeFeature?.requiresBirthData) {
-      const user = await ctx.runQuery(api.users.current, {});
-
-      if (user?.birthData) {
+      if (activeFeature.requiresBirthData && user?.birthData) {
         natalContext = buildFeatureContext(activeFeature.key, user.birthData);
-      } else {
+      } else if (activeFeature.requiresBirthData) {
         natalContext = [
           "[FEATURE CONTEXT]",
           `Feature: ${activeFeature.label}`,
@@ -221,45 +159,42 @@ export const invokeOracle = action({
       }
     }
 
-    const userContext = buildUserContextBlock({
-      categoryName: session.categoryName ?? "General",
-      followUpAnswers: session.followUpAnswers,
-      followUps,
-    });
-
+    // ── Build prompt (4 params instead of 7) ──────────────────────────────
     const prompt = buildPrompt({
-      soulDocs: runtimeSettings.soulDocs,
-      categoryContext,
-      scenarioInjection,
-      featureInjection,
-      natalContext,
-      userContext,
+      soulDoc: config.soulDoc,
+      featureInjection: featureInjection || null,
+      natalContext: natalContext || null,
       userQuestion: args.userQuestion,
     });
 
-    const conversationHistory = session.messages
+    // ── Conversation history (truncated to maxContextMessages) ─────────────
+    const allHistory = session.messages
       .filter((message: any) => message.role === "user" || message.role === "assistant")
       .map((message: any) => ({
         role: message.role,
         content: message.content,
       }));
 
-    const lastHistoryMessage = conversationHistory[conversationHistory.length - 1];
+    // Remove the current question from history if it's the last entry
+    const lastHistoryMessage = allHistory[allHistory.length - 1];
     const historyWithoutCurrentQuestion =
       lastHistoryMessage?.role === "user" && lastHistoryMessage.content === args.userQuestion
-        ? conversationHistory.slice(0, -1)
-        : conversationHistory;
+        ? allHistory.slice(0, -1)
+        : allHistory;
 
-    const config = {
-      temperature: runtimeSettings.modelSettings.temperature,
-      maxTokens: runtimeSettings.tokenLimits.tokens_hard_limit,
-      topP: runtimeSettings.modelSettings.topP,
-      stream: runtimeSettings.modelSettings.streamEnabled,
+    // Truncate to maxContextMessages
+    const conversationHistory = historyWithoutCurrentQuestion.slice(-config.maxContextMessages);
+
+    const llmConfig = {
+      temperature: config.modelSettings.temperature,
+      maxTokens: config.maxResponseTokens,
+      topP: config.modelSettings.topP,
+      stream: config.modelSettings.streamEnabled,
     };
 
-    // ── Multi-Provider Model Chain ──
-    const providers = runtimeSettings.providers;
-    const modelChain = runtimeSettings.modelChain;
+    // ── Multi-Provider Model Chain ─────────────────────────────────────────
+    const providers = config.providers;
+    const modelChain = config.modelChain;
 
     for (let i = 0; i < modelChain.length; i++) {
       const entry = modelChain[i];
@@ -278,8 +213,8 @@ export const invokeOracle = action({
           provider,
           entry.model,
           prompt,
-          config,
-          historyWithoutCurrentQuestion,
+          llmConfig,
+          conversationHistory,
           args.sessionId,
           tier,
         );
@@ -292,11 +227,12 @@ export const invokeOracle = action({
             await ctx.runMutation(api.oracle.quota.incrementQuota, {});
           }
 
-          // Persist title on first response if model provided one
-          if (isFirstResponse && result.title) {
+          // Persist title on first response
+          if (isFirstResponse) {
+            const title = result.title || deriveTitleFromContent(result.contentWithoutTitle);
             await ctx.runMutation(internal.oracle.sessions.updateSessionTitle, {
               sessionId: args.sessionId,
-              title: result.title,
+              title,
             });
           }
 
@@ -313,6 +249,7 @@ export const invokeOracle = action({
       }
     }
 
+    // ── Hardcoded fallback ────────────────────────────────────────────────
     const fallbackText = await ctx.runQuery(api.oracle.settings.getSetting, {
       key: "fallback_response_text",
     });
@@ -378,7 +315,7 @@ async function callProviderStreaming(
     temperature: config.temperature,
     max_tokens: config.maxTokens,
     top_p: config.topP,
-    stream: true,
+    stream: config.stream,
   };
 
   let response: Response;
@@ -404,6 +341,38 @@ async function callProviderStreaming(
     return null;
   }
 
+  // For non-streaming mode, process the complete response
+  if (!config.stream) {
+    const data: any = await response.json();
+    const content = data.choices?.[0]?.message?.content ?? "";
+    if (!content) {
+      console.error(`Oracle ${provider.id}/${model}: non-streaming response had no content`);
+      return null;
+    }
+
+    const { title, contentWithoutTitle } = parseTitleFromResponse(content);
+    const promptTokens: number | undefined = data.usage?.prompt_tokens;
+    const completionTokens: number | undefined = data.usage?.completion_tokens;
+
+    const messageId: Id<"oracle_messages"> = await ctx.runMutation(
+      internal.oracle.sessions.createStreamingMessage,
+      { sessionId },
+    );
+
+    await ctx.runMutation(internal.oracle.sessions.finalizeStreamingMessage, {
+      messageId,
+      sessionId,
+      content: contentWithoutTitle,
+      modelUsed: `${provider.id}/${model}`,
+      promptTokens,
+      completionTokens,
+      fallbackTierUsed: tier,
+    });
+
+    return { content, contentWithoutTitle, title, promptTokens, completionTokens };
+  }
+
+  // For streaming mode, process SSE chunks
   const messageId: Id<"oracle_messages"> = await ctx.runMutation(
     internal.oracle.sessions.createStreamingMessage,
     { sessionId },

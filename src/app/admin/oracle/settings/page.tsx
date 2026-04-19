@@ -1,14 +1,14 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
 import { Loader2, Save, AlertTriangle, CheckCircle } from "lucide-react";
 import { api } from "../../../../../convex/_generated/api";
 import {
-  DEFAULT_TOKEN_LIMITS,
-  buildTokenLimitRecord,
-  TOKEN_LIMIT_DEFINITIONS,
+  DEFAULT_ORACLE_SOUL,
+  SOUL_DOC_KEY,
+  MAX_RESPONSE_TOKENS_DEFAULT,
+  MAX_CONTEXT_MESSAGES_DEFAULT,
 } from "../../../../../lib/oracle/soul";
 import {
   parseProvidersConfig,
@@ -16,10 +16,8 @@ import {
   ProviderConfig,
   ModelChainEntry,
 } from "../../../../../lib/oracle/providers";
-import { TokenLimitsEditor } from "@/components/oracle-admin/token-limits-editor";
 import { ProviderManager } from "@/components/oracle-admin/provider-manager";
 import { ModelChainEditor } from "@/components/oracle-admin/model-chain-editor";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -51,6 +49,10 @@ export default function OracleSettingsPage() {
   const [providers, setProviders] = React.useState<ProviderConfig[]>([]);
   const [modelChain, setModelChain] = React.useState<ModelChainEntry[]>([]);
 
+  const [soulDoc, setSoulDoc] = React.useState<string>(DEFAULT_ORACLE_SOUL);
+  const [maxResponseTokens, setMaxResponseTokens] = React.useState(MAX_RESPONSE_TOKENS_DEFAULT);
+  const [maxContextMessages, setMaxContextMessages] = React.useState(MAX_CONTEXT_MESSAGES_DEFAULT);
+
   const [temperature, setTemperature] = React.useState(0.82);
   const [topP, setTopP] = React.useState(0.92);
   const [streamEnabled, setStreamEnabled] = React.useState(true);
@@ -66,7 +68,6 @@ export default function OracleSettingsPage() {
     moderator: "10",
     admin: "999",
   });
-  const [tokenLimits, setTokenLimits] = React.useState(DEFAULT_TOKEN_LIMITS);
   const [savingKey, setSavingKey] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -78,6 +79,9 @@ export default function OracleSettingsPage() {
     
     setProviders(parseProvidersConfig(get("providers_config")));
     setModelChain(parseModelChain(get("model_chain")));
+    setSoulDoc(get(SOUL_DOC_KEY) ?? DEFAULT_ORACLE_SOUL);
+    setMaxResponseTokens(Number(get("max_response_tokens") ?? String(MAX_RESPONSE_TOKENS_DEFAULT)));
+    setMaxContextMessages(Number(get("max_context_messages") ?? String(MAX_CONTEXT_MESSAGES_DEFAULT)));
 
     setTemperature(Number.parseFloat(get("temperature") ?? "0.82"));
     setTopP(Number.parseFloat(get("top_p") ?? "0.92"));
@@ -92,7 +96,6 @@ export default function OracleSettingsPage() {
       moderator: get("quota_limit_moderator") ?? "10",
       admin: get("quota_limit_admin") ?? "999",
     });
-    setTokenLimits(buildTokenLimitRecord(Object.fromEntries(settings.map((setting) => [setting.key, setting.value]))));
   }, [settings]);
 
   async function saveBatch(items: Array<{ key: string; value: string; valueType: "string" | "number" | "boolean" | "json"; label: string; group: string; description?: string }>, savingState: string, successMessage: string) {
@@ -147,22 +150,70 @@ export default function OracleSettingsPage() {
         <div>
           <h1 className="text-2xl font-serif font-bold">Oracle Settings</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Runtime models, token tiers, quotas, and operational controls.
+            Soul document, providers, model, limits, quotas, and operational controls.
           </p>
         </div>
-        <Link href="/admin/oracle/soul" className="text-sm text-galactic hover:underline">
-          Open Soul Editor
-        </Link>
       </div>
 
-      <Tabs defaultValue="providers" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+      <Tabs defaultValue="soul" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="soul">Soul</TabsTrigger>
           <TabsTrigger value="providers">Providers</TabsTrigger>
           <TabsTrigger value="model">Model</TabsTrigger>
-          <TabsTrigger value="tokens">Token Limits</TabsTrigger>
+          <TabsTrigger value="limits">Limits</TabsTrigger>
           <TabsTrigger value="quota">Quotas</TabsTrigger>
           <TabsTrigger value="ops">Operations</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="soul" className="space-y-4">
+          <Card className="border-border/50 bg-card/50">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="text-base">Soul Document</CardTitle>
+                <CardDescription>
+                  The unified instruction document that defines Oracle&apos;s identity, voice, capabilities, and constraints.
+                  Target: ~800-1200 tokens.
+                </CardDescription>
+              </div>
+              <Button
+                onClick={() =>
+                  saveBatch(
+                    [{ key: SOUL_DOC_KEY, value: soulDoc, valueType: "string", label: "Oracle Soul Document", group: "soul", description: "Unified soul document defining Oracle identity and behavior" }],
+                    "soul",
+                    "Soul document saved",
+                  )
+                }
+                disabled={savingKey === "soul"}
+                size="sm"
+                className="gap-2"
+              >
+                <Save className="h-4 w-4" />
+                {savingKey === "soul" ? "Saving..." : "Save Soul"}
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={soulDoc}
+                onChange={(e) => setSoulDoc(e.target.value)}
+                className="min-h-[500px] border-white/10 bg-black/20 font-mono text-sm leading-relaxed"
+                placeholder="Write the Oracle soul document..."
+              />
+              <div className="flex items-center justify-between mt-3">
+                <p className="text-xs text-muted-foreground">
+                  {soulDoc.length} characters
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSoulDoc(DEFAULT_ORACLE_SOUL)}
+                  className="text-xs"
+                >
+                  Restore Default
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="providers" className="space-y-4">
           <Card className="border-border/50 bg-card/50">
@@ -275,26 +326,76 @@ export default function OracleSettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="tokens" className="space-y-4">
-          <TokenLimitsEditor
-            initialValues={tokenLimits}
-            isSaving={savingKey === "token_limits"}
-            onSave={async (values) => {
-              await saveBatch(
-                Object.entries(values).map(([key, value]) => ({
-                  key,
-                  value: String(value),
-                  valueType: "number" as const,
-                  label: TOKEN_LIMIT_DEFINITIONS[key as keyof typeof TOKEN_LIMIT_DEFINITIONS].label,
-                  description: TOKEN_LIMIT_DEFINITIONS[key as keyof typeof TOKEN_LIMIT_DEFINITIONS].description,
-                  group: "token_limits",
-                })),
-                "token_limits",
-                "Token limits saved",
-              );
-              setTokenLimits(values);
-            }}
-          />
+        <TabsContent value="limits" className="space-y-4">
+          <Card className="border-border/50 bg-card/50">
+            <CardHeader>
+              <CardTitle className="text-base">Token &amp; Context Limits</CardTitle>
+              <CardDescription>
+                Two mechanically-connected limits that directly control LLM behavior.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-3">
+                  <Label htmlFor="max-response-tokens" className="text-sm font-medium">
+                    Max Response Tokens
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Sent as <code className="text-galactic/80">max_tokens</code> to the LLM. Every model call uses this ceiling.
+                  </p>
+                  <Input
+                    id="max-response-tokens"
+                    type="number"
+                    min={100}
+                    max={16000}
+                    step={100}
+                    value={maxResponseTokens}
+                    onChange={(e) => setMaxResponseTokens(Number(e.target.value))}
+                    className="border-white/10 bg-black/20"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="max-context-messages" className="text-sm font-medium">
+                    Max Context Messages
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Maximum conversation history messages included in each prompt. Prevents unbounded context growth.
+                  </p>
+                  <Input
+                    id="max-context-messages"
+                    type="number"
+                    min={2}
+                    max={100}
+                    step={2}
+                    value={maxContextMessages}
+                    onChange={(e) => setMaxContextMessages(Number(e.target.value))}
+                    className="border-white/10 bg-black/20"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={() =>
+                    saveBatch(
+                      [
+                        { key: "max_response_tokens", value: String(maxResponseTokens), valueType: "number", label: "Max Response Tokens", group: "token_limits", description: "Sent as max_tokens to the LLM" },
+                        { key: "max_context_messages", value: String(maxContextMessages), valueType: "number", label: "Max Context Messages", group: "token_limits", description: "Maximum conversation history messages per prompt" },
+                      ],
+                      "limits",
+                      "Limits saved",
+                    )
+                  }
+                  disabled={savingKey === "limits"}
+                  className="gap-2"
+                >
+                  <Save className="h-4 w-4" />
+                  {savingKey === "limits" ? "Saving..." : "Save Limits"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="quota" className="space-y-4">

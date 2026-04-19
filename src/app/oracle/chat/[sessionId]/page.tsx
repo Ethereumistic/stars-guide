@@ -8,12 +8,9 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import {
-    Send,
     Copy,
     Check,
     Loader2,
-    CalendarDays,
-    SkipForward,
     AlertTriangle,
     ArrowUpRight,
     Clock,
@@ -21,25 +18,9 @@ import {
 import { GiCursedStar } from "react-icons/gi";
 import { OracleInput } from "@/components/oracle/input/oracle-input";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { getFeatureDefaultPrompt, isImplementedFeature, type OracleFeatureKey } from "@/lib/oracle/features";
-import { useOracleStore, type FollowUpData } from "@/store/use-oracle-store";
+import { useOracleStore } from "@/store/use-oracle-store";
 import { useUserStore } from "@/store/use-user-store";
-
-const ZODIAC_SIGNS = [
-    { id: "aries", symbol: "♈", name: "Aries" },
-    { id: "taurus", symbol: "♉", name: "Taurus" },
-    { id: "gemini", symbol: "♊", name: "Gemini" },
-    { id: "cancer", symbol: "♋", name: "Cancer" },
-    { id: "leo", symbol: "♌", name: "Leo" },
-    { id: "virgo", symbol: "♍", name: "Virgo" },
-    { id: "libra", symbol: "♎", name: "Libra" },
-    { id: "scorpio", symbol: "♏", name: "Scorpio" },
-    { id: "sagittarius", symbol: "♐", name: "Sagittarius" },
-    { id: "capricorn", symbol: "♑", name: "Capricorn" },
-    { id: "aquarius", symbol: "♒", name: "Aquarius" },
-    { id: "pisces", symbol: "♓", name: "Pisces" },
-];
 
 export default function OracleChatPage() {
     const params = useParams();
@@ -47,8 +28,7 @@ export default function OracleChatPage() {
     const sessionId = params.sessionId as Id<"oracle_sessions">;
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
-    const [followUpInput, setFollowUpInput] = useState("");
-    const [dateInput, setDateInput] = useState("");
+    const [inputValue, setInputValue] = useState("");
     const [copied, setCopied] = useState<string | null>(null);
     const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null);
     const { user } = useUserStore();
@@ -58,33 +38,20 @@ export default function OracleChatPage() {
     const {
         state,
         isStreaming,
-        followUps,
-        currentFollowUpIndex,
-        followUpAnswers,
         selectedFeatureKey,
         setSessionId,
         setSelectedFeature,
         clearSelectedFeature,
         hydrateSessionFeature,
-        setOracleResponding,
         setConversationActive,
         setIsStreaming,
-        startFollowUpCollection,
-        answerFollowUp,
-        skipFollowUp,
-        advanceFollowUp,
     } = useOracleStore();
 
     const sessionData = useQuery(api.oracle.sessions.getSessionWithMessages, { sessionId });
-    const followUpsData = useQuery(
-        api.oracle.followUps.getFollowUpsByTemplate,
-        sessionData?.templateId ? { templateId: sessionData.templateId } : "skip",
-    );
     const quota = useQuery(api.oracle.quota.checkQuota);
     const quotaExhausted = quota && !quota.allowed;
 
     const addMessageMutation = useMutation(api.oracle.sessions.addMessage);
-    const saveFollowUpAnswer = useMutation(api.oracle.sessions.saveFollowUpAnswer);
     const updateSessionFeatureMutation = useMutation(api.oracle.sessions.updateSessionFeature);
     const invokeOracle = useAction(api.oracle.llm.invokeOracle);
 
@@ -99,11 +66,7 @@ export default function OracleChatPage() {
 
         const featureKey = (sessionData.featureKey as OracleFeatureKey | null) ?? null;
 
-        if (sessionData.status === "collecting_context" && followUpsData) {
-            setSessionId(sessionId);
-            hydrateSessionFeature(featureKey);
-            startFollowUpCollection(followUpsData as FollowUpData[]);
-        } else if ((sessionData.status === "active" || sessionData.status === "completed") && !initialLoadDoneRef.current) {
+        if ((sessionData.status === "active" || sessionData.status === "completed") && !initialLoadDoneRef.current) {
             initialLoadDoneRef.current = true;
             setSessionId(sessionId);
             hydrateSessionFeature(featureKey);
@@ -113,7 +76,7 @@ export default function OracleChatPage() {
             setSessionId(sessionId);
             hydrateSessionFeature(featureKey);
         }
-    }, [sessionData?.status, sessionData?.featureKey, followUpsData, hydrateSessionFeature, sessionId, setConversationActive, setSessionId, startFollowUpCollection, state]);
+    }, [sessionData?.status, sessionData?.featureKey, hydrateSessionFeature, sessionId, setConversationActive, setSessionId, state]);
 
     useEffect(() => {
         if (!sessionData?.messages || !pendingUserMessage) return;
@@ -162,7 +125,7 @@ export default function OracleChatPage() {
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [sessionData?.messages?.length, isStreaming, currentFollowUpIndex, pendingUserMessage]);
+    }, [sessionData?.messages?.length, isStreaming, pendingUserMessage]);
 
     const handleCopy = useCallback((content: string, id: string) => {
         navigator.clipboard.writeText(content);
@@ -170,52 +133,9 @@ export default function OracleChatPage() {
         setTimeout(() => setCopied(null), 2000);
     }, []);
 
-    const handleFollowUpAnswer = useCallback(async (followUpId: string, answer: string) => {
-        answerFollowUp(followUpId, answer);
-
-        await saveFollowUpAnswer({
-            sessionId,
-            followUpId: followUpId as Id<"oracle_follow_ups">,
-            answer,
-            skipped: false,
-        });
-
-        setTimeout(() => {
-            const { currentFollowUpIndex, followUps } = useOracleStore.getState();
-            if (currentFollowUpIndex < followUps.length - 1) {
-                advanceFollowUp();
-            } else {
-                setOracleResponding();
-            }
-        }, 400);
-    }, [sessionId, answerFollowUp, saveFollowUpAnswer, advanceFollowUp, setOracleResponding]);
-
-    const handleFollowUpSkip = useCallback(async (followUpId: string) => {
-        skipFollowUp(followUpId);
-
-        await saveFollowUpAnswer({
-            sessionId,
-            followUpId: followUpId as Id<"oracle_follow_ups">,
-            answer: "",
-            skipped: true,
-        });
-
-        setTimeout(() => {
-            const { currentFollowUpIndex, followUps } = useOracleStore.getState();
-            if (currentFollowUpIndex < followUps.length - 1) {
-                advanceFollowUp();
-            } else {
-                setOracleResponding();
-            }
-        }, 400);
-    }, [sessionId, skipFollowUp, saveFollowUpAnswer, advanceFollowUp, setOracleResponding]);
-
     const handleFeatureSelect = useCallback(async (featureKey: OracleFeatureKey) => {
         if (!isImplementedFeature(featureKey)) return;
 
-        // Session feature changes are persisted here on purpose. This is the single
-        // place where a mid-chat feature switch becomes the active feature for the
-        // current and future turns of this session.
         setSelectedFeature(featureKey);
         await updateSessionFeatureMutation({
             sessionId,
@@ -233,10 +153,10 @@ export default function OracleChatPage() {
     }, [clearSelectedFeature, sessionId, updateSessionFeatureMutation]);
 
     const handleSendFollowUp = useCallback(async () => {
-        const content = followUpInput.trim() || getFeatureDefaultPrompt(selectedFeatureKey);
+        const content = inputValue.trim() || getFeatureDefaultPrompt(selectedFeatureKey);
         if (!content || isStreaming) return;
 
-        setFollowUpInput("");
+        setInputValue("");
         setPendingUserMessage(content);
 
         await addMessageMutation({
@@ -258,111 +178,9 @@ export default function OracleChatPage() {
         } finally {
             setIsStreaming(false);
         }
-    }, [followUpInput, selectedFeatureKey, isStreaming, sessionId, addMessageMutation, invokeOracle, setIsStreaming]);
-    /* ─── Render a Follow-Up Answer Widget ─── */
-    const renderAnswerWidget = (fu: FollowUpData) => {
-        switch (fu.questionType) {
-            case "single_select":
-            case "multi_select":
-                return fu.options.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                        {fu.options.map((opt) => (
-                            <motion.button
-                                key={opt._id}
-                                whileHover={{ scale: 1.04 }}
-                                whileTap={{ scale: 0.96 }}
-                                onClick={() => handleFollowUpAnswer(fu._id as string, opt.value)}
-                                className="px-4 py-2.5 rounded-full border border-white/10 bg-white/5 text-sm text-white/70 hover:bg-galactic/15 hover:border-galactic/40 hover:text-white transition-all duration-300 hover:shadow-[0_0_15px_rgba(157,78,221,0.2)]"
-                            >
-                                {opt.label}
-                            </motion.button>
-                        ))}
-                    </div>
-                ) : null;
+    }, [inputValue, selectedFeatureKey, isStreaming, sessionId, addMessageMutation, invokeOracle, setIsStreaming]);
 
-            case "free_text":
-                return (
-                    <div className="flex gap-2">
-                        <Input
-                            placeholder={fu.placeholder ?? "Type your answer..."}
-                            value={followUpInput}
-                            onChange={(e) => setFollowUpInput(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter" && followUpInput.trim()) {
-                                    handleFollowUpAnswer(fu._id as string, followUpInput.trim());
-                                    setFollowUpInput("");
-                                }
-                            }}
-                            className="bg-white/5 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-galactic/30"
-                        />
-                        <Button
-                            size="sm"
-                            onClick={() => {
-                                if (followUpInput.trim()) {
-                                    handleFollowUpAnswer(fu._id as string, followUpInput.trim());
-                                    setFollowUpInput("");
-                                }
-                            }}
-                            disabled={!followUpInput.trim()}
-                            className="bg-galactic/20 hover:bg-galactic/30 text-white border-0"
-                        >
-                            <Send className="w-4 h-4" />
-                        </Button>
-                    </div>
-                );
-
-            case "date":
-                return (
-                    <div className="flex gap-2 items-center">
-                        <div className="relative flex-1">
-                            <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                            <Input
-                                type="date"
-                                value={dateInput}
-                                onChange={(e) => setDateInput(e.target.value)}
-                                className="bg-white/5 border-white/10 text-white pl-10 scheme-dark focus-visible:ring-galactic/30"
-                            />
-                        </div>
-                        <Button
-                            size="sm"
-                            onClick={() => {
-                                if (dateInput) {
-                                    handleFollowUpAnswer(fu._id as string, dateInput);
-                                    setDateInput("");
-                                }
-                            }}
-                            disabled={!dateInput}
-                            className="bg-galactic/20 hover:bg-galactic/30 text-white border-0"
-                        >
-                            <Send className="w-4 h-4" />
-                        </Button>
-                    </div>
-                );
-
-            case "sign_picker":
-                return (
-                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                        {ZODIAC_SIGNS.map((sign) => (
-                            <motion.button
-                                key={sign.id}
-                                whileHover={{ scale: 1.06 }}
-                                whileTap={{ scale: 0.94 }}
-                                onClick={() => handleFollowUpAnswer(fu._id as string, sign.name)}
-                                className="flex flex-col items-center gap-1 p-3 rounded-xl border border-white/8 bg-white/4 hover:bg-galactic/15 hover:border-galactic/40 transition-all duration-300 group"
-                            >
-                                <span className="text-2xl group-hover:scale-110 transition-transform">{sign.symbol}</span>
-                                <span className="text-[10px] tracking-wider uppercase text-white/40 group-hover:text-white/70 transition-colors">{sign.name}</span>
-                            </motion.button>
-                        ))}
-                    </div>
-                );
-
-            default:
-                return null;
-        }
-    };
-
-    // Compute countdown for daily cap (must be above early return — Rules of Hooks)
+    // Compute countdown for daily cap
     const quotaCountdown = React.useMemo(() => {
         if (!quota || quota.reason !== "daily_cap" || !quota.resetsAt) return null;
         const diff = quota.resetsAt - Date.now();
@@ -382,7 +200,7 @@ export default function OracleChatPage() {
 
     // Single source of truth: Convex reactive data + optimistic pending message
     const serverMessages = sessionData.messages.map((m) => ({
-        role: m.role as "user" | "assistant" | "follow_up_prompt",
+        role: m.role as "user" | "assistant",
         content: m.content,
         createdAt: m.createdAt,
     }));
@@ -391,25 +209,12 @@ export default function OracleChatPage() {
         : serverMessages;
 
     // Determine input bar state
-    const isInputDisabled = state === "follow_up_collection" || isStreaming || state === "oracle_responding" || !!quotaExhausted;
-    const inputPlaceholder = state === "follow_up_collection"
-        ? "Answer above to continue..."
-        : isStreaming || state === "oracle_responding"
-            ? "Oracle is speaking..."
-            : quotaExhausted
-                ? "Quota exhausted"
-                : "Ask a follow-up...";
-
-    // Filter follow-ups for conditional logic
-    const visibleFollowUps = followUps.filter((fu) => {
-        if (!fu.conditionalOnFollowUpId) return true;
-        // Show only if the conditional follow-up was answered with the expected value
-        const depAnswer = followUpAnswers[fu.conditionalOnFollowUpId as string];
-        if (!depAnswer || depAnswer === "__skipped__") return false;
-        if (fu.conditionalOnValue && depAnswer !== fu.conditionalOnValue) return false;
-        return true;
-    });
-
+    const isInputDisabled = isStreaming || state === "oracle_responding" || !!quotaExhausted;
+    const inputPlaceholder = isStreaming || state === "oracle_responding"
+        ? "Oracle is speaking..."
+        : quotaExhausted
+            ? "Quota exhausted"
+            : "Ask a follow-up...";
 
     return (
         <div className="flex-1 flex flex-col overflow-hidden z-10">
@@ -498,79 +303,6 @@ export default function OracleChatPage() {
                             })() : null}
                         </motion.div>
                     ))}
-
-                    {/* Follow-up collection UI */}
-                    <AnimatePresence>
-                        {state === "follow_up_collection" && visibleFollowUps.length > 0 && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.3, delay: 0.4 }}
-                                className="space-y-5"
-                            >
-                                {visibleFollowUps.map((fu, idx) => {
-                                    const globalIdx = followUps.indexOf(fu);
-                                    if (globalIdx > currentFollowUpIndex) return null;
-                                    const isActive = globalIdx === currentFollowUpIndex;
-                                    const answered = followUpAnswers[fu._id as string];
-
-                                    return (
-                                        <motion.div
-                                            key={fu._id}
-                                            initial={{ opacity: 0, y: 15 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ duration: 0.3, delay: 0.4 }}
-                                        >
-                                            {/* Oracle asking the follow-up */}
-                                            <div className="flex gap-3 mb-3">
-                                                <div className="shrink-0 w-8 h-8 rounded-full bg-galactic/10 border border-galactic/20 flex items-center justify-center mt-1">
-                                                    <GiCursedStar className="w-4 h-4 text-galactic/60" />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <p className="text-[10px] text-white/30 mb-1 uppercase tracking-wider">
-                                                        Question {idx + 1} of {visibleFollowUps.length}
-                                                    </p>
-                                                    <p className="text-sm text-white/70">
-                                                        {fu.questionText}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            {/* Answer widget */}
-                                            {isActive && !answered ? (
-                                                <div className="ml-11 space-y-3">
-                                                    {renderAnswerWidget(fu)}
-
-                                                    {/* Skip button for optional */}
-                                                    {!fu.isRequired && (
-                                                        <button
-                                                            onClick={() => handleFollowUpSkip(fu._id as string)}
-                                                            className="flex items-center gap-1.5 text-[11px] text-white/25 hover:text-white/50 transition-colors"
-                                                        >
-                                                            <SkipForward className="w-3 h-3" />
-                                                            Skip this question
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            ) : answered ? (
-                                                <motion.div
-                                                    className="ml-11"
-                                                    initial={{ opacity: 0, scale: 0.95 }}
-                                                    animate={{ opacity: 1, scale: 1 }}
-                                                    transition={{ duration: 0.25 }}
-                                                >
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-galactic/10 border border-galactic/20 text-sm text-galactic/80">
-                                                        <Check className="w-3 h-3" />
-                                                        {answered === "__skipped__" ? "Skipped" : answered}
-                                                    </span>
-                                                </motion.div>
-                                            ) : null}
-                                        </motion.div>
-                                    );
-                                })}
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
 
                     {/* Fallback loading: shown while isStreaming but before the streaming message appears in Convex */}
                     <AnimatePresence>
@@ -667,12 +399,12 @@ export default function OracleChatPage() {
                         <>
                             <OracleInput
                                 inputRef={inputRef}
-                                value={followUpInput}
-                                onValueChange={setFollowUpInput}
+                                value={inputValue}
+                                onValueChange={setInputValue}
                                 onSubmit={handleSendFollowUp}
                                 placeholder={inputPlaceholder}
                                 disabled={isInputDisabled}
-                                canSubmit={Boolean(followUpInput.trim() || selectedFeatureKey)}
+                                canSubmit={Boolean(inputValue.trim() || selectedFeatureKey)}
                                 featureKey={selectedFeatureKey}
                                 onFeatureSelect={handleFeatureSelect}
                                 onFeatureClear={handleFeatureClear}
@@ -686,7 +418,7 @@ export default function OracleChatPage() {
                                         }`}>
                                         {quota.remaining} question{quota.remaining !== 1 ? "s" : ""} remaining
                                         {quota.resetsAt
-                                            ? ` � resets ${new Date(quota.resetsAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
+                                            ? ` — resets ${new Date(quota.resetsAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
                                             : " (lifetime)"}
                                     </span>
                                 </div>

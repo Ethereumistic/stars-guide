@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useQuery } from "convex/react";
-import { Loader2, Activity, FileText, MessageCircle, Puzzle, Settings, Tag } from "lucide-react";
+import { Loader2, Activity, FileText, Settings } from "lucide-react";
 import { GiCursedStar } from "react-icons/gi";
 import { api } from "../../../../convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
@@ -15,11 +15,9 @@ import {
 } from "@/components/ui/card";
 
 export default function OracleOverviewPage() {
-  const categories = useQuery(api.oracle.categories.listAll);
   const settings = useQuery(api.oracle.settings.listAllSettings);
-  const soulDocs = useQuery(api.oracle.soul.getAllSoulDocs);
 
-  if (categories === undefined || settings === undefined || soulDocs === undefined) {
+  if (settings === undefined) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -29,12 +27,10 @@ export default function OracleOverviewPage() {
 
   const getSetting = (key: string) => settings.find((setting) => setting.key === key)?.value;
   const oracleEnabled = getSetting("kill_switch") !== "true";
-  const activeCategories = categories.filter((category) => category.isActive).length;
-  const hardLimit = getSetting("tokens_hard_limit") ?? "1000";
+  const maxResponseTokens = getSetting("max_response_tokens") ?? "1000";
   const modelA = getSetting("model_a") ?? "google/gemini-2.5-flash";
-  const latestSoulUpdate = [...soulDocs]
-    .filter((doc) => doc.updatedAt)
-    .sort((left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0))[0];
+  const soulDoc = getSetting("oracle_soul");
+  const soulUpdateSetting = settings.find((s) => s.key === "oracle_soul");
 
   return (
     <div className="max-w-6xl space-y-8">
@@ -44,7 +40,7 @@ export default function OracleOverviewPage() {
           <div>
             <h1 className="text-2xl font-serif font-bold">Oracle CMS</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Manage prompt architecture, soul documents, and runtime controls.
+              Manage the Oracle soul document, runtime controls, and provider configuration.
             </p>
           </div>
         </div>
@@ -63,29 +59,14 @@ export default function OracleOverviewPage() {
         <Card className="border-border/50 bg-card/50">
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
-              <Tag className="h-3.5 w-3.5" />
-              Categories
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{activeCategories}</div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {categories.length} total configured categories
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/50 bg-card/50">
-          <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-2">
               <Activity className="h-3.5 w-3.5" />
               Runtime Ceiling
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{hardLimit}</div>
+            <div className="text-3xl font-bold">{maxResponseTokens}</div>
             <p className="mt-1 text-xs text-muted-foreground">
-              hard-limit tokens on {modelA.split("/").pop()}
+              max tokens on {modelA.split("/").pop()}
             </p>
           </CardContent>
         </Card>
@@ -94,13 +75,13 @@ export default function OracleOverviewPage() {
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
               <FileText className="h-3.5 w-3.5" />
-              Soul Documents
+              Soul Document
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{soulDocs.length}</div>
+            <div className="text-3xl font-bold">{soulDoc ? "1" : "0"}</div>
             <p className="mt-1 text-xs text-muted-foreground">
-              {latestSoulUpdate?.label ?? "No soul doc saved yet"}
+              {soulDoc ? "Unified soul document active" : "No soul document saved"}
             </p>
           </CardContent>
         </Card>
@@ -114,12 +95,27 @@ export default function OracleOverviewPage() {
           </CardHeader>
           <CardContent>
             <div className="text-lg font-semibold">
-              {latestSoulUpdate?.updatedAt
-                ? new Date(latestSoulUpdate.updatedAt).toLocaleDateString()
+              {soulUpdateSetting?._creationTime
+                ? new Date(soulUpdateSetting._creationTime).toLocaleDateString()
                 : "Not saved"}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              {latestSoulUpdate?.updatedBy ?? "No editor recorded"}
+              {soulUpdateSetting?.label ?? "No editor recorded"}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/50 bg-card/50">
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-2">
+              <Activity className="h-3.5 w-3.5" />
+              Context Window
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{getSetting("max_context_messages") ?? "20"}</div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              max history messages per prompt
             </p>
           </CardContent>
         </Card>
@@ -129,35 +125,17 @@ export default function OracleOverviewPage() {
         <CardHeader>
           <CardTitle className="text-base">Quick Links</CardTitle>
           <CardDescription>
-            The highest-leverage parts of the Oracle admin surface.
+            The Oracle admin surface.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {[
               {
-                href: "/admin/oracle/soul",
-                icon: FileText,
-                title: "Soul Documents",
-                copy: "Edit the seven core prompt documents.",
-              },
-              {
                 href: "/admin/oracle/settings",
                 icon: Settings,
                 title: "Settings",
-                copy: "Tune models, token tiers, quotas, and ops.",
-              },
-              {
-                href: "/admin/oracle/templates",
-                icon: MessageCircle,
-                title: "Templates",
-                copy: "Manage seeded question entry points.",
-              },
-              {
-                href: "/admin/oracle/context-injection",
-                icon: Puzzle,
-                title: "Context & Injections",
-                copy: "Control category framing and scenario layers.",
+                copy: "Soul document, providers, model, limits, quotas, and ops.",
               },
             ].map((item) => (
               <Link key={item.href} href={item.href} className="group">
