@@ -2,9 +2,9 @@
 
 import { compositionalAspects } from "@/astrology/aspects";
 import { aspectUIConfig } from "@/config/aspects-ui";
-import Link from "next/link";
 import { useParams, notFound } from "next/navigation";
-import { TbArrowLeft, TbCircleDot, TbRuler, TbWaveSine, TbStar } from "react-icons/tb";
+import { TbCircleDot, TbRuler, TbWaveSine, TbStar } from "react-icons/tb";
+import { SystemArchiveLinkages } from "@/components/learn/system-archive-linkages";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import {
     AspectTitleBlock,
@@ -121,29 +121,7 @@ export default function AspectDetailPage() {
 
                 </div>
 
-                {/* ── Footer Linkages ─────────────────────────────────────── */}
-                <section className="border-t border-white/10 pt-24 pb-12 flex flex-col items-center">
-                    <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/30 block mb-12">
-                        System Archive Linkages
-                    </span>
-                    <div className="flex flex-wrap justify-center gap-px bg-white/10 border border-white/10 p-px rounded-md overflow-hidden">
-                        {compositionalAspects
-                            .filter(a => a.id !== data.id)
-                            .slice(0, 4)
-                            .map(a => (
-                                <Link
-                                    key={a.id}
-                                    href={`/learn/aspects/${a.id}`}
-                                    className="bg-black px-6 md:px-10 py-5 hover:bg-white/3 transition-colors group flex items-center gap-4"
-                                >
-                                    <span className="text-xs font-mono uppercase tracking-[0.2em] text-white/50 group-hover:text-white transition-colors">
-                                        {a.name}
-                                    </span>
-                                    <TbArrowLeft className="w-4 h-4 text-white/20 group-hover:text-white transition-colors rotate-180" />
-                                </Link>
-                            ))}
-                    </div>
-                </section>
+                <SystemArchiveLinkages category="aspects" currentId={data.id} />
 
             </div>
         </div>

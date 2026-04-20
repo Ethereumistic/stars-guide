@@ -1,27 +1,20 @@
 import { ORACLE_SAFETY_RULES } from "./safetyRules";
 
 /**
- * Title directive appended to every Oracle system prompt.
+ * Title directive appended to Oracle system prompts on the first message only.
  *
  * Instructs the model to output a short session title on a final line.
  * This is parsed out of the response and persisted as the session title,
  * replacing the old separate title-generation LLM chain.
  *
+ * Only included on the first response to save ~200 tokens on follow-ups.
  * The model already has full context of the question + its own answer,
  * so it produces a better title than a cold call to a separate model would.
  */
 export const ORACLE_TITLE_DIRECTIVE = [
-  "[IMPORTANT: SESSION TITLE — MANDATORY]",
-  "After your complete response, you MUST output a session title on the final line in this EXACT format:",
-  "TITLE: <4-6 word title summarizing this session>",
-  "This is a hard requirement. Do NOT skip it. Do NOT omit it. Do NOT explain it.",
-  "Rules:",
-  "- The title must be 4-6 words, concise and descriptive.",
-  "- The user will never see this title. It is metadata only. Do not reference it in your response body.",
-  "- It MUST be on the VERY LAST LINE of your output, after your complete response.",
-  "- Format: TITLE: <your title here>",
-  "- Example: if the user asks about career challenges, output: TITLE: Career Crossroads Saturn Transit",
-  "- FAILURE TO INCLUDE THE TITLE LINE IS A CRITICAL ERROR.",
+  "[SESSION TITLE]",
+  "On the very last line of your response, output: TITLE: <4-6 word session summary>",
+  "This line will be used as metadata, not shown to the user.",
 ].join("\n");
 
 export interface PromptPayload {
@@ -30,26 +23,31 @@ export interface PromptPayload {
 }
 
 /**
- * Build the system prompt: Safety Rules + Soul Doc + Feature Injection + Title Directive.
+ * Build the system prompt: Safety Rules + Soul Doc + Feature Injection + Title Directive (first response only).
  *
- * Clean 3-layer structure (4 blocks, no `---` separators between soul sections):
+ * Clean 3-layer structure (4 blocks on first response, 3 on follow-ups):
  *   1. ORACLE_SAFETY_RULES (hardcoded, always first)
  *   2. soulDoc (one unified document)
  *   3. featureInjection (if active feature has one)
- *   4. ORACLE_TITLE_DIRECTIVE (hardcoded, always last)
+ *   4. ORACLE_TITLE_DIRECTIVE (only on first response — saves ~200 tokens on follow-ups)
  */
 export function buildSystemPrompt(params: {
   soulDoc: string;
   featureInjection?: string | null;
+  isFirstResponse?: boolean;
 }): string {
-  return [
+  const blocks = [
     ORACLE_SAFETY_RULES,
     params.soulDoc,
     params.featureInjection ?? "",
-    ORACLE_TITLE_DIRECTIVE,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  ];
+
+  // Only include title directive on the first response — saves ~200 tokens on follow-ups
+  if (params.isFirstResponse !== false) {
+    blocks.push(ORACLE_TITLE_DIRECTIVE);
+  }
+
+  return blocks.filter(Boolean).join("\n\n");
 }
 
 /**
@@ -81,11 +79,13 @@ export function buildPrompt(params: {
   featureInjection?: string | null;
   natalContext?: string | null;
   userQuestion: string;
+  isFirstResponse?: boolean;
 }): PromptPayload {
   return {
     systemPrompt: buildSystemPrompt({
       soulDoc: params.soulDoc,
       featureInjection: params.featureInjection,
+      isFirstResponse: params.isFirstResponse,
     }),
     userMessage: buildUserMessage({
       natalContext: params.natalContext,

@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence, useInView } from "motion/react";
 import { GiStarSwirl } from "react-icons/gi";
-import { Check, Sparkles, Zap } from "lucide-react";
+import { Check, Zap } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { StarsBackground } from "@/components/hero/stars-background";
 import { ShootingStars } from "@/components/hero/shooting-stars";
@@ -10,38 +10,36 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Badge } from "../ui/badge";
 
+const BASE_PRICE_PER_SD = 0.10; // €0.10 per Star Dust
+
 const stardustPackages = [
     {
-        amount: 100,
+        amount: 100, // 100 SD at base price
         price: "€10",
-        unitPrice: "€0.10/SD",
+        originalPrice: null, // no discount
         discount: null,
         popular: false,
-        icon: "GiStarSwirl",
     },
     {
-        amount: 225,
+        amount: 222, // 200 SD base + 10% bonus = 222 SD (Save 10%)
         price: "€20",
-        unitPrice: "€0.089/SD",
-        discount: "Save 11%",
+        originalPrice: "€22.20",
+        discount: "Save 10%",
         popular: false,
-        icon: "✧",
     },
     {
-        amount: 550,
+        amount: 588, // 500 SD base + 15% bonus = 588 SD (Save 15%)
         price: "€50",
-        unitPrice: "€0.091/SD",
-        discount: "Save 9%",
+        originalPrice: "€58.80",
+        discount: "Save 15%",
         popular: true,
-        icon: "★",
     },
     {
-        amount: 1150,
+        amount: 1250, // 1000 SD base + 20% bonus = 1250 SD (Save 20%)
         price: "€100",
-        unitPrice: "€0.087/SD",
-        discount: "Save 13%",
+        originalPrice: "€125",
+        discount: "Save 20%",
         popular: false,
-        icon: "✪",
     },
 ];
 
@@ -196,14 +194,13 @@ export function StardustPurchaseV1() {
                                         <div className="flex items-center gap-2 mt-3">
                                             <GiStarSwirl className="size-6 text-primary drop-shadow-[0_0_8px_rgba(212,175,55,0.5)]" />
                                             <span
-                                                className="text-3xl font-serif font-bold bg-clip-text text-transparent"
+                                                className="text-5xl font-serif font-bold bg-clip-text text-transparent"
                                                 style={{
                                                     backgroundImage: "linear-gradient(135deg, #d4af37, #9d4edd)",
                                                 }}
                                             >
                                                 {stardustPackages[selectedPackage].amount}
                                             </span>
-                                            {/* <span className="text-sm font-mono text-muted-foreground ml-1">Star Dust</span> */}
                                         </div>
 
                                     </motion.div>
@@ -238,7 +235,7 @@ export function StardustPurchaseV1() {
                         <div className="mt-8 z-10 transition-transform duration-300 group-hover:-translate-y-1">
                             <Link
                                 href="/checkout/stardust"
-                                className="w-full hover:drop-shadow-[0_0_8px_rgba(212,175,55,0.3)] relative inline-flex group/btn items-center justify-center p-px mb-2 overflow-hidden text-sm font-medium rounded-xl"
+                                className="w-full hover:drop-shadow-[0_0_8px_var(--color-primary)] relative inline-flex group/btn items-center justify-center p-px mb-2 overflow-hidden text-sm font-medium rounded-xl"
                             >
                                 <Button
                                     variant="galactic"
@@ -249,7 +246,7 @@ export function StardustPurchaseV1() {
                                     <div className="flex text-lg items-center ">
                                         Buy
                                     </div>
-                                    <div className="drop-shadow-[0_0_15px_rgba(212,175,55,0.6)] group-hover:scale-120 transition-all duration-[2000ms]">
+                                    <div className="drop-shadow-[0_0_15px_var(--color-primary)] group-hover:scale-120 transition-all duration-[2000ms]">
                                         <GiStarSwirl className="size-7 text-primary" />
                                     </div>
                                     <div className="text-xl bg-clip-text text-transparent bg-gradient-to-r from-primary to-galactic">
@@ -274,9 +271,9 @@ export function StardustPurchaseV1() {
                         background: "linear-gradient(160deg, rgba(10,15,26,0.92) 0%, rgba(18,10,30,0.95) 100%)",
                     }}
                 >
-                    {/* Animated aurora border — toned down */}
+                    {/* Subtle aurora glow */}
                     <div
-                        className="absolute inset-0 -z-10 rounded-md opacity-15 group-hover:opacity-25 transition-opacity duration-1000 blur-xl"
+                        className="absolute inset-0 -z-10 rounded-md opacity-[0.015] group-hover:opacity-[0.025] transition-opacity duration-1000 blur-xl"
                         style={{
                             background: "conic-gradient(from 0deg, #d4af37, #9d4edd, #d4af37, #9d4edd)",
                         }}
@@ -314,120 +311,121 @@ export function StardustPurchaseV1() {
                     </div>
 
                     <div className="relative z-10 flex flex-col h-full">
-                        <div className="flex justify-between items-start mb-8">
-                            <div>
-                                <div className="flex flex-row items-center gap-2">
-                                    <div
-                                        className="text-2xl font-serif font-bold text-white flex items-center gap-2"
-
-                                    >
-                                        Choose
-                                        <div className="drop-shadow-[0_0_15px_rgba(212,175,55,0.6)] group-hover:scale-120 transition-all duration-[2000ms]">
-                                            <GiStarSwirl className="size-7 text-primary" />
-                                        </div>
-                                        <span className=" bg-clip-text text-transparent bg-gradient-to-r from-primary to-galactic">Star Dust</span>
-                                        Amount
+                        <div className="mb-8">
+                            <div className="flex flex-row items-center gap-2">
+                                <div className="text-2xl font-serif font-bold text-white flex items-center gap-2">
+                                    Choose
+                                    <div className="drop-shadow-[0_0_15px_rgba(212,175,55,0.6)] group-hover:scale-120 transition-all duration-[2000ms]">
+                                        <GiStarSwirl className="size-7 text-primary" />
                                     </div>
+                                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-galactic">Star Dust</span>
+                                    Amount
                                 </div>
-                                <p className="text-sm text-white/55 mt-1.5 font-sans">
-                                    Star Dust cosmic energy. Oracle questions, astral card generation, synastry unlocks — no subscription required. Just pure celestial insight on demand.
-                                </p>
                             </div>
-                            <div
-                                className="relative"
-                                style={{
-                                    filter: "drop-shadow(0 0 8px rgba(157,78,221,0.4))",
-                                }}
-                            >
-                                <Sparkles className="text-galactic/70 w-6 h-6 animate-pulse" />
-                            </div>
+                            <p className="text-sm text-white/55 mt-1.5 font-sans">
+                                Star Dust cosmic energy. Oracle questions, astral card generation, synastry unlocks — no subscription required. Just pure celestial insight on demand.
+                            </p>
                         </div>
 
                         {/* 4 packages in a 2x2 grid on medium, 4 columns on large */}
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 flex-1">
-                            {stardustPackages.map((pkg, idx) => (
-                                <motion.div
-                                    key={idx}
-                                    whileHover={{ scale: 1.04 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    onClick={() => handleSelectPackage(idx)}
-                                    className={`relative cursor-pointer rounded-md p-5 border transition-all duration-300 flex flex-col items-center justify-center text-center ${selectedPackage === idx
-                                        ? "border-transparent scale-[1.02]"
-                                        : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
-                                        }`}
-                                    style={
-                                        selectedPackage === idx
-                                            ? {
-                                                background: "linear-gradient(145deg, rgba(212,175,55,0.12) 0%, rgba(157,78,221,0.08) 100%)",
-                                                boxShadow: "0 0 25px rgba(212,175,55,0.15), 0 0 50px rgba(157,78,221,0.08), inset 0 1px 0 rgba(255,255,255,0.1)",
-                                                border: "1px solid rgba(212,175,55,0.4)",
-                                            }
-                                            : {}
-                                    }
-                                >
-                                    {pkg.popular && (
-                                        <Badge
-                                            className="absolute bg-linear-to-r from-primary to-galactic  -top-3 inset-x-0 mx-auto w-max px-3 py-0.5  text-[10px] font-bold uppercase tracking-wider shadow-xs text-black"
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5 mb-8 flex-1">
+                            {stardustPackages.map((pkg, idx) => {
+                                const isSelected = selectedPackage === idx;
 
-                                        >
-                                            Best Value
-                                        </Badge>
-                                    )}
-
-                                    {/* SD amount */}
-                                    <div className="flex items-center gap-1.5 mb-2">
-                                        <span className="text-lg opacity-60">{pkg.icon}</span>
-                                        <span className={`text-2xl font-serif font-bold ${selectedPackage === idx ? "text-white" : "text-white/75"}`}>
-                                            {pkg.amount}
-                                        </span>
-                                    </div>
-
-                                    <span className="text-[11px] text-white/40 font-mono uppercase tracking-wider mb-2">Star Dust</span>
-
-                                    {/* Price */}
-                                    <div
-                                        className={`text-3xl font-serif tracking-tight ${selectedPackage === idx ? "" : "text-white"
-                                            }`}
-                                        style={
-                                            selectedPackage === idx
-                                                ? {
-                                                    backgroundImage: "linear-gradient(135deg, #d4af37, #9d4edd)",
-                                                    WebkitBackgroundClip: "text",
-                                                    WebkitTextFillColor: "transparent",
-                                                }
-                                                : {}
-                                        }
+                                return (
+                                    <motion.div
+                                        key={idx}
+                                        whileHover={{ scale: 1.05, y: -4 }}
+                                        whileTap={{ scale: 0.97 }}
+                                        onClick={() => handleSelectPackage(idx)}
+                                        className={`relative cursor-pointer rounded-xl transition-all duration-500 flex flex-col items-center text-center ${isSelected ? "z-10" : "z-0"}`}
                                     >
-                                        {pkg.price}
-                                    </div>
+                                        {/* ── Card body ── */}
+                                        <div
+                                            className={`relative w-full rounded-xl px-5 pt-6 flex flex-col items-center flex-1 transition-all duration-500 border ${isSelected
+                                                ? "bg-gradient-to-b from-primary/[0.08] via-galactic/[0.03] to-transparent border-primary/30"
+                                                : "bg-white/[0.03] border-white/[0.07] hover:border-white/15 hover:bg-white/[0.06]"
+                                                }`}
+                                        >
+                                            {/* ── Popular badge ── */}
+                                            {pkg.popular && (
+                                                <Badge
+                                                    className="absolute -top-3 inset-x-0 mx-auto w-max px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider shadow-lg bg-gradient-to-r from-primary to-galactic text-background"
+                                                >
+                                                    Best Value
+                                                </Badge>
+                                            )}
 
-                                    {/* Unit price */}
-                                    <div className="mt-1 text-[10px] text-white/35 font-mono">{pkg.unitPrice}</div>
+                                            {/* ── StarSwirl icon with radial glow ── */}
+                                            <div className="relative mb-3 mt-1">
+                                                {isSelected && (
+                                                    <div className="absolute inset-0 rounded-full blur-lg opacity-50"
+                                                        style={{ background: "radial-gradient(circle, var(--color-primary), transparent 70%)" }}
+                                                    />
+                                                )}
+                                                <motion.div
+                                                    animate={isSelected ? { scale: [1, 1.15, 1], rotate: [0, 10, -10, 0] } : {}}
+                                                    transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+                                                >
+                                                    <GiStarSwirl className={`size-8 transition-colors duration-300 ${isSelected ? "text-primary drop-shadow-[0_0_12px_var(--color-primary)]" : "text-white/30"}`} />
+                                                </motion.div>
+                                            </div>
 
-                                    {/* Discount badge */}
-                                    {pkg.discount ? (
-                                        <div className="mt-2 text-[10px] font-semibold text-emerald-400 uppercase tracking-widest">
-                                            {pkg.discount}
+                                            {/* ── SD Amount ── */}
+                                            <div className="flex items-baseline gap-1 mb-0.5">
+                                                <span className={`text-3xl font-serif font-bold transition-colors duration-300 ${isSelected ? "text-white" : "text-white/70"}`}>
+                                                    {pkg.amount}
+                                                </span>
+                                            </div>
+                                            <span className="text-[10px] text-white/35 font-mono uppercase tracking-[0.15em] mb-3">Star Dust</span>
+
+                                            {/* ── Divider ── */}
+                                            <div className={`w-full h-px mb-3 transition-all duration-500 ${isSelected ? "bg-gradient-to-r from-transparent via-primary/30 to-transparent" : "bg-white/[0.06]"}`} />
+
+                                            {/* ── Price block ── */}
+                                            {/* Strikethrough above for discounted */}
+                                            {pkg.originalPrice && (
+                                                <div className="text-xs font-mono text-white/30 line-through mb-1">
+                                                    {pkg.originalPrice}
+                                                </div>
+                                            )}
+
+                                            {/* Actual price */}
+                                            <div
+                                                className={`text-4xl font-serif tracking-tight transition-all duration-300 ${isSelected
+                                                    ? "bg-clip-text text-transparent bg-gradient-to-b from-primary to-galactic drop-shadow-[0_0_20px_var(--color-primary)]"
+                                                    : "text-white/90"
+                                                    }`}
+                                            >
+                                                {pkg.price}
+                                            </div>
+
+                                            {/* ── Discount pill badge ── */}
+                                            {pkg.discount ? (
+                                                <div className={`mt-3 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.12em] transition-all duration-300 ${isSelected
+                                                    ? "bg-gradient-to-r from-primary/20 to-galactic/20 border border-primary/30 text-primary"
+                                                    : "bg-white/[0.05] border border-white/10 text-white/40"
+                                                    }`}>
+                                                    {pkg.discount}
+                                                </div>
+                                            ) : (
+                                                <div className="mt-3 px-3 py-1 rounded-full text-[10px] font-medium uppercase tracking-[0.12em] text-white/15 select-none">
+                                                    &nbsp;
+                                                </div>
+                                            )}
+
+
                                         </div>
-                                    ) : (
-                                        <div className="mt-2 text-[10px] font-medium text-transparent uppercase tracking-widest select-none">
-                                            —
-                                        </div>
-                                    )}
-                                </motion.div>
-                            ))}
+                                    </motion.div>
+                                );
+                            })}
                         </div>
 
                         {/* Purchase button */}
                         <motion.button
                             whileHover={{ scale: 1.01 }}
                             whileTap={{ scale: 0.99 }}
-                            className="relative w-full py-4 px-5 text-center font-bold rounded-md uppercase tracking-widest text-xs overflow-hidden cursor-pointer"
-                            style={{
-                                background: "linear-gradient(135deg, #d4af37 0%, #b8962e 40%, #9d4edd 100%)",
-                                color: "#0A0F1A",
-                                boxShadow: "0 0 30px rgba(212,175,55,0.3), 0 0 60px rgba(157,78,221,0.15)",
-                            }}
+                            className="relative w-full py-4 px-5 text-center font-bold rounded-md uppercase tracking-widest text-xs overflow-hidden cursor-pointer bg-gradient-to-r from-primary via-primary to-galactic text-background shadow-[0_0_30px_rgba(212,175,55,0.3),0_0_60px_rgba(157,78,221,0.15)]"
                         >
                             <span className="relative z-10 flex items-center justify-center gap-2">
                                 <Zap className="w-4 h-4" />

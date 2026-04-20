@@ -1,4 +1,4 @@
-import { mutation, query } from "../_generated/server";
+import { mutation, query, internalQuery, QueryCtx } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAdmin } from "../lib/adminGuard";
 import {
@@ -32,6 +32,20 @@ export const getSetting = query({
   },
 });
 
+/**
+ * Internal version of getSetting — no admin guard.
+ * Used by invokeOracle action to read runtime config on behalf of regular users.
+ */
+export const getSettingInternal = internalQuery({
+  args: { key: v.string() },
+  handler: async (ctx, { key }) => {
+    return await ctx.db
+      .query("oracle_settings")
+      .withIndex("by_key", (q) => q.eq("key", key))
+      .first();
+  },
+});
+
 export const getSettingsByGroup = query({
   args: { group: v.string() },
   handler: async (ctx, { group }) => {
@@ -47,7 +61,23 @@ export const getPromptRuntimeSettings = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
+    return await _buildPromptRuntimeSettings(ctx);
+  },
+});
 
+/**
+ * Internal version of getPromptRuntimeSettings — no admin guard.
+ * Used by invokeOracle action to read runtime config on behalf of regular users.
+ */
+export const getPromptRuntimeSettingsInternal = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await _buildPromptRuntimeSettings(ctx);
+  },
+});
+
+/** Shared logic for building prompt runtime settings (no auth guard). */
+async function _buildPromptRuntimeSettings(ctx: QueryCtx) {
     const [soulSettings, modelSettings, tokenLimitSettings, providerSettings] = await Promise.all([
       ctx.db
         .query("oracle_settings")
@@ -75,22 +105,21 @@ export const getPromptRuntimeSettings = query({
     const modelChain = parseModelChain(modelMap.model_chain);
     const providers = parseProvidersConfig(providerMap.providers_config);
 
-    return {
-      // Unified soul document: single string instead of 7 separate docs
-      soulDoc: soulMap[SOUL_DOC_KEY] ?? DEFAULT_ORACLE_SOUL,
-      // Simple token limits: max_response_tokens and max_context_messages
-      maxResponseTokens: Number.parseInt(tokenLimitMap.max_response_tokens ?? String(MAX_RESPONSE_TOKENS_DEFAULT), 10) || MAX_RESPONSE_TOKENS_DEFAULT,
-      maxContextMessages: Number.parseInt(tokenLimitMap.max_context_messages ?? String(MAX_CONTEXT_MESSAGES_DEFAULT), 10) || MAX_CONTEXT_MESSAGES_DEFAULT,
-      modelSettings: {
-        temperature: Number.parseFloat(modelMap.temperature ?? "0.82"),
-        topP: Number.parseFloat(modelMap.top_p ?? "0.92"),
-        streamEnabled: modelMap.stream_enabled !== "false",
-      },
-      providers,
-      modelChain: modelChain.length > 0 ? modelChain : DEFAULT_MODEL_CHAIN,
-    };
-  },
-});
+  return {
+    // Unified soul document: single string instead of 7 separate docs
+    soulDoc: soulMap[SOUL_DOC_KEY] ?? DEFAULT_ORACLE_SOUL,
+    // Simple token limits: max_response_tokens and max_context_messages
+    maxResponseTokens: Number.parseInt(tokenLimitMap.max_response_tokens ?? String(MAX_RESPONSE_TOKENS_DEFAULT), 10) || MAX_RESPONSE_TOKENS_DEFAULT,
+    maxContextMessages: Number.parseInt(tokenLimitMap.max_context_messages ?? String(MAX_CONTEXT_MESSAGES_DEFAULT), 10) || MAX_CONTEXT_MESSAGES_DEFAULT,
+    modelSettings: {
+      temperature: Number.parseFloat(modelMap.temperature ?? "0.82"),
+      topP: Number.parseFloat(modelMap.top_p ?? "0.92"),
+      streamEnabled: modelMap.stream_enabled !== "false",
+    },
+    providers,
+    modelChain: modelChain.length > 0 ? modelChain : DEFAULT_MODEL_CHAIN,
+  };
+}
 
 export const listAllSettings = query({
   args: {},

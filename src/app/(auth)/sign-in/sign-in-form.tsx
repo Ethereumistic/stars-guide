@@ -19,6 +19,7 @@ import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { motion } from "motion/react"
 import { Mail, Lock, Loader2 } from "lucide-react"
+import { mapAuthError } from "@/lib/auth-errors"
 import { FcGoogle } from "react-icons/fc";
 import { FaXTwitter } from "react-icons/fa6";
 import { FaFacebook } from "react-icons/fa";
@@ -59,8 +60,7 @@ export function SignInForm({ className, ...props }: React.ComponentPropsWithoutR
             router.push("/dashboard")
         } catch (error: unknown) {
             console.error("Login error:", error)
-            const errorMessage = error instanceof Error ? error.message : "Invalid email or password"
-            setError(errorMessage)
+            setError(mapAuthError(error, "signIn"))
         } finally {
             setIsLoading(false)
         }

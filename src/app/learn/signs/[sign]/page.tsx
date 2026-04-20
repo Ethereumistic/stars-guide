@@ -6,11 +6,9 @@ import { planetUIConfig } from "@/config/planet-ui";
 import { ELEMENT_CONTENT, ElementType, ELEMENTAL_MANIFESTATIONS } from "@/astrology/elements";
 import { elementUIConfig } from "@/config/elements-ui";
 import { motion } from "motion/react";
-import Link from "next/link";
 import { useParams, notFound } from "next/navigation";
 import {
     TbSparkles,
-    TbArrowLeft,
     TbCompass,
     TbTriangleSquareCircle
 } from "react-icons/tb";
@@ -24,6 +22,7 @@ import {
 } from "react-icons/gi";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { SignTitleBlock, SignSpecsGrid, SignEssence, ConstellationGraphic } from "@/components/learn/signs";
+import { SystemArchiveLinkages } from "@/components/learn/system-archive-linkages";
 
 const HOUSE_NAMES = ["1st House", "2nd House", "3rd House", "4th House", "5th House", "6th House", "7th House", "8th House", "9th House", "10th House", "11th House", "12th House"];
 
@@ -263,21 +262,7 @@ export default function SignDetailPage() {
                 </div>
 
                 {/* Footer Linkages */}
-                <section className="border-t border-white/10 pt-24 pb-12 flex flex-col items-center">
-                    <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/30 block mb-12">System Archive Linkages</span>
-                    <div className="flex flex-wrap justify-center gap-px bg-white/10 border border-white/10 p-px rounded-md overflow-hidden">
-                        {compositionalSigns.filter(s => s.id !== signId).slice(0, 4).map(s => (
-                            <Link
-                                key={s.id}
-                                href={`/learn/signs/${s.id}`}
-                                className="bg-black px-6 md:px-10 py-5 hover:bg-white/3 transition-colors group flex items-center gap-4"
-                            >
-                                <span className="text-xs font-mono uppercase tracking-[0.2em] text-white/50 group-hover:text-white transition-colors">{s.name}</span>
-                                <TbArrowLeft className="w-4 h-4 text-white/20 group-hover:text-white transition-colors rotate-180" />
-                            </Link>
-                        ))}
-                    </div>
-                </section>
+                <SystemArchiveLinkages category="signs" currentId={signId} />
             </div>
         </div>
     );

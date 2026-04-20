@@ -348,6 +348,8 @@ export default defineSchema({
             v.literal("C"),
             v.literal("D"),                   // D = hardcoded fallback
         )),
+        // Snapshot of the system prompt hash used for this response (observability)
+        systemPromptHash: v.optional(v.string()),
         createdAt: v.number(),
     })
         .index("by_session", ["sessionId"])

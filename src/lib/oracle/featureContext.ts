@@ -139,10 +139,49 @@ function formatAspectLine(aspect: StoredChartAspect): string {
 
 function buildCoreFeatureContext(birthData: OracleBirthData): string {
   const lines = [
-    "[FEATURE CONTEXT]",
-    "Feature: Birth chart analysis",
+    "[BIRTH CHART ANALYSIS MODE]",
+    "You are performing a Birth Chart Core analysis. The user's Sun, Moon, Ascendant, and key aspects are provided below.",
+    "",
+    "Reading instructions:",
+    "- Focus on how the Big Three (Sun, Moon, Ascendant) interact as a triad — not in isolation.",
+    "- Explain each house placement — the house IS the context, the sign is the style.",
+    "- For aspects, prioritize the tightest orbs. Name what the aspect creates in the person's life, not just what it \"means.\"",
+    "- Identify the primary tension or friction point and name it directly.",
+    "- If a placement is in domicile, exaltation, detriment, or fall, mention it and explain the practical impact.",
+    "- Express genuine uncertainty when the chart is ambiguous or multiple interpretations are valid.",
+    "- In ongoing conversations, refer back to what you have already established. Do not contradict your own previous reading.",
+    "- When you do not have specific chart data for a placement the user asks about, say plainly that the data is not available. Never fabricate or infer placements from other placements.",
+    "",
+    "Output format — follow this skeleton:",
+    "## 1. [Chart Ruler / Core Identity]",
+    "Address the Ascendant and its ruling planet. What sign, what house, what that means for how the person shows up in the world.",
+    "",
+    "## 2. [The Big Three]",
+    "- **Sun in [Sign] ([House]):** [2-3 sentence reading]",
+    "- **Moon in [Sign] ([House]):** [2-3 sentence reading]",
+    "- **Ascendant [Sign]:** [2-3 sentence reading]",
+    "*How these three interact:* [1-2 sentences synthesizing the triad]",
+    "",
+    "## 3. [Key Aspects]",
+    "For each tight-aspect (orb < 2°):",
+    "- **[Aspect Name] (Orb [X]):** [What this creates in their life]",
+    "",
+    "## 4. [The Tension / Friction]",
+    "Name the most challenging pattern. Be specific about which placements create it and how it manifests.",
+    "",
+    "---",
+    "### Your Chart at a Glance",
+    "| Placement | Sign | House | Key Theme |",
+    "|---|---|---|---|",
+    "| **Ascendant** | [Sign] | 1st | [Theme] |",
+    "| **Sun** | [Sign] | [House] | [Theme] |",
+    "| **Moon** | [Sign] | [House] | [Theme] |",
+    "",
+    "**The most interesting part?** [One surprising synthesis that connects placements the user might not expect to be connected.]",
+    "",
+    "[One closing question that invites reflection.]",
+    "",
     "Treat the stored chart data below as canonical truth. Do not invent different signs, houses, or aspects.",
-    "Prioritize a reading of the Sun, Moon, and Ascendant, explain their houses, and synthesize how those three placements interact.",
     ...formatBirthHeader(birthData),
     "",
     "Canonical primary placements:",
@@ -171,9 +210,6 @@ function buildCoreFeatureContext(birthData: OracleBirthData): string {
   }
 
   lines.push("")
-  lines.push(
-    "Reading scope: Focus on personality, emotional nature, outward style, and how the houses shape expression.",
-  )
   lines.push("[END FEATURE CONTEXT]")
 
   return lines.join("\n")
@@ -181,10 +217,21 @@ function buildCoreFeatureContext(birthData: OracleBirthData): string {
 
 function buildFullFeatureContext(birthData: OracleBirthData): string {
   const lines = [
-    "[FEATURE CONTEXT]",
-    "Feature: Deep birth chart analysis",
+    "[DEEP BIRTH CHART ANALYSIS MODE]",
+    "You are performing a Deep Birth Chart analysis. The user's full natal placements are provided below.",
+    "",
+    "Reading instructions:",
+    "- Give a layered interpretation of the full chart while staying anchored to the stored placements, houses, and aspects.",
+    "- Prioritize deeper synthesis with special attention to repeated themes, clusters, houses, aspects, Nodes, and Part of Fortune when present.",
+    "- Explain each house placement — the house IS the context, the sign is the style.",
+    "- For aspects, prioritize the tightest orbs. Name what the aspect creates in the person's life.",
+    "- Identify the primary tension AND the primary gift. Name both directly.",
+    "- If a placement is in domicile, exaltation, detriment, or fall, mention it and explain the practical impact.",
+    "- Express genuine uncertainty when the chart is ambiguous or multiple interpretations are valid.",
+    "- In ongoing conversations, refer back to what you have already established. Do not contradict your own previous reading.",
+    "- When you do not have specific chart data for a placement the user asks about, say plainly that the data is not available. Never fabricate or infer placements.",
+    "",
     "Treat the stored chart data below as canonical truth. Do not override it with model guesses.",
-    "Prioritize a deeper synthesis of the full natal chart, with special attention to repeated themes, clusters, houses, aspects, nodes, and Part of Fortune when present.",
     ...formatBirthHeader(birthData),
     "",
     "Canonical stored placements:",

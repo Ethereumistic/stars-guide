@@ -222,6 +222,7 @@ export const finalizeStreamingMessage = internalMutation({
             v.literal("C"),
             v.literal("D"),
         )),
+        systemPromptHash: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         await ctx.db.patch(args.messageId, {
@@ -230,8 +231,8 @@ export const finalizeStreamingMessage = internalMutation({
             promptTokens: args.promptTokens,
             completionTokens: args.completionTokens,
             fallbackTierUsed: args.fallbackTierUsed,
+            systemPromptHash: args.systemPromptHash,
         });
-
         await ctx.db.patch(args.sessionId, {
             ...(args.modelUsed ? { primaryModelUsed: args.modelUsed } : {}),
             ...(args.fallbackTierUsed && args.fallbackTierUsed !== "A"
@@ -247,11 +248,12 @@ export const updateSessionTitle = internalMutation({
     args: {
         sessionId: v.id("oracle_sessions"),
         title: v.string(),
+        titleGenerated: v.optional(v.boolean()),
     },
     handler: async (ctx, args) => {
         await ctx.db.patch(args.sessionId, {
             title: args.title,
-            titleGenerated: true,
+            titleGenerated: args.titleGenerated ?? true,
             updatedAt: Date.now(),
         });
     },

@@ -4,15 +4,14 @@ import { compositionalHouses } from "@/astrology/houses";
 import { houseUIConfig } from "@/config/house-ui";
 import { zodiacUIConfig } from "@/config/zodiac-ui";
 import { motion } from "motion/react";
-import Link from "next/link";
 import { useParams, notFound } from "next/navigation";
 import {
-    TbArrowLeft,
     TbCompass,
     TbStar,
     TbWorld,
     TbLayersSubtract,
 } from "react-icons/tb";
+import { SystemArchiveLinkages } from "@/components/learn/system-archive-linkages";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import {
     HouseTitleBlock,
@@ -144,29 +143,7 @@ export default function HouseDetailPage() {
                     />
                 </div>
 
-                {/* Footer Linkages — mirrors sign page */}
-                <section className="border-t border-white/10 pt-24 pb-12 flex flex-col items-center">
-                    <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/30 block mb-12">
-                        System Archive Linkages
-                    </span>
-                    <div className="flex flex-wrap justify-center gap-px bg-white/10 border border-white/10 p-px rounded-md overflow-hidden">
-                        {compositionalHouses
-                            .filter(h => h.id !== data.id)
-                            .slice(0, 4)
-                            .map(h => (
-                                <Link
-                                    key={h.id}
-                                    href={`/learn/houses/${h.id}`}
-                                    className="bg-black px-6 md:px-10 py-5 hover:bg-white/3 transition-colors group flex items-center gap-4"
-                                >
-                                    <span className="text-xs font-mono uppercase tracking-[0.2em] text-white/50 group-hover:text-white transition-colors">
-                                        {h.name}
-                                    </span>
-                                    <TbArrowLeft className="w-4 h-4 text-white/20 group-hover:text-white transition-colors rotate-180" />
-                                </Link>
-                            ))}
-                    </div>
-                </section>
+                <SystemArchiveLinkages category="houses" currentId={data.id} />
             </div>
         </div>
     );

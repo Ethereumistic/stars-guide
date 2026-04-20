@@ -19,6 +19,7 @@ import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { motion } from "motion/react"
 import { Mail, Lock, Loader2 } from "lucide-react"
+import { mapAuthError } from "@/lib/auth-errors"
 import { FcGoogle } from "react-icons/fc";
 import { FaXTwitter } from "react-icons/fa6";
 import { FaFacebook } from "react-icons/fa";
@@ -65,8 +66,7 @@ export function SignUpForm({ className, title, subtitle, ...props }: SignUpFormP
             router.push("/onboarding")
         } catch (error: unknown) {
             console.error("Sign up error:", error)
-            const errorMessage = error instanceof Error ? error.message : "Failed to create account. Please try again."
-            setError(errorMessage)
+            setError(mapAuthError(error, "signUp"))
         } finally {
             setIsLoading(false)
         }

@@ -7,21 +7,11 @@ export type OracleState =
     | "oracle_responding"
     | "conversation_active";
 
-export interface OracleMessage {
-    role: "user" | "assistant";
-    content: string;
-    createdAt: number;
-    modelUsed?: string;
-    fallbackTierUsed?: string;
-}
-
 interface OracleStore {
     sessionId: Id<"oracle_sessions"> | null;
     state: OracleState;
     selectedFeatureKey: OracleFeatureKey | null;
     pendingQuestion: string;
-    messages: OracleMessage[];
-    streamingContent: string;
     isStreaming: boolean;
     quotaRemaining: number | null;
     quotaResetAt: number | null;
@@ -31,14 +21,11 @@ interface OracleStore {
     hydrateSessionFeature: (featureKey: OracleFeatureKey | null) => void;
     setPendingQuestion: (text: string) => void;
     setOracleResponding: () => void;
-    setStreamingContent: (content: string) => void;
     setIsStreaming: (streaming: boolean) => void;
-    addMessage: (message: OracleMessage) => void;
     setSessionId: (id: Id<"oracle_sessions">) => void;
     setConversationActive: () => void;
     setQuota: (remaining: number | null, resetAt: number | null) => void;
     resetToIdle: () => void;
-    loadSession: (sessionId: Id<"oracle_sessions">, messages: OracleMessage[]) => void;
 }
 
 export const useOracleStore = create<OracleStore>((set, get) => ({
@@ -46,8 +33,6 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
     state: "idle",
     selectedFeatureKey: null,
     pendingQuestion: "",
-    messages: [],
-    streamingContent: "",
     isStreaming: false,
     quotaRemaining: null,
     quotaResetAt: null,
@@ -63,15 +48,7 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
 
     setOracleResponding: () => set({ state: "oracle_responding" }),
 
-    setStreamingContent: (content) => set({ streamingContent: content }),
-
     setIsStreaming: (streaming) => set({ isStreaming: streaming }),
-
-    addMessage: (message) =>
-        set((state) => ({
-            messages: [...state.messages, message],
-            streamingContent: "",
-        })),
 
     setSessionId: (id) => set({ sessionId: id }),
 
@@ -90,17 +67,6 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
             state: "idle",
             selectedFeatureKey: null,
             pendingQuestion: "",
-            messages: [],
-            streamingContent: "",
-            isStreaming: false,
-        }),
-
-    loadSession: (sessionId, messages) =>
-        set({
-            sessionId,
-            state: "conversation_active",
-            messages,
-            streamingContent: "",
             isStreaming: false,
         }),
 }));

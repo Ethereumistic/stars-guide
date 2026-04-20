@@ -5,14 +5,14 @@ import { planetUIConfig } from "@/config/planet-ui";
 import { getPlanetTelemetry, type PlanetTelemetry } from "@/lib/planets/telemetry";
 import { compositionalSigns } from "@/astrology/signs";
 import { motion } from "motion/react";
-import Link from "next/link";
 import { useParams, notFound } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-    TbTelescope, TbCompass, TbArrowLeft, TbRulerMeasure,
+    TbTelescope, TbCompass, TbRulerMeasure,
     TbTemperature, TbMoon, TbClock, TbRefresh, TbActivityHeartbeat, TbFlame,
     TbFingerprint, TbCrown, TbHexagon, TbYinYang
 } from "react-icons/tb";
+import { SystemArchiveLinkages } from "@/components/learn/system-archive-linkages";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { PlanetTitleBlock } from "@/components/learn/planets/planet-title-block";
 import { PlanetSpecsGrid } from "@/components/learn/planets/planet-specs-grid";
@@ -322,24 +322,7 @@ export default function PlanetDetailPage() {
                 </motion.section>
 
                 {/* Footer Linkages */}
-                <section className="pt-12 pb-12 flex flex-col items-center">
-                    <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-white/30 block mb-12">System Archive Linkages</span>
-                    <div className="flex flex-wrap justify-center gap-px bg-white/10 border border-white/10 p-px rounded-md overflow-hidden">
-                        {compositionalPlanets
-                            .filter(p => ["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune", "pluto"].includes(p.id))
-                            .filter(p => p.id !== planetId)
-                            .map(p => (
-                                <Link
-                                    key={p.id}
-                                    href={`/learn/planets/${p.id}`}
-                                    className="bg-black px-6 md:px-8 py-4 hover:bg-white/5 transition-colors group flex items-center gap-3"
-                                >
-                                    <span className="text-[10px] md:text-xs font-mono uppercase tracking-[0.2em] text-white/40 group-hover:text-white transition-colors">{p.name}</span>
-                                    <TbArrowLeft className="w-3 h-3 text-white/20 group-hover:text-white transition-colors rotate-180" />
-                                </Link>
-                            ))}
-                    </div>
-                </section>
+                <SystemArchiveLinkages category="planets" currentId={planetId} />
             </div>
         </div>
     );
