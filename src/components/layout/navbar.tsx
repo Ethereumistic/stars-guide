@@ -14,7 +14,7 @@ import {
     navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
 import { cn } from "@/lib/utils"
-import { Menu, X, LogIn, LogOut, User } from "lucide-react"
+import { Menu, X, LogIn, LogOut, User, Settings, Sparkles } from "lucide-react"
 import { GiStarsStack, GiCrystalBall, GiCoins, GiAstrolabe, GiCursedStar } from "react-icons/gi"
 import { motion } from "motion/react"
 import { useConvexAuth } from "convex/react"
@@ -163,54 +163,75 @@ export function Navbar() {
                             </Button>
                         </div>
 
-                        {isAuthenticated ? (
+                        {/* Desktop: Authenticated user dropdown menu */}
+                        {isAuthenticated && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                                        <Avatar className="h-10 w-10 border border-primary/20">
+                                    <Button variant="ghost" className="hidden md:flex relative h-9 w-9 rounded-full ring-1 ring-white/10 hover:ring-primary/40 transition-all">
+                                        <Avatar className="h-9 w-9">
                                             <AvatarImage src={currentUser?.image} alt={currentUser?.username ?? "User"} />
-                                            <AvatarFallback className="bg-primary/5 text-primary">
-                                                {currentUser?.username?.charAt(0) ?? <User className="size-5" />}
+                                            <AvatarFallback className="bg-primary/10 text-primary text-xs font-serif">
+                                                {currentUser?.username?.charAt(0)?.toUpperCase() ?? <User className="size-4" />}
                                             </AvatarFallback>
                                         </Avatar>
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent className="w-56 mt-2 border-primary/20 bg-background/95 backdrop-blur-xl" align="end" forceMount>
-                                    <DropdownMenuLabel className="font-normal">
-                                        <div className="flex flex-col space-y-1">
-                                            <p className="text-sm font-medium leading-none font-sans">{currentUser?.username}</p>
-                                            <p className="text-xs leading-none text-muted-foreground font-sans">
-                                                {currentUser?.email}
-                                            </p>
+                                <DropdownMenuContent
+                                    className="w-56 mt-1.5 border-white/10 bg-background/90 backdrop-blur-xl shadow-xl"
+                                    align="end"
+                                    sideOffset={8}
+                                >
+                                    <DropdownMenuLabel className="font-normal px-3 py-3">
+                                        <div className="flex items-center gap-3">
+                                            <Avatar className="h-8 w-8 ring-1 ring-white/10">
+                                                <AvatarImage src={currentUser?.image} alt={currentUser?.username ?? "User"} />
+                                                <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-serif">
+                                                    {currentUser?.username?.charAt(0)?.toUpperCase() ?? "U"}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex flex-col min-w-0">
+                                                <p className="text-sm font-serif truncate text-foreground">{currentUser?.username}</p>
+                                                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/40 truncate">
+                                                    {currentUser?.email}
+                                                </p>
+                                            </div>
                                         </div>
                                     </DropdownMenuLabel>
-                                    <DropdownMenuSeparator className="bg-primary/10" />
-                                    <DropdownMenuItem asChild>
-                                        <Link href="/dashboard" className="cursor-pointer font-sans italic">
-                                            Dashboard
+                                    <DropdownMenuSeparator className="bg-white/10" />
+
+                                    <DropdownMenuItem asChild className="gap-2.5 cursor-pointer px-3 py-2">
+                                        <Link href="/settings" className="text-sm text-foreground/80 hover:text-primary transition-colors">
+                                            <Settings className="size-4 text-primary/60" />
+                                            <span className="font-sans italic">Settings</span>
                                         </Link>
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem asChild>
-                                        <Link href="/settings" className="cursor-pointer font-sans italic">
-                                            Settings
+                                    <DropdownMenuItem asChild className="gap-2.5 cursor-pointer px-3 py-2">
+                                        <Link href="/pricing" className="text-sm text-galactic hover:text-galactic/80 transition-colors">
+                                            <Sparkles className="size-4" />
+                                            <span className="font-sans italic">Upgrade</span>
                                         </Link>
                                     </DropdownMenuItem>
-                                    <DropdownMenuSeparator className="bg-primary/10" />
+
+                                    <DropdownMenuSeparator className="bg-white/10" />
+
                                     <DropdownMenuItem
-                                        className="cursor-pointer text-destructive focus:text-destructive font-sans italic"
+                                        className="gap-2.5 cursor-pointer px-3 py-2 text-sm text-destructive/80 hover:text-destructive focus:text-destructive"
                                         onClick={() => signOut()}
                                     >
-                                        <LogOut className="mr-2 h-4 w-4" />
-                                        <span>Sign Out</span>
+                                        <LogOut className="size-4" />
+                                        <span className="font-sans italic">Sign Out</span>
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
-                        ) : (
+                        )}
+
+                        {/* Desktop: Unauthenticated sign-in icon */}
+                        {!isAuthenticated && (
                             <Button
                                 variant="ghost"
                                 size="icon"
                                 asChild
-                                className="text-foreground/70 hover:text-primary transition-colors"
+                                className="hidden md:flex text-foreground/70 hover:text-primary transition-colors"
                             >
                                 <Link href="/sign-in">
                                     <LogIn className="size-5" />
@@ -219,19 +240,41 @@ export function Navbar() {
                             </Button>
                         )}
 
-                        {/* Mobile Menu Toggle */}
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="md:hidden text-foreground/80 z-50 relative"
-                            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                        >
-                            {isMobileMenuOpen ? (
-                                <X className="size-6" />
-                            ) : (
-                                <Menu className="size-6" />
-                            )}
-                        </Button>
+                        {/* Mobile: Authenticated avatar opens mobile menu instead of dropdown */}
+                        {isAuthenticated && (
+                            <Button
+                                variant="ghost"
+                                className="md:hidden relative h-9 w-9 rounded-full ring-1 ring-white/10"
+                                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                            >
+                                {isMobileMenuOpen ? (
+                                    <X className="size-5" />
+                                ) : (
+                                    <Avatar className="h-9 w-9">
+                                        <AvatarImage src={currentUser?.image} alt={currentUser?.username ?? "User"} />
+                                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-serif">
+                                            {currentUser?.username?.charAt(0)?.toUpperCase() ?? <User className="size-4" />}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                )}
+                            </Button>
+                        )}
+
+                        {/* Mobile: Unauthenticated hamburger */}
+                        {!isAuthenticated && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="md:hidden text-foreground/80 z-50 relative"
+                                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                            >
+                                {isMobileMenuOpen ? (
+                                    <X className="size-6" />
+                                ) : (
+                                    <Menu className="size-6" />
+                                )}
+                            </Button>
+                        )}
                     </div>
                 </div>
             </header>
@@ -297,22 +340,88 @@ export function Navbar() {
                             </div>
                             {ctaLabel}
                         </Link>
+
+                        {/* Authenticated: Settings & Upgrade links */}
+                        {isAuthenticated && (
+                            <>
+                                <Link
+                                    href="/settings"
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    className={cn(
+                                        "text-2xl font-serif italic text-foreground/80 hover:text-primary transition-all flex items-center group/nav",
+                                        pathname === "/settings" && "text-primary font-medium"
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "flex items-center justify-center transition-all duration-500 ease-in-out w-8 mr-2",
+                                        pathname === "/settings"
+                                            ? "opacity-100 translate-x-0"
+                                            : "opacity-0 -translate-x-2 group-hover/nav:opacity-100 group-hover/nav:translate-x-0"
+                                    )}>
+                                        <Settings className="size-6 shrink-0" />
+                                    </div>
+                                    Settings
+                                </Link>
+                                <Link
+                                    href="/pricing"
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    className="text-2xl font-serif italic text-galactic hover:text-galactic/80 transition-all flex items-center group/nav"
+                                >
+                                    <div className="flex items-center justify-center transition-all duration-500 ease-in-out w-8 mr-2 opacity-0 -translate-x-2 group-hover/nav:opacity-100 group-hover/nav:translate-x-0">
+                                        <Sparkles className="size-6 shrink-0" />
+                                    </div>
+                                    Upgrade
+                                </Link>
+                            </>
+                        )}
                     </nav>
 
                     <div className="w-full h-px bg-border/50 max-w-[200px] mx-auto" />
 
+                    {/* Mobile menu footer: conditional on auth state */}
                     <div className="flex flex-col items-center gap-4 w-full">
-                        <Button
-                            variant="outline"
-                            size="lg"
-                            asChild
-                            className="w-full max-w-[200px] font-serif tracking-wide"
-                        >
-                            <Link href="/sign-in" onClick={() => setIsMobileMenuOpen(false)}>
-                                <LogIn className="mr-2 size-5" /> Sign In
-                            </Link>
-                        </Button>
-
+                        {isAuthenticated ? (
+                            // Authenticated: User card + sign out
+                            <div className="w-full max-w-[260px] space-y-4">
+                                <div className="flex items-center gap-3 px-2">
+                                    <Avatar className="h-10 w-10 ring-1 ring-white/10">
+                                        <AvatarImage src={currentUser?.image} alt={currentUser?.username ?? "User"} />
+                                        <AvatarFallback className="bg-primary/10 text-primary text-sm font-serif">
+                                            {currentUser?.username?.charAt(0)?.toUpperCase() ?? "U"}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex flex-col min-w-0">
+                                        <p className="text-sm font-serif truncate text-foreground">{currentUser?.username}</p>
+                                        <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/40 truncate">
+                                            {currentUser?.email}
+                                        </p>
+                                    </div>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="lg"
+                                    className="w-full text-destructive/80 hover:text-destructive hover:bg-destructive/10 font-sans italic"
+                                    onClick={() => {
+                                        setIsMobileMenuOpen(false)
+                                        signOut()
+                                    }}
+                                >
+                                    <LogOut className="mr-2 size-5" /> Sign Out
+                                </Button>
+                            </div>
+                        ) : (
+                            /* Unauthenticated: Sign In button */
+                            <Button
+                                variant="outline"
+                                size="lg"
+                                asChild
+                                className="w-full max-w-[200px] font-serif tracking-wide"
+                            >
+                                <Link href="/sign-in" onClick={() => setIsMobileMenuOpen(false)}>
+                                    <LogIn className="mr-2 size-5" /> Sign In
+                                </Link>
+                            </Button>
+                        )}
                     </div>
                 </div>
             </div>

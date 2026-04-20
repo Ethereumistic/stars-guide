@@ -38,6 +38,17 @@ interface StarBackgroundProps {
 
 const rand = (min: number, max: number) => Math.random() * (max - min) + min;
 
+// Simple seeded PRNG (mulberry32) for deterministic star generation
+function createSeededRng(seed: number) {
+    return () => {
+        seed |= 0;
+        seed = (seed + 0x6d2b79f5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
 interface StarData {
     x: number;
     y: number;
@@ -45,13 +56,14 @@ interface StarData {
     opacity: number;
 }
 
-function generateStars(width: number, height: number, density: number): StarData[] {
+function generateStars(width: number, height: number, density: number, seed: number): StarData[] {
     const count = Math.floor(width * height * density);
+    const rng = createSeededRng(seed);
     return Array.from({ length: count }, () => ({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        radius: Math.random() * 0.6 + 0.3,
-        opacity: (Math.random() * 0.5 + 0.5) * 0.85,
+        x: rng() * width,
+        y: rng() * height,
+        radius: rng() * 0.6 + 0.3,
+        opacity: (rng() * 0.5 + 0.5) * 0.85,
     }));
 }
 
@@ -93,6 +105,9 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
     const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const twinklersRef = useRef<HTMLDivElement[]>([]);
+    const lastDimensionsRef = useRef({ width: 0, height: 0 });
+    // Stable seed so redraws produce identical stars
+    const seedRef = useRef(Math.floor(Math.random() * 2147483647));
 
     const draw = useCallback(() => {
         const canvas = canvasRef.current;
@@ -102,6 +117,17 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
         const { width, height } = container.getBoundingClientRect();
         if (width === 0 || height === 0) return;
 
+        // Skip redraw if dimensions haven't meaningfully changed
+        const last = lastDimensionsRef.current;
+        if (
+            Math.abs(width - last.width) < 2 &&
+            Math.abs(height - last.height) < 2 &&
+            last.width > 0
+        ) {
+            return;
+        }
+        lastDimensionsRef.current = { width, height };
+
         // Set canvas size (this clears it)
         canvas.width = width;
         canvas.height = height;
@@ -110,7 +136,7 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
-        const stars = generateStars(width, height, starDensity);
+        const stars = generateStars(width, height, starDensity, seedRef.current);
         for (const star of stars) {
             ctx.beginPath();
             ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
@@ -130,21 +156,25 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
             ? Math.min(Math.floor(totalStars * 0.12), 50)
             : Math.min(Math.floor(totalStars * twinkleProbability * 0.12), 50);
 
+        // Use seeded rng for twinkle overlay positions too
+        const twinkleRng = createSeededRng(seedRef.current + 1);
+        const twinkleSpeedRng = createSeededRng(seedRef.current + 2);
+
         for (let i = 0; i < twinkleCount; i++) {
             const dot = document.createElement("div");
-            const size = rand(1.0, 2.0);
+            const size = 1.0 + twinkleRng() * 1.0;
             dot.style.cssText = `
                 position: absolute;
                 width: ${size}px;
                 height: ${size}px;
                 border-radius: 50%;
                 background: white;
-                left: ${Math.random() * width}px;
-                top: ${Math.random() * height}px;
+                left: ${twinkleRng() * width}px;
+                top: ${twinkleRng() * height}px;
                 opacity: 0.5;
                 pointer-events: none;
                 will-change: opacity, transform;
-                animation: twinkle-canvas ${(rand(minTwinkleSpeed, maxTwinkleSpeed) * 1.8).toFixed(2)}s ease-in-out ${rand(0, 4).toFixed(2)}s infinite alternate;
+                animation: twinkle-canvas ${(minTwinkleSpeed + twinkleSpeedRng() * (maxTwinkleSpeed - minTwinkleSpeed) * 1.8).toFixed(2)}s ease-in-out ${(twinkleSpeedRng() * 4).toFixed(2)}s infinite alternate;
             `;
             container.appendChild(dot);
             twinklersRef.current.push(dot);
