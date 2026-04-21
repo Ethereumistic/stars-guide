@@ -45,7 +45,7 @@ const isAuthPage = createRouteMatcher([
 
 const isAdminPage = createRouteMatcher(["/admin", "/admin/(.*)"]);
 
-export const middleware = convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
+export const proxy = convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
     const isAuthenticated = await convexAuth.isAuthenticated();
 
     if (!isPublicPage(request) && !isAuthenticated) {
