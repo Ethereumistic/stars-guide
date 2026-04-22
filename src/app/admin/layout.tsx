@@ -25,6 +25,7 @@ import {
     Loader2,
     Anchor,
     Settings,
+    BookOpen,
 } from "lucide-react";
 import { GiCursedStar } from "react-icons/gi";
 import Link from "next/link";
@@ -73,6 +74,19 @@ const oracleNavItems = [
     {
         title: "Settings",
         href: "/admin/oracle/settings",
+        icon: Settings,
+    },
+];
+
+const journalNavItems = [
+    {
+        title: "Journal Overview",
+        href: "/admin/journal",
+        icon: LayoutDashboard,
+    },
+    {
+        title: "Settings",
+        href: "/admin/journal/settings",
         icon: Settings,
     },
 ];
@@ -171,6 +185,35 @@ export default function AdminLayout({
                                 );
                             })}
                         </SidebarMenu>
+
+                        {/* Journal CMS Section */}
+                        <Separator className="opacity-20 my-3" />
+                        <div className="px-3 py-1.5 flex items-center gap-2">
+                            <BookOpen className="h-4 w-4 text-galactic" />
+                            <span className="text-[11px] font-semibold tracking-wider uppercase text-galactic/70">
+                                Journal CMS
+                            </span>
+                        </div>
+                        <SidebarMenu>
+                            {journalNavItems.map((item) => {
+                                const isActive = pathname === item.href ||
+                                    (item.href !== "/admin/journal" && pathname?.startsWith(item.href));
+                                return (
+                                    <SidebarMenuItem key={item.href}>
+                                        <SidebarMenuButton
+                                            asChild
+                                            isActive={isActive}
+                                            className="transition-all duration-200"
+                                        >
+                                            <Link href={item.href}>
+                                                <item.icon className="h-4 w-4" />
+                                                <span>{item.title}</span>
+                                            </Link>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                );
+                            })}
+                        </SidebarMenu>
                     </SidebarContent>
 
                     <SidebarFooter className="p-4">
@@ -186,9 +229,9 @@ export default function AdminLayout({
                         <SidebarTrigger className="-ml-1" />
                         <Separator orientation="vertical" className="mr-2 h-4" />
                         <span className="text-sm text-muted-foreground">
-                            {[...adminNavItems, ...oracleNavItems].find((item) =>
+                            {[...adminNavItems, ...oracleNavItems, ...journalNavItems].find((item) =>
                                 pathname === item.href ||
-                                (item.href !== "/admin" && pathname?.startsWith(item.href))
+                                (item.href !== "/admin" && item.href !== "/admin/oracle" && item.href !== "/admin/journal" && pathname?.startsWith(item.href))
                             )?.title || "Dashboard"}
                         </span>
                     </header>

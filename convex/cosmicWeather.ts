@@ -98,6 +98,24 @@ export const dailyCosmicWeatherJob = internalAction({
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PUBLIC FUNCTIONS (used by journal and other user-facing features)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * getForPublicDate — Fetch cosmic weather for a specific date.
+ * No admin guard required. Used by journal astro context display.
+ */
+export const getForPublicDate = query({
+    args: { date: v.string() },
+    handler: async (ctx, { date }) => {
+        return await ctx.db
+            .query("cosmicWeather")
+            .withIndex("by_date", (q) => q.eq("date", date))
+            .unique();
+    },
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ADMIN-FACING FUNCTIONS (used by the dashboard UI)
 // ═══════════════════════════════════════════════════════════════════════════
 

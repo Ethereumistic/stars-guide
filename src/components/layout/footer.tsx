@@ -38,7 +38,7 @@ export function Footer() {
     const { user: currentUser } = useUserStore()
     const isAuthenticated = isAuthConvex && !!currentUser
 
-    if (pathname.startsWith("/oracle")) {
+    if (pathname.startsWith("/oracle") || pathname.startsWith("/journal")) {
         return null;
     }
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { Plus, Search } from "lucide-react";
-import { GiGiftOfKnowledge } from "react-icons/gi";
+import Link from "next/link";
+import { BookOpen } from "lucide-react";
 import {
     SidebarMenu,
     SidebarMenuItem,
@@ -39,11 +40,13 @@ export function OracleSidebarActions({ onNewChat, onSearchOpen }: OracleSidebarA
             <SidebarMenuItem>
                 <SidebarMenuButton
                     tooltip="Journal"
-                    disabled
+                    asChild
                     className="h-10 gap-3 text-white/75 hover:bg-white/10 hover:text-white group-data-[collapsible=icon]:justify-center"
                 >
-                    <GiGiftOfKnowledge className="h-4 w-4 text-galactic" />
-                    <span className="font-medium group-data-[collapsible=icon]:hidden">Journal</span>
+                    <Link href="/journal">
+                        <BookOpen className="h-4 w-4 text-galactic" />
+                        <span className="font-medium group-data-[collapsible=icon]:hidden">Journal</span>
+                    </Link>
                 </SidebarMenuButton>
             </SidebarMenuItem>
         </SidebarMenu>

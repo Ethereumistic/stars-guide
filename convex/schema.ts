@@ -330,6 +330,199 @@ export default defineSchema({
     })
         .index("by_user", ["userId"])
         .index("by_user_updated", ["userId", "updatedAt"]),
+    // ═══════════════════════════════════════════════════════════════════════════
+    // JOURNAL MVP v1 — Emotional Self-Reflection + Oracle Context
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // 16. JOURNAL ENTRIES
+    journal_entries: defineTable({
+        userId: v.id("users"),
+
+        // --- Content ---
+        title: v.optional(v.string()),
+        content: v.string(),                          // Main entry body (plain text / light markdown)
+
+        // --- Entry Type ---
+        entryType: v.union(
+            v.literal("freeform"),                   // User writes freely
+            v.literal("checkin"),                    // Quick mood + optional emotions
+            v.literal("dream"),                      // Dream journal entry
+            v.literal("gratitude"),                  // Gratitude-specific entry
+        ),
+
+        // --- Mood (2D Circumplex) ---
+        mood: v.optional(v.object({
+            valence: v.number(),                     // -2 to +2 (negative ←→ positive)
+            arousal: v.number(),                     // -2 to +2 (calm ←→ activated)
+        })),
+        moodZone: v.optional(v.union(                // Derived label for display/filtering
+            v.literal("excited"),                    // high valence, high arousal
+            v.literal("content"),                    // high valence, low arousal
+            v.literal("tense"),                      // low valence, high arousal
+            v.literal("low"),                        // low valence, low arousal
+        )),
+
+        // --- Emotions (clustered + intensity) ---
+        emotions: v.optional(v.array(v.object({
+            key: v.string(),                          // e.g. "anxious", "grateful"
+            intensity: v.union(                       // mild / moderate / strong
+                v.literal(1),
+                v.literal(2),
+                v.literal(3),
+            ),
+        }))),
+
+        // --- Energy & Context ---
+        energyLevel: v.optional(v.number()),          // 1-5 physical energy (separate from arousal)
+        timeOfDay: v.optional(v.union(                // Contextual time marker
+            v.literal("morning"),
+            v.literal("midday"),
+            v.literal("evening"),
+            v.literal("night"),
+        )),
+
+        // --- Astrological Context (auto-attached at creation) ---
+        astroContext: v.optional(v.object({
+            moonPhase: v.string(),                   // "Waxing Gibbous" etc.
+            moonSign: v.optional(v.string()),
+            sunSign: v.optional(v.string()),
+            retrogradePlanets: v.optional(v.array(v.string())),
+            activeTransits: v.optional(v.array(v.object({
+                planet: v.string(),
+                sign: v.string(),
+                aspect: v.optional(v.string()),
+                house: v.optional(v.number()),
+            }))),
+        })),
+
+        // --- Voice ---
+        voiceTranscript: v.optional(v.string()),     // Raw STT transcript (Web Speech API)
+
+        // --- Photo (single lightweight image) ---
+        photoId: v.optional(v.id("_storage")),
+        photoCaption: v.optional(v.string()),
+
+        // --- Location ---
+        location: v.optional(v.object({
+            lat: v.number(),
+            long: v.number(),
+            city: v.optional(v.string()),
+            country: v.optional(v.string()),
+            displayName: v.optional(v.string()),     // "Prague, CZ" or user-typed override
+        })),
+
+        // --- Organization ---
+        tags: v.optional(v.array(v.string())),
+        isPinned: v.optional(v.boolean()),
+
+        // --- Dream-Specific ---
+        dreamData: v.optional(v.object({
+            isLucid: v.optional(v.boolean()),
+            isRecurring: v.optional(v.boolean()),
+            dreamSigns: v.optional(v.array(v.string())),     // Recurring symbols
+            emotionalTone: v.optional(v.string()),            // "eerie", "joyful", "confusing"
+        })),
+
+        // --- Gratitude-Specific ---
+        gratitudeItems: v.optional(v.array(v.string())),     // What the user is grateful for (3-5 items)
+
+        // --- Oracle Link ---
+        oracleSessionId: v.optional(v.id("oracle_sessions")),
+        oracleInspired: v.optional(v.boolean()),             // Was this entry suggested by Oracle?
+
+        // --- Metadata ---
+        wordCount: v.optional(v.number()),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+        entryDate: v.string(),                                // "YYYY-MM-DD"
+    })
+        .index("by_user_date", ["userId", "entryDate"])
+        .index("by_user_created", ["userId", "createdAt"])
+        .index("by_user_type", ["userId", "entryType"])
+        .index("by_user_pinned", ["userId", "isPinned"])
+        .index("by_user_mood_zone", ["userId", "moodZone"])
+        .index("by_oracle_session", ["oracleSessionId"])
+        .searchIndex("search_content", {
+            searchField: "content",
+            filterFields: ["userId", "entryType", "moodZone", "entryDate"],
+        }),
+
+    // 17. JOURNAL STREAKS
+    journal_streaks: defineTable({
+        userId: v.id("users"),
+        currentStreak: v.number(),
+        longestStreak: v.number(),
+        lastEntryDate: v.string(),                    // "YYYY-MM-DD"
+        totalEntries: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_user", ["userId"]),
+
+    // 18. JOURNAL CONSENT (Oracle Access)
+    journal_consent: defineTable({
+        userId: v.id("users"),
+        oracleCanReadJournal: v.boolean(),
+        consentGivenAt: v.optional(v.number()),
+        consentRevokedAt: v.optional(v.number()),
+        consentVersion: v.string(),                   // "1.0"
+
+        // Granular permissions
+        includeEntryContent: v.boolean(),            // Can Oracle read full entry text?
+        includeMoodData: v.boolean(),                // Can Oracle read mood/emotion data?
+        includeDreamData: v.boolean(),               // Can Oracle read dream entries?
+        lookbackDays: v.number(),                     // How many days back Oracle can see (30, 90, 365, 9999)
+
+        updatedAt: v.number(),
+    })
+        .index("by_user", ["userId"]),
+
+    // 19. JOURNAL PROMPT BANK (Algorithmic Daily Prompts)
+    journal_prompt_bank: defineTable({
+        category: v.union(
+            v.literal("daily"),
+            v.literal("moon"),
+            v.literal("retrograde"),
+            v.literal("seasonal"),
+            v.literal("gratitude"),
+            v.literal("dream"),
+            v.literal("relationship"),
+            v.literal("career"),
+        ),
+        moonPhase: v.optional(v.string()),             // Only shown during this moon phase (e.g. "Full Moon")
+        text: v.string(),                               // The prompt text
+        astrologyLevel: v.union(
+            v.literal("none"),                          // No astrology context needed
+            v.literal("light"),                         // References moon phase
+            v.literal("medium"),                        // References current transits
+            v.literal("deep"),                          // References natal chart specifics
+        ),
+        isActive: v.boolean(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_category", ["category"])
+        .index("by_moon_phase", ["moonPhase"])
+        .index("by_active", ["isActive"]),
+
+    // 20. JOURNAL SETTINGS (Admin Configuration)
+    journal_settings: defineTable({
+        key: v.string(),
+        value: v.string(),                             // Always stored as string — parsed at app layer
+        valueType: v.union(
+            v.literal("string"),
+            v.literal("number"),
+            v.literal("boolean"),
+            v.literal("json"),
+        ),
+        label: v.string(),
+        description: v.optional(v.string()),
+        group: v.string(),                             // "limits", "features", "oracle_integration"
+        updatedAt: v.number(),
+        updatedBy: v.optional(v.id("users")),
+    })
+        .index("by_key", ["key"])
+        .index("by_group", ["group"]),
+
     // 15. ORACLE MESSAGES (Individual messages in a session)
     oracle_messages: defineTable({
         sessionId: v.id("oracle_sessions"),

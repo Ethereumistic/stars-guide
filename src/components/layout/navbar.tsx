@@ -42,7 +42,7 @@ export function Navbar() {
     const [scrolled, setScrolled] = React.useState(false)
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false)
     const pathname = usePathname()
-    const isOracle = pathname.startsWith("/oracle")
+    const isOracle = pathname.startsWith("/oracle") || pathname.startsWith("/journal")
 
     // Handle Scroll Effect
     React.useEffect(() => {

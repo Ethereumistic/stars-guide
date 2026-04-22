@@ -7,6 +7,7 @@ import {
     Sparkles,
     Settings,
     LayoutDashboard,
+    BookOpen,
     ChevronsUpDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -83,6 +84,12 @@ export function OracleSidebarFooter({
                         <Link href="/dashboard" className="cursor-pointer gap-2">
                             <LayoutDashboard className="h-4 w-4" />
                             Dashboard
+                        </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                        <Link href="/journal" className="cursor-pointer gap-2">
+                            <BookOpen className="h-4 w-4" />
+                            Journal
                         </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
