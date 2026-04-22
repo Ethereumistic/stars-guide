@@ -24,24 +24,33 @@ import { EnergyLevelPicker } from "./energy-level-picker";
 import { TimeOfDayPicker } from "./time-of-day-picker";
 import { TagInput } from "./tag-input";
 import { AstroContextStrip } from "./astro-context-strip";
+import { VoiceInputButton } from "./voice-input-button";
+import { PhotoUploader } from "./photo-uploader";
+import { LocationInput } from "./location-input";
 import { useJournalStore } from "@/store/use-journal-store";
-import { Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, ChevronDown, ChevronUp, Camera, MapPin, Mic } from "lucide-react";
 
 interface EntryComposerProps {
     /** Edit mode: pass existing entry data to pre-fill */
     editEntry?: any;
     editEntryId?: string;
+    /** Pre-fill content (from Oracle suggestion, etc.) */
+    initialContent?: string;
+    /** Oracle session that inspired this entry */
+    oracleSessionId?: string;
+    /** Whether this entry was suggested by Oracle */
+    oracleInspired?: boolean;
     className?: string;
 }
 
-export function EntryComposer({ editEntry, editEntryId, className }: EntryComposerProps) {
+export function EntryComposer({ editEntry, editEntryId, initialContent, oracleSessionId, oracleInspired, className }: EntryComposerProps) {
     const router = useRouter();
     const { entryType, setEntryType } = useJournalStore();
     const isEditing = Boolean(editEntry);
 
     // ── Composer state ────────────────────────────────────────
     const [title, setTitle] = React.useState(editEntry?.title ?? "");
-    const [content, setContent] = React.useState(editEntry?.content ?? "");
+    const [content, setContent] = React.useState(editEntry?.content ?? initialContent ?? "");
     const [mood, setMood] = React.useState<{ valence: number; arousal: number } | null>(
         editEntry?.mood ?? null
     );
@@ -65,6 +74,10 @@ export function EntryComposer({ editEntry, editEntryId, className }: EntryCompos
         editEntry?.gratitudeItems ?? ["", "", ""]
     );
     const [showExtras, setShowExtras] = React.useState(false);
+    const [photoId, setPhotoId] = React.useState<any>(editEntry?.photoId ?? null);
+    const [photoCaption, setPhotoCaption] = React.useState(editEntry?.photoCaption ?? "");
+    const [location, setLocation] = React.useState<any>(editEntry?.location ?? null);
+    const [voiceTranscript, setVoiceTranscript] = React.useState(editEntry?.voiceTranscript ?? "");
 
     // Active entry type
     const activeType = (isEditing ? editEntry?.entryType : entryType) as EntryType;
@@ -131,6 +144,9 @@ export function EntryComposer({ editEntry, editEntryId, className }: EntryCompos
                             : undefined,
                     gratitudeItems:
                         activeType === "gratitude" ? gratitudeItems.filter(Boolean) : undefined,
+                    photoId: photoId ?? undefined,
+                    photoCaption: photoCaption || undefined,
+                    location: location ?? undefined,
                 });
             } else {
                 // Create new entry
@@ -149,6 +165,12 @@ export function EntryComposer({ editEntry, editEntryId, className }: EntryCompos
                             : undefined,
                     gratitudeItems:
                         activeType === "gratitude" ? gratitudeItems.filter(Boolean) : undefined,
+                    photoId: photoId ?? undefined,
+                    photoCaption: photoCaption || undefined,
+                    location: location ?? undefined,
+                    voiceTranscript: voiceTranscript || undefined,
+                    oracleSessionId: oracleSessionId ? (oracleSessionId as any) : undefined,
+                    oracleInspired: oracleInspired || undefined,
                 });
             }
 
@@ -278,7 +300,7 @@ export function EntryComposer({ editEntry, editEntryId, className }: EntryCompos
                             ) : (
                                 <ChevronDown className="h-3 w-3" />
                             )}
-                            {showExtras ? "Hide" : "Energy, Time, Tags"}
+                            {showExtras ? "Hide" : "Energy, Time, Tags & more"}
                         </button>
                         {showExtras && (
                             <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
@@ -291,6 +313,41 @@ export function EntryComposer({ editEntry, editEntryId, className }: EntryCompos
                                     onChange={setTimeOfDay}
                                 />
                                 <TagInput value={tags} onChange={setTags} />
+                                {/* Voice input */}
+                                <div className="space-y-2">
+                                    <label className="text-xs text-white/40">Voice</label>
+                                    <VoiceInputButton
+                                        onTranscript={(text: string) => {
+                                            setContent((prev: string) =>
+                                                prev ? prev + " " + text : text
+                                            );
+                                            setVoiceTranscript((prev: string) =>
+                                                prev ? prev + " " + text : text
+                                            );
+                                        }}
+                                        onInterim={(text: string) => {
+                                            // Optional: show interim text somewhere
+                                        }}
+                                    />
+                                </div>
+                                {/* Photo upload */}
+                                <div className="space-y-2">
+                                    <label className="text-xs text-white/40">Photo</label>
+                                    <PhotoUploader
+                                        photoId={photoId}
+                                        photoCaption={photoCaption}
+                                        onPhotoChange={setPhotoId}
+                                        onCaptionChange={setPhotoCaption}
+                                    />
+                                </div>
+                                {/* Location */}
+                                <div className="space-y-2">
+                                    <label className="text-xs text-white/40">Location</label>
+                                    <LocationInput
+                                        value={location}
+                                        onChange={setLocation}
+                                    />
+                                </div>
                             </div>
                         )}
                     </div>
@@ -302,6 +359,38 @@ export function EntryComposer({ editEntry, editEntryId, className }: EntryCompos
                         <EnergyLevelPicker value={energyLevel} onChange={setEnergyLevel} />
                         <TimeOfDayPicker value={timeOfDay} onChange={setTimeOfDay} />
                         <TagInput value={tags} onChange={setTags} />
+                        {/* Voice input for check-ins */}
+                        <div className="space-y-2">
+                            <label className="text-xs text-white/40">Voice</label>
+                            <VoiceInputButton
+                                onTranscript={(text: string) => {
+                                    setContent((prev: string) =>
+                                        prev ? prev + " " + text : text
+                                    );
+                                    setVoiceTranscript((prev: string) =>
+                                        prev ? prev + " " + text : text
+                                    );
+                                }}
+                            />
+                        </div>
+                        {/* Photo upload for check-ins */}
+                        <div className="space-y-2">
+                            <label className="text-xs text-white/40">Photo</label>
+                            <PhotoUploader
+                                photoId={photoId}
+                                photoCaption={photoCaption}
+                                onPhotoChange={setPhotoId}
+                                onCaptionChange={setPhotoCaption}
+                            />
+                        </div>
+                        {/* Location for check-ins */}
+                        <div className="space-y-2">
+                            <label className="text-xs text-white/40">Location</label>
+                            <LocationInput
+                                value={location}
+                                onChange={setLocation}
+                            />
+                        </div>
                     </div>
                 )}
             </div>

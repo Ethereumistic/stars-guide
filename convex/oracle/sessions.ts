@@ -92,6 +92,7 @@ export const addMessage = mutation({
             v.literal("C"),
             v.literal("D"),
         )),
+        journalPrompt: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);
@@ -112,6 +113,7 @@ export const addMessage = mutation({
             promptTokens: args.promptTokens,
             completionTokens: args.completionTokens,
             fallbackTierUsed: args.fallbackTierUsed,
+            journalPrompt: args.journalPrompt,
             createdAt: now,
         });
 
@@ -223,6 +225,7 @@ export const finalizeStreamingMessage = internalMutation({
             v.literal("D"),
         )),
         systemPromptHash: v.optional(v.string()),
+        journalPrompt: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         await ctx.db.patch(args.messageId, {
@@ -232,6 +235,7 @@ export const finalizeStreamingMessage = internalMutation({
             completionTokens: args.completionTokens,
             fallbackTierUsed: args.fallbackTierUsed,
             systemPromptHash: args.systemPromptHash,
+            ...(args.journalPrompt ? { journalPrompt: args.journalPrompt } : {}),
         });
         await ctx.db.patch(args.sessionId, {
             ...(args.modelUsed ? { primaryModelUsed: args.modelUsed } : {}),

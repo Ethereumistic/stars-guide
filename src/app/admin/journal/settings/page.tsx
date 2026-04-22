@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { useMutation, useQuery } from "convex/react";
-import { Loader2, Save, CheckCircle, AlertTriangle } from "lucide-react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
+import { cn } from "@/lib/utils";
+import { Loader2, Save, CheckCircle, AlertTriangle, Plus, Trash2, Pencil } from "lucide-react";
 import { JOURNAL_SETTINGS_DEFAULTS } from "@/lib/journal/constants";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { PromptBankEditor } from "@/components/journal-admin/prompt-bank-editor";
 
 export default function AdminJournalSettingsPage() {
     const settings = useQuery(api.journal.settings.listAllSettings);
@@ -58,14 +60,14 @@ export default function AdminJournalSettingsPage() {
     async function saveBatch(
         items: Array<{ key: string; value: string; valueType: "string" | "number" | "boolean" | "json"; label: string; group: string; description?: string }>,
         savingState: string,
-        successMessage: string
+        successMessage: string,
     ) {
         setSavingKey(savingState);
         try {
             await Promise.all(
                 items.map((item) =>
-                    upsertSetting({ ...item, description: item.description ?? "" })
-                )
+                    upsertSetting({ ...item, description: item.description ?? "" }),
+                ),
             );
             toast.success(successMessage);
         } catch (error: any) {
@@ -89,15 +91,16 @@ export default function AdminJournalSettingsPage() {
                 <div>
                     <h1 className="text-2xl font-serif font-bold">Journal Settings</h1>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        Limits, feature toggles, Oracle integration, and operational controls.
+                        Limits, feature toggles, prompt bank, Oracle integration, and operational controls.
                     </p>
                 </div>
             </div>
 
             <Tabs defaultValue="limits" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-4">
                     <TabsTrigger value="limits">Limits</TabsTrigger>
                     <TabsTrigger value="features">Features</TabsTrigger>
+                    <TabsTrigger value="prompts">Prompt Bank</TabsTrigger>
                     <TabsTrigger value="oracle">Oracle Integration</TabsTrigger>
                 </TabsList>
 
@@ -160,7 +163,7 @@ export default function AdminJournalSettingsPage() {
                                                 { key: "max_photo_size_bytes", value: limits.max_photo_size_bytes, valueType: "number", label: "Max Photo Size", group: "limits", description: "5 MB default" },
                                             ],
                                             "limits",
-                                            "Limits saved"
+                                            "Limits saved",
                                         )
                                     }
                                     disabled={savingKey === "limits"}
@@ -194,7 +197,7 @@ export default function AdminJournalSettingsPage() {
                                         saveBatch(
                                             [{ key: "journal_context_enabled", value: String(checked), valueType: "boolean", label: "Journal-Oracle Integration", group: "features" }],
                                             "feature_journal_context",
-                                            `Journal-Oracle integration ${checked ? "enabled" : "disabled"}`
+                                            `Journal-Oracle integration ${checked ? "enabled" : "disabled"}`,
                                         );
                                     }}
                                 />
@@ -212,13 +215,18 @@ export default function AdminJournalSettingsPage() {
                                         saveBatch(
                                             [{ key: "voice_input_enabled", value: String(checked), valueType: "boolean", label: "Voice Input", group: "features" }],
                                             "feature_voice",
-                                            `Voice input ${checked ? "enabled" : "disabled"}`
+                                            `Voice input ${checked ? "enabled" : "disabled"}`,
                                         );
                                     }}
                                 />
                             </div>
                         </CardContent>
                     </Card>
+                </TabsContent>
+
+                {/* Prompt Bank Tab */}
+                <TabsContent value="prompts" className="space-y-4">
+                    <PromptBankEditor />
                 </TabsContent>
 
                 {/* Oracle Integration Tab */}
@@ -312,7 +320,7 @@ export default function AdminJournalSettingsPage() {
                                                 { key: "default_lookback_days", value: oracleIntegration.default_lookback_days, valueType: "number", label: "Default Lookback Days", group: "oracle_integration" },
                                             ],
                                             "oracle_integration",
-                                            "Oracle integration settings saved"
+                                            "Oracle integration settings saved",
                                         )
                                     }
                                     disabled={savingKey === "oracle_integration"}

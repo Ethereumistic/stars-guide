@@ -376,6 +376,16 @@ export default function OracleChatPage() {
                                                             <Copy className="w-3.5 h-3.5" />
                                                         )}
                                                     </button>
+
+                                                    {/* Journal about this — when Oracle suggests a prompt */}
+                                                    {(msg as any).journalPrompt && (
+                                                        <button
+                                                            onClick={() => router.push(`/journal/new?oracleSessionId=${sessionId}&presetPrompt=${encodeURIComponent((msg as any).journalPrompt)}&type=freeform`)}
+                                                            className="flex items-center gap-1.5 rounded-full border border-galactic/20 bg-galactic/10 px-3 py-1 text-xs text-galactic/80 hover:bg-galactic/20 hover:text-galactic transition-all"
+                                                        >
+                                                            ✦ Journal about this
+                                                        </button>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

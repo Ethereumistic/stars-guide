@@ -6,6 +6,7 @@ export const ORACLE_FEATURE_KEYS = [
   "synastry_full",
   "sign_card_image",
   "binaural_beat",
+  "journal_recall",
 ] as const
 
 export type OracleFeatureKey = (typeof ORACLE_FEATURE_KEYS)[number]
@@ -22,6 +23,7 @@ export interface OracleFeatureDefinition {
   menuGroup: OracleFeatureMenuGroup
   implemented: boolean
   requiresBirthData: boolean
+  requiresJournalConsent?: boolean
 }
 
 export const ORACLE_FEATURES: readonly OracleFeatureDefinition[] = [
@@ -116,6 +118,24 @@ export const ORACLE_FEATURES: readonly OracleFeatureDefinition[] = [
     menuGroup: "more",
     implemented: false,
     requiresBirthData: false,
+  },
+  {
+    key: "journal_recall",
+    label: "Cosmic Recall",
+    shortLabel: "Recall",
+    description: "Search your journal entries for patterns tied to astrological events",
+    defaultPrompt: "Look through my journal and help me find patterns",
+    fallbackInjectionText: [
+      "[COSMIC RECALL MODE]",
+      "The user has asked you to search their journal for patterns and correlations with astrological events.",
+      "Use the journal context below to identify recurring emotional themes, astrological correlations, and growth patterns.",
+      "Cite specific entries by date and relate them to the astrological weather at the time.",
+      "[END COSMIC RECALL MODE]",
+    ].join("\n"),
+    menuGroup: "primary",
+    implemented: true,
+    requiresBirthData: false,
+    requiresJournalConsent: true,
   },
 ] as const
 

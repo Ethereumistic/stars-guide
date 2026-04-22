@@ -1,7 +1,9 @@
 "use client"
 
 import * as React from "react"
-import { Paperclip, Plus, Send, Sparkles, Wand2, X } from "lucide-react"
+import { Paperclip, Plus, Send, Sparkles, Wand2, X, Lock } from "lucide-react"
+import { useQuery } from "convex/react"
+import { api } from "../../../../convex/_generated/api"
 
 import { OracleSignPreviewCards } from "@/components/oracle/input/oracle-sign-preview-cards"
 import { Button } from "@/components/ui/button"
@@ -39,13 +41,6 @@ interface OracleInputProps {
   birthData?: OracleBirthData | null
 }
 
-const primaryFeatureItems = ORACLE_FEATURES.filter(
-  (feature) => feature.menuGroup === "primary",
-)
-const moreFeatureItems = ORACLE_FEATURES.filter(
-  (feature) => feature.menuGroup === "more",
-)
-
 export function OracleInput({
   value,
   onValueChange,
@@ -61,6 +56,38 @@ export function OracleInput({
 }: OracleInputProps) {
   const activeFeature = getOracleFeature(featureKey)
   const showBirthPreview = isBirthChartFeature(featureKey)
+
+  // Check journal consent for features that require it
+  const consent = useQuery(api.journal.consent.getConsent)
+
+  // A feature requires journal consent and the user hasn't granted it
+  function isFeatureDisabled(feat: typeof ORACLE_FEATURES[number]): boolean {
+    if (!feat.implemented) return true
+    if (feat.requiresJournalConsent) {
+      // consent is undefined while loading, null if no record, object if exists
+      if (consent === undefined) return true // still loading
+      if (consent === null) return true // no consent record
+      if (!consent.oracleCanReadJournal) return true // revoked
+    }
+    return false
+  }
+
+  function getFeatureDisabledReason(feat: typeof ORACLE_FEATURES[number]): string | null {
+    if (!feat.implemented) return "Coming soon"
+    if (feat.requiresJournalConsent) {
+      if (consent === undefined) return "Loading…"
+      if (consent === null || !consent?.oracleCanReadJournal) return "Requires journal access — enable in Journal Settings"
+    }
+    return null
+  }
+
+  // Separate features into menu groups
+  const primaryFeatureItems = ORACLE_FEATURES.filter(
+    (feature) => feature.menuGroup === "primary",
+  )
+  const moreFeatureItems = ORACLE_FEATURES.filter(
+    (feature) => feature.menuGroup === "more",
+  )
 
   return (
     <div className="space-y-3">
@@ -105,43 +132,22 @@ export function OracleInput({
               className="w-64 border-galactic/20 bg-background/95 backdrop-blur-xl"
               align="start"
             >
-              {primaryFeatureItems.map((feature, index) => {
-                if (index === 1) {
-                  return (
-                    <React.Fragment key={`${feature.key}-group`}>
-                      <DropdownMenuItem
-                        disabled={!primaryFeatureItems[0].implemented}
-                        className="gap-2.5 text-white/80"
-                      >
-                        <Paperclip className="w-4 h-4 text-galactic" />
-                        <span className="text-sm">{primaryFeatureItems[0].label}</span>
-                        <DropdownMenuShortcut>Soon</DropdownMenuShortcut>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        key={feature.key}
-                        className="gap-2.5 cursor-pointer text-white/80 hover:text-white focus:text-white"
-                        onSelect={() => onFeatureSelect(feature.key)}
-                      >
-                        <Wand2 className="w-4 h-4 text-galactic" />
-                        <span className="text-sm">{feature.label}</span>
-                      </DropdownMenuItem>
-                    </React.Fragment>
-                  )
-                }
-
-                if (index === 0) {
-                  return null
-                }
+              {primaryFeatureItems.map((feature) => {
+                const disabled = isFeatureDisabled(feature)
+                const reason = getFeatureDisabledReason(feature)
 
                 return (
                   <DropdownMenuItem
                     key={feature.key}
+                    disabled={disabled}
                     className="gap-2.5 cursor-pointer text-white/80 hover:text-white focus:text-white"
-                    onSelect={() => onFeatureSelect(feature.key)}
+                    onSelect={() => !disabled && onFeatureSelect(feature.key)}
                   >
                     <Wand2 className="w-4 h-4 text-galactic" />
                     <span className="text-sm">{feature.label}</span>
+                    {reason && (
+                      <span className="ml-auto text-[10px] text-white/30">{reason}</span>
+                    )}
                   </DropdownMenuItem>
                 )
               })}
@@ -154,31 +160,20 @@ export function OracleInput({
                   <span className="text-sm">More</span>
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent className="w-64 border-galactic/20 bg-background/95 backdrop-blur-xl">
-                  {moreFeatureItems.slice(0, 2).map((feature) => (
-                    <DropdownMenuItem
-                      key={feature.key}
-                      disabled={!feature.implemented}
-                      className="gap-2.5 text-white/80"
-                    >
-                      <Wand2 className="w-4 h-4 text-galactic" />
-                      <span className="text-sm">{feature.label}</span>
-                      <DropdownMenuShortcut>Soon</DropdownMenuShortcut>
-                    </DropdownMenuItem>
-                  ))}
-
-                  <DropdownMenuSeparator />
-
-                  {moreFeatureItems.slice(2).map((feature) => (
-                    <DropdownMenuItem
-                      key={feature.key}
-                      disabled={!feature.implemented}
-                      className="gap-2.5 text-white/80"
-                    >
-                      <Wand2 className="w-4 h-4 text-galactic" />
-                      <span className="text-sm">{feature.label}</span>
-                      <DropdownMenuShortcut>Soon</DropdownMenuShortcut>
-                    </DropdownMenuItem>
-                  ))}
+                  {moreFeatureItems.map((feature) => {
+                    const disabled = isFeatureDisabled(feature)
+                    return (
+                      <DropdownMenuItem
+                        key={feature.key}
+                        disabled={disabled}
+                        className="gap-2.5 text-white/80"
+                      >
+                        <Wand2 className="w-4 h-4 text-galactic" />
+                        <span className="text-sm">{feature.label}</span>
+                        <DropdownMenuShortcut>Soon</DropdownMenuShortcut>
+                      </DropdownMenuItem>
+                    )
+                  })}
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
             </DropdownMenuContent>

@@ -1,6 +1,6 @@
 # Oracle AI System — Full Technical Explanation (v1)
 
-> This document provides a complete, in-detail technical explanation of the Oracle AI system at stars.guide, covering every layer from admin configuration through the LLM invocation pipeline to user-facing output. Written against the current codebase state as of 2026-04-19.
+> This document provides a complete, in-detail technical explanation of the Oracle AI system at stars.guide, covering every layer from admin configuration through the LLM invocation pipeline to user-facing output. Includes Journal integration (consent-gated context, Cosmic Recall, journal prompt suggestions). Written against the current codebase state as of 2026-04-21.
 
 ---
 
@@ -15,18 +15,19 @@
 7. [Safety & Crisis Detection](#7-safety--crisis-detection)
 8. [Session & Conversation Management](#8-session--conversation-management)
 9. [Quota System](#9-quota-system)
-10. [Feature System (Birth Chart, etc.)](#10-feature-system-birth-chart-etc)
+10. [Feature System (Birth Chart, Cosmic Recall, etc.)](#10-feature-system-birth-chart-cosmic-recall-etc)
 11. [Natal Context Injection](#11-natal-context-injection)
-12. [User-Facing Flow (End-to-End Walkthrough)](#12-user-facing-flow-end-to-end-walkthrough)
-13. [Operational Controls](#13-operational-controls)
-14. [Session Title Generation](#14-session-title-generation)
-15. [Key Design Decisions & Trade-offs](#15-key-design-decisions--trade-offs)
+12. [Journal Context Injection](#12-journal-context-injection)
+13. [User-Facing Flow (End-to-End Walkthrough)](#13-user-facing-flow-end-to-end-walkthrough)
+14. [Operational Controls](#14-operational-controls)
+15. [Session Title Generation](#15-session-title-generation)
+16. [Key Design Decisions & Trade-offs](#16-key-design-decisions--trade-offs)
 
 ---
 
 ## 1. System Architecture Overview
 
-The Oracle is a conversational astrology AI built on a **Convex + Next.js** stack. The architecture has four distinct layers:
+The Oracle is a conversational astrology AI built on a **Convex + Next.js** stack. The architecture has five distinct layers:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -46,13 +47,25 @@ The Oracle is a conversational astrology AI built on a **Convex + Next.js** stac
 │  oracle/quota.ts     — Server-authoritative quota checks      │
 │  oracle/features.ts  — Feature injection queries             │
 │  oracle/upsertProviders.ts — Provider/chain config mutations │
-│  lib/adminGuard.ts   — Admin authorization enforcement        │
+│  lib/adminGuard.ts   — Admin authorization enforcement        │n│                                                               │
+│  ═══ Journal Integration (consent-gated) ═══                 │
+│  journal/context.ts  — [JOURNAL CONTEXT] block builder       │
+│  journal/consent.ts  — Consent read/write for Oracle access   │
+│  journal/entries.ts  — Journal entry reads for context        │
 └──────────────────────────┬──────────────────────────────────┘
                            │ fetch (OpenAI-compatible API)
 ┌──────────────────────────▼──────────────────────────────────┐
 │              INFERENCE PROVIDERS (external)                  │
 │  OpenRouter, Ollama, OpenAI-compatible endpoints             │
 │  Model fallback chain: Tier A → Tier B → Tier C → Tier D    │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│              JOURNAL SYSTEM (peer, consent-gated)            │
+│  See tasks/JOURNAL_EXPLAINED.md for full documentation       │
+│  Provides [JOURNAL CONTEXT] block when consent is granted   │
+│  oracle_messages.journalPrompt — Journal prompt suggestions  │
+│  journal_recall feature — Cosmic Recall with expanded context │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -119,6 +132,8 @@ Individual messages within sessions:
 - `modelUsed` — which LLM produced this (assistant only)
 - `promptTokens`, `completionTokens` — token usage metadata (assistant only)
 - `fallbackTierUsed` — `"A" | "B" | "C" | "D"` (assistant only; D = hardcoded fallback)
+- `systemPromptHash` — optional string; snapshot of system prompt for observability
+- `journalPrompt` — optional string (assistant only); journal prompt suggested by Oracle via `JOURNAL_PROMPT:` line in response
 - `createdAt`
 
 ### `oracle_quota_usage` (Table 13, schema lines 298-309)
@@ -187,17 +202,19 @@ All admin queries/mutations call `requireAdmin()` (`convex/lib/adminGuard.ts:12-
 
 ## 4. Prompt Assembly Pipeline
 
-The prompt is the heart of the Oracle. It is assembled in `buildPrompt()` (`lib/oracle/promptBuilder.ts:79-95`) from exactly 4 parameters: `soulDoc`, `featureInjection`, `natalContext`, `userQuestion`.
+The prompt is the heart of the Oracle. It is assembled in `buildPrompt()` (`lib/oracle/promptBuilder.ts:79-110`) from 5 parameters: `soulDoc`, `featureInjection`, `natalContext`, `userQuestion`, `journalContext`. `journalContext` is optional and consent-gated.
 
-### System Prompt (4 blocks, in order)
+### System Prompt (6 blocks, in order)
 
-Built by `buildSystemPrompt()` (`lib/oracle/promptBuilder.ts:41-53`):
+Built by `buildSystemPrompt()` (`lib/oracle/promptBuilder.ts:41-70`):
 
 ```
-[Block 1: ORACLE_SAFETY_RULES]    ← hardcoded, always first, non-negotiable
-[Block 2: soulDoc]                ← from oracle_settings key "oracle_soul"
-[Block 3: featureInjection]       ← from oracle_feature_injections table (if active feature)
-[Block 4: ORACLE_TITLE_DIRECTIVE] ← hardcoded, always last
+[Block 1: ORACLE_SAFETY_RULES]     ← hardcoded, always first, non-negotiable
+[Block 2: soulDoc]                 ← from oracle_settings key "oracle_soul"
+[Block 3: featureInjection]        ← from oracle_feature_injections table (if active feature)
+[Block 3.5: journalContext]         ← from journal/context.ts assembleJournalContext (if consent granted)
+[Block 4: ORACLE_TITLE_DIRECTIVE]   ← hardcoded, always present on first response
+[Block 4.5: JOURNAL_PROMPT_DIRECTIVE] ← hardcoded, only if journalContext is present
 ```
 
 **Block 1 — Safety Rules** (`lib/oracle/safetyRules.ts:9-32`):
@@ -218,8 +235,24 @@ The `DEFAULT_ORACLE_SOUL` is ~62 lines defining Oracle's identity, voice, capabi
 **Block 3 — Feature Injection** (optional):
 Loaded from `oracle_feature_injections` table for the active feature. See Section 10.
 
+**Block 3.5 — Journal Context** (optional, consent-gated):
+If the user has granted consent (`journal_consent.oracleCanReadJournal === true`), `assembleJournalContext()` builds a `[JOURNAL CONTEXT]` block containing summaries of the user's recent journal entries. This block includes:
+- Entry dates, types, and mood zones
+- Emotion labels with intensity words ("mildly anxious", "strongly grateful")
+- Energy levels
+- Moon phase from astro context
+- Truncated entry content (if `includeEntryContent` consented)
+- Dream data (if `includeDreamData` consented)
+- Formatted as `---ENTRY YYYY-MM-DD (zone: ...)---` blocks with `---END ENTRY---` closers
+- Capped at `BUDGET_CHARS` (4,000 default, 8,000 for Cosmic Recall)
+
+See `tasks/JOURNAL_EXPLAINED.md` §16 for the full context assembly specification.
+
 **Block 4 — Title Directive** (`lib/oracle/promptBuilder.ts:13-25`):
 Hardcoded instruction requiring the model to output a `TITLE: <4-6 word title>` line at the very end. This title is parsed out of the response and used as the session title, replacing the old separate title-generation LLM call.
+
+**Block 4.5 — Journal Prompt Suggestion Directive** (optional):
+Only included when journal context is present. Instructs Oracle that it MAY optionally output a `JOURNAL_PROMPT: <reflective question>` line if its response naturally touches on emotional themes the user might want to journal about. This is parsed from the response, stored on the message as `journalPrompt`, and surfaced in the UI as a "Journal about this" button. See `tasks/JOURNAL_EXPLAINED.md` §19.
 
 ### User Message (2 blocks)
 
@@ -508,11 +541,11 @@ The plan is determined by: `(user.role === "admin" || user.role === "moderator")
 
 ---
 
-## 10. Feature System (Birth Chart, etc.)
+## 10. Feature System (Birth Chart, Cosmic Recall, etc.)
 
 ### Feature Definitions
 
-Defined in `src/lib/oracle/features.ts`. Seven features are registered:
+Defined in `src/lib/oracle/features.ts`. Eight features are registered:
 
 | Key | Label | Implemented | Requires Birth Data | Menu Group |
 |-----|-------|-------------|---------------------|------------|
@@ -523,8 +556,9 @@ Defined in `src/lib/oracle/features.ts`. Seven features are registered:
 | `synastry_full` | Deep synastry analysis | No | Yes | more |
 | `sign_card_image` | Create sign card image | No | Yes | more |
 | `binaural_beat` | Create binaural beat | No | No | more |
+| `journal_recall` | Cosmic Recall | Yes | No | primary |
 
-Only `birth_chart_core` and `birth_chart_full` are currently implemented.
+Only `birth_chart_core`, `birth_chart_full`, and `journal_recall` are currently implemented. `journal_recall` requires the user to have granted Oracle journal access consent (`requiresJournalConsent: true`).
 
 ### Feature Selection Flow
 
@@ -614,7 +648,76 @@ Both are handled gracefully. The builder resolves placements from `chart.planets
 
 ---
 
-## 12. User-Facing Flow (End-to-End Walkthrough)
+## 12. Journal Context Injection
+
+The Journal system provides a consent-gated `[JOURNAL CONTEXT]` block that is injected into Oracle's system prompt when the user has granted access. This is Oracle's single biggest differentiator — it can reference the user's actual emotional patterns, correlate them with astrological transits, and give dramatically more personalized readings.
+
+See `tasks/JOURNAL_EXPLAINED.md` for the complete Journal system documentation. Below is the Oracle-specific integration.
+
+### How Journal Context Enters the Oracle Pipeline
+
+In `invokeOracle` (`convex/oracle/llm.ts:210-225`):
+
+1. After feature injection and natal context assembly, but before prompt construction:
+   ```typescript
+   const isCosmicRecall = activeFeature?.key === "journal_recall";
+   try {
+       journalContext = await ctx.runQuery(
+           internal.journal.context.assembleJournalContext,
+           { userId: user._id, expandedBudget: isCosmicRecall },
+       );
+   } catch (e) {
+       // Non-blocking — Oracle proceeds without journal context
+       journalContext = null;
+   }
+   ```
+
+2. `journalContext` is passed to `buildPrompt()` and inserted as Block 3.5 in the system prompt.
+
+3. When journal context is present, the `JOURNAL_PROMPT_DIRECTIVE` (Block 4.5) is also included, instructing Oracle that it may suggest a journal prompt.
+
+### Consent Enforcement
+
+The `assembleJournalContext` function (`convex/journal/context.ts`) queries `journal_consent` for the user. If `oracleCanReadJournal !== true`, it immediately returns `null`. This is enforced **server-side** — the client cannot bypass it.
+
+### Granular Data Inclusion
+
+The context builder respects four consent flags:
+
+| Flag | Effect on Journal Context |
+|------|------------------------|
+| `includeEntryContent` | If false, entry text is omitted from summaries |
+| `includeMoodData` | If false, emotions and energy level are omitted |
+| `includeDreamData` | If false, dream-specific data is omitted |
+| `lookbackDays` | Controls how many days of entries Oracle can see (30/90/365/9999) |
+
+### Budget Constraints
+
+| Context Type | Budget | Max Entry Chars | Max Entries |
+|-------------|--------|-----------------|------------|
+| Normal | 4,000 | 500 | 10 |
+| Cosmic Recall (expanded) | 8,000 | 1,000 | 20 |
+
+### Journal Prompt Parsing
+
+After Oracle generates a response, `parseJournalPromptFromResponse()` (`lib/oracle/promptBuilder.ts:222-265`) checks for a `JOURNAL_PROMPT: <text>` line. If found:
+1. The prompt text is extracted and stripped of quotes
+2. The `JOURNAL_PROMPT:` line is removed from the displayed content
+3. The prompt is stored on the `oracle_messages` row as `journalPrompt`
+4. The UI shows a "✦ Journal about this" button that navigates to the composer with the prompt pre-filled
+
+### Cosmic Recall Feature
+
+`journal_recall` is an Oracle feature (`menuGroup: "primary"`, `implemented: true`, `requiresJournalConsent: true`) that gives Oracle deep access to the user's journal for pattern analysis.
+
+**What's different from normal journal context:**
+- `expandedBudget: true` → all limits doubled
+- Feature injection text: `[COSMIC RECALL MODE]` block instructs Oracle to search journal entries, cite specific dates, and connect emotional patterns to astro events
+- The Oracle input menu checks `requiresJournalConsent` and queries consent status; if not granted, the feature is disabled with "Requires journal access" tooltip
+
+---
+
+## 13. User-Facing Flow (End-to-End Walkthrough)
 
 ### Phase 1: User Opens Oracle
 
@@ -691,7 +794,7 @@ Both are handled gracefully. The builder resolves placements from `chart.planets
 
 ---
 
-## 13. Operational Controls
+## 14. Operational Controls
 
 ### Kill Switch
 
@@ -716,7 +819,7 @@ Both are handled gracefully. The builder resolves placements from `chart.planets
 
 ---
 
-## 14. Session Title Generation
+## 15. Session Title Generation
 
 ### Old Approach (removed)
 Previously a separate LLM call generated the session title. This was removed during the Oracle rebuild.
@@ -738,7 +841,7 @@ The Oracle model itself generates the title as a `TITLE:` line at the end of its
 
 ---
 
-## 15. Key Design Decisions & Trade-offs
+## 16. Key Design Decisions & Trade-offs
 
 ### 1. Hardcoded Safety Rules vs. DB-Stored
 Safety rules are hardcoded in code, not editable from admin. This is intentional: changes require code review and a deploy, preventing a single admin from accidentally weakening safety. The trade-off is slower iteration on safety rules.
@@ -764,6 +867,15 @@ Quota is only incremented after a successful LLM response (line 227). Crisis res
 ### 8. Admin Guard as the Real Enforcement
 The `requireAdmin()` check in every admin-facing Convex function is the real security layer, not the Next.js route guards. A motivated attacker could call Convex functions directly via the API; `requireAdmin` ensures they'd be rejected.
 
+### 9. Journal Context is Non-Blocking
+Journal context assembly is wrapped in try/catch in `invokeOracle`. If it fails for any reason (consent missing, database error, empty journal), Oracle proceeds without journal context. The user always gets a reading — just without journal-awareness. This ensures the Journal integration never degrades Oracle's reliability.
+
+### 10. Journal Consent is Server-Enforced
+The consent check happens server-side in `assembleJournalContext()`. The `[JOURNAL CONTEXT]` block is only built when `journal_consent.oracleCanReadJournal === true`. The client cannot bypass this — even if the frontend failed to check consent, the backend function would return `null`. The `requiresJournalConsent` flag on Oracle features is a UX hint (greying out disabled features), not a security enforcement.
+
+### 11. Journal Prompt Suggestions are Optional
+The `JOURNAL_PROMPT_DIRECTIVE` uses the word "MAY" (not "MUST"). Oracle only suggests a journal prompt when it naturally touches on emotional themes. This avoids spammy prompts on every response and maintains the conversational feel.
+
 ---
 
-*Document generated from codebase analysis. All file references use the format `filepath:startLine-endLine`. Last updated: 2026-04-19.*
+*Document generated from codebase analysis. All file references use the format `filepath:startLine-endLine`. Last updated: 2026-04-21.*

@@ -17,8 +17,11 @@ const INTENSITY_WORDS: Record<number, string> = {
 };
 
 export const assembleJournalContext = internalQuery({
-    args: { userId: v.id("users") },
-    handler: async (ctx, { userId }) => {
+    args: {
+        userId: v.id("users"),
+        expandedBudget: v.optional(v.boolean()), // For Cosmic Recall: double the budget
+    },
+    handler: async (ctx, { userId, expandedBudget }) => {
         // 1. Fetch consent
         const consent = await ctx.db
             .query("journal_consent")
@@ -42,7 +45,7 @@ export const assembleJournalContext = internalQuery({
         // Filter by lookback window and limit
         const recentEntries = allEntries
             .filter((e) => e.createdAt >= cutoffTime)
-            .slice(0, ORACLE_JOURNAL_CONTEXT.MAX_ENTRIES_IN_CONTEXT);
+            .slice(0, ORACLE_JOURNAL_CONTEXT.MAX_ENTRIES_IN_CONTEXT * (expandedBudget ? 2 : 1));
 
         if (recentEntries.length === 0) {
             return null;
@@ -51,8 +54,8 @@ export const assembleJournalContext = internalQuery({
         // 3. Build entry summaries respecting consent granularity
         const entrySummaries: string[] = [];
         let totalChars = 0;
-        const budget = ORACLE_JOURNAL_CONTEXT.BUDGET_CHARS;
-        const maxEntryChars = ORACLE_JOURNAL_CONTEXT.MAX_ENTRY_CHARS;
+        const budget = expandedBudget ? ORACLE_JOURNAL_CONTEXT.BUDGET_CHARS * 2 : ORACLE_JOURNAL_CONTEXT.BUDGET_CHARS;
+        const maxEntryChars = expandedBudget ? ORACLE_JOURNAL_CONTEXT.MAX_ENTRY_CHARS * 2 : ORACLE_JOURNAL_CONTEXT.MAX_ENTRY_CHARS;
 
         for (const entry of recentEntries) {
             const lines: string[] = [];

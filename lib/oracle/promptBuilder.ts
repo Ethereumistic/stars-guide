@@ -17,34 +17,54 @@ export const ORACLE_TITLE_DIRECTIVE = [
   "This line will be used as metadata, not shown to the user.",
 ].join("\n");
 
+/**
+ * Directive for Oracle to suggest journal prompts when emotional themes are detected.
+ * Only included on first response when journal context is present.
+ */
+export const JOURNAL_PROMPT_DIRECTIVE = [
+  "[JOURNAL PROMPT SUGGESTION]",
+  "If your response touched on emotional themes the user might want to journal about,",
+  "you MAY optionally add a line: JOURNAL_PROMPT: <a reflective question for journaling>",
+  "This is optional — only include it when it feels natural and helpful.",
+  "[END JOURNAL PROMPT SUGGESTION]",
+].join("\n");
+
 export interface PromptPayload {
   systemPrompt: string;
   userMessage: string;
 }
 
 /**
- * Build the system prompt: Safety Rules + Soul Doc + Feature Injection + Title Directive (first response only).
+ * Build the system prompt: Safety Rules + Soul Doc + Feature Injection + Journal Context + Title Directive (first response only).
  *
- * Clean 3-layer structure (4 blocks on first response, 3 on follow-ups):
+ * Clean layered structure:
  *   1. ORACLE_SAFETY_RULES (hardcoded, always first)
  *   2. soulDoc (one unified document)
  *   3. featureInjection (if active feature has one)
+ *   3.5. journalContext (if consent granted and data available)
  *   4. ORACLE_TITLE_DIRECTIVE (only on first response — saves ~200 tokens on follow-ups)
  */
 export function buildSystemPrompt(params: {
   soulDoc: string;
   featureInjection?: string | null;
+  journalContext?: string | null;
   isFirstResponse?: boolean;
 }): string {
   const blocks = [
     ORACLE_SAFETY_RULES,
     params.soulDoc,
     params.featureInjection ?? "",
+    params.journalContext ?? "",
   ];
 
   // Only include title directive on the first response — saves ~200 tokens on follow-ups
   if (params.isFirstResponse !== false) {
     blocks.push(ORACLE_TITLE_DIRECTIVE);
+  }
+
+  // Also include the journal prompt directive on first response if journal context is provided
+  if (params.isFirstResponse !== false && params.journalContext) {
+    blocks.push(JOURNAL_PROMPT_DIRECTIVE);
   }
 
   return blocks.filter(Boolean).join("\n\n");
@@ -80,11 +100,13 @@ export function buildPrompt(params: {
   natalContext?: string | null;
   userQuestion: string;
   isFirstResponse?: boolean;
+  journalContext?: string | null;
 }): PromptPayload {
   return {
     systemPrompt: buildSystemPrompt({
       soulDoc: params.soulDoc,
       featureInjection: params.featureInjection,
+      journalContext: params.journalContext,
       isFirstResponse: params.isFirstResponse,
     }),
     userMessage: buildUserMessage({
@@ -161,8 +183,6 @@ export function parseTitleFromResponse(content: string): {
 
 /**
  * Derive a title from the Oracle response when the model didn't output a TITLE: line.
- *
- * Strategy:
  * 1. Take the first sentence of the response (up to the first period/punct)
  * 2. Truncate to max 60 chars if needed
  * 3. Strip Oracle-style suffixes ("->", etc.)
@@ -196,4 +216,53 @@ export function deriveTitleFromContent(content: string): string {
   }
 
   return title.trim();
+}
+
+/**
+ * Parse a JOURNAL_PROMPT: line from the Oracle response.
+ *
+ * Looks for a line matching `JOURNAL_PROMPT: <text>` (case-insensitive).
+ * If found, extracts the prompt text and returns both the cleaned content
+ * (without the JOURNAL_PROMPT: line) and the prompt string.
+ *
+ * If no JOURNAL_PROMPT: line is found, returns the original content with prompt: null.
+ */
+export function parseJournalPromptFromResponse(content: string): {
+  journalPrompt: string | null;
+  contentWithoutPrompt: string;
+} {
+  const promptRegex = /^\s*JOURNAL_PROMPT:\s*(.+?)\s*$/im;
+  const match = content.match(promptRegex);
+
+  if (!match) {
+    return { journalPrompt: null, contentWithoutPrompt: content };
+  }
+
+  let journalPrompt = match[1].trim();
+
+  // Strip surrounding quotes
+  journalPrompt = journalPrompt.replace(/^["']|["']$/g, "");
+
+  // Enforce max length of 200 characters
+  if (journalPrompt.length > 200) {
+    journalPrompt = journalPrompt.slice(0, 200);
+  }
+
+  // Remove the JOURNAL_PROMPT: line from content
+  const lines = content.split("\n");
+  const promptLineIndex = lines.findIndex((line) => promptRegex.test(line));
+
+  let contentWithoutPrompt: string;
+  if (promptLineIndex !== -1) {
+    const cleanedLines = lines.filter((_, idx) => idx !== promptLineIndex);
+    contentWithoutPrompt = cleanedLines.join("\n").trim();
+  } else {
+    contentWithoutPrompt = content;
+  }
+
+  if (!journalPrompt) {
+    return { journalPrompt: null, contentWithoutPrompt: content };
+  }
+
+  return { journalPrompt, contentWithoutPrompt };
 }

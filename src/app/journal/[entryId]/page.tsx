@@ -41,6 +41,12 @@ export default function EntryDetailPage() {
         entryId: entryId as any,
     });
 
+    // Fetch photo URL from Convex storage
+    const photoUrl = useQuery(
+        api.files.getUrl,
+        entry?.photoId ? { storageId: entry.photoId as any } : "skip"
+    );
+
     const updateEntry = useMutation(api.journal.entries.updateEntry);
     const deleteEntry = useMutation(api.journal.entries.deleteEntry);
 
@@ -194,6 +200,23 @@ export default function EntryDetailPage() {
                 </div>
             )}
 
+            {/* Photo */}
+            {photoUrl && (
+                <div className="rounded-xl overflow-hidden border border-white/5">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                        src={photoUrl}
+                        alt={entry.photoCaption || "Entry photo"}
+                        className="w-full max-h-96 object-cover"
+                    />
+                    {entry.photoCaption && (
+                        <p className="text-xs text-white/40 px-3 py-2 border-t border-white/5">
+                            {entry.photoCaption}
+                        </p>
+                    )}
+                </div>
+            )}
+
             {/* Dream data */}
             {entry.dreamData && (
                 <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 space-y-2">
@@ -281,6 +304,18 @@ export default function EntryDetailPage() {
                     <p>Updated: {new Date(entry.updatedAt).toLocaleString()}</p>
                 )}
                 {entry.wordCount && <p>{entry.wordCount} words</p>}
+            </div>
+
+            {/* Ask Oracle about this entry */}
+            <div className="pt-4">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push(`/oracle/new?journalEntryId=${entryId}`)}
+                    className="text-galactic/60 border-galactic/20 hover:bg-galactic/10 hover:text-galactic/80"
+                >
+                    ✦ Ask Oracle about this
+                </Button>
             </div>
 
             {/* Delete confirmation dialog */}

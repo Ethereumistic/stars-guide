@@ -7,6 +7,7 @@ import { Id } from "../_generated/dataModel";
 import {
   buildPrompt,
   parseTitleFromResponse,
+  parseJournalPromptFromResponse,
   deriveTitleFromContent,
 } from "../../lib/oracle/promptBuilder";
 import { buildFeatureContext } from "../../lib/oracle/featureContext";
@@ -154,6 +155,7 @@ export const invokeOracle = action({
     // ── Build feature injection and natal context ─────────────────────────
     let featureInjection = "";
     let natalContext = "";
+    let journalContext: string | null = null;
 
     // Always fetch user data early so intent classifier can check for birth data
     const user = await ctx.runQuery(api.users.current, {});
@@ -205,6 +207,20 @@ export const invokeOracle = action({
       (message: any) => message.role === "assistant",
     );
 
+    // ── Journal context assembly (non-blocking) ──────────────────────────────
+    const isCosmicRecall = activeFeature?.key === "journal_recall";
+    try {
+      if (user?._id) {
+        journalContext = await ctx.runQuery(
+          internal.journal.context.assembleJournalContext,
+          { userId: user._id, expandedBudget: isCosmicRecall },
+        );
+      }
+    } catch (e) {
+      console.error("Journal context assembly failed (non-blocking):", e);
+      journalContext = null;
+    }
+
     // ── Build prompt (4 params instead of 7) ──────────────────────────────
     const prompt = buildPrompt({
       soulDoc: config.soulDoc,
@@ -212,6 +228,7 @@ export const invokeOracle = action({
       natalContext: natalContext || null,
       userQuestion: args.userQuestion,
       isFirstResponse,
+      journalContext,
     });
 
     // Hash the system prompt for observability (stored on each assistant message)
@@ -414,6 +431,7 @@ async function callProviderStreaming(
     }
 
     const { title, contentWithoutTitle } = parseTitleFromResponse(content);
+    const { journalPrompt, contentWithoutPrompt } = parseJournalPromptFromResponse(contentWithoutTitle);
     const promptTokens: number | undefined = data.usage?.prompt_tokens;
     const completionTokens: number | undefined = data.usage?.completion_tokens;
 
@@ -425,15 +443,16 @@ async function callProviderStreaming(
     await ctx.runMutation(internal.oracle.sessions.finalizeStreamingMessage, {
       messageId,
       sessionId,
-      content: contentWithoutTitle,
+      content: contentWithoutPrompt,
       modelUsed: `${provider.id}/${model}`,
       promptTokens,
       completionTokens,
       fallbackTierUsed: tier,
       systemPromptHash,
+      journalPrompt: journalPrompt ?? undefined,
     });
 
-    return { content, contentWithoutTitle, title, promptTokens, completionTokens };
+    return { content, contentWithoutTitle: contentWithoutPrompt, title, promptTokens, completionTokens };
   }
 
   // For streaming mode, process SSE chunks
@@ -538,23 +557,25 @@ async function callProviderStreaming(
 
   // Parse title from the complete response before finalizing
   const { title, contentWithoutTitle } = parseTitleFromResponse(fullContent);
+  const { journalPrompt, contentWithoutPrompt } = parseJournalPromptFromResponse(contentWithoutTitle);
 
-  // Final flush: update streaming content with the title-stripped version
+  // Final flush: update streaming content with the title+prompt-stripped version
   await ctx.runMutation(internal.oracle.sessions.updateStreamingContent, {
     messageId,
-    content: contentWithoutTitle,
+    content: contentWithoutPrompt,
   });
 
   await ctx.runMutation(internal.oracle.sessions.finalizeStreamingMessage, {
     messageId,
     sessionId,
-    content: contentWithoutTitle,
+    content: contentWithoutPrompt,
     modelUsed: `${provider.id}/${model}`,
     promptTokens,
     completionTokens,
     fallbackTierUsed: tier,
     systemPromptHash,
+    journalPrompt: journalPrompt ?? undefined,
   });
 
-  return { content: fullContent, contentWithoutTitle, title, promptTokens, completionTokens };
+  return { content: fullContent, contentWithoutTitle: contentWithoutPrompt, title, promptTokens, completionTokens };
 }

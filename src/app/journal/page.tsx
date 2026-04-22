@@ -1,6 +1,7 @@
 "use client";
 
 import { TimelineView } from "@/components/journal/timeline/timeline-view";
+import { DailyPromptCard } from "@/components/journal/prompt/daily-prompt-card";
 
 export default function JournalPage() {
     return (
@@ -13,6 +14,9 @@ export default function JournalPage() {
                     Your reflections, moods, and cosmic context
                 </p>
             </div>
+
+            {/* Daily prompt */}
+            <DailyPromptCard className="mb-4" />
 
             <TimelineView />
         </div>

@@ -543,6 +543,8 @@ export default defineSchema({
         )),
         // Snapshot of the system prompt hash used for this response (observability)
         systemPromptHash: v.optional(v.string()),
+        // Journal prompt suggested by Oracle (if the model outputs JOURNAL_PROMPT: ...)
+        journalPrompt: v.optional(v.string()),
         createdAt: v.number(),
     })
         .index("by_session", ["sessionId"])
