@@ -100,6 +100,7 @@ export function EntryComposer({ editEntry, editEntryId, initialContent, oracleSe
         if (!cosmicWeather) return null;
         return {
             moonPhase: cosmicWeather.moonPhase.name,
+            moonIllumination: cosmicWeather.moonPhase.illuminationPercent,
             moonSign: cosmicWeather.planetPositions.find(
                 (p: any) => p.planet === "Moon"
             )?.sign,

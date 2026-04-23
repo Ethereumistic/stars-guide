@@ -14,6 +14,7 @@ import {
     TabsList,
     TabsTrigger,
 } from "@/components/ui/tabs";
+import React from "react";
 import { GiFlame, GiStonePile, GiTornado, GiWaveCrest } from "react-icons/gi";
 
 export interface BreadcrumbItem {
@@ -28,6 +29,8 @@ export interface PageHeaderProps {
     activeFilter?: string;
     onFilterChange?: (value: string) => void;
     showElementFilter?: boolean;
+    customFilter?: React.ReactNode;
+    filterLabel?: string;
     className?: string;
 }
 
@@ -46,6 +49,8 @@ export function PageHeader({
     activeFilter = "all",
     onFilterChange,
     showElementFilter = true,
+    customFilter,
+    filterLabel = "Filter by Element",
     className,
 }: PageHeaderProps) {
     const currentPage = breadcrumbs[breadcrumbs.length - 1];
@@ -91,10 +96,18 @@ export function PageHeader({
                     </h1>
                 </div>
 
-                {showElementFilter && onFilterChange && (
+                {customFilter && (
                     <div className="flex flex-col gap-4 md:items-end text-center md:text-left mt-8 md:mt-0">
                         <span className="text-base uppercase font-mono text-primary/60 tracking-[0.3em] font-bold">
-                            Filter by Element
+                            {filterLabel}
+                        </span>
+                        {customFilter}
+                    </div>
+                )}
+                {!customFilter && showElementFilter && onFilterChange && (
+                    <div className="flex flex-col gap-4 md:items-end text-center md:text-left mt-8 md:mt-0">
+                        <span className="text-base uppercase font-mono text-primary/60 tracking-[0.3em] font-bold">
+                            {filterLabel}
                         </span>
                         <Tabs value={activeFilter} onValueChange={onFilterChange} className="w-fit rounded-md mx-auto md:mx-0 ">
                             <TabsList className="bg-white/5 border border-white/10 p-1 h-auto gap-2 justify-center">

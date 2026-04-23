@@ -111,7 +111,7 @@ export function Navbar() {
                                                     href={item.href}
                                                     className={cn(
                                                         navigationMenuTriggerStyle(),
-                                                        "bg-transparent hover:bg-accent/40 text-foreground/70 hover:text-primary transition-all duration-500 font-sans text-sm tracking-wide lowercase italic flex items-center group/nav overflow-hidden",
+                                                        "bg-transparent hover:bg-accent/40 text-foreground/70 hover:text-primary transition-all duration-500 font-serif text-sm tracking-wide lowercase italic flex items-center group/nav overflow-hidden",
                                                         isActive && "text-primary font-medium"
                                                     )}
                                                 >
@@ -128,12 +128,12 @@ export function Navbar() {
 
                                                         <span className="relative">
                                                             {item.title}
-                                                            <motion.span
+                                                            {/* <motion.span
                                                                 className="absolute -bottom-1 left-0 h-px bg-primary/50"
                                                                 initial={false}
                                                                 animate={{ width: isActive ? "100%" : "0%" }}
                                                                 transition={{ duration: 0.3 }}
-                                                            />
+                                                            /> */}
                                                         </span>
                                                     </div>
                                                 </Link>
