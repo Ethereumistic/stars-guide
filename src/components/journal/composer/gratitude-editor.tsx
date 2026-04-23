@@ -46,25 +46,25 @@ export function GratitudeEditor({
     return (
         <div className={cn("space-y-5", className)}>
             <div className="space-y-3">
-                <label className="text-sm font-medium text-white/70">
+                <label className="text-sm font-serif text-white/70">
                     What are you grateful for?
                 </label>
                 {displayItems.map((item, index) => (
                     <div key={index} className="flex items-center gap-2">
-                        <span className="text-galactic/60 text-sm">🙏</span>
+                        <span className="text-galactic/50 text-sm">✦</span>
                         <input
                             type="text"
                             value={item}
                             onChange={(e) => updateItem(index, e.target.value)}
                             placeholder="I'm grateful for..."
-                            className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 placeholder:text-white/25 outline-none focus:border-galactic/30 transition-colors"
+                            className="flex-1 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 text-sm font-sans text-white/70 placeholder:text-white/20 outline-none focus:border-galactic/25 transition-colors"
                             autoFocus={index === 0}
                         />
                         {gratitudeItems.length > 1 && (
                             <button
                                 type="button"
                                 onClick={() => removeItem(index)}
-                                className="text-white/30 hover:text-white/60 transition-colors text-sm"
+                                className="text-white/25 hover:text-white/50 transition-colors text-sm"
                             >
                                 ×
                             </button>
@@ -75,7 +75,7 @@ export function GratitudeEditor({
                     <button
                         type="button"
                         onClick={addAnother}
-                        className="text-xs text-galactic/60 hover:text-galactic transition-colors"
+                        className="text-[10px] font-sans uppercase tracking-[0.12em] text-galactic/50 hover:text-galactic/80 transition-colors"
                     >
                         + Add another
                     </button>
@@ -88,7 +88,7 @@ export function GratitudeEditor({
                 onChange={(e) => onContentChange(e.target.value)}
                 placeholder="Anything else on your mind? (optional)"
                 maxLength={JOURNAL_LIMITS.MAX_CONTENT_LENGTH}
-                className="w-full min-h-[80px] bg-transparent text-sm text-white/80 placeholder:text-white/25 outline-none border-none resize-y leading-relaxed"
+                className="w-full min-h-[80px] bg-transparent text-sm font-sans text-white/70 placeholder:text-white/20 outline-none border-none resize-y leading-relaxed"
             />
         </div>
     );

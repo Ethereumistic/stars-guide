@@ -114,19 +114,22 @@ export function MoodPad({
     return (
         <div className={cn("flex flex-col items-center gap-2", className)}>
             {/* Zone label */}
-            <div className="flex items-center gap-1.5 text-sm font-medium">
+            <div className="flex items-center gap-1.5">
                 <span className="text-lg">{zoneInfo?.emoji}</span>
-                <span style={{ color: zoneInfo?.color }}>{zoneInfo?.label}</span>
+                <span className="text-sm font-serif" style={{ color: zoneInfo?.color }}>{zoneInfo?.label}</span>
             </div>
 
             {/* 2D Pad */}
             <div
                 ref={padRef}
                 className={cn(
-                    "relative rounded-2xl border border-white/10 overflow-hidden select-none touch-none",
+                    "relative rounded-2xl border border-border/30 overflow-hidden select-none touch-none",
                     size,
                     readOnly ? "cursor-default" : "cursor-crosshair"
                 )}
+                style={{
+                    background: "linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%)",
+                }}
                 onMouseDown={handleStart}
                 onMouseMove={handleMove}
                 onMouseUp={handleEnd}
@@ -137,36 +140,36 @@ export function MoodPad({
             >
                 {/* Quadrant backgrounds */}
                 <div className="absolute inset-0 grid grid-cols-2 grid-rows-2">
-                    {/* Top-left: Tense (low valence, high arousal) */}
-                    <div className="bg-orange-500/8 border-r border-b border-white/5" />
-                    {/* Top-right: Excited (high valence, high arousal) */}
-                    <div className="bg-emerald-500/8 border-b border-white/5" />
-                    {/* Bottom-left: Low (low valence, low arousal) */}
-                    <div className="bg-red-500/8 border-r border-white/5" />
-                    {/* Bottom-right: Content (high valence, low arousal) */}
+                    {/* Top-left: Tense */}
+                    <div className="bg-orange-500/8 border-r border-b border-white/[0.04]" />
+                    {/* Top-right: Excited */}
+                    <div className="bg-emerald-500/8 border-b border-white/[0.04]" />
+                    {/* Bottom-left: Low */}
+                    <div className="bg-red-500/8 border-r border-white/[0.04]" />
+                    {/* Bottom-right: Content */}
                     <div className="bg-green-500/8" />
                 </div>
 
                 {/* Axis labels */}
-                <div className="absolute top-1.5 right-2 text-[10px] text-white/30 font-medium">
+                <div className="absolute top-1.5 right-2 text-[10px] text-white/25 font-sans font-medium">
                     +
                 </div>
-                <div className="absolute bottom-1.5 right-2 text-[10px] text-white/30 font-medium">
+                <div className="absolute bottom-1.5 right-2 text-[10px] text-white/25 font-sans font-medium">
                     −
                 </div>
-                <div className="absolute left-2 top-1.5 text-[10px] text-white/30 font-medium">
+                <div className="absolute left-2 top-1.5 text-[10px] text-white/25 font-sans font-medium">
                     −
                 </div>
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-white/25 font-medium writing-mode-vertical" style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-white/20 font-sans" style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}>
                     arousal
                 </div>
-                <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 text-[10px] text-white/25 font-medium">
+                <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 text-[10px] text-white/20 font-sans">
                     valence →
                 </div>
 
                 {/* Crosshair center lines */}
-                <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/5" />
-                <div className="absolute top-1/2 left-0 right-0 h-px bg-white/5" />
+                <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/[0.04]" />
+                <div className="absolute top-1/2 left-0 right-0 h-px bg-white/[0.04]" />
 
                 {/* Draggable marker */}
                 <div
@@ -192,7 +195,7 @@ export function MoodPad({
             </div>
 
             {/* Axis labels compact */}
-            <div className="flex w-full justify-between text-[10px] text-white/30 px-1">
+            <div className="flex w-full justify-between text-[10px] text-white/25 font-sans px-1">
                 <span>😢 Negative</span>
                 <span>😊 Positive</span>
             </div>
@@ -204,7 +207,7 @@ export function MoodPad({
                         setInternalValue({ valence: 0, arousal: 0 });
                         onChange?.(null);
                     }}
-                    className="text-xs text-white/40 hover:text-white/60 transition-colors"
+                    className="text-[10px] font-sans uppercase tracking-[0.1em] text-white/30 hover:text-white/50 transition-colors"
                 >
                     Clear mood
                 </button>

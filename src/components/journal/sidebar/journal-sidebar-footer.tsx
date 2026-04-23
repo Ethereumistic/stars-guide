@@ -9,7 +9,6 @@ import {
     LayoutDashboard,
     ChevronsUpDown,
 } from "lucide-react";
-import { GiScrollUnfurled } from "react-icons/gi";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -22,7 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SidebarFooter } from "@/components/ui/sidebar";
 
-interface OracleSidebarFooterProps {
+interface JournalSidebarFooterProps {
     user: {
         username?: string | null | undefined;
         image?: string | null | undefined;
@@ -32,12 +31,12 @@ interface OracleSidebarFooterProps {
     onSignOut: () => void;
 }
 
-export function OracleSidebarFooter({
+export function JournalSidebarFooter({
     user,
     tierLabel,
     shouldShowUpgrade,
     onSignOut,
-}: OracleSidebarFooterProps) {
+}: JournalSidebarFooterProps) {
     return (
         <SidebarFooter className="p-2">
             <DropdownMenu>
@@ -87,9 +86,9 @@ export function OracleSidebarFooter({
                         </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                        <Link href="/journal" className="cursor-pointer gap-2">
-                            <GiScrollUnfurled className="h-4 w-4" />
-                            Journal
+                        <Link href="/oracle" className="cursor-pointer gap-2">
+                            <Sparkles className="h-4 w-4" />
+                            Oracle
                         </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>

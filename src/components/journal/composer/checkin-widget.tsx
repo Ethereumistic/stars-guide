@@ -39,7 +39,10 @@ export function CheckinWidget({
                 value={content}
                 onChange={(e) => onContentChange(e.target.value)}
                 placeholder="Anything else? (optional)"
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 placeholder:text-white/30 outline-none focus:border-galactic/30 transition-colors"
+                className="w-full rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 text-sm font-sans text-white/70 placeholder:text-white/20 outline-none focus:border-galactic/25 transition-colors"
+                style={{
+                    background: "linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%)",
+                }}
             />
         </div>
     );

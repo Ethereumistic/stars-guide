@@ -10,6 +10,7 @@ import { EntryFrequencyChart } from "@/components/journal/stats/entry-frequency-
 import { AstroCorrelation } from "@/components/journal/stats/astro-correlation";
 import { StreakDisplay } from "@/components/journal/timeline/streak-display";
 import { Loader2, BarChart3 } from "lucide-react";
+import { GiScrollUnfurled } from "react-icons/gi";
 import {
     Card,
     CardContent,
@@ -25,8 +26,14 @@ export default function JournalStatsPage() {
         return (
             <div>
                 <div className="mb-6">
-                    <h1 className="text-2xl font-serif font-bold text-white/90">Stats</h1>
-                    <p className="mt-1 text-sm text-white/40">Mood trends, emotion patterns, and astro correlations</p>
+                    <div className="flex items-center gap-2 mb-1">
+                        <GiScrollUnfurled className="h-4 w-4 text-galactic/60" />
+                        <span className="text-[10px] font-sans uppercase tracking-[0.2em] text-galactic/50">
+                            Stats
+                        </span>
+                    </div>
+                    <h1 className="text-2xl font-serif font-bold text-white/90 tracking-wide">Stats</h1>
+                    <p className="mt-1 text-sm font-sans text-white/35">Mood trends, emotion patterns, and astro correlations</p>
                 </div>
                 <div className="flex justify-center py-20">
                     <Loader2 className="h-5 w-5 animate-spin text-white/30" />
@@ -39,8 +46,9 @@ export default function JournalStatsPage() {
         return (
             <div>
                 <div className="mb-6">
-                    <h1 className="text-2xl font-serif font-bold text-white/90">Stats</h1>
-                    <p className="mt-1 text-sm text-white/40">Mood trends, emotion patterns, and astro correlations</p>
+                    <GiScrollUnfurled className="h-4 w-4 text-galactic/60" />
+                    <h1 className="text-2xl font-serif font-bold text-white/90 tracking-wide">Stats</h1>
+                    <p className="mt-1 text-sm font-sans text-white/35">Mood trends, emotion patterns, and astro correlations</p>
                 </div>
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                     <BarChart3 className="h-10 w-10 text-white/20 mb-4" />
@@ -56,30 +64,48 @@ export default function JournalStatsPage() {
     return (
         <div>
             <div className="mb-6">
-                <h1 className="text-2xl font-serif font-bold text-white/90">Stats</h1>
-                <p className="mt-1 text-sm text-white/40">Mood trends, emotion patterns, and astro correlations</p>
+                <div className="flex items-center gap-2 mb-1">
+                    <GiScrollUnfurled className="h-4 w-4 text-galactic/60" />
+                    <span className="text-[10px] font-sans uppercase tracking-[0.2em] text-galactic/50">
+                        Stats
+                    </span>
+                </div>
+                <h1 className="text-2xl font-serif font-bold text-white/90 tracking-wide">Stats</h1>
+                <p className="mt-1 text-sm font-sans text-white/35">Mood trends, emotion patterns, and astro correlations</p>
             </div>
 
             <div className="space-y-6">
                 {/* Overview stats */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-                        <p className="text-[10px] text-white/30 uppercase tracking-wider">Total Entries</p>
-                        <p className="text-2xl font-semibold text-white/80 mt-1">{stats.totalEntries}</p>
+                    <div className="relative overflow-hidden rounded-xl border border-border/30 p-4">
+                        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%)" }} />
+                        <div className="relative z-10">
+                            <p className="text-[10px] font-sans uppercase tracking-[0.18em] text-white/25">Total Entries</p>
+                            <p className="text-2xl font-serif font-semibold text-white/80 mt-1">{stats.totalEntries}</p>
+                        </div>
                     </div>
-                    <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-                        <p className="text-[10px] text-white/30 uppercase tracking-wider">Current Streak</p>
-                        <p className="text-2xl font-semibold text-white/80 mt-1">{stats.streakData?.currentStreak ?? 0}🔥</p>
+                    <div className="relative overflow-hidden rounded-xl border border-border/30 p-4">
+                        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%)" }} />
+                        <div className="relative z-10">
+                            <p className="text-[10px] font-sans uppercase tracking-[0.18em] text-white/25">Current Streak</p>
+                            <p className="text-2xl font-serif font-semibold text-white/80 mt-1">{stats.streakData?.currentStreak ?? 0}🔥</p>
+                        </div>
                     </div>
-                    <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-                        <p className="text-[10px] text-white/30 uppercase tracking-wider">Longest Streak</p>
-                        <p className="text-2xl font-semibold text-white/80 mt-1">{stats.streakData?.longestStreak ?? 0}</p>
+                    <div className="relative overflow-hidden rounded-xl border border-border/30 p-4">
+                        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%)" }} />
+                        <div className="relative z-10">
+                            <p className="text-[10px] font-sans uppercase tracking-[0.18em] text-white/25">Longest Streak</p>
+                            <p className="text-2xl font-serif font-semibold text-white/80 mt-1">{stats.streakData?.longestStreak ?? 0}</p>
+                        </div>
                     </div>
-                    <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-                        <p className="text-[10px] text-white/30 uppercase tracking-wider">Date Range</p>
-                        <p className="text-sm font-medium text-white/60 mt-1">
-                            {stats.dateRange.start} → {stats.dateRange.end}
-                        </p>
+                    <div className="relative overflow-hidden rounded-xl border border-border/30 p-4">
+                        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%)" }} />
+                        <div className="relative z-10">
+                            <p className="text-[10px] font-sans uppercase tracking-[0.18em] text-white/25">Date Range</p>
+                            <p className="text-sm font-serif font-medium text-white/55 mt-1">
+                                {stats.dateRange.start} → {stats.dateRange.end}
+                            </p>
+                        </div>
                     </div>
                 </div>
 

@@ -10,6 +10,7 @@ import { EntryCard } from "@/components/journal/timeline/entry-card";
 import { SearchBar } from "@/components/journal/search/search-bar";
 import { SearchFilters } from "@/components/journal/search/search-filters";
 import { Loader2, Search } from "lucide-react";
+import { GiScrollUnfurled } from "react-icons/gi";
 
 export default function JournalSearchPage() {
     const router = useRouter();
@@ -57,8 +58,14 @@ export default function JournalSearchPage() {
     return (
         <div>
             <div className="mb-6">
-                <h1 className="text-2xl font-serif font-bold text-white/90">Search</h1>
-                <p className="mt-1 text-sm text-white/40">Find entries by mood, tag, date, or content</p>
+                <div className="flex items-center gap-2 mb-1">
+                    <GiScrollUnfurled className="h-4 w-4 text-galactic/60" />
+                    <span className="text-[10px] font-sans uppercase tracking-[0.2em] text-galactic/50">
+                        Search
+                    </span>
+                </div>
+                <h1 className="text-2xl font-serif font-bold text-white/90 tracking-wide">Search</h1>
+                <p className="mt-1 text-sm font-sans text-white/35">Find entries by mood, tag, date, or content</p>
             </div>
 
             <div className="space-y-4">

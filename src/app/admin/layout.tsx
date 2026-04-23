@@ -25,9 +25,8 @@ import {
     Loader2,
     Anchor,
     Settings,
-    BookOpen,
 } from "lucide-react";
-import { GiCursedStar } from "react-icons/gi";
+import { GiCursedStar, GiScrollUnfurled } from "react-icons/gi";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { api } from "../../../convex/_generated/api";
@@ -189,7 +188,7 @@ export default function AdminLayout({
                         {/* Journal CMS Section */}
                         <Separator className="opacity-20 my-3" />
                         <div className="px-3 py-1.5 flex items-center gap-2">
-                            <BookOpen className="h-4 w-4 text-galactic" />
+                            <GiScrollUnfurled className="h-4 w-4 text-galactic" />
                             <span className="text-[11px] font-semibold tracking-wider uppercase text-galactic/70">
                                 Journal CMS
                             </span>

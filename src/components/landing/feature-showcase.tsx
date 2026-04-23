@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
     GiCursedStar,
     GiStarsStack,
-    GiBookCover,
     GiAstrolabe,
     GiOrbital,
     GiScrollUnfurled,
@@ -45,7 +44,7 @@ const PILLARS = [
         title: "The Journal",
         subtitle: "Your Cosmic Diary",
         description: "A living journal that asks about your day, your dreams, your feelings — and feeds that awareness back into your Oracle conversations and personal horoscopes. The more you write, the more personalized everything becomes.",
-        icon: GiBookCover,
+        icon: GiScrollUnfurled,
         cta: "Coming Soon",
         href: "#",
         accentColor: "var(--venus)",

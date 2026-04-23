@@ -2,14 +2,26 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { JournalSidebarContent } from "@/components/journal/journal-sidebar";
+import { useAuthActions } from "@convex-dev/auth/react";
+import {
+    SidebarProvider,
+    SidebarInset,
+} from "@/components/ui/sidebar";
 import { useUserStore } from "@/store/use-user-store";
+import { JournalSidebar } from "@/components/journal/sidebar/journal-sidebar";
+import { JournalTopBar } from "@/components/journal/sidebar/journal-top-bar";
+import { tierLabels } from "@/components/oracle/sidebar/utils";
 
 export default function JournalLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
+    const { signOut } = useAuthActions();
     const { user } = useUserStore();
-    const [sidebarOpen, setSidebarOpen] = React.useState(true);
+    const [showTopLogo, setShowTopLogo] = React.useState(false);
+
+    React.useEffect(() => {
+        const timer = window.setTimeout(() => setShowTopLogo(true), 40);
+        return () => window.clearTimeout(timer);
+    }, []);
 
     React.useEffect(() => {
         if (user === null) {
@@ -21,49 +33,36 @@ export default function JournalLayout({ children }: { children: React.ReactNode 
         return null;
     }
 
+    const plan = user?.tier ?? "free";
+    const tierLabel = tierLabels[plan as keyof typeof tierLabels] ?? tierLabels.free;
+    const shouldShowUpgrade = plan === "free" || plan === "popular";
+    const centerCtaLabel = plan === "free" || plan === "popular" ? "Get Cosmic Flow" : "Journal";
+
+    const handleNewEntry = () => {
+        router.push("/journal/new");
+    };
+
     return (
-        <div className="fixed inset-0 flex h-full w-full overflow-hidden bg-background">
-            {/* Sidebar */}
-            <aside
-                className={cn(
-                    "flex-shrink-0 border-r border-white/5 bg-background/95 transition-all duration-200 h-full overflow-y-auto",
-                    sidebarOpen ? "w-56" : "w-0 border-r-0"
-                )}
-            >
-                {sidebarOpen && <JournalSidebarContent />}
-            </aside>
+        <SidebarProvider
+            style={{ "--sidebar-width-icon": "3.75rem" } as React.CSSProperties}
+            className="fixed inset-0 z-40 flex min-h-0! h-auto! w-full overflow-hidden"
+        >
+            <JournalSidebar
+                onNewEntry={handleNewEntry}
+                user={user}
+                tierLabel={tierLabel}
+                shouldShowUpgrade={shouldShowUpgrade}
+                onSignOut={() => signOut()}
+            />
 
-            {/* Toggle sidebar button */}
-            <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="absolute left-0 top-0 z-20 m-3 rounded-md p-1.5 text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors"
-                style={{ left: sidebarOpen ? "14rem" : "0" }}
-            >
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                >
-                    {sidebarOpen ? (
-                        <path d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
-                    ) : (
-                        <path d="M13 5l7 7-7 7M6 5l7 7-7 7" />
-                    )}
-                </svg>
-            </button>
-
-            {/* Main content */}
-            <main className="flex-1 min-w-0 overflow-y-auto">
-                <div className="mx-auto max-w-2xl px-4 py-6 md:px-6">
-                    {children}
+            <SidebarInset className="relative flex h-full min-h-0! w-full flex-1 flex-col overflow-hidden bg-transparent">
+                <JournalTopBar showLogo={showTopLogo} centerCtaLabel={centerCtaLabel} />
+                <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto pt-2 md:pt-3">
+                    <div className="mx-auto w-full max-w-2xl px-4 py-6 md:px-6">
+                        {children}
+                    </div>
                 </div>
-            </main>
-        </div>
+            </SidebarInset>
+        </SidebarProvider>
     );
 }

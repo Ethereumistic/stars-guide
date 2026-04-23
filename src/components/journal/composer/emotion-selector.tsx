@@ -29,10 +29,8 @@ export function EmotionSelector({
 
     function toggleEmotion(emotion: EmotionDefinition) {
         if (selectedKeys.has(emotion.key)) {
-            // Remove
             onChange(value.filter((e) => e.key !== emotion.key));
         } else {
-            // Add with default intensity 2
             if (value.length >= maxEmotions) return;
             onChange([...value, { key: emotion.key, intensity: 2 }]);
         }
@@ -61,21 +59,19 @@ export function EmotionSelector({
     function polarityColor(polarity: string): string {
         switch (polarity) {
             case "positive":
-                return "bg-emerald-500/15 border-emerald-500/30 text-emerald-300";
+                return "text-emerald-400/70 border-emerald-500/20 bg-emerald-500/5";
             case "negative":
-                return "bg-red-500/15 border-red-500/30 text-red-300";
-            case "neutral":
-                return "bg-gray-500/15 border-gray-500/30 text-gray-300";
+                return "text-red-400/70 border-red-500/20 bg-red-500/5";
             default:
-                return "bg-white/10 border-white/20 text-white/70";
+                return "text-gray-400/70 border-gray-500/20 bg-gray-500/5";
         }
     }
 
     return (
         <div className={cn("space-y-4", className)}>
             <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-white/70">Emotions</label>
-                <span className="text-xs text-white/40">
+                <label className="text-sm font-serif text-white/70">Emotions</label>
+                <span className="text-[10px] font-sans uppercase tracking-[0.12em] text-white/25">
                     {value.length}/{maxEmotions}
                 </span>
             </div>
@@ -83,13 +79,13 @@ export function EmotionSelector({
             {Object.entries(clusters).map(([cluster, emotions]) => (
                 <div key={cluster} className="space-y-2">
                     {/* Cluster header */}
-                    <div className="flex items-center gap-1.5 text-xs text-white/40 font-medium uppercase tracking-wider">
+                    <div className="flex items-center gap-1.5 text-[10px] font-sans uppercase tracking-[0.18em] text-white/25">
                         <span>{CLUSTER_ICONS[cluster]}</span>
                         <span>{CLUSTER_LABELS[cluster]}</span>
                     </div>
 
                     {/* Emotion chips */}
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                         {emotions.map((emotion) => {
                             const isSelected = selectedKeys.has(emotion.key);
                             const entry = value.find((e) => e.key === emotion.key);
@@ -100,10 +96,10 @@ export function EmotionSelector({
                                         type="button"
                                         onClick={() => toggleEmotion(emotion)}
                                         className={cn(
-                                            "rounded-full border px-2.5 py-1 text-xs font-medium transition-all",
+                                            "rounded-full border px-2.5 py-1 text-xs transition-all duration-300",
                                             isSelected
                                                 ? polarityColor(emotion.polarity)
-                                                : "border-white/10 bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/60"
+                                                : "border-white/[0.06] bg-white/[0.02] text-white/35 hover:bg-white/[0.06] hover:text-white/55"
                                         )}
                                     >
                                         {emotion.label}

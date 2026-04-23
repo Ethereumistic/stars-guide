@@ -10,6 +10,7 @@ import { DateSeparator } from "./date-separator";
 import { StreakDisplay } from "./streak-display";
 import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { GiScrollUnfurled } from "react-icons/gi";
 
 interface TimelineViewProps {
     className?: string;
@@ -53,11 +54,13 @@ export function TimelineView({ className }: TimelineViewProps) {
             {/* Entries */}
             {groupedEntries.length === 0 && result !== undefined && (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="text-4xl mb-4">🌙</div>
+                    <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-galactic/20 bg-galactic/10 mb-4">
+                        <GiScrollUnfurled className="h-7 w-7 text-galactic/50" />
+                    </div>
                     <h3 className="text-lg font-serif font-semibold text-white/60">
                         Your story starts here
                     </h3>
-                    <p className="text-sm text-white/30 mt-1 max-w-xs">
+                    <p className="text-sm text-white/30 mt-1 max-w-xs font-sans">
                         Tap the button below to begin your first journal entry
                     </p>
                     <Button
@@ -103,7 +106,7 @@ export function TimelineView({ className }: TimelineViewProps) {
                         variant="ghost"
                         size="sm"
                         onClick={() => setCursor(continueCursor)}
-                        className="text-white/40"
+                        className="text-white/35 hover:text-white/60"
                     >
                         Load more
                     </Button>

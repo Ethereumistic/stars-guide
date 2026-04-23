@@ -3,7 +3,7 @@
 import { motion } from "motion/react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { GiAstrolabe, GiCursedStar, GiBookCover, GiStarsStack } from "react-icons/gi";
+import { GiAstrolabe, GiCursedStar, GiStarsStack } from "react-icons/gi";
 import { ArrowRight } from "lucide-react";
 import {
     TbArrowRight, TbCheck

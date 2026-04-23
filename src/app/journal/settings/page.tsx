@@ -6,7 +6,8 @@ import { api } from "../../../../convex/_generated/api";
 import { cn } from "@/lib/utils";
 import { ConsentModal } from "@/components/journal/consent/consent-modal";
 import { ConsentSettings } from "@/components/journal/consent/consent-settings";
-import { Loader2, Shield, BookOpen } from "lucide-react";
+import { Loader2, Shield } from "lucide-react";
+import { GiScrollUnfurled } from "react-icons/gi";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -31,8 +32,14 @@ export default function JournalSettingsPage() {
     return (
         <div>
             <div className="mb-6">
-                <h1 className="text-2xl font-serif font-bold text-white/90">Settings</h1>
-                <p className="mt-1 text-sm text-white/40">
+                <div className="flex items-center gap-2 mb-1">
+                    <GiScrollUnfurled className="h-4 w-4 text-galactic/60" />
+                    <span className="text-[10px] font-sans uppercase tracking-[0.2em] text-galactic/50">
+                        Settings
+                    </span>
+                </div>
+                <h1 className="text-2xl font-serif font-bold text-white/90 tracking-wide">Settings</h1>
+                <p className="mt-1 text-sm font-sans text-white/35">
                     Oracle consent and journal preferences
                 </p>
             </div>
@@ -59,7 +66,7 @@ export default function JournalSettingsPage() {
                         <ConsentSettings consent={consent} />
                     ) : (
                         <div className="text-center py-6">
-                            <BookOpen className="h-10 w-10 text-white/15 mx-auto mb-3" />
+                            <GiScrollUnfurled className="h-10 w-10 text-white/15 mx-auto mb-3" />
                             <p className="text-sm text-white/40 mb-4">
                                 {hasConsentRecord
                                     ? "Oracle journal access was previously revoked. Re-enable it to receive personalized readings."

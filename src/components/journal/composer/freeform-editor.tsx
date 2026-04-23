@@ -27,7 +27,7 @@ export function FreeformEditor({
                 onChange={(e) => onTitleChange(e.target.value)}
                 placeholder="Give this entry a title..."
                 maxLength={JOURNAL_LIMITS.MAX_TITLE_LENGTH}
-                className="w-full bg-transparent text-lg font-medium text-white/90 placeholder:text-white/25 outline-none border-none"
+                className="w-full bg-transparent text-lg font-serif font-medium text-white/90 placeholder:text-white/20 outline-none border-none tracking-wide"
             />
             <textarea
                 value={content}
@@ -35,7 +35,7 @@ export function FreeformEditor({
                 placeholder="What's on your mind?"
                 autoFocus
                 maxLength={JOURNAL_LIMITS.MAX_CONTENT_LENGTH}
-                className="w-full min-h-[200px] bg-transparent text-sm text-white/80 placeholder:text-white/25 outline-none border-none resize-y leading-relaxed"
+                className="w-full min-h-[200px] bg-transparent text-sm text-white/70 placeholder:text-white/20 outline-none border-none resize-y leading-relaxed font-sans"
             />
         </div>
     );

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/navigation-menu"
 import { cn } from "@/lib/utils"
 import { Menu, X, LogIn, LogOut, User, Settings, Sparkles } from "lucide-react"
-import { GiStarsStack, GiCrystalBall, GiCoins, GiAstrolabe, GiCursedStar } from "react-icons/gi"
+import { GiStarsStack, GiCrystalBall, GiCoins, GiAstrolabe, GiCursedStar, GiScrollUnfurled } from "react-icons/gi"
 import { motion } from "motion/react"
 import { useConvexAuth } from "convex/react"
 import { useAuthActions } from "@convex-dev/auth/react"
@@ -34,7 +34,7 @@ const navItems = [
     { title: "Horoscopes", href: "/horoscopes", icon: GiStarsStack },
     { title: "Learn", href: "/learn", icon: GiAstrolabe },
     { title: "Oracle", href: "/oracle", icon: GiCursedStar },
-    { title: "Readings", href: "/readings", icon: GiCrystalBall },
+    { title: "Journal", href: "/journal", icon: GiScrollUnfurled },
     { title: "Pricing", href: "/pricing", icon: GiCoins },
 ]
 

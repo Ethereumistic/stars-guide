@@ -4,6 +4,7 @@ import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import { EntryComposer } from "@/components/journal/composer/entry-composer";
 import { useJournalStore } from "@/store/use-journal-store";
+import { GiScrollUnfurled } from "react-icons/gi";
 import type { EntryType } from "@/lib/journal/constants";
 
 export default function NewJournalEntryPage() {
@@ -25,13 +26,19 @@ export default function NewJournalEntryPage() {
     return (
         <div>
             <div className="mb-4">
-                <h1 className="text-xl font-serif font-bold text-white/90">
+                <div className="flex items-center gap-2 mb-1">
+                    <GiScrollUnfurled className="h-4 w-4 text-galactic/60" />
+                    <span className="text-[10px] font-sans uppercase tracking-[0.2em] text-galactic/50">
+                        Compose
+                    </span>
+                </div>
+                <h1 className="text-xl font-serif font-bold text-white/90 tracking-wide">
                     New Entry
                 </h1>
                 {presetPrompt && (
-                    <div className="mt-2 rounded-lg border border-galactic/20 bg-galactic/5 px-4 py-2">
-                        <p className="text-xs text-galactic/60 uppercase tracking-wider">Oracle Suggests</p>
-                        <p className="text-sm text-white/60 mt-0.5">{presetPrompt}</p>
+                    <div className="mt-2 relative overflow-hidden rounded-xl border border-galactic/20 bg-galactic/5 px-4 py-2">
+                        <p className="text-[10px] font-sans uppercase tracking-[0.15em] text-galactic/50">Oracle Suggests</p>
+                        <p className="text-sm font-sans text-white/55 mt-0.5">{presetPrompt}</p>
                     </div>
                 )}
             </div>

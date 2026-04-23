@@ -4,6 +4,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { MOOD_ZONES, ENTRY_TYPE_META, type MoodZone } from "@/lib/journal/constants";
 import { EmotionBadges } from "../detail/emotion-badges";
+import { GiScrollUnfurled } from "react-icons/gi";
 
 interface EntryCardProps {
     entry: any;
@@ -53,6 +54,9 @@ export function EntryCard({ entry, onClick, className }: EntryCardProps) {
     const moodZone = entry.moodZone as MoodZone | undefined;
     const zoneInfo = moodZone ? MOOD_ZONES.find((z) => z.key === moodZone) : null;
 
+    // Glow color from mood zone or fallback
+    const glowColor = zoneInfo?.color ?? "var(--galactic)";
+
     // Content preview
     const contentPreview = entry.content
         ? entry.content.length > 120
@@ -67,92 +71,136 @@ export function EntryCard({ entry, onClick, className }: EntryCardProps) {
         <button
             type="button"
             onClick={onClick}
-            className={cn(
-                "group w-full text-left rounded-xl border bg-white/[0.02] p-4 transition-all hover:bg-white/[0.04] hover:border-white/10",
-                zoneInfo ? `border-${zoneInfo.color.split("#")[1] ?? "white"}/10` : "border-white/5",
-                className
-            )}
-            style={{
-                borderLeftColor: zoneInfo?.color,
-                borderLeftWidth: "3px",
-            }}
+            className={cn("group relative block w-full text-left", className)}
         >
-            <div className="flex items-start gap-3">
-                {/* Mood zone dot */}
-                <div className="flex flex-col items-center gap-1 mt-0.5">
-                    <div
-                        className={cn("h-2 w-2 rounded-full")}
-                        style={{ backgroundColor: zoneInfo?.color ?? "transparent" }}
+            {/* Card surface */}
+            <div className="relative overflow-hidden rounded-xl border border-border/30 bg-transparent transition-all duration-500 group-hover:scale-[1.03] min-h-[100px]">
+                {/* Subtle gradient background */}
+                <div
+                    className="absolute inset-0 rounded-xl"
+                    style={{
+                        background: "linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%)",
+                    }}
+                />
+
+                {/* Mood zone gradient overlay — visible on hover */}
+                <div
+                    className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-20"
+                    style={{
+                        background: `linear-gradient(135deg, transparent 0%, ${glowColor}40 100%)`,
+                    }}
+                />
+
+                {/* Radial glow effect */}
+                <div
+                    className="absolute -right-8 top-1/2 -translate-y-1/2 h-20 w-20 rounded-full opacity-0 transition-opacity duration-500 blur-2xl group-hover:opacity-30"
+                    style={{ backgroundColor: glowColor }}
+                />
+
+                {/* Scroll watermark */}
+                <div className="absolute inset-y-0 right-0 w-1/3 pointer-events-none overflow-hidden">
+                    <GiScrollUnfurled
+                        className="absolute top-1/2 right-[-10%] -translate-y-1/2 h-full w-auto opacity-[0.04] scale-125 transition-all duration-700 group-hover:opacity-[0.08] group-hover:scale-100 group-hover:right-[10%]"
+                        style={{
+                            color: glowColor,
+                            filter: `drop-shadow(0 0 10px ${glowColor})`,
+                        }}
                     />
-                    <span className="text-[10px] opacity-60">{typeMeta?.icon}</span>
                 </div>
 
+                {/* Left accent line */}
+                <div
+                    className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl opacity-60 group-hover:opacity-100 transition-opacity duration-500"
+                    style={{ backgroundColor: glowColor }}
+                />
+
                 {/* Content */}
-                <div className="flex-1 min-w-0 space-y-1.5">
-                    {/* Title/preview */}
-                    <div className="text-sm font-medium text-white/80 leading-snug line-clamp-2">
-                        {displayTitle}
+                <div className="relative z-10 flex items-center justify-between gap-3 p-5 h-full">
+                    {/* Left section: Text & Details */}
+                    <div className="flex flex-col min-w-0 max-w-[70%] space-y-1.5">
+                        {/* Micro label: entry type + time */}
+                        <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-sans uppercase tracking-[0.2em] opacity-80" style={{ color: glowColor }}>
+                                {typeMeta?.icon} {typeMeta?.label}
+                            </span>
+                            <span className="text-[9px] font-sans uppercase tracking-[0.2em] text-white/25">
+                                {formatRelativeTime(entry.createdAt)}
+                            </span>
+                        </div>
+
+                        {/* Title / preview */}
+                        <h3
+                            className="text-base font-serif tracking-wide text-white/80 transition-colors duration-300 group-hover:text-white line-clamp-2 leading-snug"
+                            style={{
+                                textShadow: `0 0 5px ${glowColor}20`,
+                            }}
+                        >
+                            {displayTitle}
+                        </h3>
+
+                        {/* Meta row */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {/* Astro badge */}
+                            {entry.astroContext?.moonPhase && (
+                                <span className="text-[10px] text-white/30">
+                                    {getMoonIcon(entry.astroContext.moonPhase)}{" "}
+                                    {entry.astroContext.moonSign &&
+                                        `${entry.astroContext.moonSign}`}
+                                </span>
+                            )}
+
+                            {/* Emotion chips (top 2) */}
+                            {entry.emotions && entry.emotions.length > 0 && (
+                                <EmotionBadges
+                                    emotions={entry.emotions}
+                                    max={2}
+                                    size="xs"
+                                />
+                            )}
+
+                            {/* Tags */}
+                            {entry.tags && entry.tags.length > 0 && (
+                                <span className="text-[10px] opacity-50" style={{ color: glowColor }}>
+                                    {entry.tags.slice(0, 2).map((t: string) => `#${t}`).join(" ")}
+                                    {entry.tags.length > 2 && ` +${entry.tags.length - 2}`}
+                                </span>
+                            )}
+
+                            {/* Voice badge */}
+                            {entry.voiceTranscript && (
+                                <span className="text-[10px]">🎙️</span>
+                            )}
+
+                            {/* Pin */}
+                            {entry.isPinned && (
+                                <span className="text-[10px]">📌</span>
+                            )}
+                        </div>
                     </div>
 
-                    {/* Secondary preview for titled entries */}
-                    {entry.title && contentPreview && (
-                        <div className="text-xs text-white/40 line-clamp-1">
-                            {contentPreview}
-                        </div>
-                    )}
-
-                    {/* Meta row */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                        {/* Astro badge */}
-                        {entry.astroContext?.moonPhase && (
-                            <span className="text-[10px] text-white/30">
-                                {getMoonIcon(entry.astroContext.moonPhase)}{" "}
-                                {entry.astroContext.moonSign &&
-                                    `${entry.astroContext.moonSign}`}
-                            </span>
+                    {/* Right section: Mood zone dot + secondary content */}
+                    <div className="flex flex-col items-center gap-1.5 shrink-0">
+                        {zoneInfo ? (
+                            <>
+                                <span className="text-lg">{zoneInfo.emoji}</span>
+                                <span className="text-[9px] font-sans uppercase tracking-[0.12em]" style={{ color: glowColor, opacity: 0.7 }}>
+                                    {zoneInfo.label}
+                                </span>
+                            </>
+                        ) : (
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/5 bg-white/[0.02] opacity-40">
+                                <span className="text-base">{typeMeta?.icon}</span>
+                            </div>
                         )}
-
-                        {/* Emotion chips (top 2) */}
-                        {entry.emotions && entry.emotions.length > 0 && (
-                            <EmotionBadges
-                                emotions={entry.emotions}
-                                max={2}
-                                size="xs"
-                            />
-                        )}
-
-                        {/* Tags (first 2) */}
-                        {entry.tags && entry.tags.length > 0 && (
-                            <span className="text-[10px] text-galactic/50">
-                                {entry.tags.slice(0, 2).map((t: string) => `#${t}`).join(" ")}
-                                {entry.tags.length > 2 && ` +${entry.tags.length - 2}`}
-                            </span>
-                        )}
-
-                        {/* Voice badge */}
-                        {entry.voiceTranscript && (
-                            <span className="text-[10px]">🎙️</span>
-                        )}
-
-                        {/* Location */}
-                        {entry.location?.displayName && (
-                            <span className="text-[10px] text-white/30">
-                                📍 {entry.location.displayName}
-                            </span>
-                        )}
-
-                        {/* Pin */}
-                        {entry.isPinned && (
-                            <span className="text-[10px]">📌</span>
-                        )}
-
-                        {/* Time */}
-                        <span className="ml-auto text-[10px] text-white/25">
-                            {formatRelativeTime(entry.createdAt)}
-                        </span>
                     </div>
                 </div>
             </div>
+
+            {/* Hover shadow glow */}
+            <div
+                className="absolute inset-0 -z-10 rounded-xl opacity-0 transition-opacity duration-500 blur-xl group-hover:opacity-15"
+                style={{ backgroundColor: glowColor }}
+            />
         </button>
     );
 }

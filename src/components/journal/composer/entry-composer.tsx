@@ -28,7 +28,8 @@ import { VoiceInputButton } from "./voice-input-button";
 import { PhotoUploader } from "./photo-uploader";
 import { LocationInput } from "./location-input";
 import { useJournalStore } from "@/store/use-journal-store";
-import { Loader2, ChevronDown, ChevronUp, Camera, MapPin, Mic } from "lucide-react";
+import { Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { GiScrollUnfurled } from "react-icons/gi";
 
 interface EntryComposerProps {
     /** Edit mode: pass existing entry data to pre-fill */
@@ -81,6 +82,7 @@ export function EntryComposer({ editEntry, editEntryId, initialContent, oracleSe
 
     // Active entry type
     const activeType = (isEditing ? editEntry?.entryType : entryType) as EntryType;
+    const activeTypeMeta = ENTRY_TYPE_META[activeType];
 
     // Mutations
     const createEntry = useMutation(api.journal.entries.createEntry);
@@ -128,7 +130,6 @@ export function EntryComposer({ editEntry, editEntryId, initialContent, oracleSe
 
         try {
             if (isEditing && editEntryId) {
-                // Update existing entry
                 await updateEntry({
                     entryId: editEntryId as any,
                     title: title || undefined,
@@ -149,7 +150,6 @@ export function EntryComposer({ editEntry, editEntryId, initialContent, oracleSe
                     location: location ?? undefined,
                 });
             } else {
-                // Create new entry
                 await createEntry({
                     title: title || undefined,
                     content,
@@ -177,7 +177,6 @@ export function EntryComposer({ editEntry, editEntryId, initialContent, oracleSe
             router.push("/journal");
         } catch (error: any) {
             console.error("Failed to save entry:", error);
-            // TODO: toast error
         } finally {
             setIsSaving(false);
         }
@@ -189,7 +188,7 @@ export function EntryComposer({ editEntry, editEntryId, initialContent, oracleSe
             case "freeform":
                 return content.trim().length > 0;
             case "checkin":
-                return true; // Mood-only is valid
+                return true;
             case "dream":
                 return content.trim().length > 0;
             case "gratitude":
@@ -203,7 +202,8 @@ export function EntryComposer({ editEntry, editEntryId, initialContent, oracleSe
         <div className={cn("flex flex-col h-full", className)}>
             {/* ── Entry Type Selector ───────────────────────────── */}
             {!isEditing && (
-                <div className="flex items-center gap-1 mb-4">
+                <div className="flex items-center gap-1.5 mb-5">
+                    <GiScrollUnfurled className="h-4 w-4 text-galactic/60 mr-1" />
                     {ENTRY_TYPES.map((type) => {
                         const meta = ENTRY_TYPE_META[type];
                         return (
@@ -212,13 +212,13 @@ export function EntryComposer({ editEntry, editEntryId, initialContent, oracleSe
                                 type="button"
                                 onClick={() => setEntryType(type)}
                                 className={cn(
-                                    "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all",
+                                    "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-medium font-sans uppercase tracking-[0.12em] transition-all duration-300",
                                     activeType === type
-                                        ? "border-galactic/40 bg-galactic/15 text-white"
-                                        : "border-white/10 bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/60"
+                                        ? "border-galactic/30 bg-galactic/15 text-white"
+                                        : "border-white/[0.06] bg-white/[0.02] text-white/35 hover:bg-white/[0.06] hover:text-white/55"
                                 )}
                             >
-                                <span>{meta.icon}</span>
+                                <span className="text-xs">{meta.icon}</span>
                                 <span>{meta.label}</span>
                             </button>
                         );
@@ -289,11 +289,11 @@ export function EntryComposer({ editEntry, editEntryId, initialContent, oracleSe
 
                 {/* ── Expandable extras ──────────────────────────── */}
                 {activeType !== "checkin" && (
-                    <div className="mt-5 border-t border-white/5 pt-4">
+                    <div className="mt-5 border-t border-white/[0.06] pt-4">
                         <button
                             type="button"
                             onClick={() => setShowExtras(!showExtras)}
-                            className="flex items-center gap-1 text-xs text-white/40 hover:text-white/60 transition-colors mb-3"
+                            className="flex items-center gap-1.5 text-[10px] font-sans uppercase tracking-[0.15em] text-white/30 hover:text-white/50 transition-colors mb-3"
                         >
                             {showExtras ? (
                                 <ChevronUp className="h-3 w-3" />
@@ -315,7 +315,7 @@ export function EntryComposer({ editEntry, editEntryId, initialContent, oracleSe
                                 <TagInput value={tags} onChange={setTags} />
                                 {/* Voice input */}
                                 <div className="space-y-2">
-                                    <label className="text-xs text-white/40">Voice</label>
+                                    <label className="text-[10px] font-sans uppercase tracking-[0.15em] text-white/30">Voice</label>
                                     <VoiceInputButton
                                         onTranscript={(text: string) => {
                                             setContent((prev: string) =>
@@ -332,7 +332,7 @@ export function EntryComposer({ editEntry, editEntryId, initialContent, oracleSe
                                 </div>
                                 {/* Photo upload */}
                                 <div className="space-y-2">
-                                    <label className="text-xs text-white/40">Photo</label>
+                                    <label className="text-[10px] font-sans uppercase tracking-[0.15em] text-white/30">Photo</label>
                                     <PhotoUploader
                                         photoId={photoId}
                                         photoCaption={photoCaption}
@@ -342,7 +342,7 @@ export function EntryComposer({ editEntry, editEntryId, initialContent, oracleSe
                                 </div>
                                 {/* Location */}
                                 <div className="space-y-2">
-                                    <label className="text-xs text-white/40">Location</label>
+                                    <label className="text-[10px] font-sans uppercase tracking-[0.15em] text-white/30">Location</label>
                                     <LocationInput
                                         value={location}
                                         onChange={setLocation}
@@ -355,13 +355,13 @@ export function EntryComposer({ editEntry, editEntryId, initialContent, oracleSe
 
                 {/* Check-in extras (simpler) */}
                 {activeType === "checkin" && (
-                    <div className="mt-5 border-t border-white/5 pt-4 space-y-4">
+                    <div className="mt-5 border-t border-white/[0.06] pt-4 space-y-4">
                         <EnergyLevelPicker value={energyLevel} onChange={setEnergyLevel} />
                         <TimeOfDayPicker value={timeOfDay} onChange={setTimeOfDay} />
                         <TagInput value={tags} onChange={setTags} />
                         {/* Voice input for check-ins */}
                         <div className="space-y-2">
-                            <label className="text-xs text-white/40">Voice</label>
+                            <label className="text-[10px] font-sans uppercase tracking-[0.15em] text-white/30">Voice</label>
                             <VoiceInputButton
                                 onTranscript={(text: string) => {
                                     setContent((prev: string) =>
@@ -375,7 +375,7 @@ export function EntryComposer({ editEntry, editEntryId, initialContent, oracleSe
                         </div>
                         {/* Photo upload for check-ins */}
                         <div className="space-y-2">
-                            <label className="text-xs text-white/40">Photo</label>
+                            <label className="text-[10px] font-sans uppercase tracking-[0.15em] text-white/30">Photo</label>
                             <PhotoUploader
                                 photoId={photoId}
                                 photoCaption={photoCaption}
@@ -385,7 +385,7 @@ export function EntryComposer({ editEntry, editEntryId, initialContent, oracleSe
                         </div>
                         {/* Location for check-ins */}
                         <div className="space-y-2">
-                            <label className="text-xs text-white/40">Location</label>
+                            <label className="text-[10px] font-sans uppercase tracking-[0.15em] text-white/30">Location</label>
                             <LocationInput
                                 value={location}
                                 onChange={setLocation}
@@ -396,8 +396,8 @@ export function EntryComposer({ editEntry, editEntryId, initialContent, oracleSe
             </div>
 
             {/* ── Save Bar ──────────────────────────────────────── */}
-            <div className="flex items-center justify-between border-t border-white/5 pt-4 mt-4">
-                <div className="text-xs text-white/30">
+            <div className="flex items-center justify-between border-t border-white/[0.06] pt-4 mt-4">
+                <div className="text-[10px] font-sans uppercase tracking-[0.12em] text-white/20">
                     {content.length > 0 && (
                         <span>{content.length} chars</span>
                     )}
@@ -407,7 +407,7 @@ export function EntryComposer({ editEntry, editEntryId, initialContent, oracleSe
                         variant="ghost"
                         size="sm"
                         onClick={() => router.push("/journal")}
-                        className="text-white/40"
+                        className="text-white/35 hover:text-white/60"
                     >
                         Cancel
                     </Button>
