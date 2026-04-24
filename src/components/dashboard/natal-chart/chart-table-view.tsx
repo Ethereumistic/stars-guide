@@ -2,60 +2,98 @@
 
 import React, { useMemo } from "react";
 import { type ChartData } from "@/lib/birth-chart/full-chart";
-import { zodiacUIConfig } from "@/config/zodiac-ui";
 import { planetUIConfig } from "@/config/planet-ui";
+import { zodiacUIConfig } from "@/config/zodiac-ui";
 import { compositionalSigns } from "@/astrology/signs";
 
+/**
+ * Standard astrological planet display order:
+ *   Personal → Social → Transpersonal → Lunar Nodes → Calculated Points → Angles
+ */
+const PLANET_DISPLAY_ORDER: string[] = [
+    "sun",
+    "moon",
+    "mercury",
+    "venus",
+    "mars",
+    "jupiter",
+    "saturn",
+    "uranus",
+    "neptune",
+    "pluto",
+    "north_node",
+    "south_node",
+    "part_of_fortune",
+    "chiron",
+    "ascendant",
+];
+
+function getDisplayName(id: string): string {
+    const names: Record<string, string> = {
+        sun: "Sun",
+        moon: "Moon",
+        mercury: "Mercury",
+        venus: "Venus",
+        mars: "Mars",
+        jupiter: "Jupiter",
+        saturn: "Saturn",
+        uranus: "Uranus",
+        neptune: "Neptune",
+        pluto: "Pluto",
+        north_node: "North Node",
+        south_node: "South Node",
+        part_of_fortune: "Part of Fortune",
+        chiron: "Chiron",
+        ascendant: "Ascendant",
+    };
+    return names[id] || (id.charAt(0).toUpperCase() + id.slice(1));
+}
+
+interface ChartItem {
+    id: string;
+    name: string;
+    signId: string;
+    houseId: number;
+    symbol: string;
+    retrograde: boolean;
+    imageUrl?: string;
+    themeColor: string;
+}
+
 export function ChartTableView({ data }: { data: ChartData }) {
-    // Combine planets and ascendant into a single list
     const chartItems = useMemo(() => {
-        const items = data.planets.map((p) => ({
-            id: p.id,
-            name:
-                p.id.charAt(0).toUpperCase() + p.id.slice(1),
-            signId: p.signId,
-            houseId: p.houseId,
-            symbol: planetUIConfig[p.id]?.rulerSymbol || "",
-            color: planetUIConfig[p.id]?.themeColor || "var(--foreground)",
-            isAscendant: false,
-        }));
+        const itemMap = new Map<string, ChartItem>();
+
+        data.planets.forEach((p) => {
+            const cfg = planetUIConfig[p.id];
+            itemMap.set(p.id, {
+                id: p.id,
+                name: getDisplayName(p.id),
+                signId: p.signId,
+                houseId: p.houseId,
+                symbol: cfg?.rulerSymbol || "",
+                retrograde: p.retrograde,
+                imageUrl: cfg?.imageUrl,
+                themeColor: cfg?.themeColor || "var(--foreground)",
+            });
+        });
 
         if (data.ascendant) {
-            items.push({
+            itemMap.set("ascendant", {
                 id: "ascendant",
-                name: "ASCENDANT",
+                name: "Ascendant",
                 signId: data.ascendant.signId,
-                houseId: 1, // Ascendant is always 1st house in whole sign
+                houseId: 1,
                 symbol: "↑",
-                color: "var(--foreground)", // or a specific color
-                isAscendant: true,
+                retrograde: false,
+                imageUrl: undefined,
+                themeColor: "var(--foreground)",
             });
         }
 
-        // Sort items by house (1 to 12), then by sign order, then by planet name or longitude
-        // Since we use Whole Sign, sort roughly by the sign's index from Ascendant
-        const ascSign = data.ascendant?.signId || "aries";
-        const ascIndex = compositionalSigns.findIndex((s) => s.id === ascSign);
-
-        const getDistanceFromAsc = (signId: string) => {
-            const idx = compositionalSigns.findIndex((s) => s.id === signId);
-            if (idx === -1) return 0;
-            let dist = idx - ascIndex;
-            if (dist < 0) dist += 12;
-            return dist;
-        };
-
-        items.sort((a, b) => {
-            const distA = getDistanceFromAsc(a.signId);
-            const distB = getDistanceFromAsc(b.signId);
-            if (distA !== distB) return distA - distB;
-            // if same sign, sort Ascendant first
-            if (a.isAscendant) return -1;
-            if (b.isAscendant) return 1;
-            return 0;
-        });
-
-        return items;
+        return PLANET_DISPLAY_ORDER
+            .filter((id) => itemMap.has(id))
+            .map((id) => itemMap.get(id)!);
     }, [data]);
 
     // Group by Sign
@@ -63,7 +101,7 @@ export function ChartTableView({ data }: { data: ChartData }) {
         const groups: {
             signId: string;
             signName: string;
-            items: typeof chartItems;
+            items: ChartItem[];
         }[] = [];
 
         chartItems.forEach((item) => {
@@ -72,7 +110,7 @@ export function ChartTableView({ data }: { data: ChartData }) {
                 const sign = compositionalSigns.find((s) => s.id === item.signId);
                 group = {
                     signId: item.signId,
-                    signName: sign ? sign.name : item.signId,
+                    signName: sign ? sign.name.toUpperCase() : item.signId.toUpperCase(),
                     items: [],
                 };
                 groups.push(group);
@@ -84,79 +122,119 @@ export function ChartTableView({ data }: { data: ChartData }) {
     }, [chartItems]);
 
     return (
-        <div className="-mt-24 -mb-24 w-full max-w-2xl mx-auto overflow-hidden bg-black/50 rounded-md border border-white/10 text-white/90 font-mono text-sm relative flex scale-80">
-            {/* S I G N S column */}
-            {/* <div className="w-8 border-r border-white/10 flex flex-col items-center justify-start py-6 shrink-0 z-10">
-                <div className="[writing-mode:vertical-lr] tracking-[0.3em] text-white text-xs mt-2">
-                    SIGNS
-                </div>
-            </div> */}
+        <div className="w-full bg-black/50 rounded-md border border-white/10 text-white/90">
+            <table className="w-full border-collapse font-serif" style={{ tableLayout: "fixed" }}>
+                <colgroup>
+                    <col style={{ width: "auto" }} />
+                    <col style={{ width: "0%" }} />
+                    <col style={{ width: "2.5rem" }} />
+                    <col style={{ width: "2.5rem" }} />
+                </colgroup>
+                <tbody>
+                    {groupedBySign.map((group, groupIndex) => {
+                        const signCfg = zodiacUIConfig[group.signId];
+                        const SignIcon = signCfg?.icon;
 
-            <div className="flex-1 ">
-                <table className="w-full border-collapse ">
-                    <tbody>
-                        {groupedBySign.map((group, groupIndex) => (
+                        return (
                             <React.Fragment key={group.signId}>
                                 {group.items.map((item, itemIndex) => {
                                     const isFirstInGroup = itemIndex === 0;
-                                    const borderBottomClass =
-                                        groupIndex < groupedBySign.length - 1 &&
-                                            itemIndex === group.items.length - 1
-                                            ? "border-b border-white/10"
-                                            : "";
+                                    const isLastRow =
+                                        groupIndex === groupedBySign.length - 1 &&
+                                        itemIndex === group.items.length - 1;
 
                                     return (
-                                        <tr key={item.id}>
+                                        <tr key={item.id} className={isLastRow ? "" : "border-b border-white/[0.04]"}>
+                                            {/* ── SIGN COLUMN ── (rowspan for group) */}
                                             {isFirstInGroup && (
                                                 <td
                                                     rowSpan={group.items.length}
-                                                    className={`p-4 align-top w-1/3 border-r border-white/10 ${groupIndex < groupedBySign.length - 1
-                                                        ? "border-b border-white/10"
-                                                        : ""
-                                                        }`}
+                                                    className={`py-3 pl-3 pr-3 align-middle border-r border-white/[0.08] ${
+                                                        groupIndex < groupedBySign.length - 1
+                                                            ? "border-b border-white/[0.08]"
+                                                            : ""
+                                                    }`}
                                                 >
-                                                    <span className="text-2xl"
-                                                    // style={{ color: zodiacUIConfig[group.signId]?.themeColor, }}
-                                                    >
-                                                        {group.signName}
+                                                    <div className="flex items-center gap-1.5">
+                                                        {SignIcon && (
+                                                            <SignIcon
+                                                                className="w-[18px] h-[18px] shrink-0 text-primary"
+                                                            />
+                                                        )}
+                                                        <span className="text-base tracking-[0.12em] font-serif text-white/80">
+                                                            {group.signName}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            )}
+
+                                            {/* ── PLANET: Image + Name ── */}
+                                            <td className={`py-2 pl-2.5 pr-1 ${isLastRow ? "" : "border-b border-white/[0.03]"}`}>
+                                                <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                                    {item.imageUrl ? (
+                                                        <img
+                                                            src={item.imageUrl}
+                                                            alt={item.name}
+                                                            className="w-6 h-6 object-contain shrink-0"
+                                                            style={{
+                                                                transform: `scale(${planetUIConfig[item.id]?.imageScale || 1})`,
+                                                                filter: `drop-shadow(0 0 1px ${item.themeColor})`,
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <span
+                                                            className="w-6 h-6 flex items-center justify-center text-base shrink-0 font-serif"
+                                                            style={{ color: item.themeColor }}
+                                                        >
+                                                            {item.symbol}
+                                                        </span>
+                                                    )}
+                                                    <span className="text-sm tracking-[0.08em] uppercase font-serif text-white/90">
+                                                        {item.name}
+                                                    </span>
+                                                    {item.retrograde && (
+                                                        <span
+                                                            className="text-[9px] tracking-tight font-serif text-white/30"
+                                                        >
+                                                            Rx
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+
+                                            {/* ── SYMBOL ── */}
+                                            <td className={`py-2 pl-0.5 pr-2 text-right ${isLastRow ? "" : "border-b border-white/[0.03]"}`}>
+                                                <span
+                                                    className="text-base font-serif"
+                                                    style={{ color: item.themeColor }}
+                                                >
+                                                    {item.symbol}
+                                                </span>
+                                            </td>
+
+                                            {/* ── HOUSE ── (rowspan for group, same as sign) */}
+                                            {isFirstInGroup && (
+                                                <td
+                                                    rowSpan={group.items.length}
+                                                    className={`py-3 pl-2 pr-3 align-middle text-center border-l border-white/[0.08] ${
+                                                        groupIndex < groupedBySign.length - 1
+                                                            ? "border-b border-white/[0.08]"
+                                                            : ""
+                                                    }`}
+                                                >
+                                                    <span className="text-base font-serif text-white/50 tracking-wider">
+                                                        {group.items[0].houseId}
                                                     </span>
                                                 </td>
                                             )}
-                                            <td
-                                                className={`p-4 w-1/3 border-r border-white/10 ${borderBottomClass}`}
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    <span
-                                                        className="text-2xl  w-5 text-center text-primary"
-
-                                                    >
-                                                        {item.symbol}
-                                                    </span>
-                                                    <span className="uppercase text-2xl tracking-wider">
-                                                        {item.name}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td
-                                                className={`p-4 w-1/6 text-center text-2xl font-serif ${borderBottomClass}`}
-                                            >
-                                                {item.houseId}
-                                            </td>
                                         </tr>
                                     );
                                 })}
                             </React.Fragment>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* H O U S E S column */}
-            {/* <div className="w-8 border-l border-white/10 flex flex-col items-center justify-end py-6 shrink-0 absolute top-0 bottom-0 right-0 pointer-events-none">
-                <div className="[writing-mode:vertical-lr] tracking-[0.3em] text-white text-xs mb-2 transform rotate-180">
-                    HOUSES
-                </div>
-            </div> */}
+                        );
+                    })}
+                </tbody>
+            </table>
         </div>
     );
 }

@@ -20,7 +20,7 @@ export function JournalTopBar({ showLogo, centerCtaLabel }: JournalTopBarProps) 
             <div className="relative z-20 px-3 pt-3 md:px-5 md:pt-4">
                 <div className="flex items-center justify-between gap-2">
                     <div className="flex min-w-0 flex-1 items-center justify-start gap-2">
-                        <SidebarTrigger className="h-9 w-9 border border-white/15 bg-background/70 text-white/80 hover:border-galactic/50 hover:text-white md:hidden" />
+                        <SidebarTrigger className="h-9 w-9 border border-white/15 bg-background/60 text-foreground/70 hover:border-primary/40 hover:text-primary md:hidden transition-all duration-500" />
                         <Link
                             href="/"
                             className={`min-w-0 transition-all duration-300 ${

@@ -35,6 +35,7 @@ import type * as oracle_llm from "../oracle/llm.js";
 import type * as oracle_quota from "../oracle/quota.js";
 import type * as oracle_sessions from "../oracle/sessions.js";
 import type * as oracle_settings from "../oracle/settings.js";
+import type * as oracle_timespace from "../oracle/timespace.js";
 import type * as oracle_upsertProviders from "../oracle/upsertProviders.js";
 import type * as referrals from "../referrals.js";
 import type * as users from "../users.js";
@@ -73,6 +74,7 @@ declare const fullApi: ApiFromModules<{
   "oracle/quota": typeof oracle_quota;
   "oracle/sessions": typeof oracle_sessions;
   "oracle/settings": typeof oracle_settings;
+  "oracle/timespace": typeof oracle_timespace;
   "oracle/upsertProviders": typeof oracle_upsertProviders;
   referrals: typeof referrals;
   users: typeof users;

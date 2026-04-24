@@ -16,6 +16,7 @@ import {
   isOracleFeatureKey,
   classifyUserIntent,
 } from "../../lib/oracle/features";
+import { buildTimespaceContext } from "./timespace";
 import {
   type ProviderConfig,
   type ModelChainEntry,
@@ -77,6 +78,7 @@ export const invokeOracle = action({
   args: {
     sessionId: v.id("oracle_sessions"),
     userQuestion: v.string(),
+    timezone: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<LLMResponse> => {
     // ── Input validation ──────────────────────────────────────────────────
@@ -221,7 +223,16 @@ export const invokeOracle = action({
       journalContext = null;
     }
 
-    // ── Build prompt (4 params instead of 7) ──────────────────────────────
+    // ── Timespace context (timezone + cosmic weather) ──────────────────────
+    let timespaceContext: string | null = null;
+    const userTimezone = args.timezone || "UTC";
+    try {
+      const tsResult = buildTimespaceContext(userTimezone, args.userQuestion);
+      timespaceContext = tsResult.context;
+    } catch (e) {
+      console.error("Timespace context assembly failed (non-blocking):", e);
+    }
+
     const prompt = buildPrompt({
       soulDoc: config.soulDoc,
       featureInjection: featureInjection || null,
@@ -229,6 +240,7 @@ export const invokeOracle = action({
       userQuestion: args.userQuestion,
       isFirstResponse,
       journalContext,
+      timespaceContext,
     });
 
     // Hash the system prompt for observability (stored on each assistant message)

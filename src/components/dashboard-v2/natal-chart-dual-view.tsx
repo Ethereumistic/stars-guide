@@ -5,6 +5,7 @@ import { motion } from "motion/react"
 import { calculateFullChart } from "@/lib/birth-chart/full-chart"
 import { ChartTableView } from "@/components/dashboard/natal-chart/chart-table-view"
 import { ChartCircleView } from "@/components/dashboard/natal-chart/chart-circle-view"
+import { ChartVisualView } from "@/components/dashboard/natal-chart/chart-visual-view"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BirthData } from "./types"
 
@@ -76,10 +77,8 @@ export function NatalChartDualView({ birthData, delay = 0 }: NatalChartDualViewP
             {/* Desktop: side-by-side layout */}
             <div className="hidden lg:grid grid-cols-2 gap-6 items-start">
                 {/* Table view — remove the scale-80 hack, let it use natural width */}
-                <div className="w-full overflow-hidden">
-                    <div className="w-full max-w-xl mx-auto [&>div]:scale-100 [&>div]:!scale-100">
-                        <ChartTableView data={chartData} />
-                    </div>
+                <div className="w-full">
+                    <ChartTableView data={chartData} />
                 </div>
                 {/* Circle view */}
                 <div className="w-full flex justify-center">

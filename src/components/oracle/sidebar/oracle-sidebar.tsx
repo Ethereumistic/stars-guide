@@ -68,7 +68,7 @@ export function OracleSidebar({
         <Sidebar
             variant="sidebar"
             collapsible="icon"
-            className="border-r border-white/10 bg-black/25 backdrop-blur-xl overflow-hidden"
+            className="border-r border-white/10 bg-background/40 backdrop-blur-md overflow-hidden"
         >
             <OracleSidebarHeader />
 

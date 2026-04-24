@@ -61,11 +61,11 @@ export function RenameSessionDialog({
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent
                 showCloseButton={false}
-                className="max-w-sm border-white/15 bg-background/95 text-white backdrop-blur-xl"
+                className="max-w-sm border-white/15 bg-background/90 backdrop-blur-xl text-foreground shadow-xl"
             >
                 <DialogHeader>
-                    <DialogTitle className="text-white">Rename chat</DialogTitle>
-                    <DialogDescription className="text-white/50">
+                    <DialogTitle className="text-foreground font-serif">Rename chat</DialogTitle>
+                    <DialogDescription className="text-foreground/50">
                         Give this conversation a new name.
                     </DialogDescription>
                 </DialogHeader>
@@ -74,7 +74,7 @@ export function RenameSessionDialog({
                         ref={inputRef}
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
-                        className="bg-white/5 border-white/15 text-white placeholder:text-white/30 focus-visible:ring-galactic/30"
+                        className="bg-background/40 border-white/15 text-foreground placeholder:text-foreground/30 focus-visible:ring-primary/30"
                         placeholder="Enter a new name..."
                     />
                     <DialogFooter className="mt-4 gap-2 sm:gap-2">
@@ -82,7 +82,7 @@ export function RenameSessionDialog({
                             type="button"
                             variant="ghost"
                             onClick={() => handleOpenChange(false)}
-                            className="border border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
+                            className="border border-white/10 text-foreground/70 hover:bg-accent/40 hover:text-primary transition-all duration-500"
                         >
                             Cancel
                         </Button>

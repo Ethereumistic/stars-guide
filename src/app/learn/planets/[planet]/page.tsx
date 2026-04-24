@@ -103,6 +103,7 @@ export default function PlanetDetailPage() {
                     ]}
                     currentPage={`${data.name} ${ui.rulerSymbol}`}
                     currentPageColor={glowColor}
+                    showBorder={false}
                 />
 
                 {/* Magazine-Style Hero */}

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { Id } from "../../convex/_generated/dataModel";
 import type { OracleFeatureKey } from "@/lib/oracle/features";
+import { detectTimezone } from "@/lib/timezone";
 
 export type OracleState =
     | "idle"
@@ -16,6 +17,7 @@ interface OracleStore {
     quotaRemaining: number | null;
     quotaResetAt: number | null;
     quotaExhausted: boolean;
+    timezone: string;
     setSelectedFeature: (featureKey: OracleFeatureKey | null) => void;
     clearSelectedFeature: () => void;
     hydrateSessionFeature: (featureKey: OracleFeatureKey | null) => void;
@@ -25,6 +27,7 @@ interface OracleStore {
     setSessionId: (id: Id<"oracle_sessions">) => void;
     setConversationActive: () => void;
     setQuota: (remaining: number | null, resetAt: number | null) => void;
+    setTimezone: (tz: string) => void;
     resetToIdle: () => void;
 }
 
@@ -37,6 +40,7 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
     quotaRemaining: null,
     quotaResetAt: null,
     quotaExhausted: false,
+    timezone: typeof window !== "undefined" ? detectTimezone() : "UTC",
 
     setSelectedFeature: (featureKey) => set({ selectedFeatureKey: featureKey }),
 
@@ -60,6 +64,8 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
             quotaResetAt: resetAt,
             quotaExhausted: remaining !== null && remaining <= 0,
         }),
+
+    setTimezone: (tz: string) => set({ timezone: tz }),
 
     resetToIdle: () =>
         set({

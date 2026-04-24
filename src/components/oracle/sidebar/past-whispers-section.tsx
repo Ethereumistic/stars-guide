@@ -68,15 +68,15 @@ export function PastWhispersSection({
     return (
         <>
             <SidebarGroup className="mt-2 min-h-0 flex-1 w-full min-w-0 group-data-[collapsible=icon]:hidden">
-                <SidebarGroupLabel className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-white/40">
-                    <MessageSquare className="h-3 w-3 text-white/40" />
+                <SidebarGroupLabel className="flex items-center gap-2 text-[10px] font-serif tracking-wide lowercase italic text-foreground/40">
+                    <MessageSquare className="h-3 w-3 text-foreground/40" />
                     <span>Past Whispers</span>
                 </SidebarGroupLabel>
                 <SidebarGroupContent className="h-full w-full min-w-12">
                     <ScrollArea className="h-full w-full min-w-0">
                         {sessions === undefined ? (
                             <div className="flex items-center justify-center py-4">
-                                <Loader2 className="h-4 w-4 animate-spin text-white/30" />
+                                <Loader2 className="h-4 w-4 animate-spin text-foreground/30" />
                             </div>
                         ) : sessions.length === 0 ? (
                             <SessionListEmpty />
@@ -84,7 +84,7 @@ export function PastWhispersSection({
                             groupSessions(sessions).map((group) => (
                                 <div key={group.label} className="mb-2">
                                     {group.items.length >= 2 && (
-                                        <p className="px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-white/25">
+                                        <p className="px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-foreground/25">
                                             {group.label}
                                         </p>
                                     )}

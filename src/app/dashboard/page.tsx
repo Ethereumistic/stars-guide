@@ -8,7 +8,6 @@ import { compositionalSigns } from "@/astrology/signs"
 import { zodiacUIConfig } from "@/config/zodiac-ui"
 import {
     SignCardV2,
-    BirthDetailsCard,
     ElementalBalanceCard,
     InterpretationCard,
     DashboardSkeleton,
@@ -104,14 +103,11 @@ export default function DashboardPage() {
                     />
                 </div>
 
-                {/* Birth Details Card */}
-                <BirthDetailsCard birthData={birthData} delay={0.3} />
-
                 {/* Natal Chart */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.35 }}
+                    transition={{ duration: 0.5, delay: 0.3 }}
                     className="w-full"
                 >
                     <NatalChart birthData={birthData} />
@@ -119,9 +115,7 @@ export default function DashboardPage() {
 
                 {/* Elemental Balance Card */}
                 <ElementalBalanceCard
-                    sunData={sunData}
-                    moonData={moonData}
-                    risingData={risingData}
+                    birthData={birthData}
                     delay={0.4}
                 />
 

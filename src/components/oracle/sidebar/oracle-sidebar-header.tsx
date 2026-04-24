@@ -16,11 +16,11 @@ export function OracleSidebarHeader() {
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-galactic/30 bg-galactic/15 text-galactic">
                             <GiCursedStar className="h-5 w-5" />
                         </div>
-                        <span className="truncate text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
+                        <span className="truncate text-xs font-serif italic tracking-wide lowercase text-foreground/70">
                             Oracle
                         </span>
                     </div>
-                    <SidebarTrigger className="hidden h-9 w-9 border border-white/15 bg-background/70 text-white/80 hover:border-galactic/50 hover:text-white md:inline-flex" />
+                    <SidebarTrigger className="hidden h-9 w-9 border border-white/15 bg-background/70 text-foreground/70 hover:border-primary/40 hover:text-primary md:inline-flex transition-all duration-500" />
                 </div>
 
                 <div className="hidden w-full items-center justify-center group-data-[collapsible=icon]:flex">

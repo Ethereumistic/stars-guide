@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { GiStarSwirl } from "react-icons/gi";
 
 interface LogoProps {
     className?: string;
@@ -9,6 +10,8 @@ interface LogoProps {
     variant?: "logo" | "logomark" | "logotype";
     layout?: "vertical" | "horizontal_right" | "horizontal_left";
     textClassName?: string;
+    /** Switch between the image logo and the GiStarSwirl icon */
+    icon?: boolean;
 }
 
 const sizes = {
@@ -20,6 +23,15 @@ const sizes = {
     auto: { width: 0, height: 0 },
 };
 
+const iconSizes = {
+    xs: "text-[1.95rem]",
+    sm: "text-[2.45rem]",
+    md: "text-[3.9rem]",
+    lg: "text-[5.85rem]",
+    xl: "text-[7.8rem]",
+    auto: "text-[3.9rem]",
+};
+
 export function Logo({
     className,
     size = "md",
@@ -28,13 +40,21 @@ export function Logo({
     variant = "logo",
     layout = "horizontal_right",
     textClassName,
+    icon = true,
 }: LogoProps) {
     const dimensions = size === "auto" ? { width, height } : sizes[size];
 
-    const logomark = (
+    const logomark = icon ? (
+        <GiStarSwirl
+            className={cn(
+                "text-primary shrink-0 transition-all duration-300",
+                iconSizes[size],
+            )}
+        />
+    ) : (
         <Image
             src="https://cdn.jsdelivr.net/gh/Ethereumistic/stars-guide-assets/logo/500x500.webp"
-            alt="DB Productions Logo"
+            alt="stars.guide Logo"
             width={dimensions.width || width}
             height={dimensions.height || height}
             className=" transition-all duration-300 object-contain "

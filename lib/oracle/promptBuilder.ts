@@ -41,12 +41,15 @@ export interface PromptPayload {
  *   1. ORACLE_SAFETY_RULES (hardcoded, always first)
  *   2. soulDoc (one unified document)
  *   3. featureInjection (if active feature has one)
- *   3.5. journalContext (if consent granted and data available)
- *   4. ORACLE_TITLE_DIRECTIVE (only on first response — saves ~200 tokens on follow-ups)
+ *   3.5. timespaceContext (always: local datetime; expanded when temporal intent detected)
+ *   4. journalContext (if consent granted and data available)
+ *   5. ORACLE_TITLE_DIRECTIVE (only on first response — saves ~200 tokens on follow-ups)
+ *   6. JOURNAL_PROMPT_DIRECTIVE (only on first response when journal context is present)
  */
 export function buildSystemPrompt(params: {
   soulDoc: string;
   featureInjection?: string | null;
+  timespaceContext?: string | null;
   journalContext?: string | null;
   isFirstResponse?: boolean;
 }): string {
@@ -54,6 +57,7 @@ export function buildSystemPrompt(params: {
     ORACLE_SAFETY_RULES,
     params.soulDoc,
     params.featureInjection ?? "",
+    params.timespaceContext ?? "",
     params.journalContext ?? "",
   ];
 
@@ -101,11 +105,13 @@ export function buildPrompt(params: {
   userQuestion: string;
   isFirstResponse?: boolean;
   journalContext?: string | null;
+  timespaceContext?: string | null;
 }): PromptPayload {
   return {
     systemPrompt: buildSystemPrompt({
       soulDoc: params.soulDoc,
       featureInjection: params.featureInjection,
+      timespaceContext: params.timespaceContext,
       journalContext: params.journalContext,
       isFirstResponse: params.isFirstResponse,
     }),

@@ -28,11 +28,11 @@ export function DeleteSessionDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent
                 showCloseButton={false}
-                className="max-w-sm border-white/15 bg-background/95 text-white backdrop-blur-xl"
+                className="max-w-sm border-white/15 bg-background/90 backdrop-blur-xl text-foreground shadow-xl"
             >
                 <DialogHeader>
-                    <DialogTitle className="text-white">Delete this whisper?</DialogTitle>
-                    <DialogDescription className="text-white/50">
+                    <DialogTitle className="text-foreground font-serif">Delete this whisper?</DialogTitle>
+                    <DialogDescription className="text-foreground/50">
                         This will permanently delete &ldquo;{sessionTitle}&rdquo; and all its messages. This action cannot be undone.
                     </DialogDescription>
                 </DialogHeader>
@@ -40,7 +40,7 @@ export function DeleteSessionDialog({
                     <Button
                         variant="ghost"
                         onClick={() => onOpenChange(false)}
-                        className="border border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
+                        className="border border-white/10 text-foreground/70 hover:bg-accent/40 hover:text-primary transition-all duration-500"
                     >
                         Cancel
                     </Button>

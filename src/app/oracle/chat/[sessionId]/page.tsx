@@ -125,6 +125,7 @@ export default function OracleChatPage() {
         hydrateSessionFeature,
         setConversationActive,
         setIsStreaming,
+        timezone,
     } = useOracleStore();
 
     const loadingMessage = useLoadingMessage(isStreaming);
@@ -193,6 +194,7 @@ export default function OracleChatPage() {
                 await invokeOracle({
                     sessionId,
                     userQuestion: lastUserMessage.content,
+                    timezone,
                 });
             } catch (error) {
                 console.error("Oracle invocation failed:", error);
@@ -256,6 +258,7 @@ export default function OracleChatPage() {
             await invokeOracle({
                 sessionId,
                 userQuestion: content,
+                timezone,
             });
         } catch (error) {
             console.error("Follow-up Oracle call failed:", error);

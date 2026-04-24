@@ -22,31 +22,31 @@ export function JournalSidebarActions({ onNewEntry }: JournalSidebarActionsProps
                 <SidebarMenuButton
                     tooltip="New entry"
                     onClick={onNewEntry}
-                    className="h-10 gap-3 text-white/75 hover:bg-white/10 hover:text-white group-data-[collapsible=icon]:justify-center"
+                    className="h-10 gap-3 text-foreground/70 hover:bg-accent/40 hover:text-primary transition-all duration-500 group-data-[collapsible=icon]:justify-center"
                 >
-                    <Plus className="h-4 w-4 text-galactic" />
-                    <span className="font-medium group-data-[collapsible=icon]:hidden">New entry</span>
+                    <Plus className="h-4 w-4 text-primary" />
+                    <span className="font-serif text-sm italic lowercase tracking-wide group-data-[collapsible=icon]:hidden">New entry</span>
                 </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
                 <SidebarMenuButton
                     tooltip="Search entries"
                     onClick={() => router.push("/journal/search")}
-                    className="h-10 gap-3 text-white/75 hover:bg-white/10 hover:text-white group-data-[collapsible=icon]:justify-center"
+                    className="h-10 gap-3 text-foreground/70 hover:bg-accent/40 hover:text-primary transition-all duration-500 group-data-[collapsible=icon]:justify-center"
                 >
-                    <Search className="h-4 w-4 text-galactic" />
-                    <span className="font-medium group-data-[collapsible=icon]:hidden">Search</span>
+                    <Search className="h-4 w-4 text-primary" />
+                    <span className="font-serif text-sm italic lowercase tracking-wide group-data-[collapsible=icon]:hidden">Search</span>
                 </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
                 <SidebarMenuButton
                     tooltip="Oracle"
                     asChild
-                    className="h-10 gap-3 text-white/75 hover:bg-white/10 hover:text-white group-data-[collapsible=icon]:justify-center"
+                    className="h-10 gap-3 text-foreground/70 hover:bg-accent/40 hover:text-primary transition-all duration-500 group-data-[collapsible=icon]:justify-center"
                 >
                     <Link href="/oracle">
-                        <Sparkles className="h-4 w-4 text-galactic" />
-                        <span className="font-medium group-data-[collapsible=icon]:hidden">Oracle</span>
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        <span className="font-serif text-sm italic lowercase tracking-wide group-data-[collapsible=icon]:hidden">Oracle</span>
                     </Link>
                 </SidebarMenuButton>
             </SidebarMenuItem>

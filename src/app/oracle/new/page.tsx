@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { useQuery, useMutation } from "convex/react";
@@ -11,6 +11,7 @@ import { OracleInput } from "@/components/oracle/input/oracle-input";
 import { getFeatureDefaultPrompt, type OracleFeatureKey } from "@/lib/oracle/features";
 import { useOracleStore } from "@/store/use-oracle-store";
 import { useUserStore } from "@/store/use-user-store";
+import { detectTimezone, getLocalHour, getGreetingForHour } from "@/lib/timezone";
 
 export default function OracleNewPage() {
     const router = useRouter();
@@ -41,6 +42,27 @@ export default function OracleNewPage() {
     }, [quota, setQuota]);
 
     const firstName = user?.username?.split(/[_\s]/)[0] ?? "Seeker";
+
+    // ── Timezone-aware hour & greeting ───────────────────────────────────
+    const [localHour, setLocalHour] = useState<number>(() =>
+        typeof window !== "undefined" ? getLocalHour(detectTimezone()) : 12,
+    );
+    const [timezone] = useState(detectTimezone);
+
+    useEffect(() => {
+        // Re-sync every 60 s so the greeting transitions at the hour boundary
+        const sync = () => setLocalHour(getLocalHour(timezone));
+        const id = setInterval(sync, 60_000);
+        return () => clearInterval(id);
+    }, [timezone]);
+
+    // Persist timezone into the oracle store so future prompt context can use it
+    const { setTimezone: storeSetTimezone } = useOracleStore();
+    useEffect(() => {
+        storeSetTimezone(timezone);
+    }, [timezone, storeSetTimezone]);
+
+    const greeting = getGreetingForHour(localHour, firstName);
 
     const handleFeatureSelect = useCallback(
         (featureKey: OracleFeatureKey) => {
@@ -121,8 +143,8 @@ export default function OracleNewPage() {
                         transition={{ duration: 0.8, delay: 0.2 }}
                         className="text-center mb-10 space-y-3 max-w-xl"
                     >
-                        <h1 className="text-3xl md:text-5xl font-serif font-bold bg-clip-text text-transparent bg-linear-to-br from-white via-white/80 to-galactic/50 pb-1">
-                            Welcome, <span className="text-galactic">{firstName}</span>
+                        <h1 className="text-3xl md:text-5xl font-serif font-bold bg-clip-text text-transparent bg-linear-to-br from-white via-white/80 to-galactic/50 pb-1 whitespace-nowrap">
+                            {greeting}
                         </h1>
                         <p className="text-white/50 text-base md:text-lg font-serif italic text-balance">
                             What truth do you seek from the stars today?

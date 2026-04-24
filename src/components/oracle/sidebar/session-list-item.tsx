@@ -53,7 +53,7 @@ export function SessionListItem({
             <SidebarMenuSubButton
                 asChild
                 isActive={isActive}
-                className="pr-8 transition-colors duration-300 group h-10 w-62 flex items-center gap-3 rounded-md border border-transparent  text-white/75 hover:bg-white/10 hover:text-white data-[active=true]:bg-white/10 data-[active=true]:text-white"
+                className="pr-8 transition-colors duration-300 group h-10 w-62 flex items-center gap-3 rounded-md border border-transparent text-foreground/70 hover:bg-accent/40 hover:text-primary data-[active=true]:bg-accent/40 data-[active=true]:text-primary data-[active=true]:font-medium"
             >
                 <Link href={`/oracle/chat/${session._id}`}>
                     {/* Star icon — only rendered when session is starred */}
@@ -64,7 +64,7 @@ export function SessionListItem({
                     )}
 
                     {/* Title — takes all remaining space and truncates with ellipsis */}
-                    <span className={`flex-1 text-sm font-medium truncate ${!session.starType ? "pl-1" : ""}`}>
+                    <span className={`flex-1 text-sm font-serif italic truncate ${!session.starType ? "pl-1" : ""}`}>
                         {session.title}
                     </span>
                 </Link>
@@ -75,7 +75,7 @@ export function SessionListItem({
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <button
-                            className="flex h-6 w-6 items-center justify-center rounded-md text-white/30 hover:bg-white/10 hover:text-white aria-expanded:bg-white/10 aria-expanded:text-white"
+                            className="flex h-6 w-6 items-center justify-center rounded-md text-foreground/30 hover:bg-accent/40 hover:text-primary aria-expanded:bg-accent/40 aria-expanded:text-primary"
                             aria-label="Session options"
                         >
                             <MoreVertical className="h-4 w-4" />
@@ -84,7 +84,7 @@ export function SessionListItem({
                     <DropdownMenuContent
                         side="right"
                         align="start"
-                        className="w-48 border-white/15 bg-background/95 text-white backdrop-blur-xl"
+                        className="w-48 border-white/15 bg-background/90 backdrop-blur-xl text-foreground shadow-xl"
                     >
                         {/* Star buttons as button group */}
                         <div className="px-2 py-1">
@@ -97,7 +97,7 @@ export function SessionListItem({
                                     className={`h-8 flex-1 flex items-center justify-center gap-2 rounded-l-md transition-colors ${
                                         session.starType === "beveled"
                                             ? "bg-primary/20 text-primary hover:bg-primary/30"
-                                            : "text-white/40 hover:bg-white/10 hover:text-white"
+                                            : "text-foreground/40 hover:bg-accent/40 hover:text-primary"
                                     }`}
                                     aria-label={session.starType === "beveled" ? "Unstar" : "Star"}
                                 >
@@ -112,7 +112,7 @@ export function SessionListItem({
                                     className={`h-8 flex-1 flex items-center justify-center gap-2 rounded-r-md transition-colors ${
                                         session.starType === "cursed"
                                             ? "bg-galactic/20 text-galactic hover:bg-galactic/30"
-                                            : "text-white/40 hover:bg-white/10 hover:text-white"
+                                            : "text-foreground/40 hover:bg-accent/40 hover:text-primary"
                                     }`}
                                     aria-label={session.starType === "cursed" ? "Unstar cursed" : "Star cursed"}
                                 >
@@ -131,7 +131,7 @@ export function SessionListItem({
                         </DropdownMenuItem>
                         <DropdownMenuItem
                             disabled
-                            className="gap-2 cursor-pointer text-white/50"
+                            className="gap-2 cursor-pointer text-foreground/50"
                         >
                             <Share className="h-4 w-4" />
                             Share

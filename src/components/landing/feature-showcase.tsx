@@ -1,13 +1,13 @@
 "use client";
 
-import { motion } from "motion/react";
+import { motion, AnimatePresence, useInView } from "motion/react";
 import Link from "next/link";
 import {
     GiCursedStar,
     GiStarsStack,
+    GiScrollUnfurled,
     GiAstrolabe,
     GiOrbital,
-    GiScrollUnfurled,
     GiCrystalBall,
     GiPaintBrush,
     GiMusicalNotes,
@@ -15,19 +15,13 @@ import {
 import {
     TbArrowRight, TbBolt, TbBrain
 } from "react-icons/tb";
+import { Check } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { StarsBackground } from "@/components/hero/stars-background";
+import { ShootingStars } from "@/components/hero/shooting-stars";
+import { Button } from "@/components/ui/button";
 
 const PILLARS = [
-    {
-        id: "oracle",
-        title: "The Oracle",
-        subtitle: "Your Personal AI Astrologer",
-        description: "An AI that remembers your story, understands your transits, and responds with genuine astrological wisdom. It knows your birth chart, tracks live planetary positions, and gets smarter with every conversation.",
-        icon: GiCursedStar,
-        cta: "Ask the Oracle",
-        href: "/oracle",
-        accentColor: "var(--galactic)",
-        capabilities: ["Birth chart awareness", "Transit interpretation", "Conversational memory"],
-    },
     {
         id: "horoscopes",
         title: "Horoscopes",
@@ -36,8 +30,45 @@ const PILLARS = [
         icon: GiStarsStack,
         cta: "Read Today's Scope",
         href: "/horoscopes",
-        accentColor: "var(--sun)",
         capabilities: ["12 zodiac signs", "Daily, weekly, monthly", "Real astronomical basis"],
+        ui: {
+            glowColor: "rgba(212, 175, 55, 0.4)",
+            borderColor: "border-primary/20",
+            diagonalGlareColor: "rgba(212, 175, 55, 0.08)",
+            titleColorClass: "text-primary drop-shadow-[0_0_15px_rgba(212,175,55,0.3)]",
+            iconColor: "text-primary",
+            iconGlowColor: "drop-shadow-[0_0_15px_rgba(212,175,55,0.6)]",
+            iconAnimate: "group-hover:rotate-45 group-hover:scale-115 transition-all duration-1500",
+            buttonVariant: "default" as const,
+            checkBorder: "border-primary/20 bg-primary/10 text-primary",
+            starColor: "#d4af37",
+            trailColor: "#8b7355",
+            showShootingStars: false,
+        },
+    },
+    {
+        id: "oracle",
+        title: "The Oracle",
+        subtitle: "Your Personal AI Astrologer",
+        description: "An AI that remembers your story, understands your transits, and responds with genuine astrological wisdom. It knows your birth chart, tracks live planetary positions, and gets smarter with every conversation.",
+        icon: GiCursedStar,
+        cta: "Ask the Oracle",
+        href: "/oracle",
+        capabilities: ["Birth chart awareness", "Transit interpretation", "Conversational memory"],
+        ui: {
+            glowColor: "rgba(138, 43, 226, 0.4)",
+            borderColor: "border-galactic/60",
+            diagonalGlareColor: "rgba(138, 43, 226, 0.08)",
+            titleColorClass: "text-galactic drop-shadow-[0_0_15px_rgba(157,78,221,0.3)]",
+            iconColor: "text-galactic",
+            iconGlowColor: "drop-shadow-[0_0_15px_rgba(157,78,221,0.6)]",
+            iconAnimate: "group-hover:rotate-[720deg] group-hover:scale-120 transition-all duration-[2000ms]",
+            buttonVariant: "galactic" as const,
+            checkBorder: "border-galactic/20 bg-galactic/10 text-galactic",
+            starColor: "#9d4edd",
+            trailColor: "#9d4edd",
+            showShootingStars: true,
+        },
     },
     {
         id: "journal",
@@ -47,8 +78,21 @@ const PILLARS = [
         icon: GiScrollUnfurled,
         cta: "Coming Soon",
         href: "#",
-        accentColor: "var(--venus)",
         capabilities: ["Daily reflection prompts", "Dream logging", "Enriches Oracle & horoscopes"],
+        ui: {
+            glowColor: "rgba(71, 85, 105, 0.2)",
+            borderColor: "border-white/20",
+            diagonalGlareColor: "rgba(255,255,255,0.06)",
+            titleColorClass: "text-white",
+            iconColor: "text-white",
+            iconGlowColor: "drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]",
+            iconAnimate: "group-hover:scale-110",
+            buttonVariant: "outline" as const,
+            checkBorder: "border-white/10 bg-white/5 text-white/80",
+            starColor: "#ffffff",
+            trailColor: "#ffffff",
+            showShootingStars: false,
+        },
     },
 ];
 
@@ -103,6 +147,148 @@ const SATELLITES = [
     },
 ];
 
+function PillarCard({ pillar, index }: { pillar: typeof PILLARS[number]; index: number }) {
+    const [isHovered, setIsHovered] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+    const cardRef = useRef<HTMLDivElement>(null);
+    const isInView = useInView(cardRef, { amount: 0.8, once: false });
+    const Icon = pillar.icon;
+    const ui = pillar.ui;
+
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener("resize", checkMobile);
+        return () => window.removeEventListener("resize", checkMobile);
+    }, []);
+
+    const showGlare = isMobile ? isInView : isHovered;
+
+    return (
+        <motion.div
+            ref={cardRef}
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ duration: 0.8, delay: 0.2 + index * 0.15, ease: [0.16, 1, 0.3, 1] }}
+            className="relative group hover:z-50 rounded-3xl h-full flex flex-col"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+        >
+            {/* Outline Glow */}
+            <div
+                className="absolute inset-0 -z-10 rounded-3xl opacity-15 group-hover:opacity-35 transition-opacity duration-1000 blur-xl group-hover:blur-2xl"
+                style={{ backgroundColor: ui.glowColor }}
+            />
+
+            {/* Main Card */}
+            <div className={`relative py-8 px-8 flex flex-col h-full bg-background/85 backdrop-blur-2xl rounded-3xl z-0 overflow-hidden shadow-2xl transition-transform duration-1000 border ${ui.borderColor}`}>
+
+                <div className="absolute inset-0 z-0 overflow-hidden rounded-3xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+                    <StarsBackground
+                        starDensity={0.0002}
+                        allStarsTwinkle={true}
+                        twinkleProbability={0.8}
+                        minTwinkleSpeed={0.3}
+                        maxTwinkleSpeed={1.2}
+                    />
+                    {ui.showShootingStars && (
+                        <ShootingStars
+                            minSpeed={15}
+                            maxSpeed={35}
+                            minDelay={200}
+                            maxDelay={300}
+                            starColor={ui.starColor}
+                            trailColor={ui.trailColor}
+                        />
+                    )}
+                </div>
+
+                <AnimatePresence>
+                    {showGlare && (
+                        <motion.div
+                            className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none z-0"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                        >
+                            <motion.div
+                                className="absolute inset-0 w-[200%] h-[200%]"
+                                initial={{ x: "-50%", y: "-50%" }}
+                                animate={{ x: "50%", y: "50%" }}
+                                transition={{ duration: 1.5, ease: "easeInOut" }}
+                                style={{
+                                    background: `linear-gradient(135deg, transparent 0%, transparent 40%, ${ui.diagonalGlareColor} 50%, transparent 60%, transparent 100%)`,
+                                }}
+                            />
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Inner subtle glow */}
+                <div
+                    className="absolute inset-0 backdrop-blur-[0.5px] pointer-events-none -z-10"
+                    style={{
+                        background: `linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.005) 100%)`
+                    }}
+                />
+
+                <div className="flex-1 z-10 space-y-4">
+                    {/* Icon + Title */}
+                    <div className="flex items-center gap-3">
+                        <div className={`${ui.iconColor} ${ui.iconGlowColor} ${ui.iconAnimate}`}>
+                            <Icon className="size-10" />
+                        </div>
+                        <h3 className={`text-3xl font-serif font-bold text-nowrap ${ui.titleColorClass}`}>
+                            {pillar.title}
+                        </h3>
+                    </div>
+
+                    {/* Subtitle */}
+                    <p className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground/70">
+                        {pillar.subtitle}
+                    </p>
+
+                    {/* Description */}
+                    <p className="text-sm text-white/60 leading-relaxed font-sans">
+                        {pillar.description}
+                    </p>
+
+                    <div className="h-px w-full bg-linear-to-r from-transparent via-white/10 to-transparent my-4" />
+
+                    {/* Capabilities */}
+                    <ul className="space-y-4">
+                        {pillar.capabilities.map(cap => (
+                            <li key={cap} className="flex items-start gap-4">
+                                <div className={`mt-0.5 rounded-full p-1 border ${ui.checkBorder}`}>
+                                    <Check className="w-3 h-3" />
+                                </div>
+                                <span className="text-sm tracking-wide text-white/90">
+                                    {cap}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+
+                {/* CTA Button */}
+                <div className="mt-8 z-10 transition-transform duration-300 group-hover:-translate-y-1">
+                    <Link href={pillar.href} className="w-full">
+                        <Button
+                            size="xl"
+                            variant={ui.buttonVariant}
+                            className="w-full uppercase font-serif font-bold hover:text-white"
+                        >
+                            {pillar.cta}
+                        </Button>
+                    </Link>
+                </div>
+            </div>
+        </motion.div>
+    );
+}
+
 export function FeatureShowcase() {
     return (
         <section className="relative w-full overflow-hidden">
@@ -126,74 +312,9 @@ export function FeatureShowcase() {
 
             {/* 3 Pillars */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5 max-w-6xl mx-auto mb-16 md:mb-20">
-                {PILLARS.map((pillar, i) => {
-                    const Icon = pillar.icon;
-                    return (
-                        <motion.div
-                            key={pillar.id}
-                            initial={{ opacity: 0, y: 30 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true, margin: "-50px" }}
-                            transition={{ duration: 0.5, delay: i * 0.1 }}
-                        >
-                            <Link
-                                href={pillar.href}
-                                className="group relative block h-full border border-white/[0.06] bg-black/30 rounded-md overflow-hidden hover:border-white/10 transition-all duration-500"
-                            >
-                                {/* Top accent line */}
-                                <div
-                                    className="absolute top-0 left-0 right-0 h-px opacity-40 group-hover:opacity-80 transition-opacity duration-500"
-                                    style={{ background: pillar.accentColor }}
-                                />
-
-                                <div className="p-6 md:p-8 flex flex-col h-full">
-                                    {/* Icon */}
-                                    <div className="flex items-start justify-between mb-6">
-                                        <div
-                                            className="w-12 h-12 rounded-md flex items-center justify-center border transition-all duration-500 group-hover:scale-110"
-                                            style={{
-                                                borderColor: `${pillar.accentColor}30`,
-                                                background: `${pillar.accentColor}08`,
-                                            }}
-                                        >
-                                            <Icon className="w-6 h-6" style={{ color: pillar.accentColor }} />
-                                        </div>
-                                        <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-white/15">
-                                            {String(i + 1).padStart(2, "0")}
-                                        </span>
-                                    </div>
-
-                                    <h3 className="text-2xl md:text-3xl font-serif text-white/90 group-hover:text-white transition-colors mb-1">
-                                        {pillar.title}
-                                    </h3>
-                                    <p className="text-xs font-mono uppercase tracking-[0.2em] mb-5" style={{ color: pillar.accentColor, opacity: 0.5 }}>
-                                        {pillar.subtitle}
-                                    </p>
-
-                                    <p className="text-sm text-white/50 leading-relaxed font-sans flex-1 mb-6">
-                                        {pillar.description}
-                                    </p>
-
-                                    {/* Capabilities */}
-                                    <div className="space-y-2 mb-6">
-                                        {pillar.capabilities.map(cap => (
-                                            <div key={cap} className="flex items-center gap-2">
-                                                <TbBolt className="w-3 h-3 shrink-0" style={{ color: pillar.accentColor, opacity: 0.5 }} />
-                                                <span className="text-[11px] text-white/40 font-sans">{cap}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    {/* CTA */}
-                                    <div className="flex items-center gap-2 text-sm font-serif group-hover:gap-3 transition-all duration-300" style={{ color: pillar.accentColor }}>
-                                        <span>{pillar.cta}</span>
-                                        <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                                    </div>
-                                </div>
-                            </Link>
-                        </motion.div>
-                    );
-                })}
+                {PILLARS.map((pillar, i) => (
+                    <PillarCard key={pillar.id} pillar={pillar} index={i} />
+                ))}
             </div>
 
             {/* Satellite Features */}

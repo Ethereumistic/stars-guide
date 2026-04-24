@@ -14,9 +14,10 @@ import {
     navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
 import { cn } from "@/lib/utils"
-import { Menu, X, LogIn, LogOut, User, Settings, Sparkles } from "lucide-react"
-import { GiStarsStack, GiCrystalBall, GiCoins, GiAstrolabe, GiCursedStar, GiScrollUnfurled } from "react-icons/gi"
-import { motion } from "motion/react"
+import { Menu, X, LogIn, LogOut, User, Settings, Sparkles, Plus } from "lucide-react"
+import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group"
+import { GiStarsStack, GiCrystalBall, GiCoins, GiAstrolabe, GiCursedStar, GiScrollUnfurled, GiStarSwirl } from "react-icons/gi"
+import { motion, AnimatePresence } from "motion/react"
 import { useConvexAuth } from "convex/react"
 import { useAuthActions } from "@convex-dev/auth/react"
 import { useUserStore } from "@/store/use-user-store"
@@ -37,6 +38,34 @@ const navItems = [
     { title: "Journal", href: "/journal", icon: GiScrollUnfurled },
     { title: "Pricing", href: "/pricing", icon: GiCoins },
 ]
+
+function StardustBadge({ stardust, href = "/pricing" }: { stardust: number; href?: string }) {
+    return (
+        <ButtonGroup className="h-9">
+            <ButtonGroupText
+                className="bg-gradient-to-r from-primary/[0.06] to-galactic/[0.04] border-primary/20 px-2.5 gap-1.5 shadow-none"
+            >
+                <GiStarSwirl className="size-4 text-primary drop-shadow-[0_0_8px_rgba(212,175,55,0.5)] shrink-0" />
+                <span
+                    className="text-sm font-serif font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-galactic tabular-nums"
+                >
+                    {stardust.toLocaleString()}
+                </span>
+            </ButtonGroupText>
+            <Button
+                variant="outline"
+                size="icon"
+                asChild
+                className="h-full w-8 border-primary/20 bg-primary/[0.04] hover:bg-primary/10 text-primary/70 hover:text-primary transition-colors"
+            >
+                <Link href={href}>
+                    <Plus className="size-3.5" />
+                    <span className="sr-only">Get more Star Dust</span>
+                </Link>
+            </Button>
+        </ButtonGroup>
+    )
+}
 
 export function Navbar() {
     const [scrolled, setScrolled] = React.useState(false)
@@ -97,7 +126,7 @@ export function Navbar() {
                         </Link>
                     </div>
 
-                    {/* --- Center Section: Desktop Nav links --- */}
+                    {/* --- Center Section: Desktop Nav links + CTA --- */}
                     <div className="hidden md:flex flex-1 justify-center">
                         <NavigationMenu>
                             <NavigationMenuList className="gap-8">
@@ -128,12 +157,6 @@ export function Navbar() {
 
                                                         <span className="relative">
                                                             {item.title}
-                                                            {/* <motion.span
-                                                                className="absolute -bottom-1 left-0 h-px bg-primary/50"
-                                                                initial={false}
-                                                                animate={{ width: isActive ? "100%" : "0%" }}
-                                                                transition={{ duration: 0.3 }}
-                                                            /> */}
                                                         </span>
                                                     </div>
                                                 </Link>
@@ -141,28 +164,27 @@ export function Navbar() {
                                         </NavigationMenuItem>
                                     );
                                 })}
+
+                                {/* CTA - Conditional based on auth/birthData */}
+                                <NavigationMenuItem>
+                                    <Button
+                                        variant="default"
+                                        size="default"
+                                        asChild
+                                        className="font-serif uppercase tracking-wider group/cta shadow-lg hover:shadow-primary/20"
+                                    >
+                                        <Link href={ctaHref} className="flex items-center gap-2">
+                                            <GiAstrolabe className="size-5 shrink-0" />
+                                            <span>{ctaLabel}</span>
+                                        </Link>
+                                    </Button>
+                                </NavigationMenuItem>
                             </NavigationMenuList>
                         </NavigationMenu>
                     </div>
 
-                    {/* --- Right Section: Buttons & Mobile Toggle --- */}
+                    {/* --- Right Section: Avatar + Stardust & Mobile Toggle --- */}
                     <div className="flex-1 flex items-center justify-end gap-3">
-                        <div className="hidden sm:flex items-center gap-3">
-
-                            {/* CTA - Conditional based on auth/birthData */}
-                            <Button
-                                variant="default"
-                                size="default"
-                                asChild
-                                className="hidden font-serif sm:inline-flex uppercase tracking-wider group/cta shadow-lg hover:shadow-primary/20"
-                            >
-                                <Link href={ctaHref} className="flex items-center gap-2">
-                                    <GiAstrolabe className="size-5 shrink-0" />
-                                    <span>{ctaLabel}</span>
-                                </Link>
-                            </Button>
-                        </div>
-
                         {/* Desktop: Authenticated user dropdown menu */}
                         {isAuthenticated && (
                             <DropdownMenu>
@@ -223,6 +245,13 @@ export function Navbar() {
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
+                        )}
+
+                        {/* Desktop: Stardust badge — right of avatar, end of navbar */}
+                        {isAuthenticated && (
+                            <div className="hidden md:flex">
+                                <StardustBadge stardust={currentUser?.stardust ?? 0} />
+                            </div>
                         )}
 
                         {/* Desktop: Unauthenticated sign-in icon */}
@@ -397,6 +426,8 @@ export function Navbar() {
                                         </p>
                                     </div>
                                 </div>
+                                {/* Mobile: Stardust balance */}
+                                <StardustBadge stardust={currentUser?.stardust ?? 0} />
                                 <Button
                                     variant="ghost"
                                     size="lg"
