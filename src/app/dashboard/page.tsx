@@ -8,10 +8,11 @@ import { compositionalSigns } from "@/astrology/signs"
 import { zodiacUIConfig } from "@/config/zodiac-ui"
 import {
     SignCardV2,
-    ElementalBalanceCard,
+    ElementalSpiderChart,
     InterpretationCard,
     DashboardSkeleton,
-    NatalChart
+    NatalChart,
+    PlanetsCarousel
 } from "@/components/dashboard"
 
 const getSignData = (name: string | undefined) =>
@@ -103,6 +104,14 @@ export default function DashboardPage() {
                     />
                 </div>
 
+                {/* Planetary Placements Carousel */}
+                {birthData.placements && birthData.placements.length > 0 && (
+                    <PlanetsCarousel
+                        placements={birthData.placements}
+                        delay={0.3}
+                    />
+                )}
+
                 {/* Natal Chart */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -113,8 +122,8 @@ export default function DashboardPage() {
                     <NatalChart birthData={birthData} />
                 </motion.div>
 
-                {/* Elemental Balance Card */}
-                <ElementalBalanceCard
+                {/* Elemental Spider Chart */}
+                <ElementalSpiderChart
                     birthData={birthData}
                     delay={0.4}
                 />

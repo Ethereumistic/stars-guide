@@ -1,5 +1,88 @@
 export type ElementType = "Fire" | "Earth" | "Air" | "Water";
 
+// ── Spider Chart Archetype Axes ──────────────────────────────────────────────
+
+export type AxisName =
+  | "Intuition"
+  | "Communication"
+  | "Vitality & Drive"
+  | "Emotional Depth"
+  | "Intellect"
+  | "Endurance"
+  | "Transformation"
+  | "Groundedness"
+  | "Magnetism"
+  | "Sensitivity"
+  | "Willpower"
+  | "Adaptability";
+
+export interface AxisDefinition {
+  name: AxisName;
+  element: ElementType;
+  /** react-icons/gi component name for this axis */
+  iconName: string;
+  description: string;
+}
+
+/** Clockwise from top (12 o'clock), alternating elements for visual variety */
+export const SPIDER_AXES: AxisDefinition[] = [
+  { name: "Intuition",            element: "Water", iconName: "GiThirdEye",      description: "Access to unseen currents, gut wisdom" },
+  { name: "Communication",       element: "Air",   iconName: "GiConversation",  description: "Articulation, connection through language" },
+  { name: "Vitality & Drive",     element: "Fire",  iconName: "GiFireDash",      description: "Raw life force, initiative, the will to begin" },
+  { name: "Emotional Depth",      element: "Water", iconName: "GiWaterDrop",      description: "Range of feeling, capacity for intimacy" },
+  { name: "Intellect",            element: "Air",   iconName: "GiBrain",         description: "Pattern recognition, analytical clarity" },
+  { name: "Endurance",            element: "Earth", iconName: "GiShieldImpact",  description: "Capacity to persist, structural resilience" },
+  { name: "Transformation",       element: "Water", iconName: "GiButterfly",     description: "Capacity to die and be reborn, phoenix force" },
+  { name: "Groundedness",         element: "Earth", iconName: "GiMountains",     description: "Embodied presence, material mastery" },
+  { name: "Magnetism",            element: "Fire",  iconName: "GiMagnet",        description: "Radiance, drawing power, natural authority" },
+  { name: "Sensitivity",          element: "Water", iconName: "GiHeartInside",   description: "Psychic attunement, compassion, receptivity" },
+  { name: "Willpower",            element: "Fire",  iconName: "GiCrossedSwords", description: "Focused determination, inner fire discipline" },
+  { name: "Adaptability",         element: "Air",   iconName: "GiWindmill",      description: "Fluidity, the ability to shift and pivot" },
+];
+
+/** Element color tokens used by the spider chart (and donut chart) */
+export const ELEMENT_COLORS: Record<ElementType, { stroke: string; glow: string; dim: string }> = {
+  Fire:  { stroke: "#FF6B35", glow: "rgba(255, 107, 53, 0.35)", dim: "rgba(255, 107, 53, 0.08)" },
+  Earth: { stroke: "#8BA840", glow: "rgba(139, 168, 64, 0.35)",  dim: "rgba(139, 168, 64, 0.08)" },
+  Air:   { stroke: "#87CEEB", glow: "rgba(135, 206, 235, 0.35)", dim: "rgba(135, 206, 235, 0.08)" },
+  Water: { stroke: "#4AA3FF", glow: "rgba(74, 163, 255, 0.35)",  dim: "rgba(74, 163, 255, 0.08)" },
+};
+
+/** Planet weight multipliers for element scoring */
+export const PLANET_WEIGHTS: Record<string, number> = {
+  sun: 3,
+  moon: 3,
+  ascendant: 2.5,
+  mercury: 2,
+  venus: 2,
+  mars: 2,
+  jupiter: 1.5,
+  saturn: 1.5,
+  uranus: 1,
+  neptune: 1,
+  pluto: 1,
+  north_node: 0.5,
+  south_node: 0.5,
+  part_of_fortune: 0.5,
+  chiron: 0.5,
+};
+
+/** Sign-specific archetype bonuses keyed by sign id */
+export const SIGN_ARCHETYPE_BONUSES: Record<string, Partial<Record<AxisName, number>>> = {
+  aries:       { "Vitality & Drive": 25, "Willpower": 20, "Adaptability": 8, "Magnetism": 5 },
+  leo:         { "Magnetism": 25, "Vitality & Drive": 15, "Willpower": 10, "Endurance": 8 },
+  sagittarius: { "Adaptability": 20, "Intellect": 15, "Vitality & Drive": 10, "Communication": 8 },
+  taurus:      { "Groundedness": 25, "Endurance": 20, "Sensitivity": 8, "Magnetism": 5 },
+  virgo:       { "Groundedness": 18, "Communication": 15, "Intellect": 12, "Endurance": 10 },
+  capricorn:   { "Endurance": 25, "Willpower": 18, "Groundedness": 15, "Transformation": 5 },
+  gemini:      { "Communication": 25, "Intellect": 20, "Adaptability": 15, "Intuition": 5 },
+  libra:       { "Magnetism": 20, "Communication": 15, "Sensitivity": 10, "Intellect": 8 },
+  aquarius:    { "Intellect": 22, "Adaptability": 18, "Transformation": 10, "Communication": 8 },
+  cancer:      { "Emotional Depth": 25, "Sensitivity": 22, "Intuition": 15, "Groundedness": 5 },
+  scorpio:     { "Transformation": 25, "Emotional Depth": 20, "Willpower": 15, "Intuition": 10 },
+  pisces:      { "Intuition": 25, "Sensitivity": 20, "Emotional Depth": 15, "Adaptability": 8 },
+};
+
 export const ELEMENT_CONTENT: Record<ElementType, { desc: string; keywords: string[] }> = {
     Fire: {
         desc: "Fire represents the vital impulse of energy and the spark of creation. It is the drive that moves all life toward growth, action, and the warmth of existence.",

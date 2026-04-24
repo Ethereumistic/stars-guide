@@ -19,15 +19,15 @@ const ZODIAC_SIGNS = [
 
 // Larger radii & sizes so planets and the zodiac wheel read clearly
 const ORBIT_CONFIG: Record<string, { radius: number; size: number }> = {
-    mercury:  { radius: 11, size: 46 },
-    venus:    { radius: 16, size: 52 },
-    moon:     { radius: 21, size: 48 },
-    mars:     { radius: 26, size: 48 },
-    jupiter:  { radius: 31, size: 64 },
-    saturn:   { radius: 35, size: 58 },
-    uranus:   { radius: 39, size: 52 },
-    neptune:  { radius: 43, size: 52 },
-    pluto:    { radius: 46, size: 40 },
+    mercury: { radius: 11, size: 46 },
+    venus: { radius: 16, size: 52 },
+    moon: { radius: 21, size: 48 },
+    mars: { radius: 26, size: 48 },
+    jupiter: { radius: 31, size: 64 },
+    saturn: { radius: 35, size: 58 },
+    uranus: { radius: 39, size: 52 },
+    neptune: { radius: 43, size: 52 },
+    pluto: { radius: 46, size: 40 },
 };
 
 interface PlanetRadarEntry {
@@ -141,18 +141,18 @@ export function LiveSkyRadar() {
                 className="text-center mb-12 md:mb-16"
             >
                 <div className="inline-flex items-center gap-2 mb-4">
-                    <span className="relative flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                    <span className="relative flex h-2.5 w-2.5 mr-4">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
                     </span>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-green-400/80">Live Transmission</span>
+                    {/* <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-green-400/80">Live Transmission</span> */}
+                    <h2 className="text-3xl md:text-5xl font-serif text-foreground tracking-tight">
+                        Live Planetary <span className="text-primary">Positions</span>
+                    </h2>
                 </div>
-                <h2 className="text-3xl md:text-5xl font-serif text-foreground tracking-tight">
-                    Planetary <span className="text-primary">Positions</span>
-                </h2>
-                <p className="text-muted-foreground/70 font-sans mt-3 max-w-md mx-auto text-sm md:text-base">
-                    Real ecliptic positions calculated live from astronomical ephemeris data.
-                </p>
+
+
+
             </motion.div>
 
             {/* ═══════════════════════════════════════════════════════════════
@@ -332,11 +332,10 @@ export function LiveSkyRadar() {
 
                                     {/* Tooltip — flips below when planet is in top half */}
                                     <div
-                                        className={`absolute left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 ${
-                                            isInTopHalf
-                                                ? "top-full mt-3"
-                                                : "bottom-full mb-3"
-                                        }`}
+                                        className={`absolute left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 ${isInTopHalf
+                                            ? "top-full mt-3"
+                                            : "bottom-full mb-3"
+                                            }`}
                                     >
                                         <div className="bg-black/95 border border-white/10 rounded-md px-3 py-2 text-center whitespace-nowrap backdrop-blur-sm">
                                             <div className="text-xs font-serif text-white">{entry.name}</div>
@@ -348,16 +347,14 @@ export function LiveSkyRadar() {
                                             )}
                                         </div>
                                         {/* Arrow — flips with tooltip */}
-                                        <div className={`absolute left-1/2 -translate-x-1/2 ${
-                                            isInTopHalf
-                                                ? "bottom-full -mb-px"
-                                                : "top-full -mt-px"
-                                        }`}>
-                                            <div className={`w-2 h-2 bg-black/95 border-white/10 rotate-45 ${
-                                                isInTopHalf
-                                                    ? "border-l border-t"
-                                                    : "border-r border-b"
-                                            }`} />
+                                        <div className={`absolute left-1/2 -translate-x-1/2 ${isInTopHalf
+                                            ? "bottom-full -mb-px"
+                                            : "top-full -mt-px"
+                                            }`}>
+                                            <div className={`w-2 h-2 bg-black/95 border-white/10 rotate-45 ${isInTopHalf
+                                                ? "border-l border-t"
+                                                : "border-r border-b"
+                                                }`} />
                                         </div>
                                     </div>
                                 </Link>

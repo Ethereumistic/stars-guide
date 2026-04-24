@@ -17,68 +17,24 @@ import {
 } from "react-icons/tb";
 import { Check } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
-import { StarsBackground } from "@/components/hero/stars-background";
-import { ShootingStars } from "@/components/hero/shooting-stars";
 import { Button } from "@/components/ui/button";
 
 const PILLARS = [
     {
         id: "horoscopes",
         title: "Horoscopes",
-        subtitle: "Written for Your Actual Sky",
-        description: "Not recycled newspaper snippets. AI-crafted horoscopes tuned to the real planetary positions of the day — every single one calculated from live ephemeris data, not random generation.",
+        subtitle: "Written for You",
         icon: GiStarsStack,
         cta: "Read Today's Scope",
         href: "/horoscopes",
-        capabilities: ["12 zodiac signs", "Daily, weekly, monthly", "Real astronomical basis"],
-        ui: {
-            glowColor: "rgba(212, 175, 55, 0.4)",
-            borderColor: "border-primary/20",
-            diagonalGlareColor: "rgba(212, 175, 55, 0.08)",
-            titleColorClass: "text-primary drop-shadow-[0_0_15px_rgba(212,175,55,0.3)]",
-            iconColor: "text-primary",
-            iconGlowColor: "drop-shadow-[0_0_15px_rgba(212,175,55,0.6)]",
-            iconAnimate: "group-hover:rotate-45 group-hover:scale-115 transition-all duration-1500",
-            buttonVariant: "default" as const,
-            checkBorder: "border-primary/20 bg-primary/10 text-primary",
-            starColor: "#d4af37",
-            trailColor: "#8b7355",
-            showShootingStars: false,
-        },
-    },
-    {
-        id: "oracle",
-        title: "The Oracle",
-        subtitle: "Your Personal AI Astrologer",
-        description: "An AI that remembers your story, understands your transits, and responds with genuine astrological wisdom. It knows your birth chart, tracks live planetary positions, and gets smarter with every conversation.",
-        icon: GiCursedStar,
-        cta: "Ask the Oracle",
-        href: "/oracle",
-        capabilities: ["Birth chart awareness", "Transit interpretation", "Conversational memory"],
-        ui: {
-            glowColor: "rgba(138, 43, 226, 0.4)",
-            borderColor: "border-galactic/60",
-            diagonalGlareColor: "rgba(138, 43, 226, 0.08)",
-            titleColorClass: "text-galactic drop-shadow-[0_0_15px_rgba(157,78,221,0.3)]",
-            iconColor: "text-galactic",
-            iconGlowColor: "drop-shadow-[0_0_15px_rgba(157,78,221,0.6)]",
-            iconAnimate: "group-hover:rotate-[720deg] group-hover:scale-120 transition-all duration-[2000ms]",
-            buttonVariant: "galactic" as const,
-            checkBorder: "border-galactic/20 bg-galactic/10 text-galactic",
-            starColor: "#9d4edd",
-            trailColor: "#9d4edd",
-            showShootingStars: true,
-        },
-    },
-    {
-        id: "journal",
-        title: "The Journal",
-        subtitle: "Your Cosmic Diary",
-        description: "A living journal that asks about your day, your dreams, your feelings — and feeds that awareness back into your Oracle conversations and personal horoscopes. The more you write, the more personalized everything becomes.",
-        icon: GiScrollUnfurled,
-        cta: "Coming Soon",
-        href: "#",
-        capabilities: ["Daily reflection prompts", "Dream logging", "Enriches Oracle & horoscopes"],
+        capabilities: [
+            "Daily, weekly & monthly forecasts",
+            "All 12 zodiac signs, personalized",
+            "Calculated from real ephemeris data",
+            "Tomorrow & yesterday included",
+            "No recycled newspaper snippets",
+            "Written from live planetary positions",
+        ],
         ui: {
             glowColor: "rgba(71, 85, 105, 0.2)",
             borderColor: "border-white/20",
@@ -86,12 +42,72 @@ const PILLARS = [
             titleColorClass: "text-white",
             iconColor: "text-white",
             iconGlowColor: "drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]",
-            iconAnimate: "group-hover:scale-110",
+            iconAnimate: "group-hover:scale-110 transition-transform duration-500",
             buttonVariant: "outline" as const,
             checkBorder: "border-white/10 bg-white/5 text-white/80",
             starColor: "#ffffff",
             trailColor: "#ffffff",
             showShootingStars: false,
+        },
+    },
+    {
+        id: "journal",
+        title: "The Journal",
+        subtitle: "Your Cosmic Diary",
+        icon: GiScrollUnfurled,
+        cta: "Coming Soon",
+        href: "#",
+        capabilities: [
+            "Guided daily reflection prompts",
+            "Dream logging & pattern tracking",
+            "Mood & energy tracking by sign",
+            "Syncs with lunar cycles",
+            "Feeds insights into Oracle & scopes",
+            "Memory grows with every entry",
+        ],
+        ui: {
+            glowColor: "rgba(212, 175, 55, 0.4)",
+            borderColor: "border-primary/20",
+            diagonalGlareColor: "rgba(212, 175, 55, 0.08)",
+            titleColorClass: "text-primary drop-shadow-[0_0_15px_rgba(212,175,55,0.3)]",
+            iconColor: "text-primary",
+            iconGlowColor: "drop-shadow-[0_0_15px_rgba(212,175,55,0.6)]",
+            iconAnimate: "group-hover:scale-115 transition-transform duration-500",
+            buttonVariant: "default" as const,
+            checkBorder: "border-primary/20 bg-primary/10 text-primary",
+            starColor: "#d4af37",
+            trailColor: "#8b7355",
+            showShootingStars: true,
+        },
+    },
+    {
+        id: "oracle",
+        title: "The Oracle",
+        subtitle: "Stars Speak Back",
+        icon: GiCursedStar,
+        cta: "Ask the Oracle",
+        href: "/oracle",
+        capabilities: [
+            "Knows your full birth chart",
+            "Reads transits as they happen",
+            "Remembers every conversation",
+            "Answers from genuine astrological wisdom",
+            "Tracks live planetary positions",
+            "Deeper answers the more you share",
+        ],
+        ui: {
+            glowColor: "rgba(138, 43, 226, 0.4)",
+            borderColor: "border-galactic/60",
+            diagonalGlareColor: "rgba(138, 43, 226, 0.08)",
+            titleColorClass: "text-galactic drop-shadow-[0_0_15px_rgba(157,78,221,0.3)]",
+            iconColor: "text-galactic",
+            iconGlowColor: "drop-shadow-[0_0_15px_rgba(157,78,221,0.6)]",
+            iconAnimate: "group-hover:scale-120 transition-transform duration-500",
+            buttonVariant: "galactic" as const,
+            checkBorder: "border-galactic/20 bg-galactic/10 text-galactic",
+            starColor: "#9d4edd",
+            trailColor: "#9d4edd",
+            showShootingStars: true,
         },
     },
 ];
@@ -184,25 +200,6 @@ function PillarCard({ pillar, index }: { pillar: typeof PILLARS[number]; index: 
             {/* Main Card */}
             <div className={`relative py-8 px-8 flex flex-col h-full bg-background/85 backdrop-blur-2xl rounded-3xl z-0 overflow-hidden shadow-2xl transition-transform duration-1000 border ${ui.borderColor}`}>
 
-                <div className="absolute inset-0 z-0 overflow-hidden rounded-3xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-700">
-                    <StarsBackground
-                        starDensity={0.0002}
-                        allStarsTwinkle={true}
-                        twinkleProbability={0.8}
-                        minTwinkleSpeed={0.3}
-                        maxTwinkleSpeed={1.2}
-                    />
-                    {ui.showShootingStars && (
-                        <ShootingStars
-                            minSpeed={15}
-                            maxSpeed={35}
-                            minDelay={200}
-                            maxDelay={300}
-                            starColor={ui.starColor}
-                            trailColor={ui.trailColor}
-                        />
-                    )}
-                </div>
 
                 <AnimatePresence>
                     {showGlare && (
@@ -245,14 +242,9 @@ function PillarCard({ pillar, index }: { pillar: typeof PILLARS[number]; index: 
                         </h3>
                     </div>
 
-                    {/* Subtitle */}
-                    <p className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground/70">
+                    {/* Subtitle — matches pricing card price style */}
+                    <p className="text-2xl font-serif tracking-tight text-white">
                         {pillar.subtitle}
-                    </p>
-
-                    {/* Description */}
-                    <p className="text-sm text-white/60 leading-relaxed font-sans">
-                        {pillar.description}
                     </p>
 
                     <div className="h-px w-full bg-linear-to-r from-transparent via-white/10 to-transparent my-4" />

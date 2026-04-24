@@ -5,8 +5,6 @@ import { motion } from "motion/react"
 import { calculateFullChart } from "@/lib/birth-chart/full-chart"
 import { ChartTableView } from "@/components/dashboard/natal-chart/chart-table-view"
 import { ChartCircleView } from "@/components/dashboard/natal-chart/chart-circle-view"
-import { ChartVisualView } from "@/components/dashboard/natal-chart/chart-visual-view"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BirthData } from "./types"
 
 interface NatalChartDualViewProps {
@@ -74,46 +72,45 @@ export function NatalChartDualView({ birthData, delay = 0 }: NatalChartDualViewP
                 Natal Chart
             </h3>
 
-            {/* Desktop: side-by-side layout */}
-            <div className="hidden lg:grid grid-cols-2 gap-6 items-start">
-                {/* Table view — remove the scale-80 hack, let it use natural width */}
-                <div className="w-full">
+            {/* xl+: side-by-side layout — table 3 cols, circle 4 cols */}
+            <div className="hidden xl:grid grid-cols-7 gap-6 items-start">
+                <div className="w-full md:col-span-3">
+                    <h3 className="font-serif text-white text-center mb-3">
+                        Table{" "}
+                        <span className="text-primary">Birth Chart</span>
+                    </h3>
                     <ChartTableView data={chartData} />
                 </div>
-                {/* Circle view */}
-                <div className="w-full flex justify-center">
-                    <div className="w-full max-w-md">
+                <div className="w-full flex flex-col md:col-span-4">
+                    <h3 className="font-serif text-white text-center mb-3">
+                        Circle{" "}
+                        <span className="text-primary">Birth Chart</span>
+                    </h3>
+                    <div className="w-full flex justify-center">
                         <ChartCircleView data={chartData} />
                     </div>
                 </div>
             </div>
 
-            {/* Mobile: tabbed layout (same as current) */}
-            <div className="lg:hidden">
-                <Tabs defaultValue="circle" className="w-auto">
-                    <TabsList className="flex w-full grid-cols-2 mb-6 items-center p-1 bg-white/5 border border-white/10 shadow-lg backdrop-blur-sm h-auto">
-                        <TabsTrigger
-                            value="circle"
-                            className="relative w-24 text-center px-4 py-2 text-xs font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300"
-                        >
-                            Circle
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="table"
-                            className="relative w-24 text-center px-4 py-2 text-xs font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300"
-                        >
-                            Table
-                        </TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="circle" className="w-full flex justify-center mt-0">
-                        <div className="w-full max-w-sm">
-                            <ChartCircleView data={chartData} />
-                        </div>
-                    </TabsContent>
-                    <TabsContent value="table" className="w-full flex justify-center mt-0">
-                        <ChartTableView data={chartData} />
-                    </TabsContent>
-                </Tabs>
+            {/* Below xl: stacked layout — each chart on its own full-width row */}
+            <div className="xl:hidden space-y-6">
+                <div>
+                    <h3 className="font-serif text-white text-center mb-3">
+                        Table{" "}
+                        <span className="text-primary">Birth Chart</span>
+                    </h3>
+                    <ChartTableView data={chartData} />
+                </div>
+                <div>
+                    <h3 className="font-serif text-white text-center mb-3">
+                        Circle{" "}
+                        <span className="text-primary"
+                        >Birth Chart</span>
+                    </h3>
+                    <div className="w-full flex justify-center">
+                        <ChartCircleView data={chartData} />
+                    </div>
+                </div>
             </div>
         </motion.div>
     )

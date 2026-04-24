@@ -87,7 +87,7 @@ export function ChartTableView({ data }: { data: ChartData }) {
                 symbol: "↑",
                 retrograde: false,
                 imageUrl: undefined,
-                themeColor: "var(--foreground)",
+                themeColor: "hsl(var(--primary))",
             });
         }
 
@@ -128,7 +128,6 @@ export function ChartTableView({ data }: { data: ChartData }) {
                     <col style={{ width: "auto" }} />
                     <col style={{ width: "0%" }} />
                     <col style={{ width: "2.5rem" }} />
-                    <col style={{ width: "2.5rem" }} />
                 </colgroup>
                 <tbody>
                     {groupedBySign.map((group, groupIndex) => {
@@ -149,11 +148,10 @@ export function ChartTableView({ data }: { data: ChartData }) {
                                             {isFirstInGroup && (
                                                 <td
                                                     rowSpan={group.items.length}
-                                                    className={`py-3 pl-3 pr-3 align-middle border-r border-white/[0.08] ${
-                                                        groupIndex < groupedBySign.length - 1
+                                                    className={`py-3 pl-3 pr-3 align-middle border-r border-white/[0.08] ${groupIndex < groupedBySign.length - 1
                                                             ? "border-b border-white/[0.08]"
                                                             : ""
-                                                    }`}
+                                                        }`}
                                                 >
                                                     <div className="flex items-center gap-1.5">
                                                         {SignIcon && (
@@ -168,7 +166,7 @@ export function ChartTableView({ data }: { data: ChartData }) {
                                                 </td>
                                             )}
 
-                                            {/* ── PLANET: Image + Name ── */}
+                                            {/* ── PLANET: Name ── */}
                                             <td className={`py-2 pl-2.5 pr-1 ${isLastRow ? "" : "border-b border-white/[0.03]"}`}>
                                                 <div className="flex items-center gap-1.5 whitespace-nowrap">
                                                     {item.imageUrl ? (
@@ -192,37 +190,19 @@ export function ChartTableView({ data }: { data: ChartData }) {
                                                     <span className="text-sm tracking-[0.08em] uppercase font-serif text-white/90">
                                                         {item.name}
                                                     </span>
-                                                    {item.retrograde && (
-                                                        <span
-                                                            className="text-[9px] tracking-tight font-serif text-white/30"
-                                                        >
-                                                            Rx
-                                                        </span>
-                                                    )}
                                                 </div>
-                                            </td>
-
-                                            {/* ── SYMBOL ── */}
-                                            <td className={`py-2 pl-0.5 pr-2 text-right ${isLastRow ? "" : "border-b border-white/[0.03]"}`}>
-                                                <span
-                                                    className="text-base font-serif"
-                                                    style={{ color: item.themeColor }}
-                                                >
-                                                    {item.symbol}
-                                                </span>
                                             </td>
 
                                             {/* ── HOUSE ── (rowspan for group, same as sign) */}
                                             {isFirstInGroup && (
                                                 <td
                                                     rowSpan={group.items.length}
-                                                    className={`py-3 pl-2 pr-3 align-middle text-center border-l border-white/[0.08] ${
-                                                        groupIndex < groupedBySign.length - 1
+                                                    className={`py-3 pl-2 pr-3 align-middle text-center border-l border-white/[0.08] ${groupIndex < groupedBySign.length - 1
                                                             ? "border-b border-white/[0.08]"
                                                             : ""
-                                                    }`}
+                                                        }`}
                                                 >
-                                                    <span className="text-base font-serif text-white/50 tracking-wider">
+                                                    <span className="text-base font-serif text-white tracking-wider">
                                                         {group.items[0].houseId}
                                                     </span>
                                                 </td>

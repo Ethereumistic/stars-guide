@@ -1,7 +1,10 @@
 export { SignCard } from './sign-card'
 export { SignCardV2 } from './sign-card-v2'
 export { ElementalBalanceCard } from './elemental-balance-card'
+export { ElementalSpiderChart } from './elemental-spider-chart'
 export { DashboardSkeleton } from './dashboard-skeleton'
 export { InterpretationCard } from './interpretation-card'
 export { NatalChart } from './natal-chart/natal-chart'
-export { ChartVisualView } from './natal-chart/chart-visual-view'
+export { PlanetSignCard } from './planet-sign-card'
+export { PlanetsCarousel } from './planets-carousel'
+
