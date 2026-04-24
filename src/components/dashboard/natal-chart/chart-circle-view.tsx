@@ -166,7 +166,7 @@ export function ChartCircleView({ data }: { data: ChartData }) {
     }, [data.planets, ascLongitude]);
 
     return (
-        <div className="w-full max-w-[600px] mx-auto aspect-square bg-transparent rounded-full relative overflow-hidden flex items-center justify-center">
+        <div className="w-full max-w-[720px] mx-auto aspect-square bg-transparent rounded-full relative overflow-hidden flex items-center justify-center">
             <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="w-full h-full" shapeRendering="geometricPrecision">
 
                 {/* No <defs> needed — sign labels use rotate() transform instead of textPath */}

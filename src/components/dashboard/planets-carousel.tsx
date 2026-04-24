@@ -25,19 +25,19 @@ function getPlanetId(bodyName: string): string {
 const PLANET_ORDER: Record<string, number> = {
     Sun: 0,
     Moon: 1,
-    Mercury: 2,
-    Venus: 3,
-    Mars: 4,
-    Jupiter: 5,
-    Saturn: 6,
-    Uranus: 7,
-    Neptune: 8,
-    Pluto: 9,
-    Chiron: 10,
-    "North Node": 11,
-    "South Node": 12,
-    "Part Of Fortune": 13,
-    Ascendant: 14,
+    Ascendant: 2,
+    Mercury: 3,
+    Venus: 4,
+    Mars: 5,
+    Jupiter: 6,
+    Saturn: 7,
+    Uranus: 8,
+    Neptune: 9,
+    Pluto: 10,
+    Chiron: 11,
+    "North Node": 12,
+    "South Node": 13,
+    "Part Of Fortune": 14,
 }
 
 export function PlanetsCarousel({ placements, delay = 0 }: PlanetsCarouselProps) {
@@ -73,7 +73,7 @@ export function PlanetsCarousel({ placements, delay = 0 }: PlanetsCarouselProps)
         )
 
         return sorted
-            .map((p, i) => {
+            .map((p) => {
                 const planetId = getPlanetId(p.body)
                 const signData =
                     compositionalSigns.find((s) => s.name === p.sign) ??
@@ -87,10 +87,11 @@ export function PlanetsCarousel({ placements, delay = 0 }: PlanetsCarouselProps)
                     planetName: p.body,
                     planetSymbol: planetUi?.rulerSymbol ?? "⚝",
                     planetColor: planetUi?.themeColor ?? "var(--primary)",
+                    planetImageUrl: planetUi?.imageUrl,
+                    planetImageScale: planetUi?.imageScale ?? 1,
                     house: p.house,
                     signData: signData ?? null,
                     signUI: signUI ?? null,
-                    planetUi: planetUi ?? null,
                 }
             })
             .filter((d) => d.signData && d.signUI)
@@ -101,6 +102,7 @@ export function PlanetsCarousel({ placements, delay = 0 }: PlanetsCarouselProps)
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay }}
+            className="isolate"
         >
             {/* Section header */}
             <div className="flex items-center justify-between mb-6">
@@ -116,9 +118,9 @@ export function PlanetsCarousel({ placements, delay = 0 }: PlanetsCarouselProps)
                         <div
                             key={d.key}
                             className="flex-none min-w-0
-                                w-[80%]     /* mobile  — 1 card + peek */
-                                sm:w-[48%]  /* tablet  — 2 cards + peek */
-                                md:w-[31%]  /* desktop — 3 cards + peek */
+                                w-[80%]
+                                sm:w-[48%]
+                                md:w-[31%]
                             "
                         >
                             <PlanetSignCard
@@ -126,6 +128,8 @@ export function PlanetsCarousel({ placements, delay = 0 }: PlanetsCarouselProps)
                                 planetSymbol={d.planetSymbol}
                                 planetColor={d.planetColor}
                                 planetId={d.planetId}
+                                planetImageUrl={d.planetImageUrl}
+                                planetImageScale={d.planetImageScale}
                                 data={d.signData!}
                                 ui={d.signUI!}
                                 house={d.house}
@@ -137,7 +141,7 @@ export function PlanetsCarousel({ placements, delay = 0 }: PlanetsCarouselProps)
             </div>
 
             {/* Chevron nav — bottom right */}
-            <div className="flex justify-end items-center gap-2 mt-4">
+            <div className="relative z-30 flex justify-end items-center gap-2 mt-4">
                 <button
                     onClick={() => emblaApi?.scrollPrev()}
                     disabled={!canScrollPrev}

@@ -13,8 +13,8 @@ import { generateSynthesis } from "@/astrology/interpretationEngine"
 import { ChevronLeft } from "lucide-react"
 
 interface SignCardV2Props {
-    /** Label shown ABOVE the card, e.g. "☉ Sun Sign" */
-    label: string
+    /** Label used internally to determine planetId (not displayed) */
+    label?: string
     /** The zodiac sign data */
     data: SignData | undefined
     ui: SignUIConfig | undefined
@@ -22,7 +22,7 @@ interface SignCardV2Props {
     delay?: number
 }
 
-export function SignCardV2({ label, data, ui, delay = 0 }: SignCardV2Props) {
+export function SignCardV2({ label = '', data, ui, delay = 0 }: SignCardV2Props) {
     const [isFlipped, setIsFlipped] = useState(false)
     const router = useRouter()
 
@@ -42,16 +42,6 @@ export function SignCardV2({ label, data, ui, delay = 0 }: SignCardV2Props) {
 
     return (
         <div className="flex flex-col items-center gap-3">
-            {/* ── Label ABOVE the card ── */}
-            <motion.p
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
-                className="text-[11px] font-serif uppercase tracking-[0.25em] text-primary"
-            >
-                {label}
-            </motion.p>
-
             {/* ── The card — with flip animations ── */}
             <motion.div
                 initial={{ opacity: 0, y: 40, scale: 0.9, rotateX: -15 }}

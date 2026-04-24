@@ -16,10 +16,18 @@ interface PlanetSignCardProps {
     planetSymbol: string
     planetColor: string
     planetId: string
+    planetImageUrl?: string
+    planetImageScale?: number
     data: SignData
     ui: SignUIConfig
     house?: number
     delay?: number
+}
+
+const ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'] as const
+
+function toRoman(n: number): string {
+    return ROMAN[Math.max(0, Math.min(n - 1, 11))] ?? String(n)
 }
 
 export function PlanetSignCard({
@@ -27,6 +35,8 @@ export function PlanetSignCard({
     planetSymbol,
     planetColor,
     planetId,
+    planetImageUrl,
+    planetImageScale = 1,
     data,
     ui,
     house,
@@ -39,21 +49,10 @@ export function PlanetSignCard({
     const Icon = ui.icon
     const ElementIcon = elementUi.icon
     const styles = elementUi.styles
+    const hasPlanetImage = !!planetImageUrl
 
     return (
         <div className="flex flex-col items-center gap-3">
-            {/* ── Label ABOVE the card ── */}
-            <motion.p
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
-                className="text-[11px] font-serif uppercase tracking-[0.25em] flex items-center gap-1.5"
-                style={{ color: planetColor }}
-            >
-                <span className="text-sm">{planetSymbol}</span>
-                {planetName}
-            </motion.p>
-
             {/* ── The card — with flip animations ── */}
             <motion.div
                 initial={{ opacity: 0, y: 40, scale: 0.9, rotateX: -15 }}
@@ -96,18 +95,6 @@ export function PlanetSignCard({
                                         style={{ background: styles.gradient }}
                                     />
 
-                                    {/* Constellation watermark (Lower Third) */}
-                                    <div className="absolute inset-x-0 bottom-0 h-1/2 overflow-hidden pointer-events-none">
-                                        <img
-                                            src={ui.constellationUrl}
-                                            alt=""
-                                            className="absolute bottom-[-15%] left-1/2 -translate-x-1/2 h-auto object-contain opacity-50 scale-105 transition-all duration-1000 group-hover:opacity-0 group-hover:scale-100"
-                                            style={{
-                                                filter: `drop-shadow(0 0 15px ${styles.glow})`
-                                            }}
-                                        />
-                                    </div>
-
                                     {/* Radial glow effect */}
                                     <div
                                         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40 rounded-full opacity-0 group-hover:opacity-40 transition-opacity duration-700 blur-3xl"
@@ -116,117 +103,119 @@ export function PlanetSignCard({
 
                                     {/* Card content */}
                                     <CardContent className="relative p-8 h-full">
-                                        {/* Dates (Top Left) */}
-                                        <div className="absolute top-0 left-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10 w-24">
-                                            <p
-                                                className="text-[10px] font-sans uppercase text-nowrap tracking-[0.2em]"
-                                                style={{ color: styles.secondary }}
-                                            >
-                                                {data.dates}
-                                            </p>
-                                        </div>
 
-                                        {/* Element Badge (Top Right) */}
-                                        <div className="absolute top-0 right-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10">
-                                            <div className="flex items-center gap-2">
-                                                <ElementIcon
-                                                    className="w-3.5 h-3.5"
-                                                    style={{ color: styles.primary }}
-                                                />
-                                                <span
-                                                    className="text-[9px] font-sans uppercase tracking-[0.2em]"
-                                                    style={{ color: styles.secondary }}
-                                                >
-                                                    {data.element}
-                                                </span>
-                                            </div>
-                                        </div>
 
-                                        {/* House Badge (Top Right, below Element) */}
-                                        {house && (
-                                            <div className="absolute top-7 right-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10">
-                                                <span
-                                                    className="text-[9px] font-sans uppercase tracking-[0.2em]"
-                                                    style={{ color: styles.secondary }}
-                                                >
-                                                    House {house}
-                                                </span>
-                                            </div>
-                                        )}
+                                        {/* ── Symmetric layout: Sign top, Planet bottom ── */}
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 gap-y-3">
 
-                                        {/* Main content wrapper - centered */}
-                                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
-                                            {/* Sign icon (Always visible, moves slightly on hover) */}
-                                            <div className="relative mb-6 flex items-center justify-center w-32 h-32 transition-all duration-700 -translate-y-1 group-hover:translate-y-0">
-                                                {/* Element Frame PNG (Appears on Hover) */}
-                                                <img
-                                                    src={elementUi.frameUrl}
-                                                    alt=""
-                                                    className="absolute inset-0 w-full h-full object-contain opacity-0 group-hover:opacity-60 group-hover:rotate-36 transition-all duration-[1.5s] ease-out"
-                                                    style={{
-                                                        filter: `drop-shadow(0 0 15px ${styles.glow})`
-                                                    }}
-                                                />
-
-                                                {/* Icon glow (Appears on Hover) */}
-                                                <div
-                                                    className="absolute inset-0 rounded-full blur-2xl opacity-0 group-hover:opacity-30 transition-opacity duration-700"
-                                                    style={{ backgroundColor: styles.glow }}
-                                                />
-
-                                                {/* Main icon (Visible, scales on hover) */}
-                                                <Icon
-                                                    className="w-16 h-16 relative z-10 text-amber-100 group-hover:text-white group-hover:scale-110 transition-all duration-700"
-                                                    style={{
-                                                        filter: `drop-shadow(0 0 10px ${styles.glow})`
-                                                    }}
-                                                />
-                                            </div>
-
-                                            {/* Sign name */}
-                                            <div className="space-y-3 mb-6 transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] -translate-y-[20px] group-hover:translate-y-0">
-                                                <h2
-                                                    className="text-4xl font-serif tracking-wide transition-all duration-500 group-hover:text-white!"
-                                                    style={{
-                                                        color: styles.secondary,
-                                                        textShadow: `0 0 10px ${styles.glow}`
-                                                    }}
-                                                >
-                                                    {data.name}
-                                                </h2>
-                                            </div>
-
-                                            {/* Traits description (Appears on Hover) */}
-                                            <div className="flex-1 flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-700 translate-y-4 group-hover:translate-y-0 max-w-md pointer-events-none">
-                                                <p
-                                                    className="text-[9px] font-sans uppercase tracking-[0.1em] mb-4 sm:mb-8 line-clamp-2"
-                                                    style={{ color: styles.secondary }}
-                                                >
-                                                    {data.archetypeName}
-                                                </p>
-
-                                                <p className="text-sm sm:text-lg font-sans text-amber-100/80 leading-relaxed italic px-2">
-                                                    {data.traits}
-                                                </p>
-                                            </div>
-
-                                            {/* Explore Button (Styled Button) */}
-                                            <div className="mt-8 pt-4 w-full flex justify-center opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0 z-20">
-                                                <Button
-                                                    variant={data.element.toLowerCase() as any}
-                                                    className="h-11 px-8 border-primary/40 relative group/btn"
-                                                    onClick={(e) => {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                        setIsFlipped(true);
-                                                    }}
-                                                >
-                                                    <ElementIcon
-                                                        className="w-4 h-4 transition-transform"
-                                                        style={{ color: styles.primary }}
+                                            {/* ── TOP: Sign icon + title ── */}
+                                            <div className="flex flex-col items-center transition-transform duration-500 ease-in-out group-hover:-translate-y-4">
+                                                {/* Sign icon with element frame on hover */}
+                                                <div className="relative flex items-center justify-center w-[11rem] h-[11rem] mb-1 group-hover:mb-0 transition-all duration-500">
+                                                    {/* Element Frame (appears on hover) */}
+                                                    <img
+                                                        src={elementUi.frameUrl}
+                                                        alt=""
+                                                        className="absolute inset-0 w-full h-full object-contain opacity-0 group-hover:opacity-60 group-hover:rotate-36 transition-all duration-[1.5s] ease-out"
+                                                        style={{
+                                                            filter: `drop-shadow(0 0 15px ${styles.glow})`
+                                                        }}
                                                     />
-                                                    <span className="mx-2">FLIP</span>
-                                                </Button>
+
+                                                    {/* Icon glow (appears on hover) */}
+                                                    <div
+                                                        className="absolute inset-0 rounded-full blur-2xl opacity-0 group-hover:opacity-30 transition-opacity duration-700"
+                                                        style={{ backgroundColor: styles.glow }}
+                                                    />
+
+                                                    {/* Sign icon */}
+                                                    <Icon
+                                                        className="w-28 h-28 relative z-10 text-amber-100 group-hover:text-white transition-all duration-700"
+                                                        style={{
+                                                            filter: `drop-shadow(0 0 10px ${styles.glow})`
+                                                        }}
+                                                    />
+                                                </div>
+
+                                                {/* Sign name — crossfade to white on hover */}
+                                                <div className="relative h-12">
+                                                    <h2
+                                                        className="text-4xl font-serif tracking-wide transition-opacity duration-500"
+                                                        style={{
+                                                            color: styles.secondary,
+                                                            textShadow: `0 0 10px ${styles.glow}`
+                                                        }}
+                                                    >
+                                                        {data.name}
+                                                    </h2>
+                                                    <h2 className="absolute inset-0 text-4xl font-serif tracking-wide text-white opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                                                        {data.name}
+                                                    </h2>
+                                                </div>
+                                            </div>
+
+                                            {/* ── MIDDLE: House numeral → motto on hover ── */}
+                                            <div className="relative flex items-center justify-center min-h-10 w-full">
+                                                {/* House Roman numeral — fades out on hover */}
+                                                {house && (
+                                                    <span
+                                                        className="absolute text-2xl font-serif opacity-35 group-hover:opacity-0 transition-opacity duration-500"
+                                                        style={{ color: styles.secondary }}
+                                                    >
+                                                        {toRoman(house)}
+                                                    </span>
+                                                )}
+                                                {/* Motto — scales in + fades in on hover */}
+                                                <p className="absolute text-sm font-serif italic leading-relaxed text-white opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-125 transition-all duration-500 px-4 max-w-[85%]">
+                                                    &ldquo;{data.motto}&rdquo;
+                                                </p>
+                                            </div>
+
+                                            {/* ── BOTTOM: Planet name + image (mirrored) ── */}
+                                            <div className="flex flex-col items-center transition-transform duration-500 ease-in-out group-hover:translate-y-4">
+                                                {/* Planet name — crossfade to white on hover */}
+                                                <div className="relative h-12 mb-1 group-hover:mb-0 transition-all duration-500">
+                                                    <h2
+                                                        className="text-4xl font-serif tracking-wide transition-opacity duration-500"
+                                                        style={{ color: planetColor }}
+                                                    >
+                                                        {planetName}
+                                                    </h2>
+                                                    <h2 className="absolute inset-0 text-4xl font-serif tracking-wide text-white opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                                                        {planetName}
+                                                    </h2>
+                                                </div>
+
+                                                {/* Planet image with glow */}
+                                                <div className="relative flex items-center justify-center w-[11rem] h-[11rem]">
+                                                    {/* Planet glow (appears on hover) */}
+                                                    <div
+                                                        className="absolute inset-0 rounded-full blur-2xl opacity-0 group-hover:opacity-12 transition-opacity duration-700"
+                                                        style={{ backgroundColor: planetColor }}
+                                                    />
+
+                                                    {hasPlanetImage ? (
+                                                        <img
+                                                            src={planetImageUrl}
+                                                            alt={planetName}
+                                                            className="w-28 h-28 relative z-10 object-contain transition-all duration-700"
+                                                            style={{
+                                                                filter: `drop-shadow(0 0 10px ${styles.glow})`,
+                                                                transform: `scale(${planetImageScale})`,
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <span
+                                                            className="text-5xl relative z-10 transition-all duration-700"
+                                                            style={{
+                                                                color: planetColor,
+                                                                filter: `drop-shadow(0 0 10px ${planetColor})`
+                                                            }}
+                                                        >
+                                                            {planetSymbol}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </CardContent>
@@ -283,24 +272,33 @@ export function PlanetSignCard({
                                         aria-label="Flip back"
                                         title="Flip back"
                                     >
-                                        <ChevronLeft
-                                            className="w-4 h-4 transition-transform"
-                                        />
+                                        <ChevronLeft className="w-4 h-4 transition-transform" />
                                     </Button>
 
                                     {/* Small Sign Icon + Label */}
                                     <div className="flex flex-col items-center justify-center mt-2 mb-6">
-                                        <Icon
-                                            className="w-10 h-10 opacity-70 mb-2"
-                                            style={{ color: styles.primary, filter: `drop-shadow(0 0 10px ${styles.glow})` }}
-                                        />
+                                        {hasPlanetImage ? (
+                                            <img
+                                                src={planetImageUrl}
+                                                alt={planetName}
+                                                className="w-10 h-10 opacity-70 mb-2 object-contain"
+                                                style={{
+                                                    filter: `drop-shadow(0 0 10px ${styles.glow})`,
+                                                    transform: `scale(${planetImageScale})`,
+                                                }}
+                                            />
+                                        ) : (
+                                            <Icon
+                                                className="w-10 h-10 opacity-70 mb-2"
+                                                style={{ color: styles.primary, filter: `drop-shadow(0 0 10px ${styles.glow})` }}
+                                            />
+                                        )}
                                         <h3 className="text-xl font-serif text-white tracking-wider">
                                             {planetName} in {data.name}
                                         </h3>
                                     </div>
 
                                     <div className="flex-1 w-full flex flex-col justify-center items-center">
-                                        {/* Synthesis using Interpretation Engine */}
                                         <div className="w-full text-center">
                                             <p className="text-lg text-white/95 italic leading-relaxed font-serif px-2">
                                                 &ldquo;{generateSynthesis(planetId, data.id, house)}&rdquo;

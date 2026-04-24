@@ -26,4 +26,5 @@ export const planetUIConfig: Record<string, PlanetUIConfig> = {
     north_node: { id: "north_node", themeColor: "#fde047", rulerSymbol: "☊", imageUrl: `${CDN_BASE}/north_node.webp`, imageScale: 1.0 },
     south_node: { id: "south_node", themeColor: "#94a3b8", rulerSymbol: "☋", imageUrl: `${CDN_BASE}/south_node.webp`, imageScale: 1.2 },
     part_of_fortune: { id: "part_of_fortune", themeColor: "#fbbf24", rulerSymbol: "⊗" },
+    rising: { id: "rising", themeColor: "#e2e8f0", rulerSymbol: "↑" },
 };

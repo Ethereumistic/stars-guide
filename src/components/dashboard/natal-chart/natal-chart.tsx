@@ -1,10 +1,17 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { calculateFullChart } from "@/lib/birth-chart/full-chart";
 import { ChartTableView } from "./chart-table-view";
 import { ChartCircleView } from "./chart-circle-view";
+import { PageHeader } from "@/components/layout/page-header";
+import {
+    Tabs,
+    TabsList,
+    TabsTrigger,
+} from "@/components/ui/tabs";
+import { Table2, CircleDot } from "lucide-react";
 
 interface BirthData {
     date: string;
@@ -16,6 +23,8 @@ interface BirthData {
 }
 
 export function NatalChart({ birthData }: { birthData: BirthData }) {
+    const [visualization, setVisualization] = useState<string>("circle");
+
     const chartData = useMemo(() => {
         try {
             const [yearStr, monthStr, dayStr] = birthData.date.split("-");
@@ -59,6 +68,37 @@ export function NatalChart({ birthData }: { birthData: BirthData }) {
         );
     }
 
+    const filterControl = (
+        <Tabs value={visualization} onValueChange={setVisualization} className="w-fit rounded-md mx-auto md:mx-0">
+            <TabsList className="bg-white/5 border border-white/10 p-1 h-auto gap-2 justify-center">
+                <TabsTrigger
+                    value="table"
+                    className="relative w-20 md:w-24 text-center px-4 py-2.5 text-sm font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300"
+                >
+                    <Table2 className="size-5 md:size-4 md:mr-2 text-primary" />
+                    <span className="font-mono text-sm md:text-xs uppercase tracking-wider md:hidden">
+                        Table
+                    </span>
+                    <span className="font-mono text-xs uppercase tracking-wider hidden md:inline">
+                        Table
+                    </span>
+                </TabsTrigger>
+                <TabsTrigger
+                    value="circle"
+                    className="relative w-20 md:w-24 text-center px-4 py-2.5 text-sm font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300"
+                >
+                    <CircleDot className="size-5 md:size-4 md:mr-2 text-primary" />
+                    <span className="font-mono text-sm md:text-xs uppercase tracking-wider md:hidden">
+                        Circle
+                    </span>
+                    <span className="font-mono text-xs uppercase tracking-wider hidden md:inline">
+                        Circle
+                    </span>
+                </TabsTrigger>
+            </TabsList>
+        </Tabs>
+    );
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -66,45 +106,26 @@ export function NatalChart({ birthData }: { birthData: BirthData }) {
             transition={{ duration: 0.5 }}
             className="w-full"
         >
-            {/* xl+: side-by-side layout — table 3 cols, circle 4 cols */}
-            <div className="hidden xl:grid grid-cols-7 gap-6 items-start">
-                <div className="w-full md:col-span-3">
-                    <h3 className="font-serif text-white text-center mb-3">
-                        Table{" "}
-                        <span className="text-primary">Birth Chart</span>
-                    </h3>
-                    <ChartTableView data={chartData} />
-                </div>
-                <div className="w-full flex flex-col md:col-span-4">
-                    <h3 className="font-serif text-white text-center mb-3">
-                        Circle{" "}
-                        <span className="text-primary">Birth Chart</span>
-                    </h3>
-                    <div className="w-full flex justify-center">
-                        <ChartCircleView data={chartData} />
-                    </div>
-                </div>
-            </div>
+            <PageHeader
+                breadcrumbs={[
+                    { label: "Home", href: "/" },
+                    { label: "Dashboard", href: "/dashboard" },
+                    { label: "Birth Chart" },
+                ]}
+                title="Your"
+                subtitle="Birth Chart"
+                customFilter={filterControl}
+                filterLabel=""
+                showElementFilter={false}
+            />
 
-            {/* Below xl: stacked layout — each chart on its own full-width row */}
-            <div className="xl:hidden space-y-6">
-                <div>
-                    <h3 className="font-serif text-white text-center mb-3">
-                        Table{" "}
-                        <span className="text-primary">Birth Chart</span>
-                    </h3>
-                    <ChartTableView data={chartData} />
+            {visualization === "table" ? (
+                <ChartTableView data={chartData} />
+            ) : (
+                <div className="w-full flex justify-center">
+                    <ChartCircleView data={chartData} />
                 </div>
-                <div>
-                    <h3 className="font-serif text-white text-center mb-3">
-                        Circle{" "}
-                        <span className="text-primary">Birth Chart</span>
-                    </h3>
-                    <div className="w-full flex justify-center">
-                        <ChartCircleView data={chartData} />
-                    </div>
-                </div>
-            </div>
+            )}
         </motion.div>
     );
 }

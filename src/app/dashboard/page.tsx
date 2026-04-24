@@ -62,11 +62,18 @@ export default function DashboardPage() {
     const risingData = getSignData(risingPlacement?.sign)
     const risingUI = getUIConfig(risingData?.id)
 
-
-
     return (
-        <div className="min-h-[calc(100vh-5rem)] w-full py-8 px-4 md:px-8">
-            <div className="max-w-5xl mx-auto space-y-8">
+        <div className="min-h-[calc(100vh-5rem)] w-full">
+            <div className="relative z-10 max-w-[1600px] mx-auto px-6 md:px-12 pt-8 pb-32 space-y-8">
+                {/* Natal Chart (Birth Chart) — 1st */}
+                <NatalChart birthData={birthData} />
+
+                {/* Elemental Spider Chart — 2nd */}
+                <ElementalSpiderChart
+                    birthData={birthData}
+                    delay={0.1}
+                />
+
                 {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
@@ -88,19 +95,19 @@ export default function DashboardPage() {
                         label="☉ Sun Sign"
                         data={sunData}
                         ui={sunUI}
-                        delay={0}
+                        delay={0.2}
                     />
                     <SignCardV2
                         label="☽ Moon Sign"
                         data={moonData}
                         ui={moonUI}
-                        delay={0.1}
+                        delay={0.25}
                     />
                     <SignCardV2
                         label="↑ Rising Sign"
                         data={risingData}
                         ui={risingUI}
-                        delay={0.2}
+                        delay={0.3}
                     />
                 </div>
 
@@ -108,30 +115,14 @@ export default function DashboardPage() {
                 {birthData.placements && birthData.placements.length > 0 && (
                     <PlanetsCarousel
                         placements={birthData.placements}
-                        delay={0.3}
+                        delay={0.35}
                     />
                 )}
-
-                {/* Natal Chart */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.3 }}
-                    className="w-full"
-                >
-                    <NatalChart birthData={birthData} />
-                </motion.div>
-
-                {/* Elemental Spider Chart */}
-                <ElementalSpiderChart
-                    birthData={birthData}
-                    delay={0.4}
-                />
 
                 {/* Synthesis Interpretation */}
                 <InterpretationCard
                     sunSignName={sunData?.id}
-                    delay={0.5}
+                    delay={0.4}
                 />
             </div>
         </div>
