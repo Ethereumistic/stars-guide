@@ -122,7 +122,7 @@ export function ChartTableView({ data }: { data: ChartData }) {
     }, [chartItems]);
 
     return (
-        <div className="w-full bg-black/50 rounded-md border border-white/10 text-white/90">
+        <div className="w-full max-w-3xl mx-auto bg-black/50 rounded-md border border-white/10 text-white/90">
             <table className="w-full border-collapse font-serif" style={{ tableLayout: "fixed" }}>
                 <colgroup>
                     <col style={{ width: "auto" }} />
@@ -148,18 +148,18 @@ export function ChartTableView({ data }: { data: ChartData }) {
                                             {isFirstInGroup && (
                                                 <td
                                                     rowSpan={group.items.length}
-                                                    className={`py-3 pl-3 pr-3 align-middle border-r border-white/[0.08] ${groupIndex < groupedBySign.length - 1
-                                                            ? "border-b border-white/[0.08]"
-                                                            : ""
+                                                    className={`py-3 pl-8 pr-3 align-middle border-r border-white/[0.08] ${groupIndex < groupedBySign.length - 1
+                                                        ? "border-b border-white/[0.08]"
+                                                        : ""
                                                         }`}
                                                 >
                                                     <div className="flex items-center gap-1.5">
                                                         {SignIcon && (
                                                             <SignIcon
-                                                                className="w-[18px] h-[18px] shrink-0 text-primary"
+                                                                className="size-9 shrink-0 text-primary"
                                                             />
                                                         )}
-                                                        <span className="text-base tracking-[0.12em] font-serif text-white/80">
+                                                        <span className="text-2xl tracking-[0.12em] font-serif text-white">
                                                             {group.signName}
                                                         </span>
                                                     </div>
@@ -173,7 +173,7 @@ export function ChartTableView({ data }: { data: ChartData }) {
                                                         <img
                                                             src={item.imageUrl}
                                                             alt={item.name}
-                                                            className="w-6 h-6 object-contain shrink-0"
+                                                            className="w-7 h-7 object-contain shrink-0"
                                                             style={{
                                                                 transform: `scale(${planetUIConfig[item.id]?.imageScale || 1})`,
                                                                 filter: `drop-shadow(0 0 1px ${item.themeColor})`,
@@ -181,13 +181,13 @@ export function ChartTableView({ data }: { data: ChartData }) {
                                                         />
                                                     ) : (
                                                         <span
-                                                            className="w-6 h-6 flex items-center justify-center text-base shrink-0 font-serif"
+                                                            className="w-6 h-6 flex items-center justify-center text-4xl shrink-0 font-serif"
                                                             style={{ color: item.themeColor }}
                                                         >
                                                             {item.symbol}
                                                         </span>
                                                     )}
-                                                    <span className="text-sm tracking-[0.08em] uppercase font-serif text-white/90">
+                                                    <span className="text-xl tracking-[0.08em] uppercase font-serif text-white">
                                                         {item.name}
                                                     </span>
                                                 </div>
@@ -198,11 +198,11 @@ export function ChartTableView({ data }: { data: ChartData }) {
                                                 <td
                                                     rowSpan={group.items.length}
                                                     className={`py-3 pl-2 pr-3 align-middle text-center border-l border-white/[0.08] ${groupIndex < groupedBySign.length - 1
-                                                            ? "border-b border-white/[0.08]"
-                                                            : ""
+                                                        ? "border-b border-white/[0.08]"
+                                                        : ""
                                                         }`}
                                                 >
-                                                    <span className="text-base font-serif text-white tracking-wider">
+                                                    <span className="text-2xl font-serif text-white tracking-wider">
                                                         {group.items[0].houseId}
                                                     </span>
                                                 </td>

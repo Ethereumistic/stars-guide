@@ -14,7 +14,7 @@ import {
     TabsList,
     TabsTrigger,
 } from "@/components/ui/tabs";
-import { Table2, CircleDot } from "lucide-react";
+import { Table2, CircleDot, LayoutGrid } from "lucide-react";
 
 export interface BreadcrumbConfig {
     label: string;
@@ -32,6 +32,7 @@ export interface ChartSectionHeaderProps {
 }
 
 const visualizationFilters = [
+    { value: "both", label: "Both", icon: LayoutGrid },
     { value: "table", label: "Table", icon: Table2 },
     { value: "circle", label: "Circle", icon: CircleDot },
 ];

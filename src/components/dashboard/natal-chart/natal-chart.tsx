@@ -11,7 +11,7 @@ import {
     TabsList,
     TabsTrigger,
 } from "@/components/ui/tabs";
-import { Table2, CircleDot } from "lucide-react";
+import { Table2, CircleDot, LayoutGrid } from "lucide-react";
 
 interface BirthData {
     date: string;
@@ -23,7 +23,7 @@ interface BirthData {
 }
 
 export function NatalChart({ birthData }: { birthData: BirthData }) {
-    const [visualization, setVisualization] = useState<string>("circle");
+    const [visualization, setVisualization] = useState<string>("both");
 
     const chartData = useMemo(() => {
         try {
@@ -72,6 +72,18 @@ export function NatalChart({ birthData }: { birthData: BirthData }) {
         <Tabs value={visualization} onValueChange={setVisualization} className="w-fit rounded-md mx-auto md:mx-0">
             <TabsList className="bg-white/5 border border-white/10 p-1 h-auto gap-2 justify-center">
                 <TabsTrigger
+                    value="both"
+                    className="relative w-20 md:w-24 text-center px-4 py-2.5 text-sm font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300"
+                >
+                    <LayoutGrid className="size-5 md:size-4 md:mr-2 text-primary" />
+                    <span className="font-mono text-sm md:text-xs uppercase tracking-wider md:hidden">
+                        Both
+                    </span>
+                    <span className="font-mono text-xs uppercase tracking-wider hidden md:inline">
+                        Both
+                    </span>
+                </TabsTrigger>
+                <TabsTrigger
                     value="table"
                     className="relative w-20 md:w-24 text-center px-4 py-2.5 text-sm font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300"
                 >
@@ -119,7 +131,16 @@ export function NatalChart({ birthData }: { birthData: BirthData }) {
                 showElementFilter={false}
             />
 
-            {visualization === "table" ? (
+            {visualization === "both" ? (
+                <div className="grid grid-cols-7 gap-6">
+                    <div className="col-span-3">
+                        <ChartTableView data={chartData} />
+                    </div>
+                    <div className="col-span-4">
+                        <ChartCircleView data={chartData} />
+                    </div>
+                </div>
+            ) : visualization === "table" ? (
                 <ChartTableView data={chartData} />
             ) : (
                 <div className="w-full flex justify-center">

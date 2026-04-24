@@ -53,10 +53,10 @@ function StardustBadge({ stardust, href = "/pricing" }: { stardust: number; href
                 </span>
             </ButtonGroupText>
             <Button
-                variant="outline"
+                variant="galactic"
                 size="icon"
                 asChild
-                className="h-full w-8 border-primary/20 bg-primary/[0.04] hover:bg-primary/10 text-primary/70 hover:text-primary transition-colors"
+                className="h-full w-8  text-primary/70 hover:text-primary transition-colors"
             >
                 <Link href={href}>
                     <Plus className="size-3.5" />
