@@ -14,11 +14,11 @@ import {
     navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
 import { cn } from "@/lib/utils"
-import { Menu, X, LogIn, LogOut, User, Settings, Sparkles, Plus, Bell } from "lucide-react"
+import { Menu, X, LogIn, LogOut, User, Settings, Sparkles, Plus, Bell, UserPlus, UserCheck, XIcon } from "lucide-react"
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group"
 import { GiStarsStack, GiCrystalBall, GiCoins, GiAstrolabe, GiCursedStar, GiScrollUnfurled, GiStarSwirl } from "react-icons/gi"
 import { motion, AnimatePresence } from "motion/react"
-import { useConvexAuth, useQuery } from "convex/react"
+import { useConvexAuth, useQuery, useMutation } from "convex/react"
 import { useAuthActions } from "@convex-dev/auth/react"
 import { useUserStore } from "@/store/use-user-store"
 import { api } from "../../../convex/_generated/api"
@@ -31,6 +31,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 const navItems = [
     { title: "Horoscopes", href: "/horoscopes", icon: GiStarsStack },
@@ -68,6 +69,110 @@ function StardustBadge({ stardust, href = "/pricing" }: { stardust: number; href
     )
 }
 
+const notificationTypeIcons: Record<string, React.ReactNode> = {
+    referral_completed: <GiStarSwirl className="size-3.5 text-primary" />,
+    friend_request: <UserPlus className="size-3.5 text-blue-400" />,
+    friend_accepted: <UserCheck className="size-3.5 text-green-400" />,
+    admin_broadcast: <Bell className="size-3.5 text-amber-400" />,
+};
+
+const notificationTypeLabels: Record<string, string> = {
+    referral_completed: "Referral",
+    friend_request: "Friend Request",
+    friend_accepted: "Friend Accepted",
+    admin_broadcast: "Announcement",
+};
+
+function UserMenuNotifications() {
+    const notifications = useQuery(api.notifications.queries.list);
+    const markRead = useMutation(api.notifications.queries.markRead);
+    const markAllRead = useMutation(api.notifications.queries.markAllRead);
+    const dismissNotification = useMutation(api.notifications.queries.dismissNotification);
+    const unreadCount = useQuery(api.notifications.queries.unreadCount) ?? 0;
+
+    return (
+        <div className="px-1 py-1">
+            {/* Header */}
+            <div className="flex items-center justify-between px-3 py-2">
+                <div className="flex items-center gap-2">
+                    <Bell className="size-3.5 text-foreground/40" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/40">
+                        Notifications
+                    </span>
+                    {unreadCount > 0 && (
+                        <span className="flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-galactic text-white text-[9px] font-mono leading-none">
+                            {unreadCount > 99 ? "99+" : unreadCount}
+                        </span>
+                    )}
+                </div>
+                {unreadCount > 0 && (
+                    <button
+                        onClick={() => markAllRead()}
+                        className="text-[10px] text-primary/70 hover:text-primary font-mono uppercase tracking-wider transition-colors"
+                    >
+                        Mark all read
+                    </button>
+                )}
+            </div>
+
+            {/* Notification list */}
+            <ScrollArea className="max-h-[220px]">
+                {!notifications || notifications.length === 0 ? (
+                    <div className="py-6 flex flex-col items-center gap-1.5 text-white/25">
+                        <Bell className="size-4" />
+                        <span className="text-[11px] font-sans">No notifications yet</span>
+                    </div>
+                ) : (
+                    <div className="flex flex-col">
+                        <AnimatePresence>
+                            {notifications.map((n: any) => (
+                                <motion.button
+                                    key={n._id}
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    onClick={() => {
+                                        if (!n.read) markRead({ notificationId: n._id });
+                                    }}
+                                    className={cn(
+                                        "flex items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-white/[0.03] rounded-sm w-full group/notif",
+                                        !n.read && "bg-white/[0.02]"
+                                    )}
+                                >
+                                    <div className="mt-0.5 shrink-0">
+                                        {notificationTypeIcons[n.type] ?? <Bell className="size-3.5 text-white/30" />}
+                                    </div>
+                                    <div className="flex-1 min-w-0 space-y-0.5">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/30">
+                                                {notificationTypeLabels[n.type] ?? n.type}
+                                            </span>
+                                            {!n.read && (
+                                                <span className="size-1.5 rounded-full bg-primary shrink-0" />
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-white/60 leading-relaxed font-sans">
+                                            {n.message}
+                                        </p>
+                                    </div>
+                                    <button
+                                        className="h-5 w-5 shrink-0 rounded-sm flex items-center justify-center text-white/0 group-hover/notif:text-white/20 hover:!text-destructive transition-colors mt-0.5"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            dismissNotification({ notificationId: n._id });
+                                        }}
+                                    >
+                                        <XIcon className="size-3" />
+                                    </button>
+                                </motion.button>
+                            ))}
+                        </AnimatePresence>
+                    </div>
+                )}
+            </ScrollArea>
+        </div>
+    );
+}
+
 export function Navbar() {
     const [scrolled, setScrolled] = React.useState(false)
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false)
@@ -98,7 +203,7 @@ export function Navbar() {
     const { user: currentUser } = useUserStore()
     const isAuthenticated = isAuthConvex && !!currentUser
     const hasBirthData = !!currentUser?.birthData
-    const unreadCount = useQuery(api.notifications.unreadCount) ?? 0
+    const unreadCount = useQuery(api.notifications.queries.unreadCount) ?? 0
 
     // CTA logic based on auth and birthData
     const ctaLabel = isAuthenticated && hasBirthData ? "MY STARS" : "BIRTH CHART"
@@ -199,17 +304,18 @@ export function Navbar() {
                                             </AvatarFallback>
                                         </Avatar>
                                         {unreadCount > 0 && (
-                                            <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-galactic text-white text-[10px] font-mono leading-none">
+                                            <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-galactic text-white text-[10px] font-mono leading-none">
                                                 {unreadCount > 99 ? "99+" : unreadCount}
                                             </span>
                                         )}
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent
-                                    className="w-56 mt-1.5 border-white/10 bg-background/90 backdrop-blur-xl shadow-xl"
+                                    className="w-80 mt-1.5 border-white/10 bg-background/90 backdrop-blur-xl shadow-xl p-0"
                                     align="end"
                                     sideOffset={8}
                                 >
+                                    {/* User info */}
                                     <DropdownMenuLabel className="font-normal px-3 py-3">
                                         <div className="flex items-center gap-3">
                                             <Avatar className="h-8 w-8 ring-1 ring-white/10">
@@ -228,21 +334,11 @@ export function Navbar() {
                                     </DropdownMenuLabel>
                                     <DropdownMenuSeparator className="bg-white/10" />
 
+                                    {/* Quick links */}
                                     <DropdownMenuItem asChild className="gap-2.5 cursor-pointer px-3 py-2">
                                         <Link href="/settings" className="text-sm text-foreground/80 hover:text-primary transition-colors">
                                             <Settings className="size-4 text-primary/60" />
                                             <span className="font-sans italic">Settings</span>
-                                        </Link>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem asChild className="gap-2.5 cursor-pointer px-3 py-2">
-                                        <Link href="/settings" className="text-sm text-foreground/80 hover:text-primary transition-colors">
-                                            <Bell className="size-4 text-foreground/40" />
-                                            <span className="font-sans italic">Notifications</span>
-                                            {unreadCount > 0 && (
-                                                <span className="ml-auto flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-galactic text-white text-[10px] font-mono leading-none">
-                                                    {unreadCount > 99 ? "99+" : unreadCount}
-                                                </span>
-                                            )}
                                         </Link>
                                     </DropdownMenuItem>
                                     <DropdownMenuItem asChild className="gap-2.5 cursor-pointer px-3 py-2">
@@ -251,6 +347,11 @@ export function Navbar() {
                                             <span className="font-sans italic">Upgrade</span>
                                         </Link>
                                     </DropdownMenuItem>
+
+                                    <DropdownMenuSeparator className="bg-white/10" />
+
+                                    {/* ─── Inline Notifications ─── */}
+                                    <UserMenuNotifications />
 
                                     <DropdownMenuSeparator className="bg-white/10" />
 
@@ -305,7 +406,7 @@ export function Navbar() {
                                             </AvatarFallback>
                                         </Avatar>
                                         {unreadCount > 0 && (
-                                            <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-galactic text-white text-[10px] font-mono leading-none">
+                                            <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-galactic text-white text-[10px] font-mono leading-none">
                                                 {unreadCount > 99 ? "99+" : unreadCount}
                                             </span>
                                         )}

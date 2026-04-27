@@ -139,7 +139,7 @@ export function JournalSidebarFooter({
 }
 
 function NotificationItem() {
-    const unreadCount = useQuery(api.notifications.unreadCount);
+    const unreadCount = useQuery(api.notifications.queries.unreadCount);
     const count = unreadCount ?? 0;
 
     return (

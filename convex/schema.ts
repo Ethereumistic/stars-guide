@@ -126,7 +126,9 @@ export default defineSchema({
         .index("by_email", ["email"])
         .index("by_username", ["username"])
         .index("by_subscription_status", ["subscriptionStatus"]) // Vital for Daily Cron Jobs
-        .index("by_phone", ["phone"]),
+        .index("by_phone", ["phone"])
+        .index("by_tier", ["tier"])
+        .index("by_role", ["role"]),
 
     // 3.5 FRIENDSHIPS (Symmetric bidirectional friend relationships)
     friendships: defineTable({
@@ -144,23 +146,26 @@ export default defineSchema({
         .index("by_addressee", ["addresseeId"])
         .index("by_requester_addressee", ["requesterId", "addresseeId"]),
 
-    // 3.6 NOTIFICATIONS (Shared by referrals & friends)
+    // 3.6 NOTIFICATIONS (Shared by referrals, friends & admin broadcasts)
     notifications: defineTable({
         userId: v.id("users"),           // Recipient
         type: v.union(
             v.literal("referral_completed"),
             v.literal("friend_request"),
             v.literal("friend_accepted"),
+            v.literal("admin_broadcast"),
         ),
-        fromUserId: v.id("users"),
+        fromUserId: v.optional(v.id("users")),  // Optional for system broadcasts
         referralId: v.optional(v.id("referrals")),
         friendshipId: v.optional(v.id("friendships")),
+        scheduledNotificationId: v.optional(v.id("scheduledNotifications")), // Link back to campaign for analytics
         message: v.optional(v.string()),
         read: v.boolean(),
         createdAt: v.number(),
     })
         .index("by_user_read", ["userId", "read"])
-        .index("by_user_created", ["userId", "createdAt"]),
+        .index("by_user_created", ["userId", "createdAt"])
+        .index("by_campaign", ["scheduledNotificationId"]),
 
     // 4. RATE LIMITS (Preventing endpoint exhaustion)
     subscription_history: defineTable({
@@ -584,6 +589,49 @@ export default defineSchema({
     })
         .index("by_session", ["sessionId"])
         .index("by_session_created", ["sessionId", "createdAt"]),
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ADMIN NOTIFICATIONS — Broadcast & Scheduled Campaign System
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // 21. SCHEDULED NOTIFICATIONS (Admin notification campaigns)
+    scheduledNotifications: defineTable({
+        // ─── Content ───
+        title: v.string(),                    // Admin-facing campaign name
+        message: v.string(),                  // The notification text shown to users
+        type: v.literal("admin_broadcast"),   // Always this value
+
+        // ─── Targeting ───
+        targetAudience: v.union(
+            v.literal("all"),
+            v.literal("tier"),
+            v.literal("role"),
+            v.literal("subscriptionStatus"),
+        ),
+        targetFilter: v.optional(v.string()), // e.g. "free", "premium", "user", "active"
+
+        // ─── Scheduling ───
+        status: v.union(
+            v.literal("draft"),
+            v.literal("scheduled"),
+            v.literal("sending"),
+            v.literal("sent"),
+            v.literal("cancelled"),
+        ),
+        scheduledAt: v.number(),             // When to deliver (timestamp ms)
+
+        // ─── Analytics ───
+        sentCount: v.optional(v.number()),
+        readCount: v.optional(v.number()),
+
+        // ─── Metadata ───
+        createdBy: v.id("users"),
+        createdAt: v.number(),
+        sentAt: v.optional(v.number()),
+    })
+        .index("by_status", ["status"])
+        .index("by_status_scheduledAt", ["status", "scheduledAt"])
+        .index("by_createdBy", ["createdBy"]),
 });
 
 

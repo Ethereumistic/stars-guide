@@ -20,19 +20,21 @@ const typeIcons: Record<string, React.ReactNode> = {
     referral_completed: <GiStarSwirl className="size-3.5 text-primary" />,
     friend_request: <UserPlus className="size-3.5 text-blue-400" />,
     friend_accepted: <UserCheck className="size-3.5 text-green-400" />,
+    admin_broadcast: <Bell className="size-3.5 text-amber-400" />,
 };
 
 const typeLabels: Record<string, string> = {
     referral_completed: "Referral",
     friend_request: "Friend Request",
     friend_accepted: "Friend Accepted",
+    admin_broadcast: "Announcement",
 };
 
 export function NotificationBell({ className }: { className?: string }) {
-    const notifications = useQuery(api.notifications.list);
-    const unreadCount = useQuery(api.notifications.unreadCount);
-    const markRead = useMutation(api.notifications.markRead);
-    const markAllRead = useMutation(api.notifications.markAllRead);
+    const notifications = useQuery(api.notifications.queries.list);
+    const unreadCount = useQuery(api.notifications.queries.unreadCount);
+    const markRead = useMutation(api.notifications.queries.markRead);
+    const markAllRead = useMutation(api.notifications.queries.markAllRead);
 
     const count = unreadCount ?? 0;
 

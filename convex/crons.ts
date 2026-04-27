@@ -3,6 +3,7 @@
  *
  * Currently runs:
  * - Cosmic Weather computation at 00:05 UTC daily
+ * - Scheduled notification delivery every minute
  */
 import { cronJobs } from "convex/server";
 import { internal } from "./_generated/api";
@@ -17,6 +18,14 @@ crons.daily(
     "compute-cosmic-weather",
     { hourUTC: 0, minuteUTC: 5 },
     internal.cosmicWeather.dailyCosmicWeatherJob,
+);
+
+// ─── SCHEDULED NOTIFICATIONS ─────────────────────────────────────────────
+// Check for campaigns due for delivery every minute.
+crons.interval(
+    "deliver-scheduled-notifications",
+    { seconds: 60 },
+    internal.notifications.delivery.processScheduledNotifications,
 );
 
 export default crons;
