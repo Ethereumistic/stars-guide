@@ -166,12 +166,12 @@ function ArchetypeTable({
   }, [tableRows])
 
   return (
-    <div className="w-full bg-black/50 rounded-md border border-white/10 text-white">
+    <div className="w-full max-w-xl mx-auto bg-black/50 rounded-md border border-white/10 text-white/90">
       <table className="w-full border-collapse font-serif" style={{ tableLayout: "fixed" }}>
         <colgroup>
-          <col style={{ width: "4rem" }} />
           <col style={{ width: "auto" }} />
-          <col style={{ width: "5.5rem" }} />
+          <col style={{ width: "0%" }} />
+          <col style={{ width: "4rem" }} />
         </colgroup>
         <tbody>
           {groupedByElement.map((group, groupIndex) => {
@@ -188,20 +188,21 @@ function ArchetypeTable({
                     rowIndex === group.rows.length - 1
 
                   return (
-                    <tr
-                      key={row.axisName}
-                      className={`${isLastRow ? "" : "border-b border-white/[0.08]"} group hover:bg-white/[0.03] transition-colors`}
-                    >
+                    <tr key={row.axisName} className={isLastRow ? "" : "border-b border-white/[0.04]"}>
+                      {/* ── ELEMENT COLUMN ── (rowspan) icon + name, horizontal */}
                       {isFirst && (
                         <td
                           rowSpan={group.rows.length}
-                          className={`py-3 px-2 align-middle text-center border-r border-white/[0.12] ${groupIndex < groupedByElement.length - 1 ? "border-b border-white/[0.12]" : ""}`}
+                          className={`py-2 pl-6 pr-2 align-middle border-r border-white/[0.08] ${groupIndex < groupedByElement.length - 1 ? "border-b border-white/[0.08]" : ""}`}
                         >
-                          <div className="flex flex-col items-center gap-1">
-                            <ElIcon size={20} style={{ color: color.stroke, opacity: isDominant ? 1 : 0.55 }} />
+                          <div className="flex items-center gap-1">
+                            <ElIcon
+                              className="size-5 shrink-0"
+                              style={{ color: color.stroke, opacity: isDominant ? 1 : 0.55 }}
+                            />
                             <span
-                              className="text-[10px] font-mono uppercase tracking-[0.15em] leading-none"
-                              style={{ color: color.stroke, opacity: isDominant ? 0.85 : 0.45 }}
+                              className="text-sm tracking-[0.12em] font-serif text-white"
+                              style={{ color: color.stroke, opacity: isDominant ? 1 : 0.55 }}
                             >
                               {group.element}
                             </span>
@@ -209,30 +210,34 @@ function ArchetypeTable({
                         </td>
                       )}
 
-                      <td className={`py-2.5 pl-3 pr-2 ${isLastRow ? "" : "border-b border-white/[0.06]"}`}>
-                        <div className="flex items-center gap-2">
+                      {/* ── AXIS: Icon + Name ── */}
+                      <td className={`py-1.5 pl-2 pr-1 ${isLastRow ? "" : "border-b border-white/[0.03]"}`}>
+                        <div className="flex items-center gap-1 whitespace-nowrap">
                           <row.axisIcon
-                            size={15}
+                            size={20}
                             className="shrink-0"
                             style={{ color: color.stroke, opacity: 0.7 }}
                           />
-                          <span className="text-sm tracking-[0.08em] text-white group-hover:text-white transition-colors">
+                          <span className="text-sm tracking-[0.08em] uppercase font-serif text-white">
                             {row.axisName}
                           </span>
                         </div>
                       </td>
 
-                      <td className={`py-2.5 pl-2 pr-3 ${isLastRow ? "" : "border-b border-white/[0.06]"}`}>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-[3px] bg-white/[0.08] rounded-full overflow-hidden">
+                      {/* ── SCORE BAR ── */}
+                      <td
+                        className={`py-2 pl-2 pr-2 align-middle border-l border-white/[0.08] ${!isLastRow ? "border-b border-white/[0.08]" : ""}`}
+                      >
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="text-base font-serif text-white tabular-nums">
+                            {row.score}
+                          </span>
+                          <div className="w-full h-1.5 bg-white/[0.08] rounded-full overflow-hidden">
                             <div
                               className="h-full rounded-full transition-all duration-700"
                               style={{ width: `${row.score}%`, backgroundColor: color.stroke, opacity: 0.75 }}
                             />
                           </div>
-                          <span className="text-base font-serif text-white w-8 text-right tabular-nums">
-                            {row.score}
-                          </span>
                         </div>
                       </td>
                     </tr>
@@ -259,15 +264,15 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
     [birthData],
   )
 
-  // ── Dimensions (40% bigger than original 560) ────────────────────────────
-  const svgSize = 784
+  // ── Dimensions (reduced 15%) ─────────────────────────────────────────────
+  const svgSize = 666
   const cx = svgSize / 2
   const cy = svgSize / 2
-  const maxRadius = 273
+  const maxRadius = 232
   const rings = 5
   const total = birthData.placements.length
-  const iconSize = 56
-  const iconOffset = 39
+  const iconSize = 48
+  const iconOffset = 33
   const iconCenterRadius = maxRadius + iconOffset
 
   const dominantFrameUrl = elementUIConfig[dominant].frameUrl
@@ -451,16 +456,16 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
       >
         <image
           href={dominantFrameUrl}
-          x={cx - 55}
-          y={cy - 55}
-          width={110}
-          height={110}
+          x={cx - 47}
+          y={cy - 47}
+          width={94}
+          height={94}
           opacity={0.3}
           style={{ pointerEvents: "none" }}
         />
-        <foreignObject x={cx - 22} y={cy - 22} width={44} height={44}>
+        <foreignObject x={cx - 19} y={cy - 19} width={38} height={38}>
           <div className="flex items-center justify-center w-full h-full">
-            <DominantElIcon size={32} style={{ color: dominantColor.stroke, opacity: 0.9 }} />
+            <DominantElIcon size={27} style={{ color: dominantColor.stroke, opacity: 0.9 }} />
           </div>
         </foreignObject>
       </motion.g>

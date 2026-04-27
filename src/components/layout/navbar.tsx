@@ -14,13 +14,14 @@ import {
     navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
 import { cn } from "@/lib/utils"
-import { Menu, X, LogIn, LogOut, User, Settings, Sparkles, Plus } from "lucide-react"
+import { Menu, X, LogIn, LogOut, User, Settings, Sparkles, Plus, Bell } from "lucide-react"
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group"
 import { GiStarsStack, GiCrystalBall, GiCoins, GiAstrolabe, GiCursedStar, GiScrollUnfurled, GiStarSwirl } from "react-icons/gi"
 import { motion, AnimatePresence } from "motion/react"
-import { useConvexAuth } from "convex/react"
+import { useConvexAuth, useQuery } from "convex/react"
 import { useAuthActions } from "@convex-dev/auth/react"
 import { useUserStore } from "@/store/use-user-store"
+import { api } from "../../../convex/_generated/api"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -97,6 +98,7 @@ export function Navbar() {
     const { user: currentUser } = useUserStore()
     const isAuthenticated = isAuthConvex && !!currentUser
     const hasBirthData = !!currentUser?.birthData
+    const unreadCount = useQuery(api.notifications.unreadCount) ?? 0
 
     // CTA logic based on auth and birthData
     const ctaLabel = isAuthenticated && hasBirthData ? "MY STARS" : "BIRTH CHART"
@@ -185,7 +187,7 @@ export function Navbar() {
 
                     {/* --- Right Section: Avatar + Stardust & Mobile Toggle --- */}
                     <div className="flex-1 flex items-center justify-end gap-3">
-                        {/* Desktop: Authenticated user dropdown menu */}
+                        {/* Desktop: Authenticated user dropdown menu with notification badge on avatar */}
                         {isAuthenticated && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -196,6 +198,11 @@ export function Navbar() {
                                                 {currentUser?.username?.charAt(0)?.toUpperCase() ?? <User className="size-4" />}
                                             </AvatarFallback>
                                         </Avatar>
+                                        {unreadCount > 0 && (
+                                            <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-galactic text-white text-[10px] font-mono leading-none">
+                                                {unreadCount > 99 ? "99+" : unreadCount}
+                                            </span>
+                                        )}
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent
@@ -225,6 +232,17 @@ export function Navbar() {
                                         <Link href="/settings" className="text-sm text-foreground/80 hover:text-primary transition-colors">
                                             <Settings className="size-4 text-primary/60" />
                                             <span className="font-sans italic">Settings</span>
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild className="gap-2.5 cursor-pointer px-3 py-2">
+                                        <Link href="/settings" className="text-sm text-foreground/80 hover:text-primary transition-colors">
+                                            <Bell className="size-4 text-foreground/40" />
+                                            <span className="font-sans italic">Notifications</span>
+                                            {unreadCount > 0 && (
+                                                <span className="ml-auto flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-galactic text-white text-[10px] font-mono leading-none">
+                                                    {unreadCount > 99 ? "99+" : unreadCount}
+                                                </span>
+                                            )}
                                         </Link>
                                     </DropdownMenuItem>
                                     <DropdownMenuItem asChild className="gap-2.5 cursor-pointer px-3 py-2">
@@ -279,12 +297,19 @@ export function Navbar() {
                                 {isMobileMenuOpen ? (
                                     <X className="size-5" />
                                 ) : (
-                                    <Avatar className="h-9 w-9">
-                                        <AvatarImage src={currentUser?.image} alt={currentUser?.username ?? "User"} />
-                                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-serif">
-                                            {currentUser?.username?.charAt(0)?.toUpperCase() ?? <User className="size-4" />}
-                                        </AvatarFallback>
-                                    </Avatar>
+                                    <>
+                                        <Avatar className="h-9 w-9">
+                                            <AvatarImage src={currentUser?.image} alt={currentUser?.username ?? "User"} />
+                                            <AvatarFallback className="bg-primary/10 text-primary text-xs font-serif">
+                                                {currentUser?.username?.charAt(0)?.toUpperCase() ?? <User className="size-4" />}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        {unreadCount > 0 && (
+                                            <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-galactic text-white text-[10px] font-mono leading-none">
+                                                {unreadCount > 99 ? "99+" : unreadCount}
+                                            </span>
+                                        )}
+                                    </>
                                 )}
                             </Button>
                         )}
@@ -390,6 +415,21 @@ export function Navbar() {
                                         <Settings className="size-6 shrink-0" />
                                     </div>
                                     Settings
+                                </Link>
+                                <Link
+                                    href="/settings"
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    className="text-2xl font-serif italic text-foreground/80 hover:text-primary transition-all flex items-center group/nav"
+                                >
+                                    <div className="flex items-center justify-center transition-all duration-500 ease-in-out w-8 mr-2 opacity-0 -translate-x-2 group-hover/nav:opacity-100 group-hover/nav:translate-x-0">
+                                        <Bell className="size-6 shrink-0" />
+                                    </div>
+                                    <span>Notifications</span>
+                                    {unreadCount > 0 && (
+                                        <span className="ml-3 flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-galactic text-white text-[11px] font-mono leading-none">
+                                            {unreadCount > 99 ? "99+" : unreadCount}
+                                        </span>
+                                    )}
                                 </Link>
                                 <Link
                                     href="/pricing"

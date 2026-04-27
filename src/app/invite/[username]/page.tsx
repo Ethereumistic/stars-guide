@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { SignUpForm } from "@/app/(auth)/sign-up/sign-up-form";
 
+function setReferrerCookie(username: string) {
+    document.cookie = `starsguide_referrer=${username}; path=/; max-age=${604800}; SameSite=Lax`;
+}
+
 export default function InvitePage() {
     const params = useParams();
     const username = params.username as string;
@@ -12,6 +16,7 @@ export default function InvitePage() {
     useEffect(() => {
         if (username) {
             localStorage.setItem("starsguide_referrer", username);
+            setReferrerCookie(username);
             setMounted(true);
         }
     }, [username]);

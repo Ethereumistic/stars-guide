@@ -8,8 +8,12 @@ import {
     Settings,
     LayoutDashboard,
     ChevronsUpDown,
+    Bell,
 } from "lucide-react";
 import { GiScrollUnfurled } from "react-icons/gi";
+import { useQuery } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -92,12 +96,14 @@ export function OracleSidebarFooter({
                             Journal
                         </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
+                    <DropdownMenuItem asChild className="gap-2">
                         <Link href="/settings" className="cursor-pointer gap-2">
                             <Settings className="h-4 w-4" />
                             Settings
                         </Link>
                     </DropdownMenuItem>
+
+                    <NotificationItem />
 
                     {shouldShowUpgrade && (
                         <DropdownMenuItem asChild>
@@ -130,5 +136,27 @@ export function OracleSidebarFooter({
                 </DropdownMenuContent>
             </DropdownMenu>
         </SidebarFooter>
+    );
+}
+
+function NotificationItem() {
+    const unreadCount = useQuery(api.notifications.unreadCount);
+    const count = unreadCount ?? 0;
+
+    return (
+        <DropdownMenuItem asChild>
+            <Link href="/settings" className="cursor-pointer gap-2">
+                <Bell className="h-4 w-4" />
+                <span className="flex-1">Notifications</span>
+                {count > 0 && (
+                    <Badge
+                        variant="destructive"
+                        className="min-w-[18px] h-[18px] px-1 text-[9px] font-mono leading-none p-0 flex items-center justify-center"
+                    >
+                        {count > 99 ? "99+" : count}
+                    </Badge>
+                )}
+            </Link>
+        </DropdownMenuItem>
     );
 }

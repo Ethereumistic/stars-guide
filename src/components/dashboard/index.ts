@@ -1,6 +1,8 @@
 export { SignCard } from './sign-card'
 export { SignCardV2 } from './sign-card-v2'
 export { ElementalBalanceCard } from './elemental-balance-card'
+export { ElementalTableView } from './elemental-table-view'
+export { ElementalCircleView } from './elemental-circle-view'
 export { ElementalSpiderChart } from './elemental-spider-chart'
 export { DashboardSkeleton } from './dashboard-skeleton'
 export { InterpretationCard } from './interpretation-card'

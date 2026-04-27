@@ -125,9 +125,44 @@ export default defineSchema({
     })
         .index("by_email", ["email"])
         .index("by_username", ["username"])
-        .index("by_subscription_status", ["subscriptionStatus"]), // Vital for Daily Cron Jobs
+        .index("by_subscription_status", ["subscriptionStatus"]) // Vital for Daily Cron Jobs
+        .index("by_phone", ["phone"]),
 
-    // 2. SUBSCRIPTION HISTORY (Audit Trail)
+    // 3.5 FRIENDSHIPS (Symmetric bidirectional friend relationships)
+    friendships: defineTable({
+        requesterId: v.id("users"),
+        addresseeId: v.id("users"),
+        status: v.union(
+            v.literal("pending"),
+            v.literal("accepted"),
+            v.literal("declined"),
+        ),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_requester", ["requesterId"])
+        .index("by_addressee", ["addresseeId"])
+        .index("by_requester_addressee", ["requesterId", "addresseeId"]),
+
+    // 3.6 NOTIFICATIONS (Shared by referrals & friends)
+    notifications: defineTable({
+        userId: v.id("users"),           // Recipient
+        type: v.union(
+            v.literal("referral_completed"),
+            v.literal("friend_request"),
+            v.literal("friend_accepted"),
+        ),
+        fromUserId: v.id("users"),
+        referralId: v.optional(v.id("referrals")),
+        friendshipId: v.optional(v.id("friendships")),
+        message: v.optional(v.string()),
+        read: v.boolean(),
+        createdAt: v.number(),
+    })
+        .index("by_user_read", ["userId", "read"])
+        .index("by_user_created", ["userId", "createdAt"]),
+
+    // 4. RATE LIMITS (Preventing endpoint exhaustion)
     subscription_history: defineTable({
         userId: v.id("users"),
         action: v.union(

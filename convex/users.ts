@@ -107,11 +107,21 @@ export const updateBirthData = mutation({
         if (pendingReferral) {
             const referrer = await ctx.db.get(pendingReferral.referrerId);
             if (referrer) {
+                const user = await ctx.db.get(userId);
                 await ctx.db.patch(referrer._id, {
                     stardust: (referrer.stardust || 0) + pendingReferral.rewardAmount,
                 });
                 await ctx.db.patch(pendingReferral._id, {
                     status: "completed",
+                });
+                await ctx.db.insert("notifications", {
+                    userId: referrer._id,
+                    type: "referral_completed",
+                    fromUserId: userId,
+                    referralId: pendingReferral._id,
+                    message: `${user?.username ?? "Someone"} joined through your invite! +${pendingReferral.rewardAmount} stardust`,
+                    read: false,
+                    createdAt: Date.now(),
                 });
             }
         }
