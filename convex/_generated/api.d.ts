@@ -42,6 +42,7 @@ import type * as oracle_settings from "../oracle/settings.js";
 import type * as oracle_timespace from "../oracle/timespace.js";
 import type * as oracle_upsertProviders from "../oracle/upsertProviders.js";
 import type * as referrals from "../referrals.js";
+import type * as usernameModeration from "../usernameModeration.js";
 import type * as users from "../users.js";
 
 import type {
@@ -85,6 +86,7 @@ declare const fullApi: ApiFromModules<{
   "oracle/timespace": typeof oracle_timespace;
   "oracle/upsertProviders": typeof oracle_upsertProviders;
   referrals: typeof referrals;
+  usernameModeration: typeof usernameModeration;
   users: typeof users;
 }>;
 

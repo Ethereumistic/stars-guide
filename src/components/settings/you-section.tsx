@@ -47,10 +47,10 @@ interface YouSectionProps {
 export function YouSection({ user, delay = 0 }: YouSectionProps) {
     // Mutations
     const updateProfile = useMutation(api.users.updateProfile)
-    const updateUsername = useMutation(api.users.updateUsername)
+    const updateUsername = useMutation(api.usernameModeration.updateUsername)
     const updatePreferences = useMutation(api.users.updatePreferences)
     const updateSettings = useMutation(api.users.updateSettings)
-    const checkAvailability = useMutation(api.users.checkUsernameAvailability)
+    const checkAvailability = useMutation(api.usernameModeration.checkUsernameAvailability)
 
     // Edit states
     const [isEditingUsername, setIsEditingUsername] = useState(false)
@@ -59,7 +59,7 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
     const [editPhone, setEditPhone] = useState(user.phone || '')
     const [isSaving, setIsSaving] = useState(false)
     const [isAvailable, setIsAvailable] = useState<boolean | null>(null)
-    const [isReserved, setIsReserved] = useState(false)
+    const [blockReason, setBlockReason] = useState<string | null>(null) // "reserved" | "banned" | "taken" | null
     const [isChecking, setIsChecking] = useState(false)
 
     // Sync edit values when user changes
@@ -71,7 +71,7 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
     // Debounce & Check Availability
     useEffect(() => {
         setIsAvailable(null)
-        setIsReserved(false)
+        setBlockReason(null)
         let active = true;
         if (editUsername.length >= 3 && editUsername !== user.username) {
             const timer = setTimeout(() => {
@@ -92,7 +92,7 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
                     .then(res => {
                         if (active) {
                             setIsAvailable(res.available)
-                            setIsReserved(res.reserved ?? false)
+                            setBlockReason(res.reason ?? null)
                         }
                     })
                     .catch((err: any) => {
@@ -139,10 +139,12 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
                 toast.error("Rate Limited: You can only change your username once every 30 days. Please try again later.");
             } else if (msg.includes("already taken")) {
                 toast.error("That username is already taken. Please choose another.");
-            } else if (msg.includes("Invalid username format")) {
-                toast.error("Invalid format. Use 1-15 letters, numbers, and underscores.");
             } else if (msg.includes("reserved")) {
                 toast.error("This username is reserved. Please choose another.");
+            } else if (msg.includes("prohibited content")) {
+                toast.error("This username contains prohibited content. Please choose another.");
+            } else if (msg.includes("Invalid")) {
+                toast.error("Invalid format. Use 1-15 letters, numbers, and underscores.");
             } else {
                 toast.error("Failed to update username. Please try again.");
             }
@@ -226,7 +228,7 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
                                     variant="ghost"
                                     className="h-9 w-9 text-green-500 hover:text-green-600 hover:bg-green-500/10 shrink-0"
                                     onClick={handleSaveUsername}
-                                    disabled={isSaving || editUsername === user.username || editUsername.length < 3 || isAvailable === false || isReserved || isChecking}
+                                    disabled={isSaving || editUsername === user.username || editUsername.length < 3 || (isAvailable === false && blockReason !== null) || isChecking}
                                 >
                                     {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                                 </Button>
@@ -238,7 +240,7 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
                                         setIsEditingUsername(false)
                                         setEditUsername(user.username || '')
                                         setIsAvailable(null)
-                                        setIsReserved(false)
+                                        setBlockReason(null)
                                         setIsChecking(false)
                                     }}
                                 >
@@ -247,8 +249,10 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
                             </div>
                             <div className="text-xs pl-6 h-4 flex items-center">
                                 {isChecking && <span className="text-muted-foreground flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Checking availability...</span>}
-                                {!isChecking && editUsername !== user.username && editUsername.length >= 3 && isReserved && <span className="text-destructive font-medium">This username is reserved</span>}
-                                {!isChecking && editUsername !== user.username && editUsername.length >= 3 && !isReserved && isAvailable === false && <span className="text-destructive font-medium">Username unavailable or taken</span>}
+                                {!isChecking && editUsername !== user.username && editUsername.length >= 3 && blockReason === 'reserved' && <span className="text-destructive font-medium">This username is reserved</span>}
+                                {!isChecking && editUsername !== user.username && editUsername.length >= 3 && blockReason === 'banned' && <span className="text-destructive font-medium">This username contains prohibited content</span>}
+                                {!isChecking && editUsername !== user.username && editUsername.length >= 3 && blockReason === 'taken' && <span className="text-destructive font-medium">Username already taken</span>}
+                                {!isChecking && editUsername !== user.username && editUsername.length >= 3 && blockReason === 'invalid_format' && <span className="text-destructive font-medium">Invalid format</span>}
                                 {!isChecking && editUsername !== user.username && editUsername.length >= 3 && isAvailable === true && <span className="text-green-500 font-medium">Username is available!</span>}
                                 {(editUsername === user.username || editUsername.length < 3) && <span className="text-muted-foreground">Max 15 chars. Letters, numbers, underscores only.</span>}
                             </div>

@@ -154,9 +154,9 @@ export const invokeOracle = action({
       {},
     );
 
-    // ── Build feature injection and natal context ─────────────────────────
+    // ── Build feature injection and birth context ─────────────────────────
     let featureInjection = "";
-    let natalContext = "";
+    let birthContext = "";
     let journalContext: string | null = null;
 
     // Always fetch user data early so intent classifier can check for birth data
@@ -192,9 +192,9 @@ export const invokeOracle = action({
       featureInjection = featureRecord?.contextText ?? activeFeature.fallbackInjectionText ?? "";
 
       if (activeFeature.requiresBirthData && user?.birthData) {
-        natalContext = buildFeatureContext(activeFeature.key, user.birthData);
+        birthContext = buildFeatureContext(activeFeature.key, user.birthData);
       } else if (activeFeature.requiresBirthData) {
-        natalContext = [
+        birthContext = [
           "[BIRTH CHART ANALYSIS MODE]",
           `Feature: ${activeFeature.label}`,
           "Birth data status: unavailable for this user.",
@@ -236,7 +236,7 @@ export const invokeOracle = action({
     const prompt = buildPrompt({
       soulDoc: config.soulDoc,
       featureInjection: featureInjection || null,
-      natalContext: natalContext || null,
+      birthContext: birthContext || null,
       userQuestion: args.userQuestion,
       isFirstResponse,
       journalContext,

@@ -91,6 +91,14 @@ const journalNavItems = [
     },
 ];
 
+const moderationNavItems = [
+    {
+        title: "Username Bans",
+        href: "/admin/ban",
+        icon: Shield,
+    },
+];
+
 const notificationNavItems = [
     {
         title: "Notifications",
@@ -222,6 +230,33 @@ export default function AdminLayout({
                                 );
                             })}
                         </SidebarMenu>
+                        {/* Moderation Section */}
+                        <Separator className="opacity-20 my-3" />
+                        <div className="px-3 py-1.5 flex items-center gap-2">
+                            <Shield className="h-4 w-4 text-red-400" />
+                            <span className="text-[11px] font-semibold tracking-wider uppercase text-red-400/70">
+                                MODERATION
+                            </span>
+                        </div>
+                        <SidebarMenu>
+                            {moderationNavItems.map((item) => {
+                                const isActive = pathname === item.href;
+                                return (
+                                    <SidebarMenuItem key={item.href}>
+                                        <SidebarMenuButton
+                                            asChild
+                                            isActive={isActive}
+                                            className="transition-all duration-200"
+                                        >
+                                            <Link href={item.href}>
+                                                <item.icon className="h-4 w-4" />
+                                                <span>{item.title}</span>
+                                            </Link>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                );
+                            })}
+                        </SidebarMenu>
                         {/* Notifications Section */}
                         <Separator className="opacity-20 my-3" />
                         <div className="px-3 py-1.5 flex items-center gap-2">
@@ -264,7 +299,7 @@ export default function AdminLayout({
                         <SidebarTrigger className="-ml-1" />
                         <Separator orientation="vertical" className="mr-2 h-4" />
                         <span className="text-sm text-muted-foreground">
-                            {[...adminNavItems, ...oracleNavItems, ...journalNavItems, ...notificationNavItems].find((item) =>
+                            {[...adminNavItems, ...oracleNavItems, ...journalNavItems, ...moderationNavItems, ...notificationNavItems].find((item) =>
                                 pathname === item.href ||
                                 (item.href !== "/admin" && item.href !== "/admin/oracle" && item.href !== "/admin/journal" && item.href !== "/admin/notifications" && pathname?.startsWith(item.href))
                             )?.title || "Dashboard"}

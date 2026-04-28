@@ -218,7 +218,7 @@ function buildCoreFeatureContext(birthData: OracleBirthData): string {
 function buildFullFeatureContext(birthData: OracleBirthData): string {
   const lines = [
     "[DEEP BIRTH CHART ANALYSIS MODE]",
-    "You are performing a Deep Birth Chart analysis. The user's full natal placements are provided below.",
+    "You are performing a Deep Birth Chart analysis. The user's full birth placements are provided below.",
     "",
     "Reading instructions:",
     "- Give a layered interpretation of the full chart while staying anchored to the stored placements, houses, and aspects.",

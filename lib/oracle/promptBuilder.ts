@@ -75,20 +75,20 @@ export function buildSystemPrompt(params: {
 }
 
 /**
- * Build the user message: Natal Chart Data (if present) + User Question.
+ * Build the user message: Birth Chart Data (if present) + User Question.
  *
- * Strips any [SYSTEM, [NATAL, [USER tagged content from the raw user question
+ * Strips any [SYSTEM, [BIRTH, [USER tagged content from the raw user question
  * to mitigate tag injection attacks.
  */
 export function buildUserMessage(params: {
-  natalContext?: string | null;
+  birthContext?: string | null;
   userQuestion: string;
 }): string {
   const sanitizedQuestion = sanitizeUserQuestion(params.userQuestion);
 
   const parts: string[] = [];
-  if (params.natalContext) {
-    parts.push(`[NATAL CHART DATA]\n${params.natalContext}`);
+  if (params.birthContext) {
+    parts.push(`[BIRTH CHART DATA]\n${params.birthContext}`);
   }
   parts.push(sanitizedQuestion);
 
@@ -101,7 +101,7 @@ export function buildUserMessage(params: {
 export function buildPrompt(params: {
   soulDoc: string;
   featureInjection?: string | null;
-  natalContext?: string | null;
+  birthContext?: string | null;
   userQuestion: string;
   isFirstResponse?: boolean;
   journalContext?: string | null;
@@ -116,7 +116,7 @@ export function buildPrompt(params: {
       isFirstResponse: params.isFirstResponse,
     }),
     userMessage: buildUserMessage({
-      natalContext: params.natalContext,
+      birthContext: params.birthContext,
       userQuestion: params.userQuestion,
     }),
   };
@@ -124,12 +124,12 @@ export function buildPrompt(params: {
 
 /**
  * Strip any tagged content from the user's raw text that could confuse
- * the prompt structure. Prevents users from injecting [NATAL CHART DATA],
+ * the prompt structure. Prevents users from injecting [BIRTH CHART DATA],
  * [USER QUESTION], [SYSTEM], etc. into their messages.
  */
 export function sanitizeUserQuestion(raw: string): string {
   return raw
-    .replace(/\[(SYSTEM|NATAL|USER|FEATURE|SAFETY|END)[^\]]*\]/gi, "")
+    .replace(/\[(SYSTEM|BIRTH|USER|FEATURE|SAFETY|END)[^\]]*\]/gi, "")
     .trim();
 }
 

@@ -1,7 +1,7 @@
 /**
- * natalCalculator.ts — Oracle Natal Context Generator
+ * birthCalculator.ts — Oracle Birth Context Generator
  * 
- * Uses the existing astrology.ts module to calculate a full natal chart
+ * Uses the existing astrology.ts module to calculate a full birth chart
  * from the user's birthData, then formats it into a token-efficient
  * context block for the Oracle prompt.
  * 
@@ -10,16 +10,16 @@
 
 import { calculateFullChart, type ChartData } from "@/lib/birth-chart/full-chart";
 
-export interface NatalContext {
+export interface BirthContext {
     raw: ChartData;
     formatted: string;
 }
 
 /**
- * Calculates the full natal chart from user's birth data
+ * Calculates the full birth chart from user's birth data
  * and formats it as a structured context block for the LLM prompt.
  */
-export function calculateNatalContext(birthData: {
+export function calculateBirthContext(birthData: {
     date: string;        // "2000-04-14"
     time: string;        // "15:17"
     location: {
@@ -29,7 +29,7 @@ export function calculateNatalContext(birthData: {
         country: string;
     };
     placements: { body: string; sign: string; house: number; }[];
-}): NatalContext {
+}): BirthContext {
     // Parse birth date and time
     const [year, month, day] = birthData.date.split("-").map(Number);
     const [hours, minutes] = birthData.time.split(":").map(Number);
@@ -46,7 +46,7 @@ export function calculateNatalContext(birthData: {
     );
 
     // Format into a token-efficient context block
-    const formatted = formatNatalContext(birthData, chart);
+    const formatted = formatBirthContext(birthData, chart);
 
     return { raw: chart, formatted };
 }
@@ -55,7 +55,7 @@ export function calculateNatalContext(birthData: {
  * Formats the calculated chart into a structured prompt context block.
  * Designed to be token-efficient (~200 tokens) while maximally informative.
  */
-function formatNatalContext(
+function formatBirthContext(
     birthData: {
         date: string;
         time: string;
@@ -66,7 +66,7 @@ function formatNatalContext(
 ): string {
     const lines: string[] = [];
 
-    lines.push("---NATAL CONTEXT---");
+    lines.push("---BIRTH CONTEXT---");
     lines.push(`Born: ${birthData.date} at ${birthData.time}, ${birthData.location.city}, ${birthData.location.country}`);
     const sunSign = birthData.placements.find(p => p.body === "Sun")?.sign || "Unknown";
     const moonSign = birthData.placements.find(p => p.body === "Moon")?.sign || "Unknown";
@@ -107,16 +107,16 @@ function formatNatalContext(
         lines.push(`Ascendant: ${chart.ascendant.signId} at ${chart.ascendant.longitude.toFixed(1)}°`);
     }
 
-    lines.push("---END NATAL CONTEXT---");
+    lines.push("---END BIRTH CONTEXT---");
 
     return lines.join("\n");
 }
 
 /**
- * Generates a degraded natal context when birth time is missing.
+ * Generates a degraded birth context when birth time is missing.
  * No ascendant, no house cusps, uses noon chart approximation.
  */
-export function calculateDegradedNatalContext(birthData: {
+export function calculateDegradedBirthContext(birthData: {
     date: string;
     location: {
         lat: number;
@@ -125,7 +125,7 @@ export function calculateDegradedNatalContext(birthData: {
         country: string;
     };
     placements: { body: string; sign: string; house: number; }[];
-}): NatalContext {
+}): BirthContext {
     const [year, month, day] = birthData.date.split("-").map(Number);
 
     // Use noon approximation
@@ -140,7 +140,7 @@ export function calculateDegradedNatalContext(birthData: {
     );
 
     const lines: string[] = [];
-    lines.push("---NATAL CONTEXT---");
+    lines.push("---BIRTH CONTEXT---");
     lines.push(`Born: ${birthData.date} (exact time unknown — noon chart approximation), ${birthData.location.city}, ${birthData.location.country}`);
     const sunSign = birthData.placements.find(p => p.body === "Sun")?.sign || "Unknown";
     const moonSign = birthData.placements.find(p => p.body === "Moon")?.sign || "Unknown";
@@ -163,7 +163,7 @@ export function calculateDegradedNatalContext(birthData: {
         }
     }
 
-    lines.push("---END NATAL CONTEXT---");
+    lines.push("---END BIRTH CONTEXT---");
 
     return { raw: chart, formatted: lines.join("\n") };
 }

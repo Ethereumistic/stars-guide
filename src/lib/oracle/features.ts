@@ -64,9 +64,9 @@ export const ORACLE_FEATURES: readonly OracleFeatureDefinition[] = [
     key: "birth_chart_full",
     label: "Deep birth chart analysis",
     shortLabel: "Deep birth chart analysis",
-    description: "Full natal chart analysis",
+    description: "Full birth chart analysis",
     defaultPrompt:
-      "Give me a deep analysis of my full birth chart using all of my natal placements.",
+      "Give me a deep analysis of my full birth chart using all of my birth placements.",
     menuGroup: "primary",
     implemented: true,
     requiresBirthData: true,

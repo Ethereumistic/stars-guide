@@ -640,6 +640,19 @@ export default defineSchema({
         .index("by_status", ["status"])
         .index("by_status_scheduledAt", ["status", "scheduledAt"])
         .index("by_createdBy", ["createdBy"]),
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // USERNAME MODERATION — Banned Patterns (DB-driven, zero-deploy updates)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // 22. BANNED USERNAME PATTERNS (Regex-based content moderation)
+    bannedPatterns: defineTable({
+        pattern: v.string(),              // Regex pattern string, e.g. "n[i1]gg[e3a@4]"
+        description: v.optional(v.string()), // Admin note, e.g. "N-word variants"
+        createdBy: v.id("users"),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    }),
 });
 
 

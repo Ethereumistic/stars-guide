@@ -1,12 +1,11 @@
 /**
- * Reserved usernames that cannot be registered.
+ * Route-conflict usernames that cannot be registered.
  *
- * These are blocked for two reasons:
- * 1. **Route conflicts** — usernames that would clash with app routes (Next.js
- *    static routes win, but the user's profile would become unreachable)
- * 2. **System / abuse** — platform-reserved names, admin paths, confusing terms
+ * This list ONLY contains names that would clash with app routes or
+ * system paths. Offensive / prohibited patterns live in the database
+ * (`bannedPatterns` table) so they can be updated without a deploy.
  *
- * All comparisons must be case-insensitive.
+ * All comparisons are case-insensitive.
  */
 
 // ─── App routes (must stay in sync with src/app directory) ───
@@ -24,7 +23,7 @@ const APP_ROUTES = [
   "terms",
   "admin",
 
-  // Learn sub-paths (someone might type /learn directly)
+  // Learn sub-paths
   "signs",
   "planets",
   "houses",
@@ -57,7 +56,7 @@ const APP_ROUTES = [
   "1",
 ] as const;
 
-// ─── Platform / confusion / abuse prevention ───
+// ─── Platform identity & confusion vectors ───
 const PLATFORM_RESERVED = [
   // Platform identity
   "stars",
@@ -65,7 +64,7 @@ const PLATFORM_RESERVED = [
   "stars_guide",
   "starsguideapp",
 
-  // Common confusion vectors
+  // Confusion vectors
   "admin",
   "administrator",
   "moderator",
@@ -92,28 +91,6 @@ const PLATFORM_RESERVED = [
   "news",
   "changelog",
   "status",
-
-  // Brand safety
-  "god",
-  "jesus",
-  "satan",
-  "devil",
-  "fuck",
-  "shit",
-  "ass",
-  "nazi",
-  "racist",
-  "nigger",
-  "nigga",
-  "faggot",
-  "fag",
-  "faggot",
-  "cunt",
-  "chink",
-  "kkk",
-  "snowflake",
-
-
 ] as const;
 
 // ─── Combine & deduplicate ───
@@ -121,7 +98,7 @@ const ALL_RESERVED = new Set(
   [...APP_ROUTES, ...PLATFORM_RESERVED].map((s) => s.toLowerCase()),
 );
 
-/** Check if a username is reserved. Case-insensitive. */
+/** Check if a username conflicts with a route or platform name. Case-insensitive. */
 export function isReservedUsername(username: string): boolean {
   return ALL_RESERVED.has(username.trim().toLowerCase());
 }
