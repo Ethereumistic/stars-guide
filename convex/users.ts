@@ -2,6 +2,7 @@ import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { buildStoredBirthData } from "../src/lib/birth-chart/storage";
+import { isReservedUsername } from "../src/lib/reserved-usernames";
 
 const dignityValidator = v.union(
     v.literal("domicile"),
@@ -197,8 +198,6 @@ export const updateProfile = mutation({
 
 export const updatePreferences = mutation({
     args: {
-        notifications: v.optional(v.boolean()),
-        publicChart: v.optional(v.boolean()),
         dailySparkTime: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
@@ -212,16 +211,177 @@ export const updatePreferences = mutation({
 
         const currentPrefs = user.preferences || {
             dailySparkTime: "07:00",
-            notifications: true
         };
 
         await ctx.db.patch(userId, {
             preferences: {
                 ...currentPrefs,
-                ...(args.notifications !== undefined && { notifications: args.notifications }),
                 ...(args.dailySparkTime !== undefined && { dailySparkTime: args.dailySparkTime }),
             },
         });
+    },
+});
+
+export const updateSettings = mutation({
+    args: {
+        publicChart: v.optional(v.number()),
+        notifications: v.optional(v.boolean()),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (userId === null) {
+            throw new Error("Not authenticated");
+        }
+
+        const user = await ctx.db.get(userId);
+        if (!user) throw new Error("User not found");
+
+        const currentSettings = user.settings || {
+            publicChart: 2,
+            notifications: true,
+        };
+
+        await ctx.db.patch(userId, {
+            settings: {
+                ...currentSettings,
+                ...(args.publicChart !== undefined && { publicChart: args.publicChart }),
+                ...(args.notifications !== undefined && { notifications: args.notifications }),
+            },
+        });
+    },
+});
+
+export const getStarsPageUser = query({
+    args: { username: v.string() },
+    handler: async (ctx, args) => {
+        // Always require authentication
+        const viewerId = await getAuthUserId(ctx);
+        if (!viewerId) {
+            return { access: "unauthenticated" as const };
+        }
+
+        // Lookup user by username
+        const targetUser = await ctx.db
+            .query("users")
+            .withIndex("by_username", (q) => q.eq("username", args.username))
+            .first();
+
+        if (!targetUser) {
+            return { access: "not_found" as const };
+        }
+
+        const publicChart = targetUser.settings?.publicChart ?? 2;
+
+        // Helper: return granted payload
+        const granted = () => ({
+            access: "granted" as const,
+            user: {
+                _id: targetUser._id,
+                username: targetUser.username,
+                image: targetUser.image,
+            },
+            birthData: targetUser.birthData ?? null,
+        });
+
+        // Public (2) — any authenticated user can view
+        if (publicChart === 2) {
+            return granted();
+        }
+
+        // Private (0) — nobody except the owner
+        if (publicChart === 0) {
+            if (viewerId === targetUser._id) {
+                return granted();
+            }
+            return { access: "private" as const };
+        }
+
+        // Friends Only (1) — owner always sees
+        if (viewerId === targetUser._id) {
+            return granted();
+        }
+
+        // Check if viewer and target are friends
+        const forward = await ctx.db
+            .query("friendships")
+            .withIndex("by_requester_addressee", (q) =>
+                q.eq("requesterId", viewerId).eq("addresseeId", targetUser._id)
+            )
+            .first();
+
+        const reverse = forward ? null : await ctx.db
+            .query("friendships")
+            .withIndex("by_requester_addressee", (q) =>
+                q.eq("requesterId", targetUser._id).eq("addresseeId", viewerId)
+            )
+            .first();
+
+        const friendship = forward || reverse;
+        const areFriends = !!friendship && friendship.status === "accepted";
+
+        if (areFriends) {
+            return granted();
+        }
+
+        return { access: "friends_only" as const };
+    },
+});
+
+/**
+ * One-time migration: moves preferences.notifications → settings.notifications,
+ * creates default settings for users who don't have them, and strips the
+ * legacy featureFlags field from all documents.
+ *
+ * Run once via: npx convex run users:migrateSettings
+ */
+export const migrateSettings = internalMutation({
+    args: {},
+    handler: async (ctx) => {
+        const users = await ctx.db.query("users").collect();
+        let migrated = 0;
+        let skipped = 0;
+
+        for (const user of users) {
+            const patches: any = {};
+            let needsPatch = false;
+
+            // --- 1. Strip legacy featureFlags ---
+            if ((user as any).featureFlags !== undefined) {
+                patches.featureFlags = undefined; // removes the field
+                needsPatch = true;
+            }
+
+            // --- 2. Migrate preferences.notifications → settings.notifications ---
+            if (!user.settings) {
+                // No settings yet — create from preferences.notifications or defaults
+                const notifications = (user.preferences as any)?.notifications ?? true;
+                patches.settings = {
+                    publicChart: 2,
+                    notifications,
+                };
+                needsPatch = true;
+
+                // Also strip notifications from preferences if present
+                if (user.preferences && "notifications" in user.preferences) {
+                    const { notifications: _, ...restPrefs } = user.preferences as any;
+                    patches.preferences = restPrefs;
+                }
+            } else if (user.preferences && "notifications" in user.preferences) {
+                // Settings exist but preferences still has stale notifications
+                const { notifications: _, ...restPrefs } = user.preferences as any;
+                patches.preferences = restPrefs;
+                needsPatch = true;
+            }
+
+            if (needsPatch) {
+                await ctx.db.patch(user._id, patches);
+                migrated++;
+            } else {
+                skipped++;
+            }
+        }
+
+        return { migrated, skipped, total: users.length };
     },
 });
 
@@ -265,6 +425,9 @@ export const checkUsernameAvailability = mutation({
         if (!/^[a-zA-Z0-9_]{1,15}$/.test(normalized)) {
             return { available: false, valid: false };
         }
+        if (isReservedUsername(normalized)) {
+            return { available: false, valid: true, reserved: true };
+        }
         const existing = await ctx.db
             .query("users")
             .withIndex("by_username", (q) => q.eq("username", normalized))
@@ -285,6 +448,10 @@ export const updateUsername = mutation({
         const normalized = args.username.trim();
         if (!/^[a-zA-Z0-9_]{1,15}$/.test(normalized)) {
             throw new Error("Invalid username format. Use 1-15 letters, numbers, and underscores.");
+        }
+
+        if (isReservedUsername(normalized)) {
+            throw new Error("This username is reserved and cannot be used.");
         }
 
         const COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;

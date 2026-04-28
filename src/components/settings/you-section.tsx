@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from "react"
-import { useMutation, useQuery } from "convex/react"
+import { useMutation } from "convex/react"
 import { api } from "@/../convex/_generated/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,6 +12,13 @@ import { SettingsSection } from "./settings-section"
 import { toast } from "sonner"
 import { useRateLimitStore } from "@/store/use-rate-limit-store"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import {
     User,
     Mail,
@@ -42,6 +49,7 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
     const updateProfile = useMutation(api.users.updateProfile)
     const updateUsername = useMutation(api.users.updateUsername)
     const updatePreferences = useMutation(api.users.updatePreferences)
+    const updateSettings = useMutation(api.users.updateSettings)
     const checkAvailability = useMutation(api.users.checkUsernameAvailability)
 
     // Edit states
@@ -51,6 +59,7 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
     const [editPhone, setEditPhone] = useState(user.phone || '')
     const [isSaving, setIsSaving] = useState(false)
     const [isAvailable, setIsAvailable] = useState<boolean | null>(null)
+    const [isReserved, setIsReserved] = useState(false)
     const [isChecking, setIsChecking] = useState(false)
 
     // Sync edit values when user changes
@@ -62,6 +71,7 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
     // Debounce & Check Availability
     useEffect(() => {
         setIsAvailable(null)
+        setIsReserved(false)
         let active = true;
         if (editUsername.length >= 3 && editUsername !== user.username) {
             const timer = setTimeout(() => {
@@ -80,7 +90,10 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
                 useRateLimitStore.getState().recordUsernameCheck();
                 checkAvailability({ username: editUsername })
                     .then(res => {
-                        if (active) setIsAvailable(res.available)
+                        if (active) {
+                            setIsAvailable(res.available)
+                            setIsReserved(res.reserved ?? false)
+                        }
                     })
                     .catch((err: any) => {
                         if (active) {
@@ -128,6 +141,8 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
                 toast.error("That username is already taken. Please choose another.");
             } else if (msg.includes("Invalid username format")) {
                 toast.error("Invalid format. Use 1-15 letters, numbers, and underscores.");
+            } else if (msg.includes("reserved")) {
+                toast.error("This username is reserved. Please choose another.");
             } else {
                 toast.error("Failed to update username. Please try again.");
             }
@@ -150,13 +165,24 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
         }
     }
 
+    // Handle change public chart visibility
+    const handleChangePublicChart = async (value: string) => {
+        try {
+            await updateSettings({ publicChart: parseInt(value, 10) })
+            const labels: Record<string, string> = { "0": "Private", "1": "Friends Only", "2": "Public" }
+            toast.success(`Chart visibility set to ${labels[value] ?? value}`)
+        } catch (error) {
+            toast.error("Failed to update chart visibility")
+        }
+    }
+
     // Handle toggle notifications
     const handleToggleNotifications = async (checked: boolean) => {
         try {
-            await updatePreferences({ notifications: checked })
+            await updateSettings({ notifications: checked })
             toast.success(checked ? "Notifications enabled" : "Notifications disabled")
         } catch (error) {
-            toast.error("Failed to update preferences")
+            toast.error("Failed to update settings")
         }
     }
 
@@ -200,7 +226,7 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
                                     variant="ghost"
                                     className="h-9 w-9 text-green-500 hover:text-green-600 hover:bg-green-500/10 shrink-0"
                                     onClick={handleSaveUsername}
-                                    disabled={isSaving || editUsername === user.username || editUsername.length < 3 || isAvailable === false || isChecking}
+                                    disabled={isSaving || editUsername === user.username || editUsername.length < 3 || isAvailable === false || isReserved || isChecking}
                                 >
                                     {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                                 </Button>
@@ -212,6 +238,7 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
                                         setIsEditingUsername(false)
                                         setEditUsername(user.username || '')
                                         setIsAvailable(null)
+                                        setIsReserved(false)
                                         setIsChecking(false)
                                     }}
                                 >
@@ -220,7 +247,8 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
                             </div>
                             <div className="text-xs pl-6 h-4 flex items-center">
                                 {isChecking && <span className="text-muted-foreground flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Checking availability...</span>}
-                                {!isChecking && editUsername !== user.username && editUsername.length >= 3 && isAvailable === false && <span className="text-destructive font-medium">Username unavailable or taken</span>}
+                                {!isChecking && editUsername !== user.username && editUsername.length >= 3 && isReserved && <span className="text-destructive font-medium">This username is reserved</span>}
+                                {!isChecking && editUsername !== user.username && editUsername.length >= 3 && !isReserved && isAvailable === false && <span className="text-destructive font-medium">Username unavailable or taken</span>}
                                 {!isChecking && editUsername !== user.username && editUsername.length >= 3 && isAvailable === true && <span className="text-green-500 font-medium">Username is available!</span>}
                                 {(editUsername === user.username || editUsername.length < 3) && <span className="text-muted-foreground">Max 15 chars. Letters, numbers, underscores only.</span>}
                             </div>
@@ -382,17 +410,29 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
 
             <Separator className="my-4" />
 
-            {/* Preferences */}
+            {/* Settings */}
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Globe className="h-4 w-4 text-muted-foreground" />
                         <div>
-                            <p className="text-sm font-medium">Public Chart</p>
-                            <p className="text-xs text-muted-foreground">Allow others to view your birth chart</p>
+                            <p className="text-sm font-medium">Chart Visibility</p>
+                            <p className="text-xs text-muted-foreground">Who can see your birth chart</p>
                         </div>
                     </div>
-                    <Switch />
+                    <Select
+                        value={String(user.settings?.publicChart ?? 2)}
+                        onValueChange={handleChangePublicChart}
+                    >
+                        <SelectTrigger className="w-[140px]">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="0">🔒 Private</SelectItem>
+                            <SelectItem value="1">👥 Friends Only</SelectItem>
+                            <SelectItem value="2">🌍 Public</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -404,7 +444,7 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
                         </div>
                     </div>
                     <Switch
-                        defaultChecked={user.preferences?.notifications ?? true}
+                        defaultChecked={user.settings?.notifications ?? true}
                         onCheckedChange={handleToggleNotifications}
                     />
                 </div>

@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import { GiScrollUnfurled } from "react-icons/gi";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Logo } from "@/components/ui/logo";
 
 interface JournalTopBarProps {
     showLogo: boolean;
@@ -21,16 +20,20 @@ export function JournalTopBar({ showLogo, centerCtaLabel }: JournalTopBarProps) 
                 <div className="flex items-center justify-between gap-2">
                     <div className="flex min-w-0 flex-1 items-center justify-start gap-2">
                         <SidebarTrigger className="h-9 w-9 border border-white/15 bg-background/60 text-foreground/70 hover:border-primary/40 hover:text-primary md:hidden transition-all duration-500" />
-                        <Link
-                            href="/"
-                            className={`min-w-0 transition-all duration-300 ${
+                        <div
+                            className={`flex min-w-0 items-center gap-2 transition-all duration-300 ${
                                 showLogo
                                     ? "translate-y-0 opacity-100 blur-0"
                                     : "-translate-y-1 opacity-0 blur-[2px]"
                             }`}
                         >
-                            <Logo size="xs" variant="logo" />
-                        </Link>
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-galactic/30 bg-galactic/15 text-galactic">
+                                <GiScrollUnfurled className="h-5 w-5" />
+                            </div>
+                            <span className="truncate text-xs font-serif italic tracking-wide lowercase text-foreground/70">
+                                Journal
+                            </span>
+                        </div>
                     </div>
 
                     <div className="flex flex-1 items-center justify-center">

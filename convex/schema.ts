@@ -44,17 +44,25 @@ export default defineSchema({
             v.literal("moderator")
         ),
 
-        // Feature Flags (Smart Rollout)
-        featureFlags: v.optional(v.object({
-            canAccessOracle: v.optional(v.boolean()), // Gate for heavy AI usage
-            isBetaTester: v.optional(v.boolean()),
+        // User Settings (Privacy & Notifications)
+        settings: v.optional(v.object({
+            publicChart: v.number(), // 0=Private, 1=Friends Only, 2=Public (default 2)
+            notifications: v.boolean(),
         })),
+
+        // [MIGRATION] featureFlags is deprecated — replaced by settings.
+        // Kept as optional(v.any()) here temporarily so existing docs pass schema validation.
+        // After running migrateSettings, this field can be removed entirely.
+        featureFlags: v.optional(v.any()),
 
         // User Preferences
         preferences: v.optional(v.object({
             dailySparkTime: v.string(), // "07:00"
-            notifications: v.boolean(),
             theme: v.optional(v.union(v.literal("light"), v.literal("dark"), v.literal("system"))),
+            // [MIGRATION] notifications is being moved to settings.
+            // Kept as optional here temporarily so existing docs pass schema validation.
+            // After running migrateSettings, this field can be removed entirely.
+            notifications: v.optional(v.boolean()),
         })),
 
         // --- The "Static Core" (Astronomical Data) ---

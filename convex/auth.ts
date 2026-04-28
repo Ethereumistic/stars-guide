@@ -78,12 +78,11 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
                 subscriptionStatus: "none",
                 preferences: {
                     dailySparkTime: "07:00",
-                    notifications: true,
                     theme: "dark"
                 },
-                featureFlags: {
-                    canAccessOracle: false,
-                    isBetaTester: false
+                settings: {
+                    publicChart: 2,
+                    notifications: true
                 }
             });
 
