@@ -371,6 +371,7 @@ export default defineSchema({
         primaryModelUsed: v.optional(v.string()),
         // Was fallback triggered?
         usedFallback: v.optional(v.boolean()),
+        birthChartDepth: v.optional(v.union(v.literal("core"), v.literal("full"))),
         starType: v.optional(v.union(v.literal("beveled"), v.literal("cursed"))), // Two pin tiers: cursed > beveled
         createdAt: v.number(),
         updatedAt: v.number(),

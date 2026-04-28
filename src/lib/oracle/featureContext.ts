@@ -1,4 +1,4 @@
-import type { OracleFeatureKey } from "./features"
+import type { OracleFeatureKey, BirthChartDepth } from "./features"
 import type {
   LegacyPlacement,
   StoredBirthData,
@@ -137,20 +137,64 @@ function formatAspectLine(aspect: StoredChartAspect): string {
   return `- ${getBodyLabel(aspect.planet1)} ${aspect.type} ${getBodyLabel(aspect.planet2)} (orb ${aspect.orb.toFixed(2)}°)`
 }
 
-function buildCoreFeatureContext(birthData: OracleBirthData): string {
+// ── Universal Birth Context Builder ──────────────────────────────────────────
+// ALWAYS returns the full chart regardless of depth.
+// The instruction block (not data) controls what the AI focuses on.
+
+export function buildUniversalBirthContext(birthData: OracleBirthData): string {
   const lines = [
-    "[BIRTH CHART ANALYSIS MODE]",
-    "You are performing a Birth Chart Core analysis. The user's Sun, Moon, Ascendant, and key aspects are provided below.",
+    "Treat the stored chart data below as canonical truth. Do not invent different signs, houses, or aspects.",
+    ...formatBirthHeader(birthData),
     "",
-    "Reading instructions:",
-    "- Focus on how the Big Three (Sun, Moon, Ascendant) interact as a triad — not in isolation.",
-    "- Explain each house placement — the house IS the context, the sign is the style.",
-    "- For aspects, prioritize the tightest orbs. Name what the aspect creates in the person's life, not just what it \"means.\"",
-    "- Identify the primary tension or friction point and name it directly.",
-    "- If a placement is in domicile, exaltation, detriment, or fall, mention it and explain the practical impact.",
-    "- Express genuine uncertainty when the chart is ambiguous or multiple interpretations are valid.",
-    "- In ongoing conversations, refer back to what you have already established. Do not contradict your own previous reading.",
-    "- When you do not have specific chart data for a placement the user asks about, say plainly that the data is not available. Never fabricate or infer placements from other placements.",
+    "Canonical stored placements:",
+  ]
+
+  const placements = getAllPlacements(birthData)
+  if (placements.length === 0) {
+    lines.push("- No placements were stored for this user.")
+  } else {
+    lines.push(...placements.map(formatPlacementLine))
+  }
+
+  if (birthData.chart?.houses.length) {
+    lines.push("")
+    lines.push("House signatures:")
+    lines.push(
+      birthData.chart.houses
+        .map((h) => `H${h.id}:${getSignName(h.signId)}`)
+        .join(" | "),
+    )
+  }
+
+  if (birthData.chart?.aspects.length) {
+    lines.push("")
+    lines.push("Stored aspects:")
+    lines.push(
+      ...birthData.chart.aspects
+        .slice()
+        .sort((a, b) => a.orb - b.orb)
+        .slice(0, 8)
+        .map(formatAspectLine),
+    )
+  }
+
+  lines.push("")
+  return lines.join("\n")
+}
+
+// ── Depth-Specific Instruction Blocks ────────────────────────────────────────
+// These are injected into the system prompt based on session.birthChartDepth.
+// The birth DATA is the same for both depths — only instructions differ.
+
+function getCoreDepthInstructions(): string {
+  return [
+    "[BIRTH CHART READING — CORE DEPTH]",
+    "Focus on how the Big Three (Sun, Moon, Ascendant) interact as a triad — not in isolation.",
+    "Explain each house placement — the house IS the context, the sign is the style.",
+    "For aspects, prioritize the tightest orbs. Name what the aspect creates in the person's life.",
+    "Identify the primary tension or friction point and name it directly.",
+    "Express genuine uncertainty when the chart is ambiguous.",
+    "When you do not have specific chart data for a placement, say plainly that the data is not available.",
     "",
     "Output format — follow this skeleton:",
     "## 1. [Chart Ruler / Core Identity]",
@@ -181,112 +225,70 @@ function buildCoreFeatureContext(birthData: OracleBirthData): string {
     "",
     "[One closing question that invites reflection.]",
     "",
-    "Treat the stored chart data below as canonical truth. Do not invent different signs, houses, or aspects.",
-    ...formatBirthHeader(birthData),
+    "[END BIRTH CHART READING — CORE DEPTH]",
+  ].join("\n")
+}
+
+function getFullDepthInstructions(): string {
+  return [
+    "[BIRTH CHART READING — FULL DEPTH]",
+    "Give a layered interpretation of the full chart while staying anchored to the stored placements.",
+    "Prioritize deeper synthesis: themes, clusters, houses, aspects, Nodes, Part of Fortune.",
+    "Identify the primary tension AND the primary gift. Name both directly.",
+    "Express genuine uncertainty when the chart is ambiguous.",
+    "When you do not have specific chart data for a placement, say plainly that the data is not available.",
     "",
-    "Canonical primary placements:",
-  ]
+    "[END BIRTH CHART READING — FULL DEPTH]",
+  ].join("\n")
+}
 
-  const corePlacements = ["Sun", "Moon", "Ascendant"]
-    .map((body) => getPlacement(birthData, body))
-    .filter((placement): placement is PlacementSummary => placement !== null)
+/**
+ * Get the instruction block for a given birth chart depth.
+ * Returns the instruction text, or undefined if depth is not applicable.
+ */
+export function getBirthChartDepthInstructions(depth: BirthChartDepth): string {
+  return depth === "full" ? getFullDepthInstructions() : getCoreDepthInstructions()
+}
 
-  if (corePlacements.length === 0) {
-    lines.push("- No Sun, Moon, or Ascendant placements were stored for this user.")
-  } else {
-    lines.push(...corePlacements.map(formatPlacementLine))
-  }
+/**
+ * Get default birth chart instructions for when no DB injection exists.
+ */
+export function getDefaultBirthInstructions(depth: BirthChartDepth): string {
+  return getBirthChartDepthInstructions(depth)
+}
 
-  if (birthData.chart?.aspects.length) {
-    lines.push("")
-    lines.push("Most relevant stored aspects:")
-    lines.push(
-      ...birthData.chart.aspects
-        .slice()
-        .sort((a, b) => a.orb - b.orb)
-        .slice(0, 4)
-        .map(formatAspectLine),
-    )
-  }
+// ── Legacy feature context builder ──────────────────────────────────────────
+// Kept for backward compatibility with any code that still calls buildFeatureContext.
+// Now delegates to the universal context builder for birth chart features.
 
-  lines.push("")
-  lines.push("[END FEATURE CONTEXT]")
-
-  return lines.join("\n")
+function buildCoreFeatureContext(birthData: OracleBirthData): string {
+  const instructions = getCoreDepthInstructions()
+  const data = buildUniversalBirthContext(birthData)
+  return `${instructions}\n\n${data}`
 }
 
 function buildFullFeatureContext(birthData: OracleBirthData): string {
-  const lines = [
-    "[DEEP BIRTH CHART ANALYSIS MODE]",
-    "You are performing a Deep Birth Chart analysis. The user's full birth placements are provided below.",
-    "",
-    "Reading instructions:",
-    "- Give a layered interpretation of the full chart while staying anchored to the stored placements, houses, and aspects.",
-    "- Prioritize deeper synthesis with special attention to repeated themes, clusters, houses, aspects, Nodes, and Part of Fortune when present.",
-    "- Explain each house placement — the house IS the context, the sign is the style.",
-    "- For aspects, prioritize the tightest orbs. Name what the aspect creates in the person's life.",
-    "- Identify the primary tension AND the primary gift. Name both directly.",
-    "- If a placement is in domicile, exaltation, detriment, or fall, mention it and explain the practical impact.",
-    "- Express genuine uncertainty when the chart is ambiguous or multiple interpretations are valid.",
-    "- In ongoing conversations, refer back to what you have already established. Do not contradict your own previous reading.",
-    "- When you do not have specific chart data for a placement the user asks about, say plainly that the data is not available. Never fabricate or infer placements.",
-    "",
-    "Treat the stored chart data below as canonical truth. Do not override it with model guesses.",
-    ...formatBirthHeader(birthData),
-    "",
-    "Canonical stored placements:",
-  ]
-
-  const placements = getAllPlacements(birthData)
-
-  if (placements.length === 0) {
-    lines.push("- No placements were stored for this user.")
-  } else {
-    lines.push(...placements.map(formatPlacementLine))
-  }
-
-  if (birthData.chart?.houses.length) {
-    lines.push("")
-    lines.push("House signatures:")
-    lines.push(
-      birthData.chart.houses
-        .map((house) => `H${house.id}:${getSignName(house.signId)}`)
-        .join(" | "),
-    )
-  }
-
-  if (birthData.chart?.aspects.length) {
-    lines.push("")
-    lines.push("Stored aspects:")
-    lines.push(
-      ...birthData.chart.aspects
-        .slice()
-        .sort((a, b) => a.orb - b.orb)
-        .slice(0, 8)
-        .map(formatAspectLine),
-    )
-  }
-
-  lines.push("")
-  lines.push(
-    "Reading scope: give a layered interpretation of the full chart while staying anchored to the stored placements, houses, and aspects above.",
-  )
-  lines.push("[END FEATURE CONTEXT]")
-
-  return lines.join("\n")
+  const instructions = getFullDepthInstructions()
+  const data = buildUniversalBirthContext(birthData)
+  return `${instructions}\n\n${data}`
 }
 
+/**
+ * Build feature-specific context for legacy call sites.
+ * For birth_chart features, this now returns full data + depth-appropriate instructions.
+ * Handles old feature keys (birth_chart_core, birth_chart_full) for backward compat.
+ * For other features, returns an empty string.
+ */
 export function buildFeatureContext(
-  featureKey: OracleFeatureKey,
+  featureKey: OracleFeatureKey | string,
   birthData: OracleBirthData,
 ): string {
-  switch (featureKey) {
-    case "birth_chart_core":
-      return buildCoreFeatureContext(birthData)
-    case "birth_chart_full":
-      return buildFullFeatureContext(birthData)
-    default:
-      return ""
+  // Handle both the new unified key and legacy keys from sessions created before v2
+  if (featureKey === "birth_chart" || featureKey === "birth_chart_core") {
+    return buildCoreFeatureContext(birthData)
   }
+  if (featureKey === "birth_chart_full") {
+    return buildFullFeatureContext(birthData)
+  }
+  return ""
 }
-

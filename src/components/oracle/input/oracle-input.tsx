@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Paperclip, Plus, Send, Sparkles, Wand2, X, Lock } from "lucide-react"
+import { Plus, Send, Sparkles, Wand2, X } from "lucide-react"
 import { useQuery } from "convex/react"
 import { api } from "../../../../convex/_generated/api"
 

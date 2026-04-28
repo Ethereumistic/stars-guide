@@ -176,6 +176,19 @@ export const updateSessionFeature = mutation({
     },
 });
 
+export const updateSessionBirthChartDepth = internalMutation({
+    args: {
+        sessionId: v.id("oracle_sessions"),
+        depth: v.union(v.literal("core"), v.literal("full")),
+    },
+    handler: async (ctx, { sessionId, depth }) => {
+        await ctx.db.patch(sessionId, {
+            birthChartDepth: depth,
+            updatedAt: Date.now(),
+        });
+    },
+});
+
 export const createStreamingMessage = internalMutation({
     args: { sessionId: v.id("oracle_sessions") },
     handler: async (ctx, { sessionId }) => {

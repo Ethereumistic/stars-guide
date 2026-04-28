@@ -10,11 +10,15 @@ import {
   parseJournalPromptFromResponse,
   deriveTitleFromContent,
 } from "../../lib/oracle/promptBuilder";
-import { buildFeatureContext } from "../../lib/oracle/featureContext";
+import {
+  buildUniversalBirthContext,
+  getBirthChartDepthInstructions,
+} from "../../lib/oracle/featureContext";
 import {
   getOracleFeature,
   isOracleFeatureKey,
-  classifyUserIntent,
+  classifyOracleToolIntent,
+  type BirthChartDepth,
 } from "../../lib/oracle/features";
 import { buildTimespaceContext } from "./timespace";
 import {
@@ -154,53 +158,98 @@ export const invokeOracle = action({
       {},
     );
 
-    // ── Build feature injection and birth context ─────────────────────────
-    let featureInjection = "";
-    let birthContext = "";
-    let journalContext: string | null = null;
-
-    // Always fetch user data early so intent classifier can check for birth data
+    // ── Load user ──────────────────────────────────────────────────────────
     const user = await ctx.runQuery(api.users.current, {});
 
-    let activeFeature = isOracleFeatureKey(session.featureKey)
-      ? getOracleFeature(session.featureKey)
-      : null;
+    // ── Universal birth context (always inject full data if available) ──────
+    let birthContext = "";
+    if (user?.birthData) {
+      birthContext = buildUniversalBirthContext(user.birthData);
+    }
 
-    // ── Implicit feature activation (intent classification) ────────────────
-    if (!activeFeature) {
-      const intent = classifyUserIntent(
-        args.userQuestion,
-        session.featureKey ?? null,
-        Boolean(user?.birthData),
-      );
-
-      if (intent.autoFeatureKey) {
-        // Auto-activate the feature on the session
-        await ctx.runMutation(api.oracle.sessions.updateSessionFeature, {
+    // ── Determine active feature ────────────────────────────────────────
+    // Handle legacy feature keys from sessions created before v2
+    let resolvedFeatureKey = session.featureKey;
+    if (resolvedFeatureKey === "birth_chart_core" || resolvedFeatureKey === "birth_chart_full") {
+      resolvedFeatureKey = "birth_chart";
+      // Patch the session to the new key so next call doesn't need migration
+      await ctx.runMutation(api.oracle.sessions.updateSessionFeature, {
+        sessionId: args.sessionId,
+        featureKey: "birth_chart",
+      });
+      // Also set depth from legacy key
+      const legacyDepth: BirthChartDepth = session.featureKey === "birth_chart_full" ? "full" : "core";
+      if (!session.birthChartDepth) {
+        await ctx.runMutation(internal.oracle.sessions.updateSessionBirthChartDepth, {
           sessionId: args.sessionId,
-          featureKey: intent.autoFeatureKey,
+          depth: legacyDepth,
         });
-        activeFeature = getOracleFeature(intent.autoFeatureKey);
       }
     }
 
+    let activeFeature = isOracleFeatureKey(resolvedFeatureKey)
+      ? getOracleFeature(resolvedFeatureKey)
+      : null;
+
+    // ── Implicit feature activation (intent classification) ────────────────
+    // Fetch journal consent for the classifier
+    let hasJournalConsent = false;
+    if (user?._id) {
+      try {
+        const consent = await ctx.runQuery(api.journal.consent.getConsent, {});
+        hasJournalConsent = consent?.oracleCanReadJournal === true;
+      } catch (e) {
+        console.error("Journal consent check failed (non-blocking):", e);
+      }
+    }
+
+    if (!activeFeature) {
+      const intent = classifyOracleToolIntent(
+        args.userQuestion,
+        session.featureKey ?? null,
+        Boolean(user?.birthData),
+        hasJournalConsent,
+      );
+
+      if (intent.featureKey) {
+        // Auto-activate the feature on the session
+        await ctx.runMutation(api.oracle.sessions.updateSessionFeature, {
+          sessionId: args.sessionId,
+          featureKey: intent.featureKey,
+        });
+        // If birth_chart with depth, persist that too
+        if (intent.depth) {
+          await ctx.runMutation(internal.oracle.sessions.updateSessionBirthChartDepth, {
+            sessionId: args.sessionId,
+            depth: intent.depth,
+          });
+        }
+        activeFeature = getOracleFeature(intent.featureKey);
+      }
+    }
+
+    // ── Build feature injection (dynamic depth for birth_chart) ──────────────
+    let featureInjection = "";
     if (activeFeature) {
-      const featureRecord = await ctx.runQuery(api.oracle.features.getFeatureInjection, {
-        featureKey: activeFeature.key,
-      });
+      if (activeFeature.key === "birth_chart") {
+        // Birth chart uses depth-specific instructions (separate from data)
+        const depth: BirthChartDepth = session.birthChartDepth ?? "core";
 
-      featureInjection = featureRecord?.contextText ?? activeFeature.fallbackInjectionText ?? "";
-
-      if (activeFeature.requiresBirthData && user?.birthData) {
-        birthContext = buildFeatureContext(activeFeature.key, user.birthData);
-      } else if (activeFeature.requiresBirthData) {
-        birthContext = [
-          "[BIRTH CHART ANALYSIS MODE]",
-          `Feature: ${activeFeature.label}`,
-          "Birth data status: unavailable for this user.",
-          "Do not pretend you know their chart. Say plainly that the birth chart data is missing.",
-          "[END BIRTH CHART ANALYSIS MODE]",
-        ].join("\n");
+        // Try DB injection first (admin-editable), fall back to hardcoded
+        try {
+          const depthRecord = await ctx.runQuery(api.oracle.features.getFeatureInjection, {
+            featureKey: `birth_chart_depth_${depth}`,
+          });
+          featureInjection = depthRecord?.contextText ?? getBirthChartDepthInstructions(depth);
+        } catch (e) {
+          featureInjection = getBirthChartDepthInstructions(depth);
+        }
+      } else {
+        // Other features use their standard injection text
+        const featureRecord = await ctx.runQuery(api.oracle.features.getFeatureInjection, {
+          featureKey: activeFeature.key,
+        });
+        featureInjection = featureRecord?.contextText ?? activeFeature.fallbackInjectionText ?? "";
       }
     }
 
@@ -210,9 +259,12 @@ export const invokeOracle = action({
     );
 
     // ── Journal context assembly (non-blocking) ──────────────────────────────
+    // Journal context is now ALWAYS injected if consent is granted,
+    // regardless of which feature is active. Cosmic Recall sessions get expanded budget.
     const isCosmicRecall = activeFeature?.key === "journal_recall";
+    let journalContext: string | null = null;
     try {
-      if (user?._id) {
+      if (user?._id && hasJournalConsent) {
         journalContext = await ctx.runQuery(
           internal.journal.context.assembleJournalContext,
           { userId: user._id, expandedBudget: isCosmicRecall },
