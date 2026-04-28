@@ -61,7 +61,7 @@ export function PlanetSignCard({
                 className="perspective-[1000px] w-full"
             >
                 {/* 3D container */}
-                <div className="relative w-full h-[500px] sm:h-[550px] transition-all duration-700 hover:scale-[1.02]">
+                <div className="relative w-full h-[500px] sm:h-[550px] transition-all duration-700">
                     <motion.div
                         className="w-full h-full relative"
                         style={{ transformStyle: "preserve-3d" }}
@@ -77,15 +77,12 @@ export function PlanetSignCard({
                                 onClick={() => setIsFlipped(true)}
                                 className="group relative block w-full h-full cursor-pointer"
                             >
-                                <Card className="relative h-full overflow-hidden rounded-2xl bg-transparent border-0 shadow-none">
+                                <Card className="relative h-full overflow-hidden rounded-2xl bg-transparent border-0 shadow-none select-none">
                                     {/* Card background with gradient */}
                                     <div
                                         className="absolute inset-0 backdrop-blur-[0.5px]"
                                         style={{
                                             background: `linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%)`,
-                                            borderWidth: '1px',
-                                            borderStyle: 'solid',
-                                            borderImage: `linear-gradient(135deg, ${styles.border}, transparent) 1`
                                         }}
                                     />
 
@@ -238,7 +235,7 @@ export function PlanetSignCard({
                             }}
                         >
                             <Card
-                                className="relative h-full overflow-hidden rounded-2xl bg-transparent border-0 shadow-none transition-all duration-700 cursor-pointer"
+                                className="relative h-full overflow-hidden rounded-2xl bg-transparent border-0 shadow-none transition-all duration-700 cursor-pointer select-none"
                                 onClick={() => setIsFlipped(false)}
                             >
                                 {/* Back card background */}
@@ -246,9 +243,6 @@ export function PlanetSignCard({
                                     className="absolute inset-0 backdrop-blur-[0.5px]"
                                     style={{
                                         background: `linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%)`,
-                                        borderWidth: '1px',
-                                        borderStyle: 'solid',
-                                        borderImage: `linear-gradient(135deg, ${styles.border}, transparent) 1`
                                     }}
                                 />
 

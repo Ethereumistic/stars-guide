@@ -90,7 +90,7 @@ export default function DashboardPage() {
                 </motion.div>
 
                 {/* Main Signs Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <SignCardV2
                         label="☉ Sun Sign"
                         data={sunData}
@@ -109,7 +109,7 @@ export default function DashboardPage() {
                         ui={risingUI}
                         delay={0.3}
                     />
-                </div>
+                </div> */}
 
                 {/* Planetary Placements Carousel */}
                 {birthData.placements && birthData.placements.length > 0 && (

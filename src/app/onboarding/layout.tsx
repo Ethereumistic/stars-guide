@@ -5,22 +5,14 @@ import { Logo } from "@/components/ui/logo"
 import { ShootingStars } from "@/components/hero/shooting-stars"
 import { StarsBackground } from "@/components/hero/stars-background"
 import { motion } from "motion/react"
-import { useOnboardingStore } from "@/store/use-onboarding-store"
 
 export default function OnboardingLayout({
     children,
 }: {
     children: React.ReactNode
 }) {
-    const { step } = useOnboardingStore()
-
-    // Steps that need scrolling on mobile (content-heavy)
-    // Steps 1-4, 8, 9 are compact and centered nicely
-    // Steps 5-6 (detective), 7 (calculation), 10 (reveal) need scroll room
-    const needsScroll = step === 2 || step === 5 || step === 6 || step === 7 || step === 10
-
     return (
-        <div className="fixed inset-0 z-50 flex flex-col bg-background overflow-hidden">
+        <div className="fixed inset-0 z-50 flex flex-col bg-background overflow-hidden select-none">
             {/* Background effects */}
             <div className="fixed inset-0 z-0">
                 <ShootingStars
@@ -45,20 +37,19 @@ export default function OnboardingLayout({
                 <Logo size="sm" variant="logo" layout="horizontal_right" />
             </div>
 
-            {/* Content area */}
-            <div className={`relative z-10 flex-1 flex px-4 ${
-                needsScroll
-                    ? 'items-start overflow-y-auto md:items-center md:overflow-hidden py-4 md:py-0'
-                    : 'items-center justify-center overflow-hidden'
-            }`}>
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.5, ease: "easeOut" }}
-                    className={`w-full ${needsScroll ? 'max-w-7xl' : 'max-w-7xl'}`}
-                >
-                    {children}
-                </motion.div>
+            {/* Content area — centers content vertically & horizontally,
+                scrolls naturally on small screens when content overflows */}
+            <div className="relative z-10 flex-1 overflow-y-auto">
+                <div className="min-h-full flex items-center justify-center px-4 py-4">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.5, ease: "easeOut" }}
+                        className="w-full max-w-7xl mx-auto"
+                    >
+                        {children}
+                    </motion.div>
+                </div>
             </div>
 
             {/* Decorative vignette */}

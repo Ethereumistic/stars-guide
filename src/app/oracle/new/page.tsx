@@ -30,7 +30,7 @@ export default function OracleNewPage() {
     } = useOracleStore();
 
     const quota = useQuery(api.oracle.quota.checkQuota);
-    const killSwitch = useQuery(api.oracle.settings.getSetting, { key: "kill_switch" });
+    const killSwitch = useQuery(api.oracle.settings.getSettingPublic, { key: "kill_switch" });
     const isOracleOffline = killSwitch?.value === "true";
 
     const createSession = useMutation(api.oracle.sessions.createSession);

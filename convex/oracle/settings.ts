@@ -34,9 +34,23 @@ export const getSetting = query({
 
 /**
  * Internal version of getSetting — no admin guard.
- * Used by invokeOracle action to read runtime config on behalf of regular users.
+ * Used internally by Convex functions (llm.ts) for runtime config.
  */
 export const getSettingInternal = internalQuery({
+  args: { key: v.string() },
+  handler: async (ctx, { key }) => {
+    return await ctx.db
+      .query("oracle_settings")
+      .withIndex("by_key", (q) => q.eq("key", key))
+      .first();
+  },
+});
+
+/**
+ * Public version of getSetting — no admin guard.
+ * Used by client-side code for runtime config (e.g., kill switch check).
+ */
+export const getSettingPublic = query({
   args: { key: v.string() },
   handler: async (ctx, { key }) => {
     return await ctx.db

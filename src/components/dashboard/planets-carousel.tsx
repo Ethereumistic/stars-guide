@@ -112,7 +112,7 @@ export function PlanetsCarousel({ placements, delay = 0 }: PlanetsCarouselProps)
             </div>
 
             {/* ── Carousel (all breakpoints) ── */}
-            <div className="overflow-hidden" ref={emblaRef}>
+            <div className="overflow-hidden select-none" ref={emblaRef}>
                 <div className="flex gap-4" style={{ touchAction: "pan-y" }}>
                     {cardData.map((d) => (
                         <div
@@ -120,7 +120,7 @@ export function PlanetsCarousel({ placements, delay = 0 }: PlanetsCarouselProps)
                             className="flex-none min-w-0
                                 w-[80%]
                                 sm:w-[48%]
-                                md:w-[31%]
+                                md:w-[25%]
                             "
                         >
                             <PlanetSignCard

@@ -2,6 +2,26 @@ import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
+// Default quota limits by plan
+const DEFAULT_QUOTA_LIMITS: Record<string, number> = {
+    free: 5,       // Lifetime questions
+    popular: 5,    // Daily questions
+    premium: 10,   // Daily questions
+    moderator: 999,
+    admin: 999,
+    user: 5,       // Fallback for generic "user" role
+};
+
+// Default reset types by plan
+const DEFAULT_QUOTA_RESET: Record<string, string> = {
+    free: "never",        // Lifetime limit
+    popular: "daily",
+    premium: "daily",
+    moderator: "daily",
+    admin: "daily",
+    user: "never",        // Fallback for generic "user" role
+};
+
 // ─── PUBLIC QUERY ─────────────────────────────────────────────────────────
 
 /**
@@ -35,8 +55,8 @@ export const checkQuota = query({
             .withIndex("by_key", (q) => q.eq("key", resetTypeKey))
             .first();
 
-        const limit = limitSetting ? parseInt(limitSetting.value) : 0;
-        const resetType = resetTypeSetting?.value ?? "never";
+        const limit = limitSetting ? parseInt(limitSetting.value) : (DEFAULT_QUOTA_LIMITS[plan] ?? 0);
+        const resetType = resetTypeSetting?.value ?? (DEFAULT_QUOTA_RESET[plan] ?? "never");
 
         const usage = await ctx.db
             .query("oracle_quota_usage")
@@ -93,7 +113,7 @@ export const incrementQuota = mutation({
             .query("oracle_settings")
             .withIndex("by_key", (q) => q.eq("key", `quota_reset_${plan}`))
             .first();
-        const resetType = resetTypeSetting?.value ?? "never";
+        const resetType = resetTypeSetting?.value ?? (DEFAULT_QUOTA_RESET[plan] ?? "never");
 
         const now = Date.now();
         const existing = await ctx.db
