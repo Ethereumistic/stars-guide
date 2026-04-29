@@ -162,40 +162,73 @@ export interface ToolIntentResult {
 }
 
 /**
- * Regex patterns for deep/full birth chart readings.
- * More specific — checked before core patterns.
- * If the user explicitly asks for "deep", "full", "all placements", specific
- * planets beyond the Big Three, houses, or aspects → classify as full depth.
+ * Phase 1 patterns: Does the question express ANY birth chart intent?
+ *
+ * These are intentionally broad — they catch any mention of a chart
+ * in a reading/analysis context. We handle common typos like
+ * "brith chart" here so they aren't lost before we even get started.
+ * Once chart intent is detected, we proceed to Phase 2 (depth signals)
+ * to decide between core and full.
+ *
+ * Note: Some depth-signal phrases ALSO express chart intent on their own.
+ * For example, "Venus in my chart" or "what about my nodes" are both
+ * chart questions AND signals for full depth. These are included here
+ * so they get caught as chart-intent first, then the same patterns
+ * in DEPTH_SIGNAL_FULL_PATTERNS will also match, yielding full depth.
  */
-const BIRTH_CHART_FULL_PATTERNS: RegExp[] = [
-  /\b(deep|full|complete|detailed|thorough|comprehensive|layered)\s+(analysis|reading|interpretation|dive)\s+(of\s+)?my\s+(chart|birth\s*chart|natal\s*chart)/i,
-  /\b(deep\s*dive|go\s+deep|deep\s*reading)\s+(into\s+)?my\s+(chart|birth\s*chart|natal\s*chart|placements)/i,
-  /\b(all\s+(my\s+)?placements|every\s+placement|full\s+natal|entire\s+chart)\b/i,
-  /\b(read|analyze|interpret)\s+my\s+(entire|whole|full)\s+(chart|birth\s*chart|natal\s*chart)/i,
-  /\b(venus|mars|mercury|jupiter|saturn|uranus|neptune|pluto)\s+(in\s+my\s+chart|placement|house)/i,
-  /\bwhat\s+about\s+my\s+(nodes|north\s+node|south\s+node|part\s+of\s+fortune|chiron)\b/i,
-  /\bmy\s+(houses|house\s+placements|house\s+signatures)\b/i,
-  /\b(aspects|conjunction|trine|square|opposition|sextile)\s+in\s+my\s+chart\b/i,
+const BIRTH_CHART_INTENT_PATTERNS: RegExp[] = [
+  // Action verb + chart reference (handles word-order variations)
+  /\b(analy[sz]e|read|interpret|explain|review|look\s+at|do|give\s+me|get|show|tell\s+me\s+about)\b.*\b(birth\s*chart|brith\s*chart|natal\s*chart|chart)\b/i,
+  // Chart reference + action noun (reversed word order)
+  /\b(birth\s*chart|brith\s*chart|natal\s*chart|natal)\b.*\b(analysis|reading|interpretation|look|overview|deep|full|detailed|in\s+depth)\b/i,
+  // Possessive + chart (including bare "my chart" and typos)
+  /\bmy\s+?(birth\s*chart|brith\s*chart|natal\s*chart|chart)\b/i,
+  /\bread\s+my\s+(chart|birth\s*chart|natal\s*chart)/i,
+  // "what does my chart..."
+  /\bwhat\b.*\bmy\s*(chart|placements|stars|birth\s*chart)\b/i,
+  /\bwhat\s+(does|do)\s+my\s+(chart|placements|stars)\b/i,
+  // "dive/deep dive into my chart"
+  /\b(dive|deep\s*dive|go\s+deep)\s+into\s+my\s+(chart|placements|birth\s*chart)/i,
+  // Specific planet + chart/house/placement IS a chart question
+  // Note: deliberately excludes bare "sign" — "what is my sun sign" is a horoscope
+  // question, not a chart reading request. If the user wants chart analysis, they
+  // say "chart", "house", "placement", or "natal".
+  /\b(sun|moon|venus|mars|mercury|jupiter|saturn|uranus|neptune|pluto|ascendant|rising|nodes|north\s+node|south\s+node|chiron|part\s+of\s+fortune|midheaven)\b.*\b(chart|house|placement|natal)\b/i,
+  /\b(chart|natal)\b.*\b(sun|moon|venus|mars|mercury|jupiter|saturn|uranus|neptune|pluto|ascendant|rising|nodes|chiron)\b/i,
+  // Structural chart topics that inherently express chart intent
+  /\b(aspects?|conjunction|trine|square|opposition|sextile)\s+(in\s+)?my\s+chart\b/i,
+  /\bmy\s+(houses?|house\s+placements?|house\s+signatures?)\b/i,
+  /\bwhat\s+about\s+my\s+(nodes|north\s+node|south\s+node|part\s+of\s+fortune|chiron|houses?|placements?|aspects?)\b/i,
+  /\b(chart\s+ruler|dispositor|domicile|detriment|exaltation|fall\s*\b)/i,
   /\bsynthesize\s+my\s+(full\s+)?chart\b/i,
-  /\bchart\s+ruler|dispositor|domicile|detriment|exaltation|fall\b/i,
 ]
 
 /**
- * Regex patterns for core birth chart readings.
- * Broader — any mention of "my birth chart", "analyze my chart", etc.
- * Also catches requests about specific placements (Sun, Moon, Rising)
- * which don't need the full depth treatment.
+ * Phase 2 patterns: Does the question contain depth signals for FULL?
+ *
+ * These are checked AFTER chart intent is detected. The key insight is
+ * that depth signals can appear ANYWHERE in the question — not in a rigid
+ * word order. "Analyze my chart in depth", "deep analysis of my chart",
+ * "tell me about my chart in detail", "my birth chart thorough analysis"
+ * — all of these express deep intent regardless of word position.
+ *
+ * We also include structural signals (specific planets beyond Big Three,
+ * houses, aspects, nodes) that imply the user wants more than the basics.
  */
-const BIRTH_CHART_CORE_PATTERNS: RegExp[] = [
-  /\b(analyze|read|interpret|explain|tell me about)\b.*\b(birth\s*chart|natal\s*chart|chart)\b/i,
-  /\bmy\s*(sun|moon|ascendant|rising|venus|mars|mercury|jupiter|saturn)\b.*\b(sign|placement|house)\b/i,
-  /\bwhat\b.*\bmy\s*(chart|placements|stars|birth\s*chart)\b.*\b(say|say about|show|mean|reveal|tell)\b/i,
-  /\bread\s+my\s+(chart|birth\s+chart|natal\s+chart)/i,
-  /\bmy\s+birth\s+chart\b/i,
-  /\b(dive|deep\s*dive|go\s+deep)\s+into\s+my\s+(chart|placements|birth\s+chart)/i,
-  /\bwhat\s+(does|do)\s+my\s+(chart|placements|stars)\b/i,
-  /\b(analyze|read|interpret)\s+my\s+(chart|birth\s+chart|natal\s+chart)/i,
-  /\b(full|deep|complete|detailed)\s+(chart|birth\s*chart|natal)\s*(analysis|reading|interpretation)/i,
+const DEPTH_SIGNAL_FULL_PATTERNS: RegExp[] = [
+  // Explicit depth words ANYWHERE in the question (handles suffixed forms like "fully", "thoroughly", "detailedly")
+  /\bin\s+depth\b/i,
+  /\b(deep|full|full[y]|complete|detailed|detailedl[y]|thorough|thoroughl[y]|comprehensive|comprehensively|layered|in-?depth|exhaustive|extensively|extensive)\b/i,
+
+  // Structural signals that imply beyond-Big-Three depth (also serve as chart intent)
+  /\b(all\s+(my\s+)?placements|every\s+placement|entire\s+chart|whole\s+chart|full\s+natal|my\s+placements)\b/i,
+  /\b(venus|mars|mercury|jupiter|saturn|uranus|neptune|pluto)\s+(in\s+my\s+)?(chart|placement|house|sign)\b/i,
+  /\bwhat\s+about\s+my\s+(nodes|north\s+node|south\s+node|part\s+of\s+fortune|chiron)\b/i,
+  /\bmy\s+(houses|house\s+placements|house\s+signatures|all\s+houses)\b/i,
+  /\b(aspects|conjunction|trine|square|opposition|sextile)\s+(in\s+)?my\s+chart\b/i,
+  /\bsynthesize\s+my\s+(full\s+)?chart\b/i,
+  /\bsynthesize\b/i,
+  /\b(chart\s+ruler|dispositor|domicile|detriment|exaltation|fall)\b/i,
 ]
 
 /**
@@ -227,9 +260,10 @@ const JOURNAL_RECALL_PATTERNS: RegExp[] = [
  * Priority order:
  * 1. If a feature is already active on the session → no re-classification
  * 2. Journal recall patterns (explicit journal intent wins over broad chart intent)
- * 3. Birth chart full patterns (more specific — "deep dive", "all placements", etc.)
- * 4. Birth chart core patterns (broader — "analyze my chart", "my Sun sign", etc.)
- * 5. No match → null
+ * 3. Birth chart (two-phase):
+ *    Phase 1: Chart intent patterns — does the user want a chart reading at all?
+ *    Phase 2: Depth signal patterns — if any depth signal found → full, else → core
+ * 4. No match → null
  *
  * Consent gates:
  * - Birth chart requires `hasBirthData === true`
@@ -253,14 +287,19 @@ export function classifyOracleToolIntent(
     }
   }
 
-  // 2. Birth chart full — more specific patterns ("deep dive", "all placements", etc.)
+  // 2 & 3. Birth chart — two-phase classification:
+  //    Phase 1: Is this a chart question at all? (broad intent match)
+  //    Phase 2: Does it contain depth signals? → full, otherwise → core
+  //
+  //    This replaces the old FULL-then-CORE tier system which failed on
+  //    natural word order variations like "analyze my chart in depth"
+  //    or "do a deep analysis on my birth chart".
   if (hasBirthData) {
-    if (BIRTH_CHART_FULL_PATTERNS.some((p) => p.test(question))) {
-      return { featureKey: "birth_chart", depth: "full", reason: "deep_chart_intent" }
-    }
-
-    // 3. Birth chart core — broader patterns ("analyze my chart", "my Sun sign", etc.)
-    if (BIRTH_CHART_CORE_PATTERNS.some((p) => p.test(question))) {
+    if (BIRTH_CHART_INTENT_PATTERNS.some((p) => p.test(question))) {
+      // Chart intent detected — now check for depth signals
+      if (DEPTH_SIGNAL_FULL_PATTERNS.some((p) => p.test(question))) {
+        return { featureKey: "birth_chart", depth: "full", reason: "deep_chart_intent" }
+      }
       return { featureKey: "birth_chart", depth: "core", reason: "core_chart_intent" }
     }
   }

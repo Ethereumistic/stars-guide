@@ -34,6 +34,7 @@ import type * as lib_astronomyEngine from "../lib/astronomyEngine.js";
 import type * as notifications_admin from "../notifications/admin.js";
 import type * as notifications_delivery from "../notifications/delivery.js";
 import type * as notifications_queries from "../notifications/queries.js";
+import type * as oracle_debug from "../oracle/debug.js";
 import type * as oracle_features from "../oracle/features.js";
 import type * as oracle_llm from "../oracle/llm.js";
 import type * as oracle_quota from "../oracle/quota.js";
@@ -78,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   "notifications/admin": typeof notifications_admin;
   "notifications/delivery": typeof notifications_delivery;
   "notifications/queries": typeof notifications_queries;
+  "oracle/debug": typeof oracle_debug;
   "oracle/features": typeof oracle_features;
   "oracle/llm": typeof oracle_llm;
   "oracle/quota": typeof oracle_quota;

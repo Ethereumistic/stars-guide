@@ -26,6 +26,7 @@ import {
     Anchor,
     Settings,
     Bell,
+    Bug,
 } from "lucide-react";
 import { GiCursedStar, GiScrollUnfurled } from "react-icons/gi";
 import Link from "next/link";
@@ -75,6 +76,11 @@ const oracleNavItems = [
         title: "Settings",
         href: "/admin/oracle/settings",
         icon: Settings,
+    },
+    {
+        title: "Debug Live",
+        href: "/admin/oracle/debug",
+        icon: Bug,
     },
 ];
 
