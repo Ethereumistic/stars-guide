@@ -177,7 +177,7 @@ export function Navbar() {
     const [scrolled, setScrolled] = React.useState(false)
     const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false)
     const pathname = usePathname()
-    const isOracle = pathname.startsWith("/oracle") || pathname.startsWith("/journal")
+    const isFullscreenApp = pathname.startsWith("/oracle") || pathname.startsWith("/journal") || pathname.startsWith("/admin")
 
     // Handle Scroll Effect
     React.useEffect(() => {
@@ -213,7 +213,7 @@ export function Navbar() {
             : "/onboarding"
         : "/onboarding"
 
-    if (isOracle) return null
+    if (isFullscreenApp) return null
 
     return (
         <>
