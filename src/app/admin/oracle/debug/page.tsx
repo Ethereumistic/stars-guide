@@ -116,6 +116,11 @@ function truncateMiddle(str: string, maxLen: number): string {
   return `${start}...${end}`;
 }
 
+function formatMs(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(2)}s`;
+}
+
 function countApproxTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
@@ -435,7 +440,7 @@ function PromptBlock({
   );
 }
 
-function MessageRow({ message, index }: { message: any; index: number }) {
+function MessageRow({ message }: { message: any; index: number }) {
   const isUser = message.role === "user";
   const borderColor = isUser
     ? "border-emerald-500/20"
@@ -483,6 +488,12 @@ function MessageRow({ message, index }: { message: any; index: number }) {
                     {message.promptTokens}+{message.completionTokens ?? 0}
                   </Badge>
                 )}
+                {/* Show timing badge if timing data exists */}
+                {message.timingTotalMs != null && (
+                  <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-500/30 text-amber-400">
+                    {formatMs(message.timingTotalMs)}
+                  </Badge>
+                )}
               </div>
             </div>
           </AccordionTrigger>
@@ -516,18 +527,18 @@ function MessageRow({ message, index }: { message: any; index: number }) {
                     </p>
                   </div>
                 )}
-                {message.promptTokens != null && (
-                  <div>
-                    <span className="text-muted-foreground">Prompt Tokens</span>
-                    <p className="font-mono text-blue-400">{message.promptTokens}</p>
-                  </div>
-                )}
-                {message.completionTokens != null && (
-                  <div>
-                    <span className="text-muted-foreground">Completion Tokens</span>
-                    <p className="font-mono text-emerald-400">{message.completionTokens}</p>
-                  </div>
-                )}
+                <div>
+                  <span className="text-muted-foreground">Prompt Tokens</span>
+                  <p className={`font-mono ${message.promptTokens != null ? "text-blue-400" : "text-muted-foreground/50"}`}>
+                    {message.promptTokens != null ? message.promptTokens : "—"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Completion Tokens</span>
+                  <p className={`font-mono ${message.completionTokens != null ? "text-emerald-400" : "text-muted-foreground/50"}`}>
+                    {message.completionTokens != null ? message.completionTokens : "—"}
+                  </p>
+                </div>
                 {message.systemPromptHash && (
                   <div>
                     <span className="text-muted-foreground">Prompt Hash</span>
@@ -550,18 +561,69 @@ function MessageRow({ message, index }: { message: any; index: number }) {
                 </div>
               </div>
 
+              {/* Timing Metrics (always shown for assistant messages) */}
+              {!isUser && (
+                <div>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                    Server Timing
+                  </span>
+                  <div className="grid grid-cols-5 gap-2 mt-1">
+                    <div className="rounded border border-border/30 px-2 py-1.5 text-center">
+                      <div className="text-[9px] uppercase tracking-wider text-galactic/60 mb-0.5">Prompt Build</div>
+                      <div className="text-xs font-mono font-medium text-galactic">
+                        {message.timingPromptBuildMs != null ? formatMs(message.timingPromptBuildMs) : "—"}
+                      </div>
+                    </div>
+                    <div className="rounded border border-border/30 px-2 py-1.5 text-center">
+                      <div className="text-[9px] uppercase tracking-wider text-amber-400/60 mb-0.5">Req Queue</div>
+                      <div className="text-xs font-mono font-medium text-amber-400">
+                        {message.timingRequestQueueMs != null ? formatMs(message.timingRequestQueueMs) : "—"}
+                      </div>
+                    </div>
+                    <div className="rounded border border-border/30 px-2 py-1.5 text-center">
+                      <div className="text-[9px] uppercase tracking-wider text-emerald-400/60 mb-0.5">TTFT</div>
+                      <div className="text-xs font-mono font-medium text-emerald-400">
+                        {message.timingTtftMs != null ? formatMs(message.timingTtftMs) : "—"}
+                      </div>
+                    </div>
+                    <div className="rounded border border-border/30 px-2 py-1.5 text-center">
+                      <div className="text-[9px] uppercase tracking-wider text-blue-400/60 mb-0.5">Init Decode</div>
+                      <div className="text-xs font-mono font-medium text-blue-400">
+                        {message.timingInitialDecodeMs != null ? formatMs(message.timingInitialDecodeMs) : "—"}
+                      </div>
+                    </div>
+                    <div className="rounded border border-border/30 px-2 py-1.5 text-center">
+                      <div className="text-[9px] uppercase tracking-wider text-white/50 mb-0.5">Total</div>
+                      <div className="text-xs font-mono font-medium text-white/80">
+                        {message.timingTotalMs != null ? formatMs(message.timingTotalMs) : "—"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Character & token analysis */}
               <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                 <span>{message.content.length.toLocaleString()} chars</span>
                 <Separator orientation="vertical" className="h-3" />
                 <span>~{countApproxTokens(message.content)} tokens (approx)</span>
                 <Separator orientation="vertical" className="h-3" />
-                {message.promptTokens && message.completionTokens && (
+                {message.promptTokens != null && message.completionTokens != null && (
                   <span className="text-blue-400">
                     Total: {message.promptTokens + message.completionTokens} tokens
                   </span>
                 )}
+                {message.promptTokens == null && message.completionTokens == null && !isUser && (
+                  <span className="text-muted-foreground/50">No token data from provider</span>
+                )}
               </div>
+
+              {/* Debug model override indicator */}
+              {message.debugModelUsed && (
+                <div className="text-[10px] text-amber-400">
+                  Debug Override: <span className="font-mono">{message.debugModelUsed}</span>
+                </div>
+              )}
             </div>
           </AccordionContent>
         </AccordionItem>

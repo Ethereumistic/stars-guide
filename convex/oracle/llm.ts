@@ -389,6 +389,7 @@ export const invokeOracle = action({
           args.sessionId,
           tier,
           systemPromptHash,
+          { actionStartTime, promptBuildEndTime },
         );
 
         if (result) {
@@ -496,6 +497,7 @@ async function callProviderStreaming(
   sessionId: Id<"oracle_sessions">,
   tier: string,
   systemPromptHash?: string,
+  timingContext?: { actionStartTime: number; promptBuildEndTime: number },
 ): Promise<{ content: string; contentWithoutTitle: string; title: string | null; promptTokens?: number; completionTokens?: number; fetchStartTime?: number; firstTokenTime?: number; initialDecodeTime?: number; messageId?: Id<"oracle_messages"> } | null> {
   const apiKey = process.env[provider.apiKeyEnvVar];
 
@@ -571,6 +573,22 @@ async function callProviderStreaming(
       { sessionId },
     );
 
+    // Immediately patch model info and early timing for debug panel visibility
+    const nonStreamModelStr = `${provider.id}/${model}`;
+    const nonStreamEarlyPatch: any = { messageId, modelUsed: nonStreamModelStr };
+    if (["A", "B", "C", "D"].includes(tier)) {
+      nonStreamEarlyPatch.fallbackTierUsed = tier as "A" | "B" | "C" | "D";
+    }
+    if (timingContext) {
+      nonStreamEarlyPatch.timingPromptBuildMs = timingContext.promptBuildEndTime - timingContext.actionStartTime;
+      nonStreamEarlyPatch.timingRequestQueueMs = fetchStartTime - timingContext.promptBuildEndTime;
+    }
+    try {
+      await ctx.runMutation(internal.oracle.sessions.patchMessageTiming, nonStreamEarlyPatch);
+    } catch (e) {
+      console.error("Oracle: failed to write early timing patch (non-streaming, non-blocking):", e);
+    }
+
     await ctx.runMutation(internal.oracle.sessions.finalizeStreamingMessage, {
       messageId,
       sessionId,
@@ -591,6 +609,28 @@ async function callProviderStreaming(
     internal.oracle.sessions.createStreamingMessage,
     { sessionId },
   );
+
+  // Immediately patch model info and early timing metrics so the debug panel
+  // can display them while streaming is in progress.
+  const modelUsedStr = `${provider.id}/${model}`;
+  const tierLiteral = tier as "A" | "B" | "C" | "D";
+  const earlyTimingPatch: any = {
+    messageId,
+    modelUsed: modelUsedStr,
+  };
+  // Only set fallbackTierUsed if it's a valid literal so Convex validation doesn't reject it
+  if (["A", "B", "C", "D"].includes(tier)) {
+    earlyTimingPatch.fallbackTierUsed = tierLiteral;
+  }
+  if (timingContext) {
+    earlyTimingPatch.timingPromptBuildMs = timingContext.promptBuildEndTime - timingContext.actionStartTime;
+    earlyTimingPatch.timingRequestQueueMs = fetchStartTime - timingContext.promptBuildEndTime;
+  }
+  try {
+    await ctx.runMutation(internal.oracle.sessions.patchMessageTiming, earlyTimingPatch);
+  } catch (e) {
+    console.error("Oracle: failed to write early timing patch (non-blocking):", e);
+  }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -633,10 +673,30 @@ async function callProviderStreaming(
             // Track timing: first token received
             if (firstTokenTime === undefined) {
               firstTokenTime = Date.now();
+              // Patch TTFT immediately so the debug panel shows it during streaming
+              try {
+                const ttftPatch: any = {
+                  messageId,
+                  timingTtftMs: firstTokenTime - fetchStartTime,
+                };
+                await ctx.runMutation(internal.oracle.sessions.patchMessageTiming, ttftPatch);
+              } catch (e) {
+                console.error("Oracle: failed to write TTFT timing patch (non-blocking):", e);
+              }
             }
             // Track timing: initial decode complete (~200 chars)
             if (initialDecodeTime === undefined && fullContent.length >= 200) {
               initialDecodeTime = Date.now();
+              // Patch initial decode timing immediately
+              try {
+                const decodePatch: any = {
+                  messageId,
+                  timingInitialDecodeMs: initialDecodeTime - (firstTokenTime ?? fetchStartTime),
+                };
+                await ctx.runMutation(internal.oracle.sessions.patchMessageTiming, decodePatch);
+              } catch (e) {
+                console.error("Oracle: failed to write initial decode timing patch (non-blocking):", e);
+              }
             }
           }
 

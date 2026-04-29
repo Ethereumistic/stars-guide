@@ -130,6 +130,8 @@ export default function OracleChatPage() {
         setDebugLastMetrics,
         setDebugDebugModelUsed,
         setDebugClientTiming,
+        setDebugPromptTokens,
+        setDebugCompletionTokens,
     } = useOracleStore();
 
     const loadingMessage = useLoadingMessage(isStreaming);
@@ -220,10 +222,12 @@ export default function OracleChatPage() {
                     timezone,
                     ...(debugModelOverride ? { debugModelOverride } : {}),
                 });
-                // Capture server-side timing metrics
+                // Capture server-side timing metrics and token counts
                 if (result) {
                     setDebugLastMetrics(result.timingMetrics ?? null);
                     setDebugDebugModelUsed(result.debugModelUsed ?? null);
+                    setDebugPromptTokens(result.promptTokens ?? null);
+                    setDebugCompletionTokens(result.completionTokens ?? null);
                 }
                 // Track client completion time
                 setDebugClientTiming({ requestStartMs, firstContentMs: useOracleStore.getState().debugClientTiming.firstContentMs, completeMs: Date.now() });
@@ -295,10 +299,12 @@ export default function OracleChatPage() {
                 timezone,
                 ...(debugModelOverride ? { debugModelOverride } : {}),
             });
-            // Capture server-side timing metrics
+            // Capture server-side timing metrics and token counts
             if (result) {
                 setDebugLastMetrics(result.timingMetrics ?? null);
                 setDebugDebugModelUsed(result.debugModelUsed ?? null);
+                setDebugPromptTokens(result.promptTokens ?? null);
+                setDebugCompletionTokens(result.completionTokens ?? null);
             }
             // Track client completion time
             setDebugClientTiming({ requestStartMs, firstContentMs: useOracleStore.getState().debugClientTiming.firstContentMs, completeMs: Date.now() });

@@ -44,6 +44,8 @@ interface OracleStore {
         firstContentMs: number | null;
         completeMs: number | null;
     };
+    debugPromptTokens: number | null;
+    debugCompletionTokens: number | null;
 
     setSelectedFeature: (featureKey: OracleFeatureKey | null) => void;
     clearSelectedFeature: () => void;
@@ -67,6 +69,8 @@ interface OracleStore {
         firstContentMs: number | null;
         completeMs: number | null;
     }) => void;
+    setDebugPromptTokens: (tokens: number | null) => void;
+    setDebugCompletionTokens: (tokens: number | null) => void;
 }
 
 export const useOracleStore = create<OracleStore>((set, get) => ({
@@ -90,6 +94,8 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
         firstContentMs: null,
         completeMs: null,
     },
+    debugPromptTokens: null,
+    debugCompletionTokens: null,
 
     setSelectedFeature: (featureKey) => set({ selectedFeatureKey: featureKey }),
 
@@ -131,4 +137,6 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
     setDebugLastMetrics: (metrics) => set({ debugLastMetrics: metrics }),
     setDebugDebugModelUsed: (model) => set({ debugDebugModelUsed: model }),
     setDebugClientTiming: (timing) => set({ debugClientTiming: timing }),
+    setDebugPromptTokens: (tokens) => set({ debugPromptTokens: tokens }),
+    setDebugCompletionTokens: (tokens) => set({ debugCompletionTokens: tokens }),
 }));

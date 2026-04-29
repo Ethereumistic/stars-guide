@@ -294,6 +294,13 @@ export const finalizeStreamingMessage = internalMutation({
 export const patchMessageTiming = internalMutation({
     args: {
         messageId: v.id("oracle_messages"),
+        modelUsed: v.optional(v.string()),
+        fallbackTierUsed: v.optional(v.union(
+            v.literal("A"),
+            v.literal("B"),
+            v.literal("C"),
+            v.literal("D"),
+        )),
         timingPromptBuildMs: v.optional(v.number()),
         timingRequestQueueMs: v.optional(v.number()),
         timingTtftMs: v.optional(v.number()),
@@ -302,8 +309,10 @@ export const patchMessageTiming = internalMutation({
         debugModelUsed: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        const { messageId, ...timing } = args;
+        const { messageId, modelUsed, fallbackTierUsed, ...timing } = args;
         const patch: any = {};
+        if (modelUsed !== undefined) patch.modelUsed = modelUsed;
+        if (fallbackTierUsed !== undefined) patch.fallbackTierUsed = fallbackTierUsed;
         if (timing.timingPromptBuildMs !== undefined) patch.timingPromptBuildMs = timing.timingPromptBuildMs;
         if (timing.timingRequestQueueMs !== undefined) patch.timingRequestQueueMs = timing.timingRequestQueueMs;
         if (timing.timingTtftMs !== undefined) patch.timingTtftMs = timing.timingTtftMs;

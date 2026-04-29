@@ -12,6 +12,7 @@ import {
   Server,
   Eye,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,30 @@ function formatTokenCount(n: number | null | undefined): string {
   return n.toLocaleString();
 }
 
+// ── Live elapsed timer hook ────────────────────────────────────────────────
+
+/**
+ * Returns the elapsed time in ms since `startMs`, updating every `intervalMs`.
+ * Returns null if `startMs` is null.
+ */
+function useLiveElapsed(startMs: number | null, intervalMs = 100): number | null {
+  const [elapsed, setElapsed] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    if (startMs === null) {
+      setElapsed(null);
+      return;
+    }
+
+    const tick = () => setElapsed(Date.now() - startMs);
+    tick(); // initial tick
+    const id = setInterval(tick, intervalMs);
+    return () => clearInterval(id);
+  }, [startMs, intervalMs]);
+
+  return elapsed;
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────
 
 function MetricBar({
@@ -66,12 +91,14 @@ function MetricBar({
   sub,
   icon: Icon,
   color = "text-foreground",
+  isLive = false,
 }: {
   label: string;
   value: string;
   sub?: string;
   icon?: any;
   color?: string;
+  isLive?: boolean;
 }) {
   return (
     <div className="flex items-center gap-2 py-1">
@@ -80,11 +107,16 @@ function MetricBar({
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
           {label}
         </span>
-        <div className={`text-sm font-mono font-medium ${color}`}>{value}</div>
+        <div className={`text-sm font-mono font-medium ${color} ${isLive ? "animate-pulse" : ""}`}>
+          {value}
+        </div>
         {sub && (
           <span className="text-[10px] text-muted-foreground">{sub}</span>
         )}
       </div>
+      {isLive && (
+        <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+      )}
     </div>
   );
 }
@@ -100,6 +132,8 @@ export function OracleDebugPanel() {
   const debugLastMetrics = useOracleStore((s) => s.debugLastMetrics);
   const debugDebugModelUsed = useOracleStore((s) => s.debugDebugModelUsed);
   const debugClientTiming = useOracleStore((s) => s.debugClientTiming);
+  const debugPromptTokens = useOracleStore((s) => s.debugPromptTokens);
+  const debugCompletionTokens = useOracleStore((s) => s.debugCompletionTokens);
   const isStreaming = useOracleStore((s) => s.isStreaming);
   const sessionId = useOracleStore((s) => s.sessionId);
 
@@ -121,16 +155,39 @@ export function OracleDebugPanel() {
     return msgs.length > 0 ? msgs[msgs.length - 1] : null;
   }, [sessionData?.messages]);
 
-  const promptTokens = lastAssistantMsg?.promptTokens ?? null;
-  const completionTokens = lastAssistantMsg?.completionTokens ?? null;
+  // Primary source: message document fields; fallback: Zustand store from action result
+  const promptTokens = lastAssistantMsg?.promptTokens ?? debugPromptTokens ?? null;
+  const completionTokens = lastAssistantMsg?.completionTokens ?? debugCompletionTokens ?? null;
   const totalTokens =
     promptTokens !== null && completionTokens !== null
       ? promptTokens + completionTokens
       : null;
 
+  // Determine if a request is active (streaming or waiting for first content)
+  const requestActive = isStreaming || (
+    debugClientTiming.requestStartMs !== null &&
+    debugClientTiming.completeMs === null
+  );
+
+  // Live elapsed timer from when SEND was pressed
+  const liveElapsedMs = useLiveElapsed(
+    requestActive ? debugClientTiming.requestStartMs : null,
+  );
+
   // Server timing from message data (primary source) or store (fallback)
   const serverTiming = React.useMemo(() => {
-    // Prefer data stored on the message (reliable, persisted)
+    // Start with store-based timing (from action return) as the base
+    const storeTiming = debugLastMetrics
+      ? {
+          promptBuildMs: debugLastMetrics.promptBuildMs ?? null,
+          requestQueueMs: debugLastMetrics.requestQueueMs ?? null,
+          ttftMs: debugLastMetrics.ttftMs ?? null,
+          initialDecodeMs: debugLastMetrics.initialDecodeMs ?? null,
+          totalMs: debugLastMetrics.totalMs ?? null,
+        }
+      : null;
+
+    // Message document fields take priority (reliable, persisted)
     const msgTiming = lastAssistantMsg
       ? {
           promptBuildMs: (lastAssistantMsg as any).timingPromptBuildMs ?? null,
@@ -140,9 +197,41 @@ export function OracleDebugPanel() {
           totalMs: (lastAssistantMsg as any).timingTotalMs ?? null,
         }
       : null;
-    // Fall back to store-based timing (from action return)
-    return msgTiming?.ttftMs != null ? msgTiming : debugLastMetrics;
+
+    // Merge: message fields override store fields when available
+    if (msgTiming || storeTiming) {
+      return {
+        promptBuildMs: msgTiming?.promptBuildMs ?? storeTiming?.promptBuildMs ?? null,
+        requestQueueMs: msgTiming?.requestQueueMs ?? storeTiming?.requestQueueMs ?? null,
+        ttftMs: msgTiming?.ttftMs ?? storeTiming?.ttftMs ?? null,
+        initialDecodeMs: msgTiming?.initialDecodeMs ?? storeTiming?.initialDecodeMs ?? null,
+        totalMs: msgTiming?.totalMs ?? storeTiming?.totalMs ?? null,
+      };
+    }
+    return null;
   }, [lastAssistantMsg, debugLastMetrics]);
+
+  // Compute server timing display values with live fallback during streaming
+  const serverTimingDisplay = React.useMemo(() => {
+    const makeDisplay = (
+      actualMs: number | null | undefined,
+      label: string,
+    ): { value: string; isLive: boolean } => {
+      if (actualMs != null) return { value: formatMs(actualMs), isLive: false };
+      if (requestActive && liveElapsedMs !== null) {
+        return { value: formatMs(liveElapsedMs), isLive: true };
+      }
+      return { value: "—", isLive: false };
+    };
+
+    return {
+      promptBuild: makeDisplay(serverTiming?.promptBuildMs, "Prompt Build"),
+      requestQueue: makeDisplay(serverTiming?.requestQueueMs, "Request Queue"),
+      ttft: makeDisplay(serverTiming?.ttftMs, "TTFT"),
+      initialDecode: makeDisplay(serverTiming?.initialDecodeMs, "Initial Decode"),
+      totalServer: makeDisplay(serverTiming?.totalMs, "Total Server"),
+    };
+  }, [serverTiming, requestActive, liveElapsedMs]);
 
   // Debug model used from message (primary) or store (fallback)
   const activeDebugModelUsed = React.useMemo(() => {
@@ -214,6 +303,25 @@ export function OracleDebugPanel() {
     }
     return null;
   }, [debugClientTiming]);
+
+  // Live client timing display (elapsed while streaming)
+  const clientTtftDisplay = React.useMemo((): { value: string; isLive: boolean } => {
+    if (clientTtftMs !== null) return { value: formatMs(clientTtftMs), isLive: false };
+    // If firstContentMs not yet captured but request is active, show live elapsed
+    if (requestActive && debugClientTiming.firstContentMs === null && liveElapsedMs !== null) {
+      return { value: formatMs(liveElapsedMs), isLive: true };
+    }
+    return { value: "—", isLive: false };
+  }, [clientTtftMs, requestActive, debugClientTiming.firstContentMs, liveElapsedMs]);
+
+  const clientTotalDisplay = React.useMemo((): { value: string; isLive: boolean } => {
+    if (clientTotalMs !== null) return { value: formatMs(clientTotalMs), isLive: false };
+    // If completeMs not yet captured but request is active, show live elapsed
+    if (requestActive && debugClientTiming.completeMs === null && liveElapsedMs !== null) {
+      return { value: formatMs(liveElapsedMs), isLive: true };
+    }
+    return { value: "—", isLive: false };
+  }, [clientTotalMs, requestActive, debugClientTiming.completeMs, liveElapsedMs]);
 
   // ── Now safe to do conditional renders ──────────────────────────────────
 
@@ -403,7 +511,14 @@ export function OracleDebugPanel() {
                   Prompt
                 </div>
                 <div className="text-sm font-mono font-bold text-blue-400">
-                  {formatTokenCount(promptTokens)}
+                  {promptTokens !== null ? formatTokenCount(promptTokens) : (
+                    requestActive ? (
+                      <span className="text-blue-400/50 flex items-center justify-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span className="text-[10px]">…</span>
+                      </span>
+                    ) : "—"
+                  )}
                 </div>
               </div>
               <div className="rounded-md border border-emerald-500/15 bg-emerald-500/5 px-2 py-1.5 text-center">
@@ -411,7 +526,14 @@ export function OracleDebugPanel() {
                   Completion
                 </div>
                 <div className="text-sm font-mono font-bold text-emerald-400">
-                  {formatTokenCount(completionTokens)}
+                  {completionTokens !== null ? formatTokenCount(completionTokens) : (
+                    requestActive ? (
+                      <span className="text-emerald-400/50 flex items-center justify-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span className="text-[10px]">…</span>
+                      </span>
+                    ) : "—"
+                  )}
                 </div>
               </div>
               <div className="rounded-md border border-white/10 bg-white/3 px-2 py-1.5 text-center">
@@ -419,7 +541,14 @@ export function OracleDebugPanel() {
                   Total
                 </div>
                 <div className="text-sm font-mono font-bold text-white/90">
-                  {formatTokenCount(totalTokens)}
+                  {totalTokens !== null ? formatTokenCount(totalTokens) : (
+                    requestActive ? (
+                      <span className="text-white/50 flex items-center justify-center gap-1">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span className="text-[10px]">…</span>
+                      </span>
+                    ) : "—"
+                  )}
                 </div>
               </div>
             </div>
@@ -456,36 +585,41 @@ export function OracleDebugPanel() {
               </div>
               <MetricBar
                 label="Prompt Build"
-                value={formatMs(serverTiming?.promptBuildMs)}
+                value={serverTimingDisplay.promptBuild.value}
                 icon={Clock}
                 color="text-galactic/80"
+                isLive={serverTimingDisplay.promptBuild.isLive}
               />
               <MetricBar
                 label="Request Queue"
-                value={formatMs(serverTiming?.requestQueueMs)}
+                value={serverTimingDisplay.requestQueue.value}
                 sub="Network + LLM queue"
                 icon={Clock}
                 color="text-amber-400"
+                isLive={serverTimingDisplay.requestQueue.isLive}
               />
               <MetricBar
                 label="TTFT"
-                value={formatMs(serverTiming?.ttftMs)}
+                value={serverTimingDisplay.ttft.value}
                 sub="Time to first token from LLM"
                 icon={Timer}
                 color="text-emerald-400"
+                isLive={serverTimingDisplay.ttft.isLive}
               />
               <MetricBar
                 label="Initial Decode"
-                value={formatMs(serverTiming?.initialDecodeMs)}
+                value={serverTimingDisplay.initialDecode.value}
                 sub="First token → ~200 chars"
                 icon={Zap}
                 color="text-blue-400"
+                isLive={serverTimingDisplay.initialDecode.isLive}
               />
               <MetricBar
                 label="Total Server"
-                value={formatMs(serverTiming?.totalMs)}
+                value={serverTimingDisplay.totalServer.value}
                 icon={Clock}
                 color="text-white/90"
+                isLive={serverTimingDisplay.totalServer.isLive}
               />
             </div>
 
@@ -496,24 +630,26 @@ export function OracleDebugPanel() {
               </div>
               <MetricBar
                 label="Observed TTFT"
-                value={formatMs(clientTtftMs)}
+                value={clientTtftDisplay.value}
                 sub="Click → first token in UI"
                 icon={Timer}
                 color="text-emerald-400"
+                isLive={clientTtftDisplay.isLive}
               />
               <MetricBar
                 label="Observed Total"
-                value={formatMs(clientTotalMs)}
+                value={clientTotalDisplay.value}
                 sub="Click → stream complete"
                 icon={Clock}
                 color="text-white/70"
+                isLive={clientTotalDisplay.isLive}
               />
             </div>
 
-            {isStreaming && !serverTiming?.ttftMs && (
+            {requestActive && !serverTiming?.ttftMs && (
               <div className="mt-2 flex items-center gap-2 text-[10px] text-emerald-400/80">
                 <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Measuring...
+                Measuring…
               </div>
             )}
           </section>
