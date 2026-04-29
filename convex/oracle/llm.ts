@@ -531,16 +531,25 @@ async function callProviderStreaming(
 
   let response: Response;
   const fetchStartTime = Date.now();
+  const fetchController = new AbortController();
+  const fetchTimeoutId = setTimeout(() => fetchController.abort(), 120_000);
   try {
     response = await fetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify(requestBody),
+      signal: fetchController.signal,
     });
-  } catch (error) {
-    console.error(`Oracle ${provider.id}/${model} fetch failed:`, error);
+  } catch (error: any) {
+    clearTimeout(fetchTimeoutId);
+    if (error?.name === "AbortError") {
+      console.error(`Oracle ${provider.id}/${model} fetch timed out after 120s`);
+    } else {
+      console.error(`Oracle ${provider.id}/${model} fetch failed:`, error);
+    }
     return null;
   }
+  clearTimeout(fetchTimeoutId);
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -635,8 +644,9 @@ async function callProviderStreaming(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let fullContent = "";
-  let lastFlushTime = Date.now();
-  const streamStartTime = Date.now();
+  let lastFlushedContent = "";
+  let lastFlushTime = 0;
+  const MIN_FLUSH_INTERVAL_MS = 50;
   let promptTokens: number | undefined;
   let completionTokens: number | undefined;
   let firstTokenTime: number | undefined;
@@ -709,16 +719,26 @@ async function callProviderStreaming(
         }
       }
 
+      // Flush after every SSE chunk, throttled to MIN_FLUSH_INTERVAL_MS.
+      // This is simpler and more robust than time-based flush intervals —
+      // natural network chunk boundaries provide optimal batching,
+      // and the throttle prevents Convex overload during fast generation.
       const now = Date.now();
-      const elapsed = now - streamStartTime;
-      const flushInterval = elapsed < 2000 ? 100 : 300;
-      if (fullContent && now - lastFlushTime >= flushInterval) {
+      if (fullContent !== lastFlushedContent && (now - lastFlushTime >= MIN_FLUSH_INTERVAL_MS || lastFlushTime === 0)) {
         await ctx.runMutation(internal.oracle.sessions.updateStreamingContent, {
           messageId,
           content: fullContent,
         });
         lastFlushTime = now;
+        lastFlushedContent = fullContent;
       }
+    }
+    // Final flush: ensure all remaining content is written before finalizing
+    if (fullContent !== lastFlushedContent) {
+      await ctx.runMutation(internal.oracle.sessions.updateStreamingContent, {
+        messageId,
+        content: fullContent,
+      });
     }
   } catch (error) {
     console.error(`Oracle ${provider.id}/${model} stream read error:`, error);

@@ -22,14 +22,106 @@ import { Button } from "@/components/ui/button";
 import { getFeatureDefaultPrompt, isImplementedFeature, type OracleFeatureKey } from "@/lib/oracle/features";
 import { useOracleStore } from "@/store/use-oracle-store";
 import { useUserStore } from "@/store/use-user-store";
-import { useSmoothedContent } from "@/hooks/use-smoothed-content";
 import { useLoadingMessage } from "@/hooks/use-loading-message";
 
-/** Component that renders assistant message content with token-level smoothing when streaming */
+/** Component that renders assistant message content with blur-reveal animation on trailing text when streaming */
 function AssistantMessageContent({ content, isStreamingThis }: { content: string; isStreamingThis: boolean }) {
-    const smoothedContent = useSmoothedContent(content, isStreamingThis, 40);
-    const displayText = isStreamingThis ? smoothedContent : content;
+    // Split at a safe word boundary ~25 chars from the end (2-3 words) for the blur-reveal effect
+    const BLUR_CHARS = 25;
+    let stableText = content;
+    let blurText = "";
 
+    if (isStreamingThis && content.length > BLUR_CHARS + 10) {
+        // Find a word-safe split point (space or newline) before the BLUR_CHARS boundary
+        let splitIdx = content.length - BLUR_CHARS;
+        // Walk backward to nearest word boundary, but don't go past 50% of content
+        const minSplit = Math.floor(content.length * 0.5);
+        while (splitIdx > minSplit && content[splitIdx] !== ' ' && content[splitIdx] !== '\n') {
+            splitIdx--;
+        }
+        // If we couldn't find a good split, fall back to exact BLUR_CHARS
+        if (splitIdx <= minSplit) {
+            splitIdx = content.length - BLUR_CHARS;
+        }
+        stableText = content.slice(0, splitIdx);
+        blurText = content.slice(splitIdx);
+    }
+
+    if (!isStreamingThis || !blurText) {
+        return (
+            <div className="oracle-markdown">
+                <ReactMarkdown
+                    components={{
+                        h2: ({ children }) => (
+                            <h2 className="text-base font-semibold text-white/90 mt-4 mb-2 border-b border-white/10 pb-1">
+                                {children}
+                            </h2>
+                        ),
+                        h3: ({ children }) => (
+                            <h3 className="text-sm font-semibold text-white/80 mt-3 mb-1">
+                                {children}
+                            </h3>
+                        ),
+                        p: ({ children }) => (
+                            <p className="text-sm md:text-base text-white/85 leading-relaxed mb-3">
+                                {children}
+                            </p>
+                        ),
+                        strong: ({ children }) => (
+                            <strong className="font-semibold text-white/95">{children}</strong>
+                        ),
+                        em: ({ children }) => (
+                            <em className="italic text-galactic/80">{children}</em>
+                        ),
+                        ul: ({ children }) => (
+                            <ul className="list-disc list-outside ml-4 space-y-1 my-2">{children}</ul>
+                        ),
+                        ol: ({ children }) => (
+                            <ol className="list-decimal list-outside ml-4 space-y-1 my-2">{children}</ol>
+                        ),
+                        li: ({ children }) => (
+                            <li className="text-sm md:text-base text-white/85 leading-relaxed">{children}</li>
+                        ),
+                        hr: () => (
+                            <hr className="border-white/10 my-4" />
+                        ),
+                        table: ({ children }) => (
+                            <div className="overflow-x-auto my-3">
+                                <table className="w-full text-sm border-collapse">{children}</table>
+                            </div>
+                        ),
+                        thead: ({ children }) => (
+                            <thead className="border-b border-white/15">{children}</thead>
+                        ),
+                        th: ({ children }) => (
+                            <th className="px-3 py-2 text-left text-white/70 font-medium">{children}</th>
+                        ),
+                        td: ({ children }) => (
+                            <td className="px-3 py-2 text-white/85 border-b border-white/5">{children}</td>
+                        ),
+                        blockquote: ({ children }) => (
+                            <blockquote className="border-l-2 border-galactic/40 pl-3 my-2 text-white/70 italic">
+                                {children}
+                            </blockquote>
+                        ),
+                        code: ({ children }) => (
+                            <code className="bg-white/8 px-1.5 py-0.5 rounded text-sm font-mono text-galactic/90">
+                                {children}
+                            </code>
+                        ),
+                    }}
+                >
+                    {content}
+                </ReactMarkdown>
+                {isStreamingThis && (
+                    <span className="inline-block w-2 h-4 bg-galactic/60 ml-0.5 animate-pulse rounded-sm" />
+                )}
+            </div>
+        );
+    }
+
+    // Streaming with blur-reveal: render stable portion with markdown,
+    // trailing portion in a blur→clear animated span
     return (
         <div className="oracle-markdown">
             <ReactMarkdown
@@ -45,7 +137,7 @@ function AssistantMessageContent({ content, isStreamingThis }: { content: string
                         </h3>
                     ),
                     p: ({ children }) => (
-                        <p className={`text-sm md:text-base text-white/85 leading-relaxed ${!isStreamingThis ? "mb-3" : ""}`}>
+                        <p className="text-sm md:text-base text-white/85 leading-relaxed mb-0">
                             {children}
                         </p>
                     ),
@@ -93,11 +185,16 @@ function AssistantMessageContent({ content, isStreamingThis }: { content: string
                     ),
                 }}
             >
-                {displayText}
+                {stableText}
             </ReactMarkdown>
-            {isStreamingThis && (
-                <span className="inline-block w-2 h-4 bg-galactic/60 ml-0.5 animate-pulse rounded-sm" />
-            )}
+            <span
+                key={blurText}
+                className="oracle-blur-reveal"
+                style={{ display: 'inline' }}
+            >
+                {blurText}
+            </span>
+            <span className="inline-block w-2 h-4 bg-galactic/60 ml-0.5 animate-pulse rounded-sm" />
         </div>
     );
 }

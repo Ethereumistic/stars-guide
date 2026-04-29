@@ -354,3 +354,22 @@
 .space-spin {
 	animation: space-spin 60s linear infinite;
 }
+
+/* Oracle streaming blur-reveal: smooth blur→clear transition for newly arriving text.
+   Each time the content updates, React creates a fresh span element with this class,
+   triggering the animation anew so freshly streamed tokens appear to "come into focus." */
+@keyframes oracle-blur-reveal {
+	0% {
+		filter: blur(4px);
+		opacity: 0.4;
+	}
+	100% {
+		filter: blur(0px);
+		opacity: 1;
+	}
+}
+
+.oracle-blur-reveal {
+	display: inline;
+	animation: oracle-blur-reveal 0.35s ease-out both;
+}
