@@ -126,6 +126,10 @@ export default function OracleChatPage() {
         setConversationActive,
         setIsStreaming,
         timezone,
+        debugModelOverride,
+        setDebugLastMetrics,
+        setDebugDebugModelUsed,
+        setDebugClientTiming,
     } = useOracleStore();
 
     const loadingMessage = useLoadingMessage(isStreaming);
@@ -169,6 +173,22 @@ export default function OracleChatPage() {
         if (found) setPendingUserMessage(null);
     }, [sessionData?.messages?.length, pendingUserMessage]);
 
+    // Track first content appearing for client-side TTFT measurement
+    useEffect(() => {
+        if (!isStreaming || !sessionData?.messages) return;
+        const currentState = useOracleStore.getState().debugClientTiming;
+        if (!currentState.requestStartMs || currentState.firstContentMs) return; // Already captured or not started
+        // Find the last assistant message that has content
+        const lastAssistant = [...sessionData.messages].reverse().find((m: any) => m.role === "assistant");
+        if (lastAssistant && lastAssistant.content && lastAssistant.content.length > 0) {
+            setDebugClientTiming({
+                requestStartMs: currentState.requestStartMs,
+                firstContentMs: Date.now(),
+                completeMs: currentState.completeMs,
+            });
+        }
+    }, [sessionData?.messages, isStreaming]);
+
     useEffect(() => {
         if (state !== "oracle_responding" || !sessionId || !sessionData) return;
         if (hasInvokedRef.current) return;
@@ -187,15 +207,26 @@ export default function OracleChatPage() {
 
         const callOracle = async () => {
             setIsStreaming(true);
+            // Track client-side timing
+            const requestStartMs = Date.now();
+            setDebugClientTiming({ requestStartMs, firstContentMs: null, completeMs: null });
             // Small delay to let React state settle before streaming begins
             await new Promise((resolve) => setTimeout(resolve, 50));
 
             try {
-                await invokeOracle({
+                const result = await invokeOracle({
                     sessionId,
                     userQuestion: lastUserMessage.content,
                     timezone,
+                    ...(debugModelOverride ? { debugModelOverride } : {}),
                 });
+                // Capture server-side timing metrics
+                if (result) {
+                    setDebugLastMetrics(result.timingMetrics ?? null);
+                    setDebugDebugModelUsed(result.debugModelUsed ?? null);
+                }
+                // Track client completion time
+                setDebugClientTiming({ requestStartMs, firstContentMs: useOracleStore.getState().debugClientTiming.firstContentMs, completeMs: Date.now() });
             } catch (error) {
                 console.error("Oracle invocation failed:", error);
             } finally {
@@ -206,7 +237,7 @@ export default function OracleChatPage() {
         };
 
         callOracle();
-    }, [state, sessionId, sessionData?.messages?.length, sessionData, invokeOracle, setConversationActive, setIsStreaming]);
+    }, [state, sessionId, sessionData?.messages?.length, sessionData, invokeOracle, setConversationActive, setIsStreaming, debugModelOverride, setDebugLastMetrics, setDebugDebugModelUsed, setDebugClientTiming]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -251,21 +282,32 @@ export default function OracleChatPage() {
         });
 
         setIsStreaming(true);
+        // Track client-side timing
+        const requestStartMs = Date.now();
+        setDebugClientTiming({ requestStartMs, firstContentMs: null, completeMs: null });
         // Small delay to let React state settle before streaming begins
         await new Promise((resolve) => setTimeout(resolve, 50));
 
         try {
-            await invokeOracle({
+            const result = await invokeOracle({
                 sessionId,
                 userQuestion: content,
                 timezone,
+                ...(debugModelOverride ? { debugModelOverride } : {}),
             });
+            // Capture server-side timing metrics
+            if (result) {
+                setDebugLastMetrics(result.timingMetrics ?? null);
+                setDebugDebugModelUsed(result.debugModelUsed ?? null);
+            }
+            // Track client completion time
+            setDebugClientTiming({ requestStartMs, firstContentMs: useOracleStore.getState().debugClientTiming.firstContentMs, completeMs: Date.now() });
         } catch (error) {
             console.error("Follow-up Oracle call failed:", error);
         } finally {
             setIsStreaming(false);
         }
-    }, [inputValue, selectedFeatureKey, isStreaming, sessionId, addMessageMutation, invokeOracle, setIsStreaming]);
+    }, [inputValue, selectedFeatureKey, isStreaming, sessionId, addMessageMutation, invokeOracle, setIsStreaming, debugModelOverride, setDebugLastMetrics, setDebugDebugModelUsed, setDebugClientTiming]);
 
     // Compute countdown for daily cap
     const quotaCountdown = React.useMemo(() => {

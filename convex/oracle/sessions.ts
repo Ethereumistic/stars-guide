@@ -239,25 +239,80 @@ export const finalizeStreamingMessage = internalMutation({
         )),
         systemPromptHash: v.optional(v.string()),
         journalPrompt: v.optional(v.string()),
+        // Debug timing metrics (stored on message for admin observability)
+        timingPromptBuildMs: v.optional(v.number()),
+        timingRequestQueueMs: v.optional(v.number()),
+        timingTtftMs: v.optional(v.number()),
+        timingInitialDecodeMs: v.optional(v.number()),
+        timingTotalMs: v.optional(v.number()),
+        debugModelUsed: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        await ctx.db.patch(args.messageId, {
-            content: args.content,
-            modelUsed: args.modelUsed,
-            promptTokens: args.promptTokens,
-            completionTokens: args.completionTokens,
-            fallbackTierUsed: args.fallbackTierUsed,
-            systemPromptHash: args.systemPromptHash,
-            ...(args.journalPrompt ? { journalPrompt: args.journalPrompt } : {}),
+        const {
+            messageId,
+            sessionId,
+            content,
+            modelUsed,
+            promptTokens,
+            completionTokens,
+            fallbackTierUsed,
+            systemPromptHash,
+            journalPrompt,
+            timingPromptBuildMs,
+            timingRequestQueueMs,
+            timingTtftMs,
+            timingInitialDecodeMs,
+            timingTotalMs,
+            debugModelUsed,
+        } = args;
+        await ctx.db.patch(messageId, {
+            content,
+            modelUsed,
+            promptTokens,
+            completionTokens,
+            fallbackTierUsed,
+            systemPromptHash,
+            ...(journalPrompt ? { journalPrompt } : {}),
+            ...(timingPromptBuildMs !== undefined ? { timingPromptBuildMs } : {}),
+            ...(timingRequestQueueMs !== undefined ? { timingRequestQueueMs } : {}),
+            ...(timingTtftMs !== undefined ? { timingTtftMs } : {}),
+            ...(timingInitialDecodeMs !== undefined ? { timingInitialDecodeMs } : {}),
+            ...(timingTotalMs !== undefined ? { timingTotalMs } : {}),
+            ...(debugModelUsed !== undefined ? { debugModelUsed } : {}),
         });
-        await ctx.db.patch(args.sessionId, {
-            ...(args.modelUsed ? { primaryModelUsed: args.modelUsed } : {}),
-            ...(args.fallbackTierUsed && args.fallbackTierUsed !== "A"
+        await ctx.db.patch(sessionId, {
+            ...(modelUsed ? { primaryModelUsed: modelUsed } : {}),
+            ...(fallbackTierUsed && fallbackTierUsed !== "A"
                 ? { usedFallback: true }
                 : {}),
             status: "active" as const,
             updatedAt: Date.now(),
         });
+    },
+});
+
+export const patchMessageTiming = internalMutation({
+    args: {
+        messageId: v.id("oracle_messages"),
+        timingPromptBuildMs: v.optional(v.number()),
+        timingRequestQueueMs: v.optional(v.number()),
+        timingTtftMs: v.optional(v.number()),
+        timingInitialDecodeMs: v.optional(v.number()),
+        timingTotalMs: v.optional(v.number()),
+        debugModelUsed: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const { messageId, ...timing } = args;
+        const patch: any = {};
+        if (timing.timingPromptBuildMs !== undefined) patch.timingPromptBuildMs = timing.timingPromptBuildMs;
+        if (timing.timingRequestQueueMs !== undefined) patch.timingRequestQueueMs = timing.timingRequestQueueMs;
+        if (timing.timingTtftMs !== undefined) patch.timingTtftMs = timing.timingTtftMs;
+        if (timing.timingInitialDecodeMs !== undefined) patch.timingInitialDecodeMs = timing.timingInitialDecodeMs;
+        if (timing.timingTotalMs !== undefined) patch.timingTotalMs = timing.timingTotalMs;
+        if (timing.debugModelUsed !== undefined) patch.debugModelUsed = timing.debugModelUsed;
+        if (Object.keys(patch).length > 0) {
+            await ctx.db.patch(messageId, patch);
+        }
     },
 });
 

@@ -11,6 +11,7 @@ import { useOracleStore } from "@/store/use-oracle-store";
 import { useUserStore } from "@/store/use-user-store";
 import { OracleSidebar } from "@/components/oracle/sidebar/oracle-sidebar";
 import { OracleTopBar } from "@/components/oracle/sidebar/oracle-top-bar";
+import { OracleDebugPanel } from "@/components/oracle/debug/oracle-debug-panel";
 import { useOracleSessions } from "@/components/oracle/sidebar/use-oracle-sessions";
 import { tierLabels } from "@/components/oracle/sidebar/utils";
 import { OracleChatSearchModal } from "@/components/oracle-chat-search-modal";
@@ -20,6 +21,8 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
     const { signOut } = useAuthActions();
     const { user } = useUserStore();
     const resetToIdle = useOracleStore((s) => s.resetToIdle);
+    const debugOpen = useOracleStore((s) => s.debugOpen);
+    const setDebugOpen = useOracleStore((s) => s.setDebugOpen);
     const [showTopLogo, setShowTopLogo] = React.useState(false);
     const [searchOpen, setSearchOpen] = React.useState(false);
 
@@ -41,6 +44,19 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
         const timer = window.setTimeout(() => setShowTopLogo(true), 40);
         return () => window.clearTimeout(timer);
     }, []);
+
+    // Keyboard shortcut: Cmd+D / Ctrl+D to toggle debug panel
+    React.useEffect(() => {
+        if (user?.role !== "admin") return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === "d") {
+                e.preventDefault();
+                setDebugOpen(!debugOpen);
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [user?.role, debugOpen, setDebugOpen]);
 
     if (user === null) {
         router.push("/login");
@@ -100,6 +116,9 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
                 }))}
                 onNewChat={handleNewDivination}
             />
+
+            {/* Debug panel — admin only */}
+            {user?.role === "admin" && <OracleDebugPanel />}
         </>
     );
 }

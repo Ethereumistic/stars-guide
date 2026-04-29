@@ -2,6 +2,11 @@ import { query } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAdmin } from "../lib/adminGuard";
 import { Id } from "../_generated/dataModel";
+import {
+  parseProvidersConfig,
+  parseModelChain,
+  tierForIndex,
+} from "../../lib/oracle/providers";
 
 /**
  * Oracle Debug Queries — Admin-only transparent inspection layer.
@@ -12,6 +17,41 @@ import { Id } from "../_generated/dataModel";
  *
  * All queries require admin role (enforced via requireAdmin).
  */
+
+// ── Debug Providers & Model Chain (for admin debug panel) ─────────────────
+
+export const adminGetDebugProviders = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+
+    const providerSetting = await ctx.db
+      .query("oracle_settings")
+      .withIndex("by_key", (q) => q.eq("key", "providers_config"))
+      .first();
+
+    const chainSetting = await ctx.db
+      .query("oracle_settings")
+      .withIndex("by_key", (q) => q.eq("key", "model_chain"))
+      .first();
+
+    const providers = parseProvidersConfig(providerSetting?.value);
+    const modelChain = parseModelChain(chainSetting?.value);
+
+    return {
+      providers: providers.map((p) => ({
+        id: p.id,
+        name: p.name,
+        type: p.type,
+        baseUrl: p.baseUrl,
+      })),
+      modelChain: modelChain.map((e, i) => ({
+        ...e,
+        tier: tierForIndex(i),
+      })),
+    };
+  },
+});
 
 // ── Session List ──────────────────────────────────────────────────────────
 

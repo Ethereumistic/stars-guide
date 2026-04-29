@@ -69,6 +69,14 @@ function simpleHash(str: string): string {
   return Math.abs(hash).toString(36);
 }
 
+interface TimingMetrics {
+  promptBuildMs: number;
+  requestQueueMs: number;
+  ttftMs: number;
+  initialDecodeMs: number;
+  totalMs: number;
+}
+
 interface LLMResponse {
   content: string;
   modelUsed: string;
@@ -76,6 +84,8 @@ interface LLMResponse {
   promptTokens?: number;
   completionTokens?: number;
   title?: string | null;
+  timingMetrics?: TimingMetrics;
+  debugModelUsed?: string | null;
 }
 
 export const invokeOracle = action({
@@ -83,8 +93,16 @@ export const invokeOracle = action({
     sessionId: v.id("oracle_sessions"),
     userQuestion: v.string(),
     timezone: v.optional(v.string()),
+    debugModelOverride: v.optional(
+      v.object({
+        providerId: v.string(),
+        model: v.string(),
+      }),
+    ),
   },
   handler: async (ctx, args): Promise<LLMResponse> => {
+    const actionStartTime = Date.now();
+
     // ── Input validation ──────────────────────────────────────────────────
     if (args.userQuestion.length > MAX_USER_QUESTION_LENGTH) {
       throw new Error(
@@ -295,6 +313,8 @@ export const invokeOracle = action({
       timespaceContext,
     });
 
+    const promptBuildEndTime = Date.now();
+
     // Hash the system prompt for observability (stored on each assistant message)
     const systemPromptHash = simpleHash(prompt.systemPrompt);
 
@@ -332,9 +352,20 @@ export const invokeOracle = action({
       stream: config.modelSettings.streamEnabled,
     };
 
-    // ── Multi-Provider Model Chain ─────────────────────────────────────────
+    // ── Multi-Provider Model Chain (with optional debug override) ────────────
     const providers = config.providers;
-    const modelChain = config.modelChain;
+    let modelChain = config.modelChain;
+    let debugModelUsed: string | null = null;
+
+    // If debug model override is specified, prepend it to the chain
+    if (args.debugModelOverride) {
+      const overrideEntry: ModelChainEntry = {
+        providerId: args.debugModelOverride.providerId,
+        model: args.debugModelOverride.model,
+      };
+      modelChain = [overrideEntry, ...modelChain];
+      debugModelUsed = `${args.debugModelOverride.providerId}/${args.debugModelOverride.model}`;
+    }
 
     for (let i = 0; i < modelChain.length; i++) {
       const entry = modelChain[i];
@@ -376,12 +407,46 @@ export const invokeOracle = action({
             });
           }
 
+          // Compute timing metrics
+          const totalEndTime = Date.now();
+          const timingMetrics: TimingMetrics = {
+            promptBuildMs: promptBuildEndTime - actionStartTime,
+            requestQueueMs: (result.fetchStartTime ?? totalEndTime) - promptBuildEndTime,
+            ttftMs: result.firstTokenTime
+              ? result.firstTokenTime - (result.fetchStartTime ?? promptBuildEndTime)
+              : 0,
+            initialDecodeMs: result.initialDecodeTime
+              ? result.initialDecodeTime - (result.firstTokenTime ?? result.fetchStartTime ?? promptBuildEndTime)
+              : 0,
+            totalMs: totalEndTime - actionStartTime,
+          };
+
+          // Determine actual model used (check if debug override was used)
+          const actualModelUsed = i === 0 && debugModelUsed
+            ? debugModelUsed
+            : `${provider.id}/${entry.model}`;
+
+          // Store timing metrics on the message for admin debug observability
+          if (result.messageId) {
+            await ctx.runMutation(internal.oracle.sessions.patchMessageTiming, {
+              messageId: result.messageId,
+              timingPromptBuildMs: timingMetrics.promptBuildMs,
+              timingRequestQueueMs: timingMetrics.requestQueueMs,
+              timingTtftMs: timingMetrics.ttftMs,
+              timingInitialDecodeMs: timingMetrics.initialDecodeMs,
+              timingTotalMs: timingMetrics.totalMs,
+              debugModelUsed: i === 0 && debugModelUsed ? debugModelUsed : undefined,
+            });
+          }
+
           return {
             content: result.contentWithoutTitle,
-            modelUsed: `${provider.id}/${entry.model}`,
+            modelUsed: actualModelUsed,
             fallbackTier: tier,
             promptTokens: result.promptTokens,
             completionTokens: result.completionTokens,
+            timingMetrics,
+            debugModelUsed: i === 0 && debugModelUsed ? debugModelUsed : null,
           };
         }
       } catch (error) {
@@ -431,7 +496,7 @@ async function callProviderStreaming(
   sessionId: Id<"oracle_sessions">,
   tier: string,
   systemPromptHash?: string,
-): Promise<{ content: string; contentWithoutTitle: string; title: string | null; promptTokens?: number; completionTokens?: number } | null> {
+): Promise<{ content: string; contentWithoutTitle: string; title: string | null; promptTokens?: number; completionTokens?: number; fetchStartTime?: number; firstTokenTime?: number; initialDecodeTime?: number; messageId?: Id<"oracle_messages"> } | null> {
   const apiKey = process.env[provider.apiKeyEnvVar];
 
   // Ollama (local) may not need an API key; others require one
@@ -463,6 +528,7 @@ async function callProviderStreaming(
   };
 
   let response: Response;
+  const fetchStartTime = Date.now();
   try {
     response = await fetch(url, {
       method: "POST",
@@ -498,6 +564,7 @@ async function callProviderStreaming(
     const { journalPrompt, contentWithoutPrompt } = parseJournalPromptFromResponse(contentWithoutTitle);
     const promptTokens: number | undefined = data.usage?.prompt_tokens;
     const completionTokens: number | undefined = data.usage?.completion_tokens;
+    const firstTokenTime = Date.now();
 
     const messageId: Id<"oracle_messages"> = await ctx.runMutation(
       internal.oracle.sessions.createStreamingMessage,
@@ -516,7 +583,7 @@ async function callProviderStreaming(
       journalPrompt: journalPrompt ?? undefined,
     });
 
-    return { content, contentWithoutTitle: contentWithoutPrompt, title, promptTokens, completionTokens };
+    return { content, contentWithoutTitle: contentWithoutPrompt, title, promptTokens, completionTokens, fetchStartTime, firstTokenTime, initialDecodeTime: firstTokenTime, messageId };
   }
 
   // For streaming mode, process SSE chunks
@@ -532,6 +599,8 @@ async function callProviderStreaming(
   const streamStartTime = Date.now();
   let promptTokens: number | undefined;
   let completionTokens: number | undefined;
+  let firstTokenTime: number | undefined;
+  let initialDecodeTime: number | undefined;
   let buffer = "";
 
   try {
@@ -561,6 +630,14 @@ async function callProviderStreaming(
           const token = parsed.choices?.[0]?.delta?.content;
           if (token) {
             fullContent += token;
+            // Track timing: first token received
+            if (firstTokenTime === undefined) {
+              firstTokenTime = Date.now();
+            }
+            // Track timing: initial decode complete (~200 chars)
+            if (initialDecodeTime === undefined && fullContent.length >= 200) {
+              initialDecodeTime = Date.now();
+            }
           }
 
           if (parsed.usage) {
@@ -641,5 +718,10 @@ async function callProviderStreaming(
     journalPrompt: journalPrompt ?? undefined,
   });
 
-  return { content: fullContent, contentWithoutTitle: contentWithoutPrompt, title, promptTokens, completionTokens };
+  // If initial decode time was never set (short responses), use stream end time
+  if (initialDecodeTime === undefined) {
+    initialDecodeTime = Date.now();
+  }
+
+  return { content: fullContent, contentWithoutTitle: contentWithoutPrompt, title, promptTokens, completionTokens, fetchStartTime, firstTokenTime, initialDecodeTime, messageId };
 }

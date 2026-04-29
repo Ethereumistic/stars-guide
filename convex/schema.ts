@@ -594,6 +594,13 @@ export default defineSchema({
         systemPromptHash: v.optional(v.string()),
         // Journal prompt suggested by Oracle (if the model outputs JOURNAL_PROMPT: ...)
         journalPrompt: v.optional(v.string()),
+        // Debug timing metrics (only on assistant messages, only for admin observability)
+        timingPromptBuildMs: v.optional(v.number()),
+        timingRequestQueueMs: v.optional(v.number()),
+        timingTtftMs: v.optional(v.number()),
+        timingInitialDecodeMs: v.optional(v.number()),
+        timingTotalMs: v.optional(v.number()),
+        debugModelUsed: v.optional(v.string()),
         createdAt: v.number(),
     })
         .index("by_session", ["sessionId"])

@@ -8,6 +8,21 @@ export type OracleState =
     | "oracle_responding"
     | "conversation_active";
 
+/** Timing metrics returned from the server */
+export interface TimingMetrics {
+    promptBuildMs: number;
+    requestQueueMs: number;
+    ttftMs: number;
+    initialDecodeMs: number;
+    totalMs: number;
+}
+
+/** Debug model override specification */
+export interface DebugModelOverride {
+    providerId: string;
+    model: string;
+}
+
 interface OracleStore {
     sessionId: Id<"oracle_sessions"> | null;
     state: OracleState;
@@ -18,6 +33,18 @@ interface OracleStore {
     quotaResetAt: number | null;
     quotaExhausted: boolean;
     timezone: string;
+
+    // ── Debug state ──
+    debugOpen: boolean;
+    debugModelOverride: DebugModelOverride | null;
+    debugLastMetrics: TimingMetrics | null;
+    debugDebugModelUsed: string | null;
+    debugClientTiming: {
+        requestStartMs: number | null;
+        firstContentMs: number | null;
+        completeMs: number | null;
+    };
+
     setSelectedFeature: (featureKey: OracleFeatureKey | null) => void;
     clearSelectedFeature: () => void;
     hydrateSessionFeature: (featureKey: OracleFeatureKey | null) => void;
@@ -29,6 +56,17 @@ interface OracleStore {
     setQuota: (remaining: number | null, resetAt: number | null) => void;
     setTimezone: (tz: string) => void;
     resetToIdle: () => void;
+
+    // ── Debug actions ──
+    setDebugOpen: (open: boolean) => void;
+    setDebugModelOverride: (override: DebugModelOverride | null) => void;
+    setDebugLastMetrics: (metrics: TimingMetrics | null) => void;
+    setDebugDebugModelUsed: (model: string | null) => void;
+    setDebugClientTiming: (timing: {
+        requestStartMs: number | null;
+        firstContentMs: number | null;
+        completeMs: number | null;
+    }) => void;
 }
 
 export const useOracleStore = create<OracleStore>((set, get) => ({
@@ -41,6 +79,17 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
     quotaResetAt: null,
     quotaExhausted: false,
     timezone: typeof window !== "undefined" ? detectTimezone() : "UTC",
+
+    // ── Debug state defaults ──
+    debugOpen: true,
+    debugModelOverride: null,
+    debugLastMetrics: null,
+    debugDebugModelUsed: null,
+    debugClientTiming: {
+        requestStartMs: null,
+        firstContentMs: null,
+        completeMs: null,
+    },
 
     setSelectedFeature: (featureKey) => set({ selectedFeatureKey: featureKey }),
 
@@ -75,4 +124,11 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
             pendingQuestion: "",
             isStreaming: false,
         }),
+
+    // ── Debug actions ──
+    setDebugOpen: (open) => set({ debugOpen: open }),
+    setDebugModelOverride: (override) => set({ debugModelOverride: override }),
+    setDebugLastMetrics: (metrics) => set({ debugLastMetrics: metrics }),
+    setDebugDebugModelUsed: (model) => set({ debugDebugModelUsed: model }),
+    setDebugClientTiming: (timing) => set({ debugClientTiming: timing }),
 }));
