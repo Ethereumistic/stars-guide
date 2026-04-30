@@ -31,6 +31,7 @@ import type * as journal_stats from "../journal/stats.js";
 import type * as journal_streaks from "../journal/streaks.js";
 import type * as lib_adminGuard from "../lib/adminGuard.js";
 import type * as lib_astronomyEngine from "../lib/astronomyEngine.js";
+import type * as lib_llmProvider from "../lib/llmProvider.js";
 import type * as notifications_admin from "../notifications/admin.js";
 import type * as notifications_delivery from "../notifications/delivery.js";
 import type * as notifications_queries from "../notifications/queries.js";
@@ -76,6 +77,7 @@ declare const fullApi: ApiFromModules<{
   "journal/streaks": typeof journal_streaks;
   "lib/adminGuard": typeof lib_adminGuard;
   "lib/astronomyEngine": typeof lib_astronomyEngine;
+  "lib/llmProvider": typeof lib_llmProvider;
   "notifications/admin": typeof notifications_admin;
   "notifications/delivery": typeof notifications_delivery;
   "notifications/queries": typeof notifications_queries;

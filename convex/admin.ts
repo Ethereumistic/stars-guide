@@ -311,6 +311,8 @@ export const startGeneration = mutation({
         rawZeitgeist: v.optional(v.string()),
         emotionalZeitgeist: v.optional(v.string()),
         hookId: v.optional(v.id("hooks")),
+        // v4: Provider routing
+        providerId: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         const { userId } = await requireAdmin(ctx);
@@ -368,6 +370,7 @@ export const startGeneration = mutation({
             rawZeitgeist: args.rawZeitgeist,
             emotionalZeitgeist: args.emotionalZeitgeist,
             hookId: args.hookId,
+            providerId: args.providerId,
         });
 
         // Fire-and-forget: schedule the AI action to run server-side
@@ -400,6 +403,40 @@ export const getRecentJobs = query({
             .query("generationJobs")
             .order("desc")
             .take(20);
+    },
+});
+
+/**
+ * getRunningJob — Returns the currently running job, if any.
+ * Used by the generator page to show live progress on page load.
+ */
+export const getRunningJob = query({
+    args: {},
+    handler: async (ctx) => {
+        await requireAdmin(ctx);
+        return await ctx.db
+            .query("generationJobs")
+            .withIndex("by_status", (q) => q.eq("status", "running"))
+            .first();
+    },
+});
+
+/**
+ * cancelJob — Cancel a running generation job.
+ * The engine checks for cancellation at each date boundary and stops.
+ */
+export const cancelJob = mutation({
+    args: { jobId: v.id("generationJobs") },
+    handler: async (ctx, args) => {
+        const { userId } = await requireAdmin(ctx);
+        const job = await ctx.db.get(args.jobId);
+        if (!job) throw new Error("Job not found");
+        if (job.status !== "running") throw new Error("Job is not running");
+
+        await ctx.db.patch(args.jobId, {
+            status: "cancelled",
+            completedAt: Date.now(),
+        });
     },
 });
 
@@ -674,6 +711,7 @@ export const synthesizeZeitgeistAction = action({
     args: {
         archetypes: v.array(v.string()),
         modelId: v.string(),
+        providerId: v.optional(v.string()),
     },
     handler: async (ctx, args): Promise<string> => {
         // Validate admin auth via internal query
@@ -686,6 +724,7 @@ export const synthesizeZeitgeistAction = action({
         const summary: string = await ctx.runAction(internal.ai.synthesizeZeitgeist, {
             archetypes: args.archetypes,
             modelId: args.modelId,
+            providerId: args.providerId,
         });
 
         return summary;
@@ -700,6 +739,7 @@ export const synthesizeEmotionalZeitgeistAction = action({
     args: {
         rawEvents: v.string(),
         modelId: v.string(),
+        providerId: v.optional(v.string()),
     },
     handler: async (ctx, args): Promise<string> => {
         const userId = await ctx.runQuery(internal.aiQueries.validateAdmin, {});
@@ -710,6 +750,7 @@ export const synthesizeEmotionalZeitgeistAction = action({
         const result: string = await ctx.runAction(internal.ai.synthesizeEmotionalZeitgeist, {
             rawEvents: args.rawEvents,
             modelId: args.modelId,
+            providerId: args.providerId,
         });
 
         return result;

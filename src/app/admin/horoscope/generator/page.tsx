@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { HoroscopeModelSelector } from "@/components/horoscope-admin/model-selector";
 import {
     Sparkles,
     CalendarDays,
@@ -22,6 +23,8 @@ import {
     AlertTriangle,
     Clock,
     Zap,
+    StopCircle,
+    Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, addDays, eachDayOfInterval } from "date-fns";
@@ -30,16 +33,6 @@ const VALID_SIGNS = [
     "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
     "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
 ] as const;
-
-const MODEL_OPTIONS = [
-    { id: "x-ai/grok-4.1-fast", name: "Grok 4.1 Fast", provider: "xAI" },
-    { id: "x-ai/grok-4.1", name: "Grok 4.1", provider: "xAI" },
-    { id: "google/gemini-2.5-flash-lite", name: "Gemini 2.5 Flash Lite", provider: "Google" },
-    { id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "Google" },
-    { id: "anthropic/claude-sonnet-4", name: "Claude Sonnet 4", provider: "Anthropic" },
-    { id: "openai/gpt-4.1-mini", name: "GPT-4.1 Mini", provider: "OpenAI" },
-    { id: "arcee-ai/trinity-large-preview:free", name: "Trinity Large Preview", provider: "Arcee AI" },
-];
 
 const statusConfig = {
     running: { label: "Running", icon: Clock, color: "text-blue-400", bgColor: "bg-blue-400" },
@@ -52,19 +45,40 @@ const statusConfig = {
 export default function GeneratorPage() {
     const zeitgeists = useQuery(api.admin.getZeitgeists);
     const startGeneration = useMutation(api.admin.startGeneration);
+    const cancelJobMutation = useMutation(api.admin.cancelJob);
 
     // Form state
     const [selectedZeitgeistId, setSelectedZeitgeistId] = useState<string>("");
-    const [selectedModel, setSelectedModel] = useState(MODEL_OPTIONS[0].id);
+    const [selectedModel, setSelectedModel] = useState("google/gemini-2.5-flash");
+    const [selectedProviderId, setSelectedProviderId] = useState("openrouter");
     const [selectedSigns, setSelectedSigns] = useState<Set<string>>(new Set(VALID_SIGNS));
     const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
         from: new Date(),
         to: addDays(new Date(), 6),
     });
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isCancelling, setIsCancelling] = useState(false);
 
-    // Active job tracking
+    // ── LIVE JOB TRACKING ───────────────────────────────────────────────
+    // 1. Check for running jobs on mount (survives page refresh)
+    const runningJob = useQuery(api.admin.getRunningJob);
     const [activeJobId, setActiveJobId] = useState<Id<"generationJobs"> | null>(null);
+
+    // Auto-adopt running job from server on page load
+    useEffect(() => {
+        if (runningJob && !activeJobId) {
+            setActiveJobId(runningJob._id);
+        }
+    }, [runningJob]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Clear active job when it's no longer running
+    useEffect(() => {
+        if (activeJobId && runningJob === null) {
+            // Job finished — keep showing it but allow starting new ones
+        }
+    }, [runningJob, activeJobId]);
+
+    // 2. Subscribe to the active job's progress
     const activeJob = useQuery(
         api.admin.getJobProgress,
         activeJobId ? { jobId: activeJobId } : "skip"
@@ -80,20 +94,15 @@ export default function GeneratorPage() {
 
     const toggleSign = (sign: string) => {
         const next = new Set(selectedSigns);
-        if (next.has(sign)) {
-            next.delete(sign);
-        } else {
-            next.add(sign);
-        }
+        if (next.has(sign)) next.delete(sign);
+        else next.add(sign);
         setSelectedSigns(next);
     };
 
     const toggleAllSigns = () => {
-        if (selectedSigns.size === VALID_SIGNS.length) {
-            setSelectedSigns(new Set());
-        } else {
-            setSelectedSigns(new Set(VALID_SIGNS));
-        }
+        setSelectedSigns((prev) =>
+            prev.size === VALID_SIGNS.length ? new Set() : new Set(VALID_SIGNS)
+        );
     };
 
     const handleGenerate = async () => {
@@ -117,6 +126,7 @@ export default function GeneratorPage() {
                 modelId: selectedModel,
                 targetDates,
                 targetSigns: Array.from(selectedSigns),
+                providerId: selectedProviderId,
             });
             setActiveJobId(jobId);
             toast.success("Generation started! Watching progress...");
@@ -127,12 +137,28 @@ export default function GeneratorPage() {
         }
     };
 
+    const handleCancel = async () => {
+        if (!activeJobId) return;
+        setIsCancelling(true);
+        try {
+            await cancelJobMutation({ jobId: activeJobId });
+            toast.success("Job cancelled.");
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to cancel.");
+        } finally {
+            setIsCancelling(false);
+        }
+    };
+
     // Progress calculation
     const progressPercent = activeJob
         ? Math.round(((activeJob.progress.completed + activeJob.progress.failed) / activeJob.progress.total) * 100)
         : 0;
 
     const isJobActive = activeJob?.status === "running";
+
+    // Detect when job finished
+    const jobFinished = activeJob && activeJob.status !== "running" && activeJob.completedAt;
 
     return (
         <div className="space-y-8 max-w-4xl">
@@ -144,9 +170,27 @@ export default function GeneratorPage() {
                 </h1>
                 <p className="text-muted-foreground mt-1 text-sm">
                     Configure and trigger AI horoscope generation. The process runs server-side —
-                    you can close this tab and return later.
+                    you can close this tab and return later to see live progress.
                 </p>
             </div>
+
+            {/* Live Running Job Alert */}
+            {runningJob && !activeJob && (
+                <div className="flex items-center justify-between p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <div className="flex items-center gap-3">
+                        <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
+                        <div>
+                            <p className="text-sm font-medium text-blue-300">A generation job is currently running</p>
+                            <p className="text-xs text-muted-foreground">
+                                Model: {runningJob.modelId} · Started: {new Date(runningJob.startedAt).toLocaleTimeString()}
+                            </p>
+                        </div>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => setActiveJobId(runningJob._id)} className="gap-1">
+                        <Eye className="h-3 w-3" /> View Progress
+                    </Button>
+                </div>
+            )}
 
             {/* Configuration */}
             <div className="grid gap-6 lg:grid-cols-2">
@@ -216,30 +260,21 @@ export default function GeneratorPage() {
                     </CardContent>
                 </Card>
 
-                {/* Model Selection */}
+                {/* Model + Provider Selection */}
                 <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
                     <CardHeader className="pb-3">
                         <CardTitle className="text-base">LLM Model</CardTitle>
-                        <CardDescription>Select the model for generation.</CardDescription>
+                        <CardDescription>
+                            Select provider + model. Configured in <code className="text-xs bg-muted px-1 py-0.5 rounded">Oracle → Settings</code>.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Select value={selectedModel} onValueChange={setSelectedModel}>
-                            <SelectTrigger className="bg-background/50">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {MODEL_OPTIONS.map((model) => (
-                                    <SelectItem key={model.id} value={model.id}>
-                                        <div className="flex items-center gap-2">
-                                            <span>{model.name}</span>
-                                            <span className="text-xs text-muted-foreground">
-                                                {model.provider}
-                                            </span>
-                                        </div>
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <HoroscopeModelSelector
+                            providerId={selectedProviderId}
+                            modelId={selectedModel}
+                            onProviderChange={setSelectedProviderId}
+                            onModelChange={setSelectedModel}
+                        />
                     </CardContent>
                 </Card>
 
@@ -321,7 +356,7 @@ export default function GeneratorPage() {
                 </Card>
             </div>
 
-            {/* Generate Button */}
+            {/* Generate / Cancel Buttons */}
             <div className="flex items-center gap-4">
                 <Button
                     onClick={handleGenerate}
@@ -336,6 +371,22 @@ export default function GeneratorPage() {
                     )}
                     {isGenerating ? "Starting..." : "Generate Horoscopes"}
                 </Button>
+                {isJobActive && (
+                    <Button
+                        variant="destructive"
+                        onClick={handleCancel}
+                        disabled={isCancelling}
+                        size="lg"
+                        className="gap-2"
+                    >
+                        {isCancelling ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <StopCircle className="h-4 w-4" />
+                        )}
+                        {isCancelling ? "Cancelling..." : "Cancel Job"}
+                    </Button>
+                )}
                 <span className="text-xs text-muted-foreground">
                     {selectedSigns.size} signs × {targetDates.length} days = {selectedSigns.size * targetDates.length} horoscopes
                 </span>
@@ -343,12 +394,12 @@ export default function GeneratorPage() {
 
             {/* Active Job Progress */}
             {activeJob && (
-                <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+                <Card className={`border-border/50 backdrop-blur-sm ${isJobActive ? "bg-blue-500/5 border-blue-500/20" : "bg-card/50"}`}>
                     <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
                             <CardTitle className="text-base flex items-center gap-2">
                                 {(() => {
-                                    const config = statusConfig[activeJob.status];
+                                    const config = statusConfig[activeJob.status as keyof typeof statusConfig] || statusConfig.running;
                                     const Icon = config.icon;
                                     return (
                                         <>
@@ -358,14 +409,19 @@ export default function GeneratorPage() {
                                     );
                                 })()}
                             </CardTitle>
-                            <Badge
-                                variant={activeJob.status === "running" ? "default" : "secondary"}
-                            >
-                                {statusConfig[activeJob.status].label}
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                                <Badge variant={isJobActive ? "default" : "secondary"}>
+                                    {statusConfig[activeJob.status as keyof typeof statusConfig]?.label ?? activeJob.status}
+                                </Badge>
+                                {isJobActive && (
+                                    <span className="text-xs text-blue-400 animate-pulse">● LIVE</span>
+                                )}
+                            </div>
                         </div>
                         <CardDescription>
-                            Model: {activeJob.modelId} · Started: {new Date(activeJob.startedAt).toLocaleTimeString()}
+                            Model: {activeJob.modelId}
+                            {(activeJob as any).providerId && ` · Provider: ${(activeJob as any).providerId}`}
+                            {" · Started: "}{new Date(activeJob.startedAt).toLocaleTimeString()}
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -405,8 +461,23 @@ export default function GeneratorPage() {
 
                         {activeJob.completedAt && (
                             <p className="text-xs text-muted-foreground">
-                                Completed at: {new Date(activeJob.completedAt).toLocaleString()}
+                                {activeJob.status === "cancelled"
+                                    ? `Cancelled at: ${new Date(activeJob.completedAt).toLocaleString()}`
+                                    : `Completed at: ${new Date(activeJob.completedAt).toLocaleString()}`
+                                }
                             </p>
+                        )}
+
+                        {/* Dismiss finished job */}
+                        {jobFinished && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setActiveJobId(null)}
+                                className="text-xs"
+                            >
+                                Dismiss
+                            </Button>
                         )}
                     </CardContent>
                 </Card>

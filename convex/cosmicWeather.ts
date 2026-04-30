@@ -143,9 +143,15 @@ export const generateFeltLanguage = internalAction({
             return;
         }
 
-        const apiKey = process.env.OPENROUTER_API_KEY;
-        if (!apiKey) {
-            console.error("OPENROUTER_API_KEY not set, cannot generate felt language.");
+        // Resolve provider from oracle_settings (fallback to OpenRouter)
+        const providersRaw = (await ctx.runQuery(internal.aiQueries.getOracleProvidersConfig, {})) ?? undefined;
+        const { parseProvidersConfig, resolveProvider, callLLMEndpoint } = await import("./lib/llmProvider");
+        const providers = parseProvidersConfig(providersRaw);
+        const provider = resolveProvider(providers);
+
+        const apiKey = process.env[provider.apiKeyEnvVar];
+        if (!apiKey && provider.type !== "ollama") {
+            console.error(`API key ${provider.apiKeyEnvVar} not set, cannot generate felt language.`);
             return;
         }
 
@@ -163,12 +169,14 @@ export const generateFeltLanguage = internalAction({
                 .join("; ")
             : "No exact aspects today.";
 
-        const payload = {
-            model: "google/gemini-2.5-flash-lite",
-            messages: [
-                {
-                    role: "system",
-                    content: `You are an astrology translator. Your job is to convert raw astronomical data 
+        try {
+            const { content } = await callLLMEndpoint({
+                provider,
+                model: "google/gemini-2.5-flash-lite",
+                messages: [
+                    {
+                        role: "system",
+                        content: `You are an astrology translator. Your job is to convert raw astronomical data 
 into emotionally resonant felt language for horoscope writers.
 Rules:
 - Never name a planet directly
@@ -178,51 +186,27 @@ Rules:
 - No prediction, no advice — only description of the energetic climate
 - No mention of degrees, orbs, or technical terms
 Output only the paragraph, no preamble.`,
-                },
-                {
-                    role: "user",
-                    content: `Translate this astronomical snapshot to felt language:
+                    },
+                    {
+                        role: "user",
+                        content: `Translate this astronomical snapshot to felt language:
 
 Moon: ${snapshot.moonPhase.name}, ${snapshot.moonPhase.illuminationPercent}% illuminated
 Active Aspects: ${aspectsLine}
 Retrogrades: ${retroLine}
 Moon Phase Frame: ${moonFrame}`,
-                },
-            ],
-            temperature: 0.4,
-            max_tokens: 300,
-        };
-
-        try {
-            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${apiKey}`,
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "https://stars.guide",
-                    "X-Title": "Stars.Guide Felt Language Generator",
-                },
-                body: JSON.stringify(payload),
+                    },
+                ],
+                temperature: 0.4,
+                maxTokens: 300,
+                title: "Stars.Guide Felt Language",
             });
-
-            if (!response.ok) {
-                const errorBody = await response.text();
-                console.error(`Felt language API error ${response.status}: ${errorBody}`);
-                return;
-            }
-
-            const data = await response.json() as any;
-            const content = data?.choices?.[0]?.message?.content;
-            if (!content) {
-                console.error("Empty felt language response");
-                return;
-            }
 
             await ctx.runMutation(internal.cosmicWeather.storeFeltLanguage, {
                 date,
                 feltLanguage: content.trim(),
             });
-            console.log(`Felt language generated for ${date}`);
+            console.log(`Felt language generated for ${date} via ${provider.name}`);
         } catch (err) {
             console.error(`Failed to generate felt language for ${date}:`, err);
         }

@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { HoroscopeModelSelector } from "@/components/horoscope-admin/model-selector";
 import {
     Globe,
     Plus,
@@ -31,17 +32,6 @@ import { toast } from "sonner";
 import { format, addDays } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-
-// Model options — same list as the Generation Desk for consistency
-const MODEL_OPTIONS = [
-    { id: "x-ai/grok-4.1-fast", name: "Grok 4.1 Fast", provider: "xAI" },
-    { id: "x-ai/grok-4.1", name: "Grok 4.1", provider: "xAI" },
-    { id: "google/gemini-2.5-flash-lite", name: "Gemini 2.5 Flash Lite", provider: "Google" },
-    { id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "Google" },
-    { id: "anthropic/claude-sonnet-4", name: "Claude Sonnet 4", provider: "Anthropic" },
-    { id: "openai/gpt-4.1-mini", name: "GPT-4.1 Mini", provider: "OpenAI" },
-    { id: "arcee-ai/trinity-large-preview:free", name: "Trinity Large Preview", provider: "Arcee AI" },
-];
 
 // Suspicious patterns for prompt injection defense (warn, don't block)
 const SUSPICIOUS_PATTERNS = [
@@ -65,7 +55,8 @@ export default function ZeitgeistPage() {
     const [aiSummary, setAiSummary] = useState("");
     const [isSynthesizing, setIsSynthesizing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [selectedModel, setSelectedModel] = useState(MODEL_OPTIONS[0].id);
+    const [selectedModel, setSelectedModel] = useState("google/gemini-2.5-flash");
+    const [selectedProviderId, setSelectedProviderId] = useState("openrouter");
 
     // v3: Emotional Translation Layer
     const [emotionalTranslation, setEmotionalTranslation] = useState("");
@@ -116,6 +107,7 @@ export default function ZeitgeistPage() {
             const result = await synthesize({
                 archetypes: validArchetypes,
                 modelId: selectedModel,
+                providerId: selectedProviderId,
             });
             setAiSummary(result);
             toast.success("Synthesis complete!");
@@ -144,6 +136,7 @@ export default function ZeitgeistPage() {
             const result = await synthesizeEmotional({
                 rawEvents: textToTranslate,
                 modelId: selectedModel,
+                providerId: selectedProviderId,
             });
 
             // v4: Parse JSON response with translation + emotional register
@@ -360,23 +353,13 @@ export default function ZeitgeistPage() {
                             {/* Model Selector */}
                             <div className="space-y-2">
                                 <Label className="text-xs text-muted-foreground">LLM Model</Label>
-                                <Select value={selectedModel} onValueChange={setSelectedModel}>
-                                    <SelectTrigger className="bg-background/50">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {MODEL_OPTIONS.map((model) => (
-                                            <SelectItem key={model.id} value={model.id}>
-                                                <div className="flex items-center gap-2">
-                                                    <span>{model.name}</span>
-                                                    <span className="text-xs text-muted-foreground">
-                                                        {model.provider}
-                                                    </span>
-                                                </div>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <HoroscopeModelSelector
+                                    providerId={selectedProviderId}
+                                    modelId={selectedModel}
+                                    onProviderChange={setSelectedProviderId}
+                                    onModelChange={setSelectedModel}
+                                    showProvider={true}
+                                />
                             </div>
 
                             {/* Archetypes */}

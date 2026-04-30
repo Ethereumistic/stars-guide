@@ -278,6 +278,7 @@ export default defineSchema({
         rawZeitgeist: v.optional(v.string()),           // Original admin-typed events
         emotionalZeitgeist: v.optional(v.string()),     // AI-translated emotional state
         hookId: v.optional(v.id("hooks")),              // Assigned hook archetype for this run
+        providerId: v.optional(v.string()),           // v4: Which oracle provider to route through
     }).index("by_status", ["status"])
         .index("by_admin", ["adminUserId"]),
 

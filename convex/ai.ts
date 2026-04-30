@@ -4,15 +4,22 @@ import { internalAction } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { z } from "zod";
+import {
+    LLMProvider,
+    parseProvidersConfig,
+    resolveProvider,
+    callLLMEndpoint,
+    DEFAULT_PROVIDER,
+} from "./lib/llmProvider";
 
 // ─── SAFETY CONSTANTS ─────────────────────────────────────────────────────
-const MAX_RETRIES_PER_SIGN = 2;       // Max 2 attempts per sign (1 original + 1 retry)
-const RETRY_DELAY_MS = 3000;          // Wait 3s before retry
-const MAX_TOTAL_FAILURES = 6;         // If 6+ signs fail, abort entire job
-const INTER_DATE_DELAY_MS = 3000;     // Sleep between date batches (shared context switch)
-const INTER_SIGN_DELAY_MS = 500;      // Sleep between signs within a date (minimal)
+const MAX_RETRIES_PER_SIGN = 2;
+const RETRY_DELAY_MS = 3000;
+const MAX_TOTAL_FAILURES = 6;
+const INTER_DATE_DELAY_MS = 3000;
+const INTER_SIGN_DELAY_MS = 500;
 
-// ─── ZOD VALIDATION SCHEMAS (The LLM Lie Defense) ────────────────────────
+// ─── ZOD VALIDATION SCHEMAS ───────────────────────────────────────────────
 const VALID_SIGNS = [
     "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
     "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
@@ -22,25 +29,15 @@ const LLMResponseSchema = z.object({
     sign: z.enum(VALID_SIGNS),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
     content: z.string().min(1, "Content cannot be empty"),
-    // NOTE: Character length (330-460) is validated visually in the Review UI,
-    // NOT here. This prevents discarding great AI content that's slightly
-    // over/under the limit. The admin decides in the review step.
 });
 
 // ─── UTILITIES ────────────────────────────────────────────────────────────
 
-/**
- * sanitizeLLMJson — Strip markdown code block wrappers that LLMs
- * sometimes return despite explicit instructions not to.
- */
 function sanitizeLLMJson(raw: string): unknown {
     const cleaned = raw.replace(/```json\n?|```/g, "").trim();
     return JSON.parse(cleaned);
 }
 
-/**
- * sleep — Simple delay helper for rate limiting.
- */
 function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -52,13 +49,9 @@ type CosmicWeatherData = {
     planetPositions: { planet: string; sign: string; degreeInSign: number; isRetrograde: boolean }[];
     moonPhase: { name: string; illuminationPercent: number };
     activeAspects: { planet1: string; planet2: string; aspect: string; orbDegrees: number }[];
+    feltLanguage?: string;
 };
 
-/**
- * formatCosmicWeatherForPrompt — Converts computed astronomical data
- * into a human-readable block for the LLM.
- * v3: Includes retrograde felt-language guidance.
- */
 function formatCosmicWeatherForPrompt(snapshot: CosmicWeatherData): string {
     const planets = snapshot.planetPositions
         .map((p) => {
@@ -95,10 +88,6 @@ type HookData = {
     examples: string[];
 };
 
-/**
- * formatHookForPrompt — Formats the assigned hook archetype into a
- * prompt block that instructs the LLM on the opening style.
- */
 function formatHookForPrompt(hook: HookData): string {
     const exampleLines = hook.examples
         .map((e, i) => `${i + 1}. "${e}"`)
@@ -112,22 +101,23 @@ ${exampleLines}
 Open the horoscope with this hook type. Do not copy the examples — use them as tone reference only.`;
 }
 
+// ─── PROVIDER-AWARE LLM CALLS ─────────────────────────────────────────────
+
 /**
- * callOpenRouter — Makes a single API call to OpenRouter.
- * v3: Includes moon phase frame, hook archetype, and emotional zeitgeist.
+ * generateHoroscope — Makes a single provider-aware LLM call.
+ * Routes to the correct provider endpoint based on provider config.
  */
-async function callOpenRouter(
+async function generateHoroscope(
     sign: string,
     date: string,
     emotionalZeitgeist: string,
     masterContext: string,
     modelId: string,
-    apiKey: string,
+    provider: LLMProvider,
     cosmicWeatherText?: string,
     moonPhaseFrame?: string,
     hookText?: string,
 ): Promise<unknown> {
-    // Build the v4 user message — one sign, one date
     const moonPhaseBlock = moonPhaseFrame
         ? `\n\nMOON PHASE FRAME: ${moonPhaseFrame}`
         : "";
@@ -140,7 +130,8 @@ async function callOpenRouter(
         ? `\n\n${hookText}`
         : "";
 
-    const payload = {
+    const { content } = await callLLMEndpoint({
+        provider,
         model: modelId,
         messages: [
             {
@@ -165,57 +156,18 @@ Content must be 330–460 characters.`,
             },
         ],
         temperature: 0.75,
-        max_tokens: 1024,
-        response_format: { type: "json_object" },
-    };
-
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://stars.guide",
-            "X-Title": "Stars.Guide Horoscope Engine v3",
-        },
-        body: JSON.stringify(payload),
+        maxTokens: 4096,
+        jsonMode: true,
+        title: "Stars.Guide Horoscope Engine v4",
     });
 
-    if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`OpenRouter API error ${response.status}: ${errorBody}`);
-    }
-
-    const data = await response.json() as any;
-
-    // Extract the content from the response
-    const content = data?.choices?.[0]?.message?.content;
-    if (!content) {
-        throw new Error("OpenRouter returned empty content");
-    }
-
-    // Parse and sanitize the JSON response
     return sanitizeLLMJson(content);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// THE CORE ENGINE — runGenerationJob (v3)
+// THE CORE ENGINE — runGenerationJob (v4)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * runGenerationJob — Internal action that runs entirely server-side.
- * 
- * v3 Changes:
- * - Uses emotionalZeitgeist (not raw events) in prompts
- * - Injects moon phase frame as first context layer
- * - Injects assigned hook archetype for opening style
- * - Updated prompt structure per v3 spec
- * 
- * Architecture: Fire-and-Forget with Progress Tracking
- * - The browser is ONLY a progress viewer, not a critical link.
- * - If the admin closes the tab, this action continues running.
- * - Every successful LLM response is persisted immediately.
- * - If the action crashes mid-way, all previously saved signs are safe.
- */
 export const runGenerationJob = internalAction({
     args: { jobId: v.id("generationJobs") },
     handler: async (ctx, args) => {
@@ -226,7 +178,7 @@ export const runGenerationJob = internalAction({
             return;
         }
 
-        // 2. Fetch zeitgeist — use emotionalZeitgeist if available, fallback to raw
+        // 2. Fetch zeitgeist
         const zeitgeist = await ctx.runQuery(internal.aiQueries.getZeitgeistInternal, {
             zeitgeistId: job.zeitgeistId,
         });
@@ -238,9 +190,9 @@ export const runGenerationJob = internalAction({
             return;
         }
 
-        // v3: Prefer emotionalZeitgeist from the job, fallback to zeitgeist.summary
         const emotionalZeitgeist = job.emotionalZeitgeist || zeitgeist.summary;
 
+        // 3. Assemble system prompt (context slots with fallback)
         const masterContext = await ctx.runQuery(internal.aiQueries.assembleSystemPrompt, {});
         if (!masterContext) {
             await ctx.runMutation(internal.admin.failJob, {
@@ -250,24 +202,38 @@ export const runGenerationJob = internalAction({
             return;
         }
 
-        // 3. Get API key from environment
-        const apiKey = process.env.OPENROUTER_API_KEY;
-        if (!apiKey) {
+        // 4. Resolve LLM provider from oracle_settings
+        const providersRaw = (await ctx.runQuery(internal.aiQueries.getOracleProvidersConfig, {})) ?? undefined;
+        const providers = parseProvidersConfig(providersRaw);
+        const provider = resolveProvider(providers, (job as any).providerId);
+        console.log(`Using provider: ${provider.name} (${provider.baseUrl}) with model: ${job.modelId}`);
+
+        // Verify API key exists
+        const apiKey = process.env[provider.apiKeyEnvVar];
+        if (!apiKey && provider.type !== "ollama") {
             await ctx.runMutation(internal.admin.failJob, {
                 jobId: args.jobId,
-                errors: ["OPENROUTER_API_KEY environment variable is not set"],
+                errors: [`API key ${provider.apiKeyEnvVar} not set in environment. Provider: ${provider.name}`],
             });
             return;
         }
 
-        // 4. Process dates × signs — date-first axis
-        //    All 12 signs share identical cosmic weather for a given date.
-        //    Iterating date-first keeps the LLM context coherent.
+        // 5. Date-first generation loop
         let completedCount = 0;
         let failedCount = 0;
         const errors: string[] = [];
 
         for (let dateIdx = 0; dateIdx < job.targetDates.length; dateIdx++) {
+            // ── Cancellation check at each date boundary ──
+            const currentJobState = await ctx.runQuery(
+                internal.aiQueries.getJobDetails,
+                { jobId: args.jobId }
+            );
+            if (!currentJobState || currentJobState.status === "cancelled") {
+                console.log(`Job ${args.jobId} was cancelled, stopping.`);
+                return;
+            }
+
             const targetDate = job.targetDates[dateIdx];
 
             // Fetch cosmic weather + moon phase frame ONCE per date
@@ -288,59 +254,57 @@ export const runGenerationJob = internalAction({
                     );
                 }
                 if (cosmicWeather) {
-                    // v4: Use felt language if available, fall back to raw data
-                    if (cosmicWeather.feltLanguage) {
-                        cosmicWeatherText = `COSMIC WEATHER FOR ${targetDate}:\n${cosmicWeather.feltLanguage}`;
-                    } else {
-                        cosmicWeatherText = formatCosmicWeatherForPrompt(cosmicWeather);
-                    }
+                    cosmicWeatherText = cosmicWeather.feltLanguage
+                        ? `COSMIC WEATHER FOR ${targetDate}:\n${cosmicWeather.feltLanguage}`
+                        : formatCosmicWeatherForPrompt(cosmicWeather);
+
                     const { getMoonPhaseFrame, getMoonPhaseCategory } = await import("./lib/astronomyEngine");
                     moonPhaseFrame = getMoonPhaseFrame(cosmicWeather.moonPhase.name);
                     moonPhaseCategory = getMoonPhaseCategory(cosmicWeather.moonPhase.name);
-                    console.log(`Cosmic weather + moon phase frame loaded for ${targetDate} (${cosmicWeather.moonPhase.name})`);
+                    console.log(`Cosmic weather loaded for ${targetDate} (${cosmicWeather.moonPhase.name})`);
                 }
             } catch (err) {
-                console.warn(`Failed to fetch/compute cosmic weather for ${targetDate}, proceeding without:`, err);
+                console.warn(`Cosmic weather failed for ${targetDate}:`, err);
             }
 
-            // Fetch hook archetype ONCE per date (moon phase is date-specific)
+            // Fetch hook archetype ONCE per date
             let hookText: string | undefined;
             let selectedHookId: string | undefined;
             try {
-                // v4: Pass emotional register from zeitgeist to hook selection
                 const emotionalRegister = zeitgeist.emotionalRegister
                     ? zeitgeist.emotionalRegister.split(",").map((r: string) => r.trim())
                     : undefined;
                 const hook = await ctx.runQuery(internal.hooks.getAssignedHook, {
                     hookId: job.hookId || undefined,
-                    moonPhaseCategory: moonPhaseCategory,
+                    moonPhaseCategory,
                     emotionalRegister,
                 });
                 if (hook) {
                     hookText = formatHookForPrompt(hook);
                     selectedHookId = hook._id;
-                    console.log(`Hook archetype assigned: ${hook.name}`);
                 }
             } catch (err) {
-                console.warn("Failed to fetch hook archetype, proceeding without:", err);
+                console.warn("Hook fetch failed:", err);
             }
 
-            // Inner loop: iterate signs for this date
+            // Inner loop: signs for this date
             for (const sign of job.targetSigns) {
                 try {
-                    const result = await callOpenRouter(
+                    const result = await generateHoroscope(
                         sign, targetDate, emotionalZeitgeist, masterContext,
-                        job.modelId, apiKey, cosmicWeatherText, moonPhaseFrame, hookText
+                        job.modelId, provider,
+                        cosmicWeatherText, moonPhaseFrame, hookText
                     );
                     const validated = LLMResponseSchema.safeParse(result);
 
                     if (!validated.success) {
-                        console.warn(`Validation failed for ${sign} ${targetDate}, retrying...`, validated.error.message);
+                        console.warn(`Validation failed for ${sign} ${targetDate}, retrying...`);
                         await sleep(RETRY_DELAY_MS);
 
-                        const retryResult = await callOpenRouter(
+                        const retryResult = await generateHoroscope(
                             sign, targetDate, emotionalZeitgeist, masterContext,
-                            job.modelId, apiKey, cosmicWeatherText, moonPhaseFrame, hookText
+                            job.modelId, provider,
+                            cosmicWeatherText, moonPhaseFrame, hookText
                         );
                         const retryValidated = LLMResponseSchema.safeParse(retryResult);
 
@@ -348,29 +312,21 @@ export const runGenerationJob = internalAction({
                             failedCount++;
                             errors.push(`${sign} ${targetDate}: Validation failed after retry — ${retryValidated.error.message}`);
                             await ctx.runMutation(internal.admin.updateJobProgress, {
-                                jobId: args.jobId,
-                                failed: failedCount,
-                                errors,
+                                jobId: args.jobId, failed: failedCount, errors,
                             });
-
                             if (failedCount >= MAX_TOTAL_FAILURES) {
-                                await ctx.runMutation(internal.admin.failJob, {
-                                    jobId: args.jobId,
-                                    errors,
-                                });
+                                await ctx.runMutation(internal.admin.failJob, { jobId: args.jobId, errors });
                                 return;
                             }
                             continue;
                         }
 
-                        // Retry succeeded — save as single sign/date
                         await ctx.runMutation(internal.admin.upsertHoroscope, {
                             data: retryValidated.data,
                             zeitgeistId: job.zeitgeistId,
                             jobId: args.jobId,
                         });
                     } else {
-                        // First attempt succeeded — save immediately as single sign/date
                         await ctx.runMutation(internal.admin.upsertHoroscope, {
                             data: validated.data,
                             zeitgeistId: job.zeitgeistId,
@@ -380,20 +336,19 @@ export const runGenerationJob = internalAction({
 
                     completedCount++;
                     await ctx.runMutation(internal.admin.updateJobProgress, {
-                        jobId: args.jobId,
-                        completed: completedCount,
+                        jobId: args.jobId, completed: completedCount,
                     });
 
                 } catch (error: unknown) {
                     const errorMessage = error instanceof Error ? error.message : String(error);
                     console.error(`Error processing ${sign} ${targetDate}:`, errorMessage);
 
-                    // Retry once for network errors
                     try {
                         await sleep(RETRY_DELAY_MS);
-                        const retryResult = await callOpenRouter(
+                        const retryResult = await generateHoroscope(
                             sign, targetDate, emotionalZeitgeist, masterContext,
-                            job.modelId, apiKey, cosmicWeatherText, moonPhaseFrame, hookText
+                            job.modelId, provider,
+                            cosmicWeatherText, moonPhaseFrame, hookText
                         );
                         const retryValidated = LLMResponseSchema.safeParse(retryResult);
 
@@ -405,8 +360,7 @@ export const runGenerationJob = internalAction({
                             });
                             completedCount++;
                             await ctx.runMutation(internal.admin.updateJobProgress, {
-                                jobId: args.jobId,
-                                completed: completedCount,
+                                jobId: args.jobId, completed: completedCount,
                             });
                             continue;
                         }
@@ -419,69 +373,57 @@ export const runGenerationJob = internalAction({
                     }
 
                     await ctx.runMutation(internal.admin.updateJobProgress, {
-                        jobId: args.jobId,
-                        failed: failedCount,
-                        errors,
+                        jobId: args.jobId, failed: failedCount, errors,
                     });
-
                     if (failedCount >= MAX_TOTAL_FAILURES) {
-                        await ctx.runMutation(internal.admin.failJob, {
-                            jobId: args.jobId,
-                            errors,
-                        });
+                        await ctx.runMutation(internal.admin.failJob, { jobId: args.jobId, errors });
                         return;
                     }
                 }
 
-                // Rate limit: minimal delay between signs within same date
                 await sleep(INTER_SIGN_DELAY_MS);
             }
 
-            // Rate limit: longer delay between date batches
+            // Rate limit between date batches
             if (dateIdx < job.targetDates.length - 1) {
                 await sleep(INTER_DATE_DELAY_MS);
             }
 
-            // v4: Increment hook usage count after the date batch completes
+            // Increment hook usage
             if (selectedHookId) {
                 try {
                     await ctx.runMutation(internal.hooks.incrementHookUsage, {
                         hookId: selectedHookId as any,
                     });
-                } catch (err) {
-                    console.warn("Failed to increment hook usage:", err);
-                }
+                } catch {}
             }
         }
 
-        // 5. Determine final job status
         const finalStatus = failedCount === 0 ? "completed" : "partial";
         await ctx.runMutation(internal.admin.completeJob, {
-            jobId: args.jobId,
-            status: finalStatus,
+            jobId: args.jobId, status: finalStatus,
         });
     },
 });
 
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ZEITGEIST AI SYNTHESIS (Original — 3-sentence psychological baseline)
+// ZEITGEIST AI SYNTHESIS
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * synthesizeZeitgeist — Takes archetypal events and uses AI to create
- * a cohesive 3-sentence psychological summary.
- */
 export const synthesizeZeitgeist = internalAction({
     args: {
         archetypes: v.array(v.string()),
         modelId: v.string(),
+        providerId: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        const apiKey = process.env.OPENROUTER_API_KEY;
-        if (!apiKey) throw new Error("OPENROUTER_API_KEY not set");
+        const providersRaw = (await ctx.runQuery(internal.aiQueries.getOracleProvidersConfig, {})) ?? undefined;
+        const providers = parseProvidersConfig(providersRaw);
+        const provider = resolveProvider(providers, args.providerId);
 
-        const payload = {
+        const { content } = await callLLMEndpoint({
+            provider,
             model: args.modelId,
             messages: [
                 {
@@ -494,28 +436,9 @@ export const synthesizeZeitgeist = internalAction({
                 },
             ],
             temperature: 0.6,
-            max_tokens: 300,
-        };
-
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${apiKey}`,
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://stars.guide",
-                "X-Title": "Stars.Guide Zeitgeist Synthesis",
-            },
-            body: JSON.stringify(payload),
+            maxTokens: 300,
+            title: "Stars.Guide Zeitgeist Synthesis",
         });
-
-        if (!response.ok) {
-            const errorBody = await response.text();
-            throw new Error(`OpenRouter API error ${response.status}: ${errorBody}`);
-        }
-
-        const data = await response.json() as any;
-        const content = data?.choices?.[0]?.message?.content;
-        if (!content) throw new Error("OpenRouter returned empty synthesis");
 
         return content.trim();
     },
@@ -523,28 +446,23 @@ export const synthesizeZeitgeist = internalAction({
 
 
 // ═══════════════════════════════════════════════════════════════════════════
-// v3: EMOTIONAL ZEITGEIST TRANSLATION LAYER
+// EMOTIONAL ZEITGEIST TRANSLATION LAYER
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * synthesizeEmotionalZeitgeist — The two-pass Emotional Translation Layer.
- * Takes raw world events (or a 3-sentence psychological summary) and
- * converts them into a description of how people are FEELING — not what happened.
- *
- * This is the single highest-leverage change in v3. Headlines don't generate
- * empathy. Felt emotional states do.
- */
 export const synthesizeEmotionalZeitgeist = internalAction({
     args: {
         rawEvents: v.string(),
         modelId: v.string(),
+        providerId: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        const apiKey = process.env.OPENROUTER_API_KEY;
-        if (!apiKey) throw new Error("OPENROUTER_API_KEY not set");
+        const providersRaw = (await ctx.runQuery(internal.aiQueries.getOracleProvidersConfig, {})) ?? undefined;
+        const providers = parseProvidersConfig(providersRaw);
+        const provider = resolveProvider(providers, args.providerId);
 
         // Pass 1: Emotional Translation
-        const emotionalPayload = {
+        const { content: emotionalContent } = await callLLMEndpoint({
+            provider,
             model: args.modelId,
             messages: [
                 {
@@ -566,34 +484,16 @@ Rules:
                 },
             ],
             temperature: 0.65,
-            max_tokens: 400,
-        };
-
-        const emotionalResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${apiKey}`,
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://stars.guide",
-                "X-Title": "Stars.Guide Emotional Translation",
-            },
-            body: JSON.stringify(emotionalPayload),
+            maxTokens: 400,
+            title: "Stars.Guide Emotional Translation",
         });
-
-        if (!emotionalResponse.ok) {
-            const errorBody = await emotionalResponse.text();
-            throw new Error(`OpenRouter API error ${emotionalResponse.status}: ${errorBody}`);
-        }
-
-        const emotionalData = await emotionalResponse.json() as any;
-        const emotionalContent = emotionalData?.choices?.[0]?.message?.content;
-        if (!emotionalContent) throw new Error("OpenRouter returned empty emotional translation");
 
         // Pass 2: Emotional Register Classification
         let emotionalRegister = "";
         try {
-            const classifyPayload = {
-                model: "google/gemini-2.5-flash-lite",
+            const { content: classifyContent } = await callLLMEndpoint({
+                provider,
+                model: args.modelId,
                 messages: [
                     {
                         role: "system",
@@ -601,42 +501,21 @@ Rules:
 Choose 1-2 from: anxious, expansive, tender, defiant, restless, hopeful, grief, clarity.
 Output ONLY a JSON array, e.g. ["anxious", "restless"]`,
                     },
-                    {
-                        role: "user",
-                        content: emotionalContent.trim(),
-                    },
+                    { role: "user", content: emotionalContent.trim() },
                 ],
                 temperature: 0.3,
-                max_tokens: 100,
-                response_format: { type: "json_object" },
-            };
-
-            const classifyResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${apiKey}`,
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "https://stars.guide",
-                    "X-Title": "Stars.Guide Register Classification",
-                },
-                body: JSON.stringify(classifyPayload),
+                maxTokens: 100,
+                jsonMode: true,
+                title: "Stars.Guide Register Classification",
             });
 
-            if (classifyResponse.ok) {
-                const classifyData = await classifyResponse.json() as any;
-                const classifyContent = classifyData?.choices?.[0]?.message?.content;
-                if (classifyContent) {
-                    const parsed = JSON.parse(classifyContent.replace(/```json\n?|```/g, "").trim());
-                    const registers = Array.isArray(parsed) ? parsed : (parsed.registers ?? []);
-                    emotionalRegister = registers.slice(0, 2).join(",");
-                }
-            }
+            const parsed = JSON.parse(classifyContent.replace(/```json\n?|```/g, "").trim());
+            const registers = Array.isArray(parsed) ? parsed : (parsed.registers ?? []);
+            emotionalRegister = registers.slice(0, 2).join(",");
         } catch {
-            // Non-fatal: if classification fails, proceed without register
             console.warn("Emotional register classification failed, continuing without.");
         }
 
-        // Return both the translation and the register (comma-separated)
         return JSON.stringify({
             translation: emotionalContent.trim(),
             emotionalRegister,

@@ -69,6 +69,21 @@ export const getHookInternal = internalQuery({
 });
 
 /**
+ * getOracleProvidersConfig — Reads the raw providers_config JSON from oracle_settings.
+ * Used by the generation engine to route LLM calls to the correct provider.
+ */
+export const getOracleProvidersConfig = internalQuery({
+    args: {},
+    handler: async (ctx) => {
+        const setting = await ctx.db
+            .query("oracle_settings")
+            .withIndex("by_key", (q) => q.eq("key", "providers_config"))
+            .first();
+        return setting?.value;
+    },
+});
+
+/**
  * assembleSystemPrompt — v4: Assembles enabled context slots into a single
  * system prompt string. Falls back to the old monolithic master_context
  * from systemSettings when no context slots exist (backward compat).
