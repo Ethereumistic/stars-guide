@@ -3,7 +3,6 @@
 import {
     Sidebar,
     SidebarContent,
-    SidebarFooter,
     SidebarHeader,
     SidebarMenu,
     SidebarMenuItem,
@@ -29,16 +28,21 @@ import {
 import { GiCursedStar, GiScrollUnfurled, GiStarSwirl } from "react-icons/gi";
 import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
+import { AdminSidebarFooter } from "./admin-sidebar-footer";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const adminNavItems = [
+const dashboardNavItems = [
     { title: "Dashboard", href: "/admin", icon: LayoutDashboard },
-    { title: "Context Editor", href: "/admin/context", icon: FileText },
-    { title: "Zeitgeist Engine", href: "/admin/zeitgeist", icon: Globe },
-    { title: "Generation Desk", href: "/admin/generator", icon: Sparkles },
-    { title: "Hook Manager", href: "/admin/hooks", icon: Anchor },
-    { title: "Review & Publish", href: "/admin/review", icon: ClipboardCheck },
+];
+
+const horoscopeNavItems = [
+    { title: "Overview", href: "/admin/horoscope", icon: LayoutDashboard },
+    { title: "Context Editor", href: "/admin/horoscope/context", icon: FileText },
+    { title: "Zeitgeist Engine", href: "/admin/horoscope/zeitgeist", icon: Globe },
+    { title: "Generation Desk", href: "/admin/horoscope/generator", icon: Sparkles },
+    { title: "Hook Manager", href: "/admin/horoscope/hooks", icon: Anchor },
+    { title: "Review & Publish", href: "/admin/horoscope/review", icon: ClipboardCheck },
 ];
 
 const oracleNavItems = [
@@ -83,8 +87,8 @@ function CollapsedAdminToggle() {
 }
 
 function renderNavSection(
-    items: typeof adminNavItems,
-    isActive: (item: typeof adminNavItems[number]) => boolean,
+    items: typeof dashboardNavItems,
+    isActive: (item: typeof dashboardNavItems[number]) => boolean,
 ) {
     const pathname = usePathname();
 
@@ -132,9 +136,16 @@ function SectionLabel({
 
 interface AdminSidebarProps {
     userEmail: string;
+    user: {
+        username?: string | null | undefined;
+        email?: string | null | undefined;
+        image?: string | null | undefined;
+        role?: string | null | undefined;
+    } | null | undefined;
+    onSignOut: () => void;
 }
 
-export function AdminSidebar({ userEmail }: AdminSidebarProps) {
+export function AdminSidebar({ userEmail, user, onSignOut }: AdminSidebarProps) {
     const pathname = usePathname();
 
     return (
@@ -160,12 +171,20 @@ export function AdminSidebar({ userEmail }: AdminSidebarProps) {
 
             <SidebarContent className="flex flex-col overflow-hidden scrollbar-thin scrollbar-thumb-white/10 p-2">
                 {renderNavSection(
-                    adminNavItems,
+                    dashboardNavItems,
                     (item) =>
-                        pathname === item.href ||
-                        (item.href !== "/admin" &&
-                            pathname?.startsWith(item.href) &&
-                            !pathname?.startsWith("/admin/oracle")),
+                        pathname === item.href,
+                )}
+
+                {/* Horoscope Engine Section */}
+                <Separator className="opacity-20 my-3" />
+                <SectionLabel
+                    icon={<GiStarSwirl className="h-4 w-4 text-galactic" />}
+                    label="Horoscope Engine"
+                />
+                {renderNavSection(horoscopeNavItems, (item) =>
+                    pathname === item.href ||
+                    (item.href !== "/admin/horoscope" && pathname?.startsWith(item.href)),
                 )}
 
                 {/* Oracle CMS Section */}
@@ -209,14 +228,10 @@ export function AdminSidebar({ userEmail }: AdminSidebarProps) {
 
             <SidebarSeparator className="mx-2 bg-white/10" />
 
-            <SidebarFooter className="p-4">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                    <span className="truncate group-data-[collapsible=icon]:hidden">
-                        {userEmail}
-                    </span>
-                </div>
-            </SidebarFooter>
+            <AdminSidebarFooter
+                user={user}
+                onSignOut={onSignOut}
+            />
         </Sidebar>
     );
 }

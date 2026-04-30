@@ -372,16 +372,16 @@ function MetricCard({
   color?: string;
 }) {
   return (
-    <Card className="border-border/50 bg-card/50 min-w-0">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 mb-1">
-          {Icon && <Icon className="h-3.5 w-3.5 text-muted-foreground" />}
-          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+    <Card className="border-border/30 bg-card/40 min-w-0 shadow-sm">
+      <CardContent className="p-5">
+        <div className="flex items-center gap-2 mb-2">
+          {Icon && <Icon className="h-4 w-4 text-muted-foreground/60" />}
+          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/60">
             {label}
           </span>
         </div>
-        <div className={`text-2xl font-bold ${color}`}>{value}</div>
-        {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
+        <div className={`text-2xl font-bold tracking-tight ${color}`}>{value}</div>
+        {sub && <p className="text-[11px] text-muted-foreground/70 mt-1.5 leading-relaxed">{sub}</p>}
       </CardContent>
     </Card>
   );
@@ -412,7 +412,7 @@ function PromptBlock({
   return (
     <Collapsible defaultOpen={defaultOpen}>
       <div className={`rounded-lg border ${borderColor} bg-card/30 overflow-hidden`}>
-        <CollapsibleTrigger className="flex w-full items-center justify-between p-3 hover:bg-white/3 transition-colors">
+        <CollapsibleTrigger className="flex w-full items-center justify-between p-3.5 hover:bg-white/5 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <ChevronRight className="h-3.5 w-3.5 text-muted-foreground ui-expanded:rotate-90 transition-transform" />
             <span className="text-sm font-medium truncate">{label}</span>
@@ -451,7 +451,7 @@ function MessageRow({ message }: { message: any; index: number }) {
     <div className={`rounded-lg border ${borderColor} ${bgColor} overflow-hidden`}>
       <Accordion type="single" collapsible>
         <AccordionItem value="msg" className="border-0">
-          <AccordionTrigger className="px-3 py-2 hover:no-underline hover:bg-white/3 text-xs">
+          <AccordionTrigger className="px-4 py-2.5 hover:no-underline hover:bg-white/5 text-xs">
             <div className="flex items-center gap-2 w-full">
               <Badge
                 variant={isUser ? "default" : "secondary"}
@@ -497,8 +497,8 @@ function MessageRow({ message }: { message: any; index: number }) {
               </div>
             </div>
           </AccordionTrigger>
-          <AccordionContent className="px-3 pb-3">
-            <div className="space-y-2">
+          <AccordionContent className="px-4 pb-4">
+            <div className="space-y-3">
               {/* Content */}
               <div>
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
@@ -714,10 +714,10 @@ export default function OracleDebugPage() {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="max-w-[1600px] space-y-6">
+      <div className="max-w-[1600px] space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-4 flex-wrap pb-5 border-b border-border/15">
+          <div className="flex items-center gap-3.5">
             <Bug className="h-8 w-8 text-galactic" />
             <div>
               <h1 className="text-2xl font-serif font-bold">Oracle Debug</h1>
@@ -726,17 +726,17 @@ export default function OracleDebugPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <Badge
               variant="outline"
-              className="border-galactic/30 bg-galactic/10 text-galactic"
+              className="border-galactic/30 bg-galactic/10 text-galactic px-2.5 py-0.5"
             >
               <Activity className="mr-1.5 h-3 w-3" />
               {stats ? `${stats.totalSessions} sessions` : "Loading..."}
             </Badge>
             <Badge
               variant="outline"
-              className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+              className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 px-2.5 py-0.5"
             >
               {stats ? `${stats.totalMessages} messages` : "—"}
             </Badge>
@@ -744,7 +744,7 @@ export default function OracleDebugPage() {
         </div>
 
         {/* Session Selector */}
-        <Card className="border-border/50 bg-card/50">
+        <Card className="border-border/30 bg-card/40">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Eye className="h-4 w-4 text-galactic" />
@@ -820,12 +820,12 @@ export default function OracleDebugPage() {
 
             {/* Quick session list table */}
             {!selectedSessionId && filteredSessions.length > 0 && (
-              <div className="mt-4 rounded border border-border/30 overflow-hidden">
+              <div className="mt-5 rounded-lg border border-border/25 overflow-hidden">
                 <div className="max-h-[300px] overflow-y-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead className="text-[10px]">Status</TableHead>
+                      <TableRow className="hover:bg-transparent border-border/20">
+                        <TableHead className="text-[10px] h-9">Status</TableHead>
                         <TableHead className="text-[10px]">Title</TableHead>
                         <TableHead className="text-[10px]">User</TableHead>
                         <TableHead className="text-[10px]">Feature</TableHead>
@@ -839,7 +839,7 @@ export default function OracleDebugPage() {
                       {filteredSessions.slice(0, 50).map((session) => (
                         <TableRow
                           key={session._id}
-                          className="cursor-pointer hover:bg-white/3"
+                          className="cursor-pointer hover:bg-white/5 transition-colors"
                           onClick={() => setSelectedSessionId(session._id)}
                         >
                           <TableCell>
@@ -903,9 +903,9 @@ export default function OracleDebugPage() {
 
         {/* ── Selected Session Detail ──────────────────────────────────────── */}
         {d && s && (
-          <div className="space-y-6">
+          <div className="space-y-7">
             {/* Top Stats Row */}
-            <div className="grid gap-3 grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
               <MetricCard
                 label="Messages"
                 value={d.messages.length}
@@ -967,8 +967,8 @@ export default function OracleDebugPage() {
             </div>
 
             {/* Tabs */}
-            <Tabs defaultValue="messages" className="space-y-4">
-              <TabsList className="w-full justify-start flex-wrap h-auto gap-1 bg-muted/50 p-1">
+            <Tabs defaultValue="messages" className="space-y-5">
+              <TabsList className="w-full justify-start flex-wrap h-auto gap-1 bg-muted/30 p-1.5 rounded-lg border border-border/20">
                 <TabsTrigger value="messages" className="text-xs">
                   <MessageSquare className="h-3 w-3 mr-1.5" />
                   Messages
@@ -999,11 +999,11 @@ export default function OracleDebugPage() {
               </TabsList>
 
               {/* ── Messages Tab ─────────────────────────────────────── */}
-              <TabsContent value="messages" className="space-y-4">
+              <TabsContent value="messages" className="space-y-5">
                 {/* Message token overview */}
                 {messageTokenSummary && (
-                  <Card className="border-border/50 bg-card/50">
-                    <CardContent className="p-4">
+                  <Card className="border-border/30 bg-card/40">
+                    <CardContent className="p-5">
                       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-xs">
                         <div>
                           <span className="text-muted-foreground">Prompt tokens</span>
@@ -1042,7 +1042,7 @@ export default function OracleDebugPage() {
 
                 {/* Messages list */}
                 <ScrollArea className="h-[700px]">
-                  <div className="space-y-2 pr-4">
+                  <div className="space-y-3 pr-4">
                     {d.messages.map((message, i) => (
                       <MessageRow key={message._id} message={message} index={i} />
                     ))}
@@ -1056,12 +1056,12 @@ export default function OracleDebugPage() {
               </TabsContent>
 
               {/* ── Prompt Assembly Tab ──────────────────────────────── */}
-              <TabsContent value="prompt" className="space-y-4">
+              <TabsContent value="prompt" className="space-y-5">
                 {reconstructedPrompt ? (
                   <>
                     {/* Summary bar */}
-                    <Card className="border-border/50 bg-card/50">
-                      <CardContent className="p-4">
+                    <Card className="border-border/30 bg-card/40">
+                      <CardContent className="p-5">
                         <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-xs">
                           <div>
                             <span className="text-muted-foreground">System Prompt</span>
@@ -1253,8 +1253,8 @@ export default function OracleDebugPage() {
               </TabsContent>
 
               {/* ── Session Data Tab ────────────────────────────────── */}
-              <TabsContent value="session" className="space-y-4">
-                <Card className="border-border/50 bg-card/50">
+              <TabsContent value="session" className="space-y-5">
+                <Card className="border-border/30 bg-card/40">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm">Session Record</CardTitle>
                   </CardHeader>
@@ -1300,7 +1300,7 @@ export default function OracleDebugPage() {
 
                 {/* Feature Injection Record */}
                 {(d.featureInjections || d.depthInjection) && (
-                  <Card className="border-border/50 bg-card/50">
+                  <Card className="border-border/30 bg-card/40">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm">Feature Injection Records</CardTitle>
                     </CardHeader>
@@ -1330,7 +1330,7 @@ export default function OracleDebugPage() {
                 )}
 
                 {/* Raw JSON */}
-                <Card className="border-border/50 bg-card/50">
+                <Card className="border-border/30 bg-card/40">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm">Raw Session JSON</CardTitle>
                   </CardHeader>
@@ -1343,10 +1343,10 @@ export default function OracleDebugPage() {
               </TabsContent>
 
               {/* ── User & Birth Tab ─────────────────────────────────── */}
-              <TabsContent value="user" className="space-y-4">
+              <TabsContent value="user" className="space-y-5">
                 {u && (
                   <>
-                    <Card className="border-border/50 bg-card/50">
+                    <Card className="border-border/30 bg-card/40">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm">User Record</CardTitle>
                       </CardHeader>
@@ -1383,7 +1383,7 @@ export default function OracleDebugPage() {
                     </Card>
 
                     {/* Journal Consent */}
-                    <Card className="border-border/50 bg-card/50">
+                    <Card className="border-border/30 bg-card/40">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm flex items-center gap-2">
                           <Shield className="h-4 w-4" />
@@ -1426,7 +1426,7 @@ export default function OracleDebugPage() {
 
                     {/* Birth Data */}
                     {u.birthData ? (
-                      <Card className="border-border/50 bg-card/50">
+                      <Card className="border-border/30 bg-card/40">
                         <CardHeader className="pb-2">
                           <CardTitle className="text-sm flex items-center gap-2">
                             <GiCursedStar className="h-4 w-4 text-galactic" />
@@ -1635,7 +1635,7 @@ export default function OracleDebugPage() {
                         </CardContent>
                       </Card>
                     ) : (
-                      <Card className="border-border/50 bg-card/50">
+                      <Card className="border-border/30 bg-card/40">
                         <CardContent className="p-6 text-center text-sm text-muted-foreground">
                           This user has no birth data saved.
                         </CardContent>
@@ -1646,8 +1646,8 @@ export default function OracleDebugPage() {
               </TabsContent>
 
               {/* ── Runtime Config Tab ───────────────────────────────── */}
-              <TabsContent value="runtime" className="space-y-4">
-                <Card className="border-border/50 bg-card/50">
+              <TabsContent value="runtime" className="space-y-5">
+                <Card className="border-border/30 bg-card/40">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <Cpu className="h-4 w-4" />
@@ -1774,7 +1774,7 @@ export default function OracleDebugPage() {
                 </Card>
 
                 {/* All Settings */}
-                <Card className="border-border/50 bg-card/50">
+                <Card className="border-border/30 bg-card/40">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <Settings className="h-4 w-4" />
@@ -1833,8 +1833,8 @@ export default function OracleDebugPage() {
               </TabsContent>
 
               {/* ── Quota Tab ────────────────────────────────────────── */}
-              <TabsContent value="quota" className="space-y-4">
-                <Card className="border-border/50 bg-card/50">
+              <TabsContent value="quota" className="space-y-5">
+                <Card className="border-border/30 bg-card/40">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <Shield className="h-4 w-4" />
@@ -1947,7 +1947,7 @@ export default function OracleDebugPage() {
                 </Card>
 
                 {/* Safety & Crisis Info */}
-                <Card className="border-border/50 bg-card/50">
+                <Card className="border-border/30 bg-card/40">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4 text-amber-400" />
@@ -2001,7 +2001,7 @@ export default function OracleDebugPage() {
 
         {/* ── Global Stats (when no session selected) ─────────────────────── */}
         {!selectedSessionId && stats && (
-          <Card className="border-border/50 bg-card/50">
+          <Card className="border-border/30 bg-card/40">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Activity className="h-4 w-4 text-galactic" />
@@ -2012,7 +2012,7 @@ export default function OracleDebugPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-3 grid-cols-2 md:grid-cols-4 lg:grid-cols-6 mb-6">
+              <div className="grid gap-4 grid-cols-2 md:grid-cols-4 lg:grid-cols-6 mb-8">
                 <MetricCard
                   label="Total Sessions"
                   value={stats.totalSessions}
@@ -2053,9 +2053,9 @@ export default function OracleDebugPage() {
                 />
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid md:grid-cols-2 gap-5">
                 {/* Model distribution */}
-                <Card className="border-border/30 bg-card/30">
+                <Card className="border-border/25 bg-card/30">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-xs">Model Distribution</CardTitle>
                   </CardHeader>
@@ -2091,7 +2091,7 @@ export default function OracleDebugPage() {
                 </Card>
 
                 {/* Feature distribution */}
-                <Card className="border-border/30 bg-card/30">
+                <Card className="border-border/25 bg-card/30">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-xs">Feature Distribution</CardTitle>
                   </CardHeader>
@@ -2127,7 +2127,7 @@ export default function OracleDebugPage() {
                 </Card>
 
                 {/* Tier usage */}
-                <Card className="border-border/30 bg-card/30">
+                <Card className="border-border/25 bg-card/30">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-xs">Tier Usage (Fallback Chain)</CardTitle>
                   </CardHeader>
@@ -2156,7 +2156,7 @@ export default function OracleDebugPage() {
                 </Card>
 
                 {/* Safety stats */}
-                <Card className="border-border/30 bg-card/30">
+                <Card className="border-border/25 bg-card/30">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-xs flex items-center gap-2">
                       <AlertTriangle className="h-3 w-3 text-amber-400" />

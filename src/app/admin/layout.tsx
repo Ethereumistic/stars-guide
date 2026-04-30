@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "convex/react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { redirect } from "next/navigation";
 import {
     SidebarProvider,
@@ -16,6 +17,7 @@ export default function AdminLayout({
     children: React.ReactNode;
 }) {
     const user = useQuery(api.users.current);
+    const { signOut } = useAuthActions();
 
     // Loading state
     if (user === undefined) {
@@ -39,7 +41,7 @@ export default function AdminLayout({
             style={{ "--sidebar-width-icon": "3.75rem" } as React.CSSProperties}
             className="fixed inset-0 z-40 flex min-h-0! h-auto! w-full overflow-hidden"
         >
-            <AdminSidebar userEmail={user.email ?? ""} />
+            <AdminSidebar userEmail={user.email ?? ""} user={user} onSignOut={() => signOut()} />
 
             <SidebarInset className="relative flex h-full min-h-0! w-full flex-1 flex-col overflow-hidden bg-transparent">
                 <div className="flex-1 p-6 overflow-y-auto">

@@ -1,284 +1,179 @@
 "use client";
 
-import { useQuery } from "convex/react";
-import { useAction } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-    Sparkles, Globe, FileText, ClipboardCheck, Clock, CheckCircle,
-    XCircle, AlertTriangle, Sun, Moon, Orbit, RefreshCw, Telescope
-} from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card";
+import {
+    GiCursedStar,
+    GiScrollUnfurled,
+    GiStarSwirl,
+} from "react-icons/gi";
+import {
+    Sparkles,
+    Globe,
+    FileText,
+    ClipboardCheck,
+    Anchor,
+    Settings,
+    Bug,
+    Bell,
+    Shield,
+    Activity,
+} from "lucide-react";
 
-const statusConfig = {
-    running: { label: "Running", variant: "default" as const, icon: Clock, color: "text-blue-400" },
-    completed: { label: "Completed", variant: "secondary" as const, icon: CheckCircle, color: "text-emerald-400" },
-    partial: { label: "Partial", variant: "outline" as const, icon: AlertTriangle, color: "text-amber-400" },
-    failed: { label: "Failed", variant: "destructive" as const, icon: XCircle, color: "text-red-400" },
-    cancelled: { label: "Cancelled", variant: "outline" as const, icon: XCircle, color: "text-gray-400" },
-};
+const tools = [
+    // Horoscope Engine
+    {
+        section: "Horoscope Engine",
+        icon: <GiStarSwirl className="h-5 w-5 text-galactic" />,
+        items: [
+            {
+                href: "/admin/horoscope",
+                icon: Activity,
+                title: "Overview",
+                copy: "Cosmic weather, recent jobs, and quick links to the horoscope pipeline.",
+            },
+            {
+                href: "/admin/horoscope/context",
+                icon: FileText,
+                title: "Context Editor",
+                copy: "Edit the master astrology system prompt injected into every LLM call.",
+            },
+            {
+                href: "/admin/horoscope/zeitgeist",
+                icon: Globe,
+                title: "Zeitgeist Engine",
+                copy: "Define the current world vibe that shapes horoscope generation.",
+            },
+            {
+                href: "/admin/horoscope/generator",
+                icon: Sparkles,
+                title: "Generation Desk",
+                copy: "Configure and trigger AI horoscope generation across signs and dates.",
+            },
+            {
+                href: "/admin/horoscope/hooks",
+                icon: Anchor,
+                title: "Hook Manager",
+                copy: "Manage opening hook archetypes and moon phase auto-assignment.",
+            },
+            {
+                href: "/admin/horoscope/review",
+                icon: ClipboardCheck,
+                title: "Review & Publish",
+                copy: "Review, edit, and publish generated horoscopes to the live site.",
+            },
+        ],
+    },
+    // Oracle CMS
+    {
+        section: "Oracle CMS",
+        icon: <GiCursedStar className="h-5 w-5 text-galactic" />,
+        items: [
+            {
+                href: "/admin/oracle",
+                icon: Activity,
+                title: "Oracle Overview",
+                copy: "Runtime status, soul document health, and quick links.",
+            },
+            {
+                href: "/admin/oracle/settings",
+                icon: Settings,
+                title: "Oracle Settings",
+                copy: "Soul document, providers, model chain, limits, quotas, and ops.",
+            },
+            {
+                href: "/admin/oracle/debug",
+                icon: Bug,
+                title: "Oracle Debug",
+                copy: "Live inspection of sessions, prompts, tokens, and pipeline state.",
+            },
+        ],
+    },
+    // Journal CMS
+    {
+        section: "Journal CMS",
+        icon: <GiScrollUnfurled className="h-5 w-5 text-galactic" />,
+        items: [
+            {
+                href: "/admin/journal",
+                icon: Activity,
+                title: "Journal Overview",
+                copy: "Journaling activity, consent stats, and system health.",
+            },
+            {
+                href: "/admin/journal/settings",
+                icon: Settings,
+                title: "Journal Settings",
+                copy: "Limits, feature toggles, prompt bank, and Oracle integration.",
+            },
+        ],
+    },
+    // Moderation & Notifications
+    {
+        section: "Operations",
+        icon: <Shield className="h-5 w-5 text-red-400" />,
+        items: [
+            {
+                href: "/admin/ban",
+                icon: Shield,
+                title: "Username Bans",
+                copy: "Regex patterns that block prohibited usernames.",
+            },
+            {
+                href: "/admin/notifications",
+                icon: Bell,
+                title: "Notifications",
+                copy: "Compose, schedule, and broadcast notifications to users.",
+            },
+        ],
+    },
+];
 
-// Get today's date in UTC (YYYY-MM-DD)
-function getTodayUTC(): string {
-    return new Date().toISOString().split("T")[0];
-}
-
-export default function AdminDashboard() {
-    const recentJobs = useQuery(api.admin.getRecentJobs);
-    const todayUTC = getTodayUTC();
-    const cosmicWeather = useQuery(api.cosmicWeather.getCosmicWeatherForAdmin, { date: todayUTC });
-    const recomputeAction = useAction(api.cosmicWeather.recomputeCosmicWeather);
-    const [isRecomputing, setIsRecomputing] = useState(false);
-
-    const handleRecompute = async () => {
-        setIsRecomputing(true);
-        try {
-            await recomputeAction({ date: todayUTC });
-        } catch (err) {
-            console.error("Failed to recompute cosmic weather:", err);
-        } finally {
-            setIsRecomputing(false);
-        }
-    };
-
+export default function AdminDashboardPage() {
     return (
-        <div className="space-y-8">
+        <div className="max-w-6xl space-y-10">
             {/* Header */}
             <div>
                 <h1 className="text-3xl font-serif font-bold tracking-tight">
-                    Horoscope Engine
+                    Admin Dashboard
                 </h1>
                 <p className="text-muted-foreground mt-1">
-                    Generate, review, and publish daily horoscopes across all 12 signs.
+                    All tools and systems at your disposal. Pick a section to get started.
                 </p>
             </div>
 
-            {/* Quick Actions */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Link href="/admin/context">
-                    <Card className="group cursor-pointer border-border/50 bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all duration-300">
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-medium">Context Editor</CardTitle>
-                            <FileText className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                        </CardHeader>
-                        <CardContent>
-                            <CardDescription>Edit the master astrology prompt</CardDescription>
-                        </CardContent>
-                    </Card>
-                </Link>
-
-                <Link href="/admin/zeitgeist">
-                    <Card className="group cursor-pointer border-border/50 bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all duration-300">
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-medium">Zeitgeist Engine</CardTitle>
-                            <Globe className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                        </CardHeader>
-                        <CardContent>
-                            <CardDescription>Define the current world vibe</CardDescription>
-                        </CardContent>
-                    </Card>
-                </Link>
-
-                <Link href="/admin/generator">
-                    <Card className="group cursor-pointer border-border/50 bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all duration-300">
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-medium">Generation Desk</CardTitle>
-                            <Sparkles className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                        </CardHeader>
-                        <CardContent>
-                            <CardDescription>Run AI horoscope generation</CardDescription>
-                        </CardContent>
-                    </Card>
-                </Link>
-
-                <Link href="/admin/review">
-                    <Card className="group cursor-pointer border-border/50 bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all duration-300">
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-medium">Review & Publish</CardTitle>
-                            <ClipboardCheck className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                        </CardHeader>
-                        <CardContent>
-                            <CardDescription>Approve and publish horoscopes</CardDescription>
-                        </CardContent>
-                    </Card>
-                </Link>
-            </div>
-
-            {/* Cosmic Weather Card */}
-            <div>
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-semibold flex items-center gap-2">
-                        <Telescope className="h-5 w-5 text-indigo-400" />
-                        Today&apos;s Cosmic Weather
-                        <span className="text-sm font-normal text-muted-foreground">({todayUTC})</span>
-                    </h2>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRecompute}
-                        disabled={isRecomputing}
-                        className="gap-2"
-                    >
-                        <RefreshCw className={`h-3.5 w-3.5 ${isRecomputing ? "animate-spin" : ""}`} />
-                        {isRecomputing ? "Computing..." : "Recompute"}
-                    </Button>
-                </div>
-
-                {cosmicWeather === undefined ? (
-                    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-                        <CardContent className="flex items-center gap-2 py-6 text-muted-foreground">
-                            <Clock className="h-4 w-4 animate-spin" />
-                            <span className="text-sm">Loading cosmic weather...</span>
-                        </CardContent>
-                    </Card>
-                ) : cosmicWeather === null ? (
-                    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-                        <CardContent className="flex flex-col items-center justify-center py-8">
-                            <Orbit className="h-8 w-8 text-muted-foreground mb-3" />
-                            <p className="text-muted-foreground text-sm">No cosmic weather computed yet for today.</p>
-                            <p className="text-muted-foreground text-xs mt-1">
-                                Click &quot;Recompute&quot; to generate, or it will be computed automatically at 00:05 UTC.
-                            </p>
-                        </CardContent>
-                    </Card>
-                ) : (
-                    <div className="grid gap-4 md:grid-cols-3">
-                        {/* Planet Positions */}
-                        <Card className="border-border/50 bg-card/50 backdrop-blur-sm md:col-span-2">
-                            <CardHeader className="pb-3">
-                                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                    <Sun className="h-4 w-4 text-amber-400" />
-                                    Planet Positions
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {cosmicWeather.planetPositions.map((p) => (
-                                        <div
-                                            key={p.planet}
-                                            className="flex items-center gap-1.5 text-xs"
-                                        >
-                                            <span className="font-medium text-foreground">{p.planet}</span>
-                                            <span className="text-muted-foreground">
-                                                in {p.sign} ({p.degreeInSign}°)
-                                            </span>
-                                            {p.isRetrograde && (
-                                                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-red-400 border-red-400/30">
-                                                    ℞
-                                                </Badge>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Moon Phase */}
-                        <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-                            <CardHeader className="pb-3">
-                                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                    <Moon className="h-4 w-4 text-blue-300" />
-                                    Moon Phase
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="flex flex-col items-center justify-center py-2">
-                                <p className="text-lg font-medium">{cosmicWeather.moonPhase.name}</p>
-                                <p className="text-sm text-muted-foreground">
-                                    {cosmicWeather.moonPhase.illuminationPercent}% illuminated
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        {/* Active Aspects */}
-                        {cosmicWeather.activeAspects.length > 0 && (
-                            <Card className="border-border/50 bg-card/50 backdrop-blur-sm md:col-span-3">
-                                <CardHeader className="pb-3">
-                                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                        <Orbit className="h-4 w-4 text-purple-400" />
-                                        Active Aspects ({cosmicWeather.activeAspects.length})
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="flex flex-wrap gap-2">
-                                        {cosmicWeather.activeAspects.map((a, idx) => (
-                                            <Badge
-                                                key={idx}
-                                                variant="secondary"
-                                                className="text-xs"
-                                            >
-                                                {a.planet1} {a.aspect} {a.planet2}
-                                                <span className="text-muted-foreground ml-1">(orb: {a.orbDegrees}°)</span>
-                                            </Badge>
-                                        ))}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
+            {/* Tool Sections */}
+            {tools.map((section) => (
+                <div key={section.section}>
+                    <div className="flex items-center gap-2 mb-4">
+                        {section.icon}
+                        <h2 className="text-xl font-semibold">{section.section}</h2>
                     </div>
-                )}
-            </div>
-
-            {/* Recent Jobs */}
-            <div>
-                <h2 className="text-xl font-semibold mb-4">Recent Generation Jobs</h2>
-                {recentJobs === undefined ? (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                        <Clock className="h-4 w-4 animate-spin" />
-                        <span className="text-sm">Loading...</span>
-                    </div>
-                ) : recentJobs.length === 0 ? (
-                    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-                        <CardContent className="flex flex-col items-center justify-center py-12">
-                            <Sparkles className="h-8 w-8 text-muted-foreground mb-3" />
-                            <p className="text-muted-foreground text-sm">No generation jobs yet.</p>
-                            <p className="text-muted-foreground text-xs mt-1">
-                                Head to the <Link href="/admin/generator" className="text-primary underline">Generation Desk</Link> to start.
-                            </p>
-                        </CardContent>
-                    </Card>
-                ) : (
-                    <div className="space-y-3">
-                        {recentJobs.map((job) => {
-                            const config = statusConfig[job.status];
-                            const StatusIcon = config.icon;
-                            return (
-                                <Card key={job._id} className="border-border/50 bg-card/50 backdrop-blur-sm">
-                                    <CardContent className="flex items-center justify-between py-4">
-                                        <div className="flex items-center gap-3">
-                                            <StatusIcon className={`h-5 w-5 ${config.color}`} />
-                                            <div>
-                                                <p className="text-sm font-medium">
-                                                    {job.targetSigns.length} signs × {job.targetDates.length} days
-                                                </p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {job.modelId} · {new Date(job.startedAt).toLocaleString()}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className="text-right text-xs text-muted-foreground">
-                                                <span className="text-emerald-400">{job.progress.completed}</span>
-                                                {" / "}
-                                                <span>{job.progress.total}</span>
-                                                {job.progress.failed > 0 && (
-                                                    <span className="text-red-400 ml-2">
-                                                        ({job.progress.failed} failed)
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <Badge variant={config.variant}>{config.label}</Badge>
-                                        </div>
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {section.items.map((item) => (
+                            <Link key={item.href} href={item.href} className="group">
+                                <Card className="h-full border-border/50 bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all duration-300">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                            <item.icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                                            {item.title}
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <CardDescription>{item.copy}</CardDescription>
                                     </CardContent>
                                 </Card>
-                            );
-                        })}
+                            </Link>
+                        ))}
                     </div>
-                )}
-            </div>
+                </div>
+            ))}
         </div>
     );
 }
-
