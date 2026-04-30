@@ -1,24 +1,28 @@
 /**
  * hooks.ts — Convex functions for managing hook archetypes.
  *
- * Hook archetypes (Mirror, Permission, Gentle Provocation, Observation)
- * are the opening patterns for horoscope copy. They are DB-driven so new
- * archetypes can be added via the Hook Manager admin page with zero deploys.
+ * v4: Hook selection now uses emotional register matching as primary filter,
+ * moon phase as secondary, with weighted random selection (lower usageCount = higher weight).
  *
  * Internal functions are called by the AI generation action.
  * Public queries/mutations are used by the admin Hook Manager UI.
  */
-import { query, mutation, internalQuery, internalMutation } from "./_generated/server";
+import { query, mutation, internalQuery, internalMutation, internalAction } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { requireAdmin } from "./lib/adminGuard";
+
+const EMOTIONAL_REGISTERS = [
+    "anxious", "expansive", "tender", "defiant",
+    "restless", "hopeful", "grief", "clarity",
+] as const;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INTERNAL FUNCTIONS (used by the AI generation pipeline)
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * listActiveInternal — Fetch all active hooks. Used by the generation action
- * to build the hook injection block.
+ * listActiveInternal — Fetch all active hooks. Used by the generation action.
  */
 export const listActiveInternal = internalQuery({
     args: {},
@@ -31,17 +35,19 @@ export const listActiveInternal = internalQuery({
 });
 
 /**
- * getAssignedHook — Determines which hook archetype to use for a generation.
+ * getAssignedHook — v4: Determines which hook archetype to use for a generation.
  *
- * Priority:
- * 1. If hookId is provided (manual admin selection), use that hook directly
- * 2. Otherwise, auto-match by moonPhaseCategory (e.g. "full_moon" → Observation Hook)
- * 3. Fallback: return the first active hook
+ * Selection priority:
+ * 1. Manual override (hookId provided) → use directly if active
+ * 2. Filter by emotional register (OR logic — any overlap with zeitgeist registers)
+ * 3. Within register matches, prefer moon phase alignment
+ * 4. Weighted random selection (lower usageCount = higher weight)
  */
 export const getAssignedHook = internalQuery({
     args: {
         hookId: v.optional(v.id("hooks")),
-        moonPhaseCategory: v.optional(v.string()), // "new_moon" | "waxing" | "full_moon" | "waning"
+        moonPhaseCategory: v.optional(v.string()),
+        emotionalRegister: v.optional(v.array(v.string())), // v4: from zeitgeist
     },
     handler: async (ctx, args) => {
         // 1. Manual selection
@@ -50,27 +56,72 @@ export const getAssignedHook = internalQuery({
             if (hook && hook.isActive) return hook;
         }
 
-        // 2. Auto-match by moon phase
-        if (args.moonPhaseCategory) {
-            const allActive = await ctx.db
-                .query("hooks")
-                .withIndex("by_active", (q) => q.eq("isActive", true))
-                .collect();
-
-            const matched = allActive.find(
-                (h) => h.moonPhaseMapping === args.moonPhaseCategory
-            );
-            if (matched) return matched;
-
-            // 3. Fallback: first active hook
-            if (allActive.length > 0) return allActive[0];
-        }
-
-        // Ultimate fallback: any active hook
-        return await ctx.db
+        // 2. Get all active hooks
+        const allActive = await ctx.db
             .query("hooks")
             .withIndex("by_active", (q) => q.eq("isActive", true))
-            .first();
+            .collect();
+
+        if (allActive.length === 0) return null;
+
+        // 3. Filter by emotional register match (OR logic)
+        const registers = args.emotionalRegister ?? [];
+        const registerMatches = registers.length > 0
+            ? allActive.filter((h) =>
+                h.emotionalRegisters.length === 0 ||
+                h.emotionalRegisters.some((r) => registers.includes(r))
+            )
+            : allActive;
+
+        // 4. Within register matches, prefer moon phase alignment
+        const moonPhaseCategory = args.moonPhaseCategory;
+        const moonMatches = moonPhaseCategory
+            ? registerMatches.filter((h) =>
+                h.moonPhaseMapping === moonPhaseCategory ||
+                h.moonPhaseMapping === "any" ||
+                !h.moonPhaseMapping
+            )
+            : [];
+
+        // 5. Select from best pool, falling back up the chain
+        const pool = moonMatches.length > 0 ? moonMatches :
+                     registerMatches.length > 0 ? registerMatches :
+                     allActive;
+
+        // 6. Weighted random selection (lower usageCount = higher weight)
+        return weightedRandomSelect(pool);
+    },
+});
+
+/**
+ * weightedRandomSelect — Selects a hook with weighted probability.
+ * Hooks with lower usageCount get higher weight: weight = 1 / (usageCount + 1)
+ */
+function weightedRandomSelect<T extends { usageCount: number }>(items: T[]): T {
+    if (items.length === 1) return items[0];
+
+    const weights = items.map((h) => 1 / (h.usageCount + 1));
+    const total = weights.reduce((a, b) => a + b, 0);
+    let rand = Math.random() * total;
+
+    for (let i = 0; i < items.length; i++) {
+        rand -= weights[i];
+        if (rand <= 0) return items[i];
+    }
+    return items[items.length - 1];
+}
+
+/**
+ * incrementHookUsage — Called after a hook is used in generation.
+ */
+export const incrementHookUsage = internalMutation({
+    args: { hookId: v.id("hooks") },
+    handler: async (ctx, args) => {
+        const hook = await ctx.db.get(args.hookId);
+        if (!hook) return;
+        await ctx.db.patch(args.hookId, {
+            usageCount: hook.usageCount + 1,
+        });
     },
 });
 
@@ -99,17 +150,24 @@ export const create = mutation({
         examples: v.array(v.string()),
         isActive: v.boolean(),
         moonPhaseMapping: v.optional(v.string()),
+        emotionalRegisters: v.optional(v.array(v.string())),
+        source: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         await requireAdmin(ctx);
+        const now = Date.now();
         return await ctx.db.insert("hooks", {
             name: args.name,
             description: args.description,
             examples: args.examples,
             isActive: args.isActive,
             moonPhaseMapping: args.moonPhaseMapping,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
+            emotionalRegisters: args.emotionalRegisters ?? [],
+            source: args.source ?? "admin_written",
+            approvedAt: args.isActive ? now : undefined,
+            usageCount: 0,
+            createdAt: now,
+            updatedAt: now,
         });
     },
 });
@@ -125,6 +183,7 @@ export const update = mutation({
         examples: v.optional(v.array(v.string())),
         isActive: v.optional(v.boolean()),
         moonPhaseMapping: v.optional(v.string()),
+        emotionalRegisters: v.optional(v.array(v.string())),
     },
     handler: async (ctx, args) => {
         await requireAdmin(ctx);
@@ -137,6 +196,7 @@ export const update = mutation({
         if (args.examples !== undefined) patch.examples = args.examples;
         if (args.isActive !== undefined) patch.isActive = args.isActive;
         if (args.moonPhaseMapping !== undefined) patch.moonPhaseMapping = args.moonPhaseMapping;
+        if (args.emotionalRegisters !== undefined) patch.emotionalRegisters = args.emotionalRegisters;
 
         await ctx.db.patch(args.hookId, patch);
     },
@@ -160,6 +220,24 @@ export const toggleActive = mutation({
 });
 
 /**
+ * approveHook — Approve an AI-proposed hook for production use.
+ */
+export const approveHook = mutation({
+    args: { hookId: v.id("hooks") },
+    handler: async (ctx, args) => {
+        await requireAdmin(ctx);
+        const hook = await ctx.db.get(args.hookId);
+        if (!hook) throw new Error("Hook not found");
+
+        await ctx.db.patch(args.hookId, {
+            isActive: true,
+            approvedAt: Date.now(),
+            updatedAt: Date.now(),
+        });
+    },
+});
+
+/**
  * deleteHook — Permanently remove a hook archetype.
  */
 export const deleteHook = mutation({
@@ -175,13 +253,13 @@ export const deleteHook = mutation({
 /**
  * seed — Populate the initial 4 hook archetypes on first deploy.
  * Idempotent: skips if hooks already exist.
+ * v4: Adds new fields with backwards-compatible defaults.
  */
 export const seed = mutation({
     args: {},
     handler: async (ctx) => {
         await requireAdmin(ctx);
 
-        // Check if hooks already exist
         const existing = await ctx.db.query("hooks").first();
         if (existing) return { status: "skipped", message: "Hooks already seeded" };
 
@@ -197,6 +275,10 @@ export const seed = mutation({
                 ],
                 isActive: true,
                 moonPhaseMapping: "waxing",
+                emotionalRegisters: [],
+                source: "curated",
+                approvedAt: now,
+                usageCount: 0,
                 createdAt: now,
                 updatedAt: now,
             },
@@ -210,6 +292,10 @@ export const seed = mutation({
                 ],
                 isActive: true,
                 moonPhaseMapping: "new_moon",
+                emotionalRegisters: [],
+                source: "curated",
+                approvedAt: now,
+                usageCount: 0,
                 createdAt: now,
                 updatedAt: now,
             },
@@ -223,6 +309,10 @@ export const seed = mutation({
                 ],
                 isActive: true,
                 moonPhaseMapping: "waning",
+                emotionalRegisters: [],
+                source: "curated",
+                approvedAt: now,
+                usageCount: 0,
                 createdAt: now,
                 updatedAt: now,
             },
@@ -236,6 +326,10 @@ export const seed = mutation({
                 ],
                 isActive: true,
                 moonPhaseMapping: "full_moon",
+                emotionalRegisters: [],
+                source: "curated",
+                approvedAt: now,
+                usageCount: 0,
                 createdAt: now,
                 updatedAt: now,
             },
@@ -246,5 +340,82 @@ export const seed = mutation({
         }
 
         return { status: "seeded", message: "4 hook archetypes created" };
+    },
+});
+
+/**
+ * proposeHooksAction — AI-powered hook proposal generator.
+ * Generates candidate hooks via OpenRouter and saves them as inactive ai_proposed.
+ */
+export const proposeHooksAction = internalAction({
+    args: {
+        emotionalRegisters: v.array(v.string()),
+        count: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const apiKey = process.env.OPENROUTER_API_KEY;
+        if (!apiKey) throw new Error("OPENROUTER_API_KEY not set");
+
+        const count = args.count ?? 5;
+        const registers = args.emotionalRegisters.join(", ");
+
+        const payload = {
+            model: "google/gemini-2.5-flash-lite",
+            messages: [
+                {
+                    role: "system",
+                    content: `You are a copywriter for a premium astrology platform.
+Write opening hooks for daily horoscopes.
+A hook is 1-2 sentences. It is the first thing a reader sees.
+Hook types: mirror (names what reader is doing), permission (validates a feeling),
+            provocation (gentle challenge), observation (describes their situation).
+Rules:
+- No astrology jargon
+- No mention of planets, signs, or dates
+- Universal — must resonate with any nationality
+- Present tense
+- No questions unless rhetorical
+Output ONLY a JSON array of strings.`,
+                },
+                {
+                    role: "user",
+                    content: `Generate ${count} hooks for emotional register: [${registers}]`,
+                },
+            ],
+            temperature: 0.8,
+            max_tokens: 1000,
+            response_format: { type: "json_object" },
+        };
+
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://stars.guide",
+                "X-Title": "Stars.Guide Hook Proposer",
+            },
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.text();
+            throw new Error(`OpenRouter API error ${response.status}: ${errorBody}`);
+        }
+
+        const data = await response.json() as any;
+        const content = data?.choices?.[0]?.message?.content;
+        if (!content) throw new Error("OpenRouter returned empty content");
+
+        // Parse the JSON array
+        let hooks: string[];
+        try {
+            const parsed = JSON.parse(content.replace(/```json\n?|```/g, "").trim());
+            hooks = Array.isArray(parsed) ? parsed : parsed.hooks ?? [];
+        } catch {
+            throw new Error("Failed to parse hook proposals");
+        }
+
+        return hooks.slice(0, count);
     },
 });

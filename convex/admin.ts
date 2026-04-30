@@ -57,6 +57,189 @@ export const upsertSystemSetting = mutation({
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CONTEXT SLOTS (Split & Versioned Master Context)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const getAllContextSlots = query({
+    args: {},
+    handler: async (ctx) => {
+        await requireAdmin(ctx);
+        return await ctx.db
+            .query("contextSlots")
+            .withIndex("by_order")
+            .collect();
+    },
+});
+
+export const getContextSlot = query({
+    args: { slotKey: v.string() },
+    handler: async (ctx, args) => {
+        await requireAdmin(ctx);
+        return await ctx.db
+            .query("contextSlots")
+            .withIndex("by_slotKey", (q) => q.eq("slotKey", args.slotKey))
+            .unique();
+    },
+});
+
+export const upsertContextSlot = mutation({
+    args: {
+        slotKey: v.string(),
+        content: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const { userId } = await requireAdmin(ctx);
+
+        const existing = await ctx.db
+            .query("contextSlots")
+            .withIndex("by_slotKey", (q) => q.eq("slotKey", args.slotKey))
+            .unique();
+
+        if (existing) {
+            // Copy current content → previousContent, increment version
+            await ctx.db.patch(existing._id, {
+                content: args.content,
+                previousContent: existing.content,
+                version: existing.version + 1,
+                updatedAt: Date.now(),
+                updatedBy: userId,
+            });
+            return existing._id;
+        } else {
+            throw new Error(`Context slot "${args.slotKey}" not found. Use seedContextSlots to create initial slots.`);
+        }
+    },
+});
+
+export const revertContextSlot = mutation({
+    args: { slotKey: v.string() },
+    handler: async (ctx, args) => {
+        const { userId } = await requireAdmin(ctx);
+
+        const slot = await ctx.db
+            .query("contextSlots")
+            .withIndex("by_slotKey", (q) => q.eq("slotKey", args.slotKey))
+            .unique();
+
+        if (!slot) throw new Error(`Context slot "${args.slotKey}" not found.`);
+        if (!slot.previousContent) throw new Error("No previous content to revert to.");
+
+        await ctx.db.patch(slot._id, {
+            content: slot.previousContent,
+            previousContent: slot.content, // Keep what we just reverted FROM as the new previous
+            version: slot.version + 1,
+            updatedAt: Date.now(),
+            updatedBy: userId,
+        });
+    },
+});
+
+export const toggleContextSlot = mutation({
+    args: { slotKey: v.string() },
+    handler: async (ctx, args) => {
+        await requireAdmin(ctx);
+
+        const slot = await ctx.db
+            .query("contextSlots")
+            .withIndex("by_slotKey", (q) => q.eq("slotKey", args.slotKey))
+            .unique();
+
+        if (!slot) throw new Error(`Context slot "${args.slotKey}" not found.`);
+
+        await ctx.db.patch(slot._id, {
+            isEnabled: !slot.isEnabled,
+            updatedAt: Date.now(),
+        });
+    },
+});
+
+export const reorderContextSlot = mutation({
+    args: {
+        slotKey: v.string(),
+        newOrder: v.number(),
+    },
+    handler: async (ctx, args) => {
+        await requireAdmin(ctx);
+
+        const slot = await ctx.db
+            .query("contextSlots")
+            .withIndex("by_slotKey", (q) => q.eq("slotKey", args.slotKey))
+            .unique();
+
+        if (!slot) throw new Error(`Context slot "${args.slotKey}" not found.`);
+
+        await ctx.db.patch(slot._id, {
+            order: args.newOrder,
+            updatedAt: Date.now(),
+        });
+    },
+});
+
+/**
+ * seedContextSlots — Populate the 4 initial context slots.
+ * Idempotent: skips slots that already exist.
+ */
+export const seedContextSlots = mutation({
+    args: {},
+    handler: async (ctx) => {
+        const { userId } = await requireAdmin(ctx);
+
+        const existing = await ctx.db.query("contextSlots").first();
+        if (existing) return { status: "skipped", message: "Context slots already seeded" };
+
+        const now = Date.now();
+        const initialSlots = [
+            {
+                slotKey: "identity",
+                label: "AI Identity & Persona",
+                content: "You are an expert astrologer and empathetic writer for stars.guide, a premium daily horoscope platform. You write horoscopes that feel personal, specific, and emotionally resonant — never generic. You speak with warmth, authority, and subtle wit. You never lecture. You never predict catastrophes. You describe energies, not outcomes.",
+                order: 1,
+                isEnabled: true,
+                version: 1,
+                updatedAt: now,
+                updatedBy: userId,
+            },
+            {
+                slotKey: "sign_voices",
+                label: "Sign Voice Guidelines",
+                content: "Each sign has a Likely Felt State — the emotional posture a reader of this sign is probably holding today. Use the zeitgeist to map the collective mood onto each sign's unique psychology. Aries feels the world through impulse and courage; Taurus through the body and stability; Gemini through language and curiosity; Cancer through memory and protection; Leo through identity and expression; Virgo through analysis and service; Libra through relationship and aesthetics; Scorpio through intensity and truth; Sagittarius through meaning and freedom; Capricorn through structure and legacy; Aquarius through vision and rebellion; Pisces through imagination and dissolution.",
+                order: 2,
+                isEnabled: true,
+                version: 1,
+                updatedAt: now,
+                updatedBy: userId,
+            },
+            {
+                slotKey: "output_rules",
+                label: "Output Rules",
+                content: "TONE RULES:\n- Write in second person (\"you\")\n- Present tense\n- No questions unless rhetorical\n- No astrology jargon visible to the reader (translate planet names into felt language)\n- No medical, financial, or legal advice\n- No mention of specific countries, leaders, or news events\n- Cultural neutrality: must resonate across nationalities\n- Length: 330–460 characters (strict — this is for mobile push notifications)\n- Never start with \"Today...\" or \"This week...\" — open with the hook\n- End without a cliché (no \"trust the universe\", no \"stay strong\")",
+                order: 3,
+                isEnabled: true,
+                version: 1,
+                updatedAt: now,
+                updatedBy: userId,
+            },
+            {
+                slotKey: "format_schema",
+                label: "JSON Format Schema",
+                content: "OUTPUT FORMAT:\nYou must output ONLY valid JSON, no markdown, no preamble:\n{ \"sign\": \"[Sign Name]\", \"date\": \"YYYY-MM-DD\", \"content\": \"[Your horoscope text]\" }\n\nThe content field must contain your horoscope text, 330–460 characters.\nDo not include any other fields. Do not wrap in code blocks.",
+                order: 4,
+                isEnabled: true,
+                version: 1,
+                updatedAt: now,
+                updatedBy: userId,
+            },
+        ];
+
+        for (const slot of initialSlots) {
+            await ctx.db.insert("contextSlots", slot);
+        }
+
+        return { status: "seeded", message: "4 context slots created" };
+    },
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ZEITGEIST CRUD
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -86,6 +269,9 @@ export const createZeitgeist = mutation({
         isManual: v.boolean(),
         archetypes: v.optional(v.array(v.string())),
         summary: v.string(),
+        validFrom: v.optional(v.string()),
+        validUntil: v.optional(v.string()),
+        emotionalRegister: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         const { userId } = await requireAdmin(ctx);
@@ -96,6 +282,9 @@ export const createZeitgeist = mutation({
             summary: args.summary,
             createdBy: userId,
             createdAt: Date.now(),
+            validFrom: args.validFrom,
+            validUntil: args.validUntil,
+            emotionalRegister: args.emotionalRegister,
         });
     },
 });
@@ -172,7 +361,7 @@ export const startGeneration = mutation({
             progress: {
                 completed: 0,
                 failed: 0,
-                total: args.targetSigns.length,
+                total: args.targetSigns.length * args.targetDates.length,
             },
             startedAt: Date.now(),
             // v3: Store raw + emotional zeitgeist and hook assignment
@@ -277,10 +466,8 @@ export const failJob = internalMutation({
 });
 
 /**
- * upsertHoroscopes — The Smart Overwrite mutation.
- * 1. Content identical → skip
- * 2. Content different → overwrite, reset status to "draft"
- * 3. No existing record → insert as "draft"
+ * upsertHoroscopes — Legacy batch mutation (kept for backward compat).
+ * The v4 engine uses upsertHoroscope (singular) instead.
  */
 export const upsertHoroscopes = internalMutation({
     args: {
@@ -304,10 +491,7 @@ export const upsertHoroscopes = internalMutation({
                 .first();
 
             if (existing) {
-                // Skip if content is identical (avoid unnecessary writes)
                 if (existing.content === entry.content) continue;
-
-                // Overwrite — reset to draft if previously published
                 await ctx.db.patch(existing._id, {
                     content: entry.content,
                     status: "draft",
@@ -324,6 +508,57 @@ export const upsertHoroscopes = internalMutation({
                     generatedBy: args.jobId,
                 });
             }
+        }
+    },
+});
+
+/**
+ * upsertHoroscope — v4 single sign/date mutation.
+ * Called once per LLM response (one sign, one date).
+ * 1. Content identical → skip
+ * 2. Content different → overwrite, reset status to "draft"
+ * 3. No existing record → insert as "draft"
+ */
+export const upsertHoroscope = internalMutation({
+    args: {
+        data: v.object({
+            sign: v.string(),
+            date: v.string(),
+            content: v.string(),
+        }),
+        zeitgeistId: v.id("zeitgeists"),
+        jobId: v.id("generationJobs"),
+    },
+    handler: async (ctx, args) => {
+        const { sign, date, content } = args.data;
+
+        const existing = await ctx.db
+            .query("horoscopes")
+            .withIndex("by_sign_and_date", (q) =>
+                q.eq("sign", sign).eq("targetDate", date)
+            )
+            .first();
+
+        if (existing) {
+            // Skip if content is identical
+            if (existing.content === content) return;
+
+            // Overwrite — reset to draft if previously published
+            await ctx.db.patch(existing._id, {
+                content,
+                status: "draft",
+                zeitgeistId: args.zeitgeistId,
+                generatedBy: args.jobId,
+            });
+        } else {
+            await ctx.db.insert("horoscopes", {
+                sign,
+                targetDate: date,
+                content,
+                status: "draft",
+                zeitgeistId: args.zeitgeistId,
+                generatedBy: args.jobId,
+            });
         }
     },
 });
@@ -393,16 +628,24 @@ export const updateHoroscopeContent = mutation({
     args: {
         horoscopeId: v.id("horoscopes"),
         content: v.string(),
+        editReason: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         await requireAdmin(ctx);
         const horoscope = await ctx.db.get(args.horoscopeId);
         if (!horoscope) throw new Error("Horoscope not found");
 
-        await ctx.db.patch(args.horoscopeId, {
+        const patch: Record<string, unknown> = {
             content: args.content,
             status: "draft", // Force re-review after edit
-        });
+            editCount: (horoscope.editCount ?? 0) + 1,
+        };
+
+        if (args.editReason) {
+            patch.editReason = args.editReason;
+        }
+
+        await ctx.db.patch(args.horoscopeId, patch);
     },
 });
 

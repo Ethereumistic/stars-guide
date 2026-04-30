@@ -230,6 +230,11 @@ export default defineSchema({
         summary: v.string(),
         createdBy: v.id("users"),
         createdAt: v.number(),
+        // v4: Freshness window
+        validFrom: v.optional(v.string()),   // "YYYY-MM-DD" — start of relevance window
+        validUntil: v.optional(v.string()),  // "YYYY-MM-DD" — end of relevance window
+        // v4: Emotional register detection
+        emotionalRegister: v.optional(v.string()),   // detected or manually set, e.g. "anxious,restless"
     }).index("by_createdAt", ["createdAt"]),
 
     // 7. HOROSCOPES (Generated Content РІР‚вЂќ the product)
@@ -240,6 +245,9 @@ export default defineSchema({
         content: v.string(),
         status: v.union(v.literal("draft"), v.literal("published"), v.literal("failed")),
         generatedBy: v.optional(v.id("generationJobs")),
+        // v4: Edit reason capture
+        editReason: v.optional(v.string()),   // "too_vague" | "wrong_tone" | "hook_missed" | "off_zeitgeist" | "too_long" | "too_short" | "other"
+        editCount: v.optional(v.number()),    // Number of times this horoscope was edited post-generation
     }).index("by_sign_and_date", ["sign", "targetDate"])
         .index("by_status", ["status"])
         .index("by_date", ["targetDate"]),
@@ -297,18 +305,41 @@ export default defineSchema({
             })
         ),
         generatedAt: v.number(),           // Date.now() timestamp for audit
+        feltLanguage: v.optional(v.string()),   // Pre-translated emotional prose
+        feltLanguageGeneratedAt: v.optional(v.number()),
     }).index("by_date", ["date"]),
 
     // 10. HOOKS (Hook Archetype Library РІР‚вЂќ DB-driven, zero deploy updates)
     hooks: defineTable({
         name: v.string(),                    // e.g. "The Mirror Hook"
         description: v.string(),             // One-sentence description
-        examples: v.array(v.string()),       // 2РІР‚вЂњ5 example lines
+        examples: v.array(v.string()),       // 2–5 example lines
         isActive: v.boolean(),
         moonPhaseMapping: v.optional(v.string()),  // e.g. "full_moon", "waxing", "new_moon", "waning"
+        // v4: Emotion-register matching
+        emotionalRegisters: v.array(v.string()),     // ["anxious", "restless"] etc. — empty = matches any
+        source: v.string(),                          // "curated" | "ai_proposed" | "admin_written"
+        approvedAt: v.optional(v.number()),          // null = pending approval (for ai_proposed)
+        usageCount: v.number(),                      // Incremented each time hook is used in generation
         createdAt: v.number(),
         updatedAt: v.number(),
-    }).index("by_active", ["isActive"]),
+    }).index("by_active", ["isActive"])
+      .index("by_active_and_source", ["isActive", "source"]),
+
+    // 10b. CONTEXT SLOTS (Split master context — independently versioned prompt sections)
+    contextSlots: defineTable({
+        slotKey: v.string(),               // "identity" | "output_rules" | "sign_voices" | "format_schema"
+        label: v.string(),                 // Human-readable: "AI Identity & Persona", etc.
+        content: v.string(),               // The prompt text for this slot
+        order: v.number(),                 // Assembly order (lower = earlier in prompt)
+        isEnabled: v.boolean(),            // Soft disable without deleting
+        // Versioning
+        version: v.number(),               // Increments on each save
+        previousContent: v.optional(v.string()), // One level of undo
+        updatedAt: v.number(),
+        updatedBy: v.id("users"),
+    }).index("by_slotKey", ["slotKey"])
+      .index("by_order", ["order"]),
 
     // РІвЂќР‚РІвЂќР‚РІвЂќР‚ ORACLE AI ASTROLOGY GUIDE РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚
 

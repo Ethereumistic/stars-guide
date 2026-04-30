@@ -99,6 +99,20 @@ export default function ReviewPage() {
     // Delete confirmation
     const [deleteTarget, setDeleteTarget] = useState<{ id: string; sign: string; date: string } | null>(null);
 
+    // Edit reason picker
+    const [editReasonTarget, setEditReasonTarget] = useState<string | null>(null); // horoscopeId awaiting reason
+    const [selectedReason, setSelectedReason] = useState<string | null>(null);
+
+    const EDIT_REASONS = [
+        { value: "too_vague", label: "Too vague" },
+        { value: "wrong_tone", label: "Wrong tone" },
+        { value: "hook_missed", label: "Hook missed" },
+        { value: "off_zeitgeist", label: "Off zeitgeist" },
+        { value: "too_long", label: "Too long" },
+        { value: "too_short", label: "Too short" },
+        { value: "other", label: "Other" },
+    ];
+
     // Filter horoscopes by active date
     const filteredHoroscopes = useMemo(() => {
         if (!horoscopes) return undefined;
@@ -176,10 +190,16 @@ export default function ReviewPage() {
     const saveEdit = async () => {
         if (!editingId) return;
         try {
-            await updateContent({ horoscopeId: editingId as Id<"horoscopes">, content: editContent });
+            await updateContent({
+                horoscopeId: editingId as Id<"horoscopes">,
+                content: editContent,
+                editReason: selectedReason ?? undefined,
+            });
             toast.success("Content updated. Status reset to draft.");
             setEditingId(null);
             setEditContent("");
+            setEditReasonTarget(null);
+            setSelectedReason(null);
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Failed to update.");
         }
@@ -476,13 +496,58 @@ export default function ReviewPage() {
                                                                                 </Button>
                                                                                 <Button
                                                                                     size="sm"
-                                                                                    onClick={saveEdit}
+                                                                                    onClick={() => {
+                                                                                        setEditReasonTarget(h._id);
+                                                                                        // Don't save yet — show reason picker first
+                                                                                    }}
                                                                                     className="gap-1 text-xs h-7"
                                                                                 >
                                                                                     <Save className="h-3 w-3" /> Save
                                                                                 </Button>
                                                                             </div>
                                                                         </div>
+                                                                        {/* Edit Reason Picker — inline, non-blocking */}
+                                                                        {editReasonTarget === h._id && (
+                                                                            <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-border/20">
+                                                                                <span className="text-xs text-muted-foreground">Why did you edit?</span>
+                                                                                {EDIT_REASONS.map((reason) => (
+                                                                                    <button
+                                                                                        key={reason.value}
+                                                                                        onClick={async () => {
+                                                                                            try {
+                                                                                                await updateContent({
+                                                                                                    horoscopeId: h._id as Id<"horoscopes">,
+                                                                                                    content: editContent,
+                                                                                                    editReason: reason.value,
+                                                                                                });
+                                                                                                toast.success(`Saved — ${reason.label}`);
+                                                                                                setEditingId(null);
+                                                                                                setEditContent("");
+                                                                                                setEditReasonTarget(null);
+                                                                                            } catch (error) {
+                                                                                                toast.error(error instanceof Error ? error.message : "Failed.");
+                                                                                            }
+                                                                                        }}
+                                                                                        className={`px-2 py-1 rounded text-xs transition-colors border ${
+                                                                                            selectedReason === reason.value
+                                                                                                ? "bg-primary/20 border-primary/50 text-primary"
+                                                                                                : "bg-background/50 border-border/30 text-muted-foreground hover:border-border/60"
+                                                                                        }`}
+                                                                                    >
+                                                                                        {reason.label}
+                                                                                    </button>
+                                                                                ))}
+                                                                                <button
+                                                                                    onClick={() => {
+                                                                                        setSelectedReason(null);
+                                                                                        saveEdit();
+                                                                                    }}
+                                                                                    className="px-2 py-1 rounded text-xs bg-background/50 border border-border/30 text-muted-foreground hover:border-border/60"
+                                                                                >
+                                                                                    Skip
+                                                                                </button>
+                                                                            </div>
+                                                                        )}
                                                                     </div>
                                                                 ) : (
                                                                     /* ── Read-only Expanded View ── */

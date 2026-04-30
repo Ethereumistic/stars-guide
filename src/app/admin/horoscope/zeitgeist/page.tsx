@@ -25,8 +25,12 @@ import {
     Heart,
     RefreshCw,
     ArrowRight,
+    CalendarDays,
 } from "lucide-react";
 import { toast } from "sonner";
+import { format, addDays } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // Model options — same list as the Generation Desk for consistency
 const MODEL_OPTIONS = [
@@ -67,6 +71,18 @@ export default function ZeitgeistPage() {
     const [emotionalTranslation, setEmotionalTranslation] = useState("");
     const [isTranslating, setIsTranslating] = useState(false);
     const [skipTranslation, setSkipTranslation] = useState(false);
+
+    // v4: Emotional register
+    const [emotionalRegister, setEmotionalRegister] = useState<string[]>([]);
+
+    const EMOTIONAL_REGISTER_OPTIONS = [
+        "anxious", "expansive", "tender", "defiant",
+        "restless", "hopeful", "grief", "clarity",
+    ];
+
+    // v4: Freshness window
+    const [validFrom, setValidFrom] = useState(format(new Date(), "yyyy-MM-dd"));
+    const [validUntil, setValidUntil] = useState(format(addDays(new Date(), 6), "yyyy-MM-dd"));
 
     // Prompt injection warning
     const summaryText = isManual ? manualSummary : (emotionalTranslation || aiSummary);
@@ -129,7 +145,21 @@ export default function ZeitgeistPage() {
                 rawEvents: textToTranslate,
                 modelId: selectedModel,
             });
-            setEmotionalTranslation(result);
+
+            // v4: Parse JSON response with translation + emotional register
+            try {
+                const parsed = JSON.parse(result);
+                if (parsed.translation) {
+                    setEmotionalTranslation(parsed.translation);
+                }
+                if (parsed.emotionalRegister) {
+                    setEmotionalRegister(parsed.emotionalRegister.split(","));
+                }
+            } catch {
+                // Fallback: treat as plain text (backward compat)
+                setEmotionalTranslation(result);
+            }
+
             toast.success("Emotional translation generated!");
         } catch (error) {
             toast.error("Translation failed. " + (error instanceof Error ? error.message : ""));
@@ -161,6 +191,9 @@ export default function ZeitgeistPage() {
                 isManual,
                 archetypes: isManual ? undefined : archetypes.filter((a) => a.trim()),
                 summary: summary.trim(),
+                validFrom,
+                validUntil,
+                emotionalRegister: emotionalRegister.length > 0 ? emotionalRegister.join(",") : undefined,
             });
             toast.success("Zeitgeist saved successfully.");
             // Reset form
@@ -168,6 +201,7 @@ export default function ZeitgeistPage() {
             setManualSummary("");
             setAiSummary("");
             setEmotionalTranslation("");
+            setEmotionalRegister([]);
             setArchetypes([""]);
         } catch (error) {
             toast.error("Failed to save. " + (error instanceof Error ? error.message : ""));
@@ -232,6 +266,59 @@ export default function ZeitgeistPage() {
                     className="bg-background/50"
                 />
             </div>
+
+            {/* v4: Validity Window */}
+            <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+                <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                        <CalendarDays className="h-4 w-4" />
+                        Validity Window
+                    </CardTitle>
+                    <CardDescription>
+                        Define when this zeitgeist is relevant. Used to warn if target dates fall outside this range.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Valid From</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-full justify-start text-left font-normal bg-background/50">
+                                        <CalendarDays className="mr-2 h-4 w-4" />
+                                        {validFrom}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={new Date(validFrom)}
+                                        onSelect={(d) => d && setValidFrom(format(d, "yyyy-MM-dd"))}
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Valid Until</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-full justify-start text-left font-normal bg-background/50">
+                                        <CalendarDays className="mr-2 h-4 w-4" />
+                                        {validUntil}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={new Date(validUntil)}
+                                        onSelect={(d) => d && setValidUntil(format(d, "yyyy-MM-dd"))}
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Manual Mode */}
             {isManual ? (
@@ -447,6 +534,49 @@ export default function ZeitgeistPage() {
                 </div>
             )}
 
+            {/* v4: Emotional Register Override */}
+            {emotionalTranslation && !isManual && (
+                <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                            <Heart className="h-4 w-4 text-rose-400" />
+                            Emotional Register
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                            Auto-detected from the emotional translation. Adjust if needed — this is used for hook selection during generation.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex flex-wrap gap-2">
+                            {EMOTIONAL_REGISTER_OPTIONS.map((reg) => (
+                                <button
+                                    key={reg}
+                                    onClick={() => {
+                                        setEmotionalRegister((prev) =>
+                                            prev.includes(reg)
+                                                ? prev.filter((r) => r !== reg)
+                                                : [...prev, reg].slice(0, 2)
+                                        );
+                                    }}
+                                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                                        emotionalRegister.includes(reg)
+                                            ? "bg-primary/20 border-primary/50 text-primary"
+                                            : "bg-background/50 border-border/30 text-muted-foreground hover:border-border/60"
+                                    }`}
+                                >
+                                    {reg}
+                                </button>
+                            ))}
+                        </div>
+                        {emotionalRegister.length > 0 && (
+                            <p className="text-xs text-muted-foreground mt-2">
+                                Selected: {emotionalRegister.join(", ")}
+                            </p>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Prompt Injection Warning */}
             {hasSuspiciousPattern && (
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
@@ -495,6 +625,22 @@ export default function ZeitgeistPage() {
                                                 <Badge variant="outline" className="text-xs shrink-0">
                                                     {z.isManual ? "Manual" : "AI"}
                                                 </Badge>
+                                                {z.validFrom && z.validUntil ? (
+                                                    <Badge
+                                                        variant="outline"
+                                                        className="text-xs shrink-0"
+                                                    >
+                                                        {new Date(z.validUntil) >= new Date() ? (
+                                                            <span className="text-emerald-400">{z.validFrom} → {z.validUntil}</span>
+                                                        ) : (
+                                                            <span className="text-red-400">Expired {z.validUntil}</span>
+                                                        )}
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="outline" className="text-xs shrink-0 text-muted-foreground">
+                                                        No window
+                                                    </Badge>
+                                                )}
                                             </div>
                                             <p className="text-xs text-muted-foreground line-clamp-2">
                                                 {z.summary}

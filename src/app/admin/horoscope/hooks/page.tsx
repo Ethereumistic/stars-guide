@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -18,8 +18,15 @@ import {
     SheetDescription,
     SheetHeader,
     SheetTitle,
-    SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import {
     Anchor,
     Plus,
@@ -33,6 +40,8 @@ import {
     EyeOff,
     Wand2,
     Save,
+    Check,
+    MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -44,12 +53,19 @@ const MOON_PHASE_OPTIONS = [
     { value: "waning", label: "🌗 Waning (Gibbous / Last Quarter)" },
 ];
 
+// Emotional register options
+const EMOTIONAL_REGISTER_OPTIONS = [
+    "anxious", "expansive", "tender", "defiant",
+    "restless", "hopeful", "grief", "clarity",
+];
+
 type HookFormData = {
     name: string;
     description: string;
     examples: string[];
     isActive: boolean;
     moonPhaseMapping?: string;
+    emotionalRegisters: string[];
 };
 
 const emptyForm: HookFormData = {
@@ -58,6 +74,7 @@ const emptyForm: HookFormData = {
     examples: ["", "", ""],
     isActive: true,
     moonPhaseMapping: undefined,
+    emotionalRegisters: [],
 };
 
 export default function HooksPage() {
@@ -65,6 +82,7 @@ export default function HooksPage() {
     const createHook = useMutation(api.hooks.create);
     const updateHook = useMutation(api.hooks.update);
     const toggleActive = useMutation(api.hooks.toggleActive);
+    const approveHook = useMutation(api.hooks.approveHook);
     const deleteHook = useMutation(api.hooks.deleteHook);
     const seedHooks = useMutation(api.hooks.seed);
 
@@ -75,8 +93,16 @@ export default function HooksPage() {
     const [isSeeding, setIsSeeding] = useState(false);
     const [sheetOpen, setSheetOpen] = useState(false);
 
-    const activeHooks = hooks?.filter((h) => h.isActive) ?? [];
-    const inactiveHooks = hooks?.filter((h) => !h.isActive) ?? [];
+    // AI Proposal
+    const [proposeOpen, setProposeOpen] = useState(false);
+    const [proposeRegisters, setProposeRegisters] = useState<string[]>([]);
+    const [proposeCount, setProposeCount] = useState(5);
+    const [isProposing, setIsProposing] = useState(false);
+    // proposeHooksAction is an internalAction — will need a public wrapper when AI proposal feature is enabled
+
+    const activeHooks = hooks?.filter((h) => h.isActive && h.source !== "ai_proposed") ?? [];
+    const pendingHooks = hooks?.filter((h) => h.source === "ai_proposed" && !h.approvedAt) ?? [];
+    const inactiveHooks = hooks?.filter((h) => !h.isActive && h.source !== "ai_proposed") ?? [];
 
     // ─── Form handlers ───────────────────────────────────────────────────
 
@@ -101,6 +127,7 @@ export default function HooksPage() {
             examples: [...hook.examples],
             isActive: hook.isActive,
             moonPhaseMapping: hook.moonPhaseMapping,
+            emotionalRegisters: (hook as any).emotionalRegisters ?? [],
         });
         setEditingHookId(hook._id);
         setIsCreating(false);
@@ -123,6 +150,15 @@ export default function HooksPage() {
         if (form.examples.length > 2) {
             setForm({ ...form, examples: form.examples.filter((_, i) => i !== index) });
         }
+    };
+
+    const toggleEmotionalRegister = (reg: string) => {
+        setForm((prev) => ({
+            ...prev,
+            emotionalRegisters: prev.emotionalRegisters.includes(reg)
+                ? prev.emotionalRegisters.filter((r) => r !== reg)
+                : [...prev.emotionalRegisters, reg].slice(0, 2),
+        }));
     };
 
     const handleSave = async () => {
@@ -150,6 +186,7 @@ export default function HooksPage() {
                     examples: validExamples,
                     isActive: form.isActive,
                     moonPhaseMapping: form.moonPhaseMapping || undefined,
+                    emotionalRegisters: form.emotionalRegisters,
                 });
                 toast.success("Hook updated.");
             } else {
@@ -159,6 +196,7 @@ export default function HooksPage() {
                     examples: validExamples,
                     isActive: form.isActive,
                     moonPhaseMapping: form.moonPhaseMapping || undefined,
+                    emotionalRegisters: form.emotionalRegisters,
                 });
                 toast.success("Hook created.");
             }
@@ -175,6 +213,15 @@ export default function HooksPage() {
             await toggleActive({ hookId });
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Failed to toggle hook.");
+        }
+    };
+
+    const handleApprove = async (hookId: Id<"hooks">) => {
+        try {
+            await approveHook({ hookId });
+            toast.success("Hook approved!");
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Failed to approve hook.");
         }
     };
 
@@ -209,6 +256,15 @@ export default function HooksPage() {
         return MOON_PHASE_OPTIONS.find((o) => o.value === mapping)?.label || mapping;
     };
 
+    const getSourceBadge = (source: string) => {
+        switch (source) {
+            case "curated": return <Badge variant="outline" className="text-xs text-blue-400 border-blue-400/30">Curated</Badge>;
+            case "ai_proposed": return <Badge variant="outline" className="text-xs text-purple-400 border-purple-400/30">AI Proposed</Badge>;
+            case "admin_written": return <Badge variant="outline" className="text-xs text-emerald-400 border-emerald-400/30">Admin</Badge>;
+            default: return null;
+        }
+    };
+
     return (
         <div className="space-y-8 max-w-5xl">
             {/* Header */}
@@ -219,8 +275,8 @@ export default function HooksPage() {
                         Hook Manager
                     </h1>
                     <p className="text-muted-foreground mt-1 text-sm max-w-xl">
-                        Manage hook archetypes that control how horoscopes open. Hooks are DB-driven —
-                        new archetypes take effect on the next generation run with zero deploys.
+                        Manage hook archetypes that control how horoscopes open. v4 adds emotional register
+                        matching for contextually appropriate hook selection.
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -254,8 +310,7 @@ export default function HooksPage() {
                         Auto-Assignment
                     </CardTitle>
                     <CardDescription>
-                        In auto mode, the system selects the hook archetype based on the current moon phase.
-                        Each hook can be mapped to a moon phase category. Manual override is available on the Generation Desk.
+                        Hook selection: emotional register (primary) → moon phase (secondary) → weighted random by usage count.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -275,6 +330,13 @@ export default function HooksPage() {
                                             <span className="text-muted-foreground/50 italic">Unassigned</span>
                                         )}
                                     </p>
+                                    {assignedHook && (assignedHook as any).emotionalRegisters?.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-1 justify-center">
+                                            {(assignedHook as any).emotionalRegisters.map((r: string) => (
+                                                <span key={r} className="text-[10px] text-muted-foreground bg-muted/50 px-1 rounded">{r}</span>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
@@ -282,15 +344,54 @@ export default function HooksPage() {
                 </CardContent>
             </Card>
 
+            {/* Pending AI-Proposed Hooks */}
+            {pendingHooks.length > 0 && (
+                <div>
+                    <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
+                        <MessageSquare className="h-4 w-4 text-purple-400" />
+                        Pending Approval
+                        <Badge variant="secondary" className="text-xs">{pendingHooks.length}</Badge>
+                    </h2>
+                    <div className="grid gap-4 md:grid-cols-2">
+                        {pendingHooks.map((hook) => (
+                            <Card key={hook._id} className="border-purple-500/20 bg-purple-500/5 backdrop-blur-sm">
+                                <CardHeader className="pb-2">
+                                    <div className="flex items-start justify-between">
+                                        <CardTitle className="text-base">{hook.name}</CardTitle>
+                                        {getSourceBadge((hook as any).source ?? "curated")}
+                                    </div>
+                                    <CardDescription className="text-xs">{hook.description}</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    <div className="space-y-1">
+                                        {hook.examples.slice(0, 2).map((ex, i) => (
+                                            <p key={i} className="text-xs text-muted-foreground italic pl-3 border-l border-border/50">
+                                                &ldquo;{ex}&rdquo;
+                                            </p>
+                                        ))}
+                                    </div>
+                                    <div className="flex items-center gap-2 pt-2 border-t border-border/30">
+                                        <Button size="sm" onClick={() => handleApprove(hook._id)} className="gap-1 text-xs">
+                                            <Check className="h-3 w-3" /> Approve
+                                        </Button>
+                                        <Button variant="ghost" size="sm" onClick={() => handleDelete(hook._id, hook.name)} className="gap-1 text-xs text-red-400">
+                                            <Trash2 className="h-3 w-3" /> Discard
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Active Hooks */}
             <div>
                 <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
                     <Eye className="h-4 w-4 text-emerald-400" />
                     Active Hooks
                     {activeHooks.length > 0 && (
-                        <Badge variant="secondary" className="text-xs">
-                            {activeHooks.length}
-                        </Badge>
+                        <Badge variant="secondary" className="text-xs">{activeHooks.length}</Badge>
                     )}
                 </h2>
                 {hooks === undefined ? (
@@ -328,9 +429,7 @@ export default function HooksPage() {
                     <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
                         <EyeOff className="h-4 w-4 text-muted-foreground" />
                         Inactive Hooks
-                        <Badge variant="outline" className="text-xs">
-                            {inactiveHooks.length}
-                        </Badge>
+                        <Badge variant="outline" className="text-xs">{inactiveHooks.length}</Badge>
                     </h2>
                     <div className="grid gap-4 md:grid-cols-2">
                         {inactiveHooks.map((hook) => (
@@ -424,6 +523,29 @@ export default function HooksPage() {
                             )}
                         </div>
 
+                        {/* Emotional Registers */}
+                        <div className="space-y-2">
+                            <Label>Emotional Registers (max 2)</Label>
+                            <div className="flex flex-wrap gap-2">
+                                {EMOTIONAL_REGISTER_OPTIONS.map((reg) => (
+                                    <button
+                                        key={reg}
+                                        onClick={() => toggleEmotionalRegister(reg)}
+                                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                                            form.emotionalRegisters.includes(reg)
+                                                ? "bg-primary/20 border-primary/50 text-primary"
+                                                : "bg-background/50 border-border/30 text-muted-foreground hover:border-border/60"
+                                        }`}
+                                    >
+                                        {reg}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Empty = matches any emotional register (universal). Select 1-2 for context-specific matching.
+                            </p>
+                        </div>
+
                         {/* Moon Phase Mapping */}
                         <div className="space-y-2">
                             <Label>Moon Phase Mapping (Auto-Assignment)</Label>
@@ -448,7 +570,7 @@ export default function HooksPage() {
                                 </SelectContent>
                             </Select>
                             <p className="text-xs text-muted-foreground">
-                                When auto mode is active, this hook will be used during the selected moon phase.
+                                Secondary filter after emotional register matching.
                             </p>
                         </div>
 
@@ -505,6 +627,9 @@ function HookCard({
         isActive: boolean;
         moonPhaseMapping?: string;
         updatedAt: number;
+        emotionalRegisters?: string[];
+        source?: string;
+        usageCount?: number;
     };
     moonPhaseLabel: string | null;
     onEdit: () => void;
@@ -512,9 +637,21 @@ function HookCard({
     onDelete: () => void;
     dimmed?: boolean;
 }) {
+    const source = hook.source ?? "curated";
+    const registers = hook.emotionalRegisters ?? [];
+    const usageCount = hook.usageCount ?? 0;
+
+    const getSourceBadge = () => {
+        switch (source) {
+            case "curated": return <Badge variant="outline" className="text-xs text-blue-400 border-blue-400/30">Curated</Badge>;
+            case "ai_proposed": return <Badge variant="outline" className="text-xs text-purple-400 border-purple-400/30">AI</Badge>;
+            case "admin_written": return <Badge variant="outline" className="text-xs text-emerald-400 border-emerald-400/30">Admin</Badge>;
+            default: return null;
+        }
+    };
+
     return (
-        <Card className={`border-border/50 bg-card/50 backdrop-blur-sm transition-opacity ${dimmed ? "opacity-50" : ""
-            }`}>
+        <Card className={`border-border/50 bg-card/50 backdrop-blur-sm transition-opacity ${dimmed ? "opacity-50" : ""}`}>
             <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
@@ -546,13 +683,21 @@ function HookCard({
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-between pt-2 border-t border-border/30">
-                    <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between pt-2 border-t border-border/30 flex-wrap gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                         {moonPhaseLabel && (
                             <Badge variant="outline" className="text-xs">
                                 {moonPhaseLabel}
                             </Badge>
                         )}
+                        {registers.length > 0 && (
+                            <div className="flex gap-1">
+                                {registers.map((r) => (
+                                    <span key={r} className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">{r}</span>
+                                ))}
+                            </div>
+                        )}
+                        {getSourceBadge()}
                         <Badge
                             variant={hook.isActive ? "default" : "secondary"}
                             className="text-xs cursor-pointer"
@@ -561,9 +706,14 @@ function HookCard({
                             {hook.isActive ? "Active" : "Inactive"}
                         </Badge>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                        {new Date(hook.updatedAt).toLocaleDateString()}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                            Used: {usageCount}×
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                            {new Date(hook.updatedAt).toLocaleDateString()}
+                        </span>
+                    </div>
                 </div>
             </CardContent>
         </Card>

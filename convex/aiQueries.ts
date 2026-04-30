@@ -67,3 +67,43 @@ export const getHookInternal = internalQuery({
         return await ctx.db.get(args.hookId);
     },
 });
+
+/**
+ * assembleSystemPrompt — v4: Assembles enabled context slots into a single
+ * system prompt string. Falls back to the old monolithic master_context
+ * from systemSettings when no context slots exist (backward compat).
+ */
+export const assembleSystemPrompt = internalQuery({
+    args: {},
+    handler: async (ctx) => {
+        const slots = await ctx.db
+            .query("contextSlots")
+            .withIndex("by_order")
+            .filter((q) => q.eq(q.field("isEnabled"), true))
+            .collect();
+
+        // v4 slots exist — assemble them
+        if (slots.length > 0) {
+            return slots
+                .map((slot) => `## ${slot.label}\n\n${slot.content}`)
+                .join("\n\n---\n\n");
+        }
+
+        // Fallback: use old monolithic master_context
+        const legacy = await ctx.db
+            .query("systemSettings")
+            .withIndex("by_key", (q) => q.eq("key", "master_context"))
+            .first();
+
+        if (legacy?.content) {
+            console.warn("[DEPRECATION] Using legacy master_context. Migrate to context slots.");
+            return legacy.content;
+        }
+
+        // Neither exist — throw
+        throw new Error(
+            "No context slots configured and no legacy master_context found. " +
+            "Please configure context in the Context Editor."
+        );
+    },
+});

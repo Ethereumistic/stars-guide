@@ -169,11 +169,50 @@ export default function GeneratorPage() {
                                             <Badge variant="outline" className="text-xs">
                                                 {z.isManual ? "Manual" : "AI"}
                                             </Badge>
+                                            {z.validFrom && z.validUntil && (
+                                                <span className="text-xs text-muted-foreground">
+                                                    {z.validFrom} → {z.validUntil}
+                                                </span>
+                                            )}
                                         </div>
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
+                        {/* Freshness Badge */}
+                        {selectedZeitgeistId && (() => {
+                            const zg = zeitgeists?.find((z) => z._id === selectedZeitgeistId);
+                            if (!zg?.validFrom || !zg?.validUntil) {
+                                return (
+                                    <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                                        <span>⚪ No window set (legacy)</span>
+                                    </div>
+                                );
+                            }
+                            const allInRange = targetDates.every((d) => d >= zg.validFrom! && d <= zg.validUntil!);
+                            const someOutOfRange = targetDates.some((d) => d < zg.validFrom! || d > zg.validUntil!);
+                            const allOutOfRange = targetDates.every((d) => d < zg.validFrom! || d > zg.validUntil!);
+                            if (allOutOfRange) {
+                                return (
+                                    <div className="flex items-start gap-2 mt-2 p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-xs">
+                                        <span>🔴 <strong>Stale:</strong> Zeitgeist was written for {zg.validFrom}–{zg.validUntil}. All target dates are outside this range.</span>
+                                    </div>
+                                );
+                            }
+                            if (someOutOfRange) {
+                                const outDates = targetDates.filter((d) => d < zg.validFrom! || d > zg.validUntil!);
+                                return (
+                                    <div className="flex items-start gap-2 mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs">
+                                        <span>🟡 <strong>Partial:</strong> Some dates outside window: {outDates.join(", ")}</span>
+                                    </div>
+                                );
+                            }
+                            return (
+                                <div className="flex items-center gap-2 mt-2 text-xs text-emerald-400">
+                                    <span>🟢 Fresh — all dates within zeitgeist window</span>
+                                </div>
+                            );
+                        })()}
                     </CardContent>
                 </Card>
 

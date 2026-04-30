@@ -20,6 +20,15 @@ crons.daily(
     internal.cosmicWeather.dailyCosmicWeatherJob,
 );
 
+// ─── FELT LANGUAGE ───────────────────────────────────────────────────────
+// Generate felt language from cosmic weather at 00:10 UTC daily
+// (5-minute buffer for the snapshot to be written first).
+crons.daily(
+    "generate-felt-language",
+    { hourUTC: 0, minuteUTC: 10 },
+    internal.cosmicWeather.dailyFeltLanguageJob,
+);
+
 // ─── SCHEDULED NOTIFICATIONS ─────────────────────────────────────────────
 // Check for campaigns due for delivery every minute.
 crons.interval(

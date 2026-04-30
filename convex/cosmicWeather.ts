@@ -9,7 +9,7 @@ import { internalAction, internalMutation, internalQuery } from "./_generated/se
 import { query, action } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { computeSnapshot } from "./lib/astronomyEngine";
+import { computeSnapshot, getMoonPhaseFrame } from "./lib/astronomyEngine";
 import { requireAdmin } from "./lib/adminGuard";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -97,6 +97,152 @@ export const dailyCosmicWeatherJob = internalAction({
     },
 });
 
+/**
+ * storeFeltLanguage — Internal mutation to persist felt language on a cosmic weather record.
+ */
+export const storeFeltLanguage = internalMutation({
+    args: {
+        date: v.string(),
+        feltLanguage: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const existing = await ctx.db
+            .query("cosmicWeather")
+            .withIndex("by_date", (q) => q.eq("date", args.date))
+            .unique();
+        if (existing) {
+            await ctx.db.patch(existing._id, {
+                feltLanguage: args.feltLanguage,
+                feltLanguageGeneratedAt: Date.now(),
+            });
+        }
+    },
+});
+
+/**
+ * generateFeltLanguage — Translates raw cosmic weather into felt emotional language.
+ * Called by cron after cosmic weather is computed.
+ * Idempotent: skips if feltLanguage already exists (unless forced).
+ */
+export const generateFeltLanguage = internalAction({
+    args: {
+        date: v.string(),
+        force: v.optional(v.boolean()),
+    },
+    handler: async (ctx, { date, force }) => {
+        // Fetch the snapshot
+        const snapshot = await ctx.runQuery(internal.cosmicWeather.getForDate, { date });
+        if (!snapshot) {
+            console.warn(`No cosmic weather found for ${date}, skipping felt language generation.`);
+            return;
+        }
+
+        // Skip if already generated (unless forced)
+        if (snapshot.feltLanguage && !force) {
+            console.log(`Felt language already exists for ${date}, skipping.`);
+            return;
+        }
+
+        const apiKey = process.env.OPENROUTER_API_KEY;
+        if (!apiKey) {
+            console.error("OPENROUTER_API_KEY not set, cannot generate felt language.");
+            return;
+        }
+
+        // Build the translation prompt
+        const moonFrame = getMoonPhaseFrame(snapshot.moonPhase.name);
+
+        const retrogrades = snapshot.planetPositions.filter((p) => p.isRetrograde);
+        const retroLine = retrogrades.length > 0
+            ? retrogrades.map((p) => p.planet).join(", ")
+            : "none";
+
+        const aspectsLine = snapshot.activeAspects.length > 0
+            ? snapshot.activeAspects
+                .map((a) => `${a.planet1} ${a.aspect} ${a.planet2} (orb: ${a.orbDegrees}°)`)
+                .join("; ")
+            : "No exact aspects today.";
+
+        const payload = {
+            model: "google/gemini-2.5-flash-lite",
+            messages: [
+                {
+                    role: "system",
+                    content: `You are an astrology translator. Your job is to convert raw astronomical data 
+into emotionally resonant felt language for horoscope writers.
+Rules:
+- Never name a planet directly
+- Never name a sign directly  
+- Write 4-6 sentences of felt human experience
+- Focus on collective mood: what energy is in the air
+- No prediction, no advice — only description of the energetic climate
+- No mention of degrees, orbs, or technical terms
+Output only the paragraph, no preamble.`,
+                },
+                {
+                    role: "user",
+                    content: `Translate this astronomical snapshot to felt language:
+
+Moon: ${snapshot.moonPhase.name}, ${snapshot.moonPhase.illuminationPercent}% illuminated
+Active Aspects: ${aspectsLine}
+Retrogrades: ${retroLine}
+Moon Phase Frame: ${moonFrame}`,
+                },
+            ],
+            temperature: 0.4,
+            max_tokens: 300,
+        };
+
+        try {
+            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${apiKey}`,
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://stars.guide",
+                    "X-Title": "Stars.Guide Felt Language Generator",
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                const errorBody = await response.text();
+                console.error(`Felt language API error ${response.status}: ${errorBody}`);
+                return;
+            }
+
+            const data = await response.json() as any;
+            const content = data?.choices?.[0]?.message?.content;
+            if (!content) {
+                console.error("Empty felt language response");
+                return;
+            }
+
+            await ctx.runMutation(internal.cosmicWeather.storeFeltLanguage, {
+                date,
+                feltLanguage: content.trim(),
+            });
+            console.log(`Felt language generated for ${date}`);
+        } catch (err) {
+            console.error(`Failed to generate felt language for ${date}:`, err);
+        }
+    },
+});
+
+/**
+ * dailyFeltLanguageJob — Cron wrapper that generates felt language for today.
+ */
+export const dailyFeltLanguageJob = internalAction({
+    args: {},
+    handler: async (ctx) => {
+        const today = new Date().toISOString().split("T")[0];
+        await ctx.runAction(internal.cosmicWeather.generateFeltLanguage, {
+            date: today,
+            force: false,
+        });
+    },
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PUBLIC FUNCTIONS (used by journal and other user-facing features)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -142,5 +288,25 @@ export const recomputeCosmicWeather = action({
     args: { date: v.string() },
     handler: async (ctx, { date }) => {
         await ctx.runAction(internal.cosmicWeather.computeAndStore, { date });
+    },
+});
+
+/**
+ * generateFeltLanguageAction — Admin "Generate Felt Language" button.
+ * Translates cosmic weather into felt language on demand.
+ */
+export const generateFeltLanguageAction = action({
+    args: {
+        date: v.string(),
+        force: v.optional(v.boolean()),
+    },
+    handler: async (ctx, { date, force }) => {
+        const userId = await ctx.runQuery(internal.aiQueries.validateAdmin, {});
+        if (!userId) throw new Error("UNAUTHORIZED: Admin access required");
+
+        await ctx.runAction(internal.cosmicWeather.generateFeltLanguage, {
+            date,
+            force: force ?? false,
+        });
     },
 });

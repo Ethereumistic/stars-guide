@@ -9,7 +9,8 @@ import { z } from "zod";
 const MAX_RETRIES_PER_SIGN = 2;       // Max 2 attempts per sign (1 original + 1 retry)
 const RETRY_DELAY_MS = 3000;          // Wait 3s before retry
 const MAX_TOTAL_FAILURES = 6;         // If 6+ signs fail, abort entire job
-const INTER_SIGN_DELAY_MS = 2000;     // Sleep between signs to respect rate limits
+const INTER_DATE_DELAY_MS = 3000;     // Sleep between date batches (shared context switch)
+const INTER_SIGN_DELAY_MS = 500;      // Sleep between signs within a date (minimal)
 
 // ─── ZOD VALIDATION SCHEMAS (The LLM Lie Defense) ────────────────────────
 const VALID_SIGNS = [
@@ -17,17 +18,13 @@ const VALID_SIGNS = [
     "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"
 ] as const;
 
-const HoroscopeEntrySchema = z.object({
+const LLMResponseSchema = z.object({
+    sign: z.enum(VALID_SIGNS),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
     content: z.string().min(1, "Content cannot be empty"),
     // NOTE: Character length (330-460) is validated visually in the Review UI,
     // NOT here. This prevents discarding great AI content that's slightly
     // over/under the limit. The admin decides in the review step.
-});
-
-const LLMResponseSchema = z.object({
-    sign: z.enum(VALID_SIGNS),
-    horoscopes: z.array(HoroscopeEntrySchema).min(1).max(7),
 });
 
 // ─── UTILITIES ────────────────────────────────────────────────────────────
@@ -121,7 +118,7 @@ Open the horoscope with this hook type. Do not copy the examples — use them as
  */
 async function callOpenRouter(
     sign: string,
-    dates: string[],
+    date: string,
     emotionalZeitgeist: string,
     masterContext: string,
     modelId: string,
@@ -130,13 +127,13 @@ async function callOpenRouter(
     moonPhaseFrame?: string,
     hookText?: string,
 ): Promise<unknown> {
-    // Build the v3 user message with all context layers
+    // Build the v4 user message — one sign, one date
     const moonPhaseBlock = moonPhaseFrame
-        ? `\n\nMOON PHASE CONTEXT:\n${moonPhaseFrame}\nThis is the emotional container for all horoscopes in this run.\nEvery piece of copy should be coloured by this phase's energy.`
+        ? `\n\nMOON PHASE FRAME: ${moonPhaseFrame}`
         : "";
 
     const cosmicWeatherBlock = cosmicWeatherText
-        ? `\n\nCOSMIC WEATHER:\n${cosmicWeatherText}\nTranslate relevant planetary data into felt language per the Planet Felt-Language Guide.\nNever name a planet directly in the copy. Never list positions robotically.`
+        ? `\n\nCOSMIC WEATHER FOR THIS DATE:\n${cosmicWeatherText}`
         : "";
 
     const hookBlock = hookText
@@ -153,23 +150,22 @@ async function callOpenRouter(
             {
                 role: "user",
                 content: `TARGET SIGN: ${sign}
-TARGET DATES: ${dates.join(", ")}${moonPhaseBlock}${cosmicWeatherBlock}
+TARGET DATE: ${date}${moonPhaseBlock}${cosmicWeatherBlock}
 
 COLLECTIVE EMOTIONAL STATE (ZEITGEIST):
 ${emotionalZeitgeist}
 This is how the world FEELS right now — not what happened.
-Map this emotional climate to the sign's Likely Felt State.
+Map this emotional climate to ${sign}'s Likely Felt State.
 Never reference news events, countries, or headlines in the output.${hookBlock}
 
 TASK:
-Generate horoscopes for ${sign} for the dates above.
-Each horoscope must feel like it was written specifically for this reader, today.
-Apply the Core Principle: emotionally specific, circumstantially universal.
-Output ONLY valid JSON matching the schema in the system prompt.`,
+Generate one horoscope for ${sign} for ${date}.
+Output ONLY valid JSON: { "sign": "${sign}", "date": "${date}", "content": "..." }
+Content must be 330–460 characters.`,
             },
         ],
-        temperature: 0.75, // v3: raised from 0.7 for more natural language variation
-        max_tokens: 2048,
+        temperature: 0.75,
+        max_tokens: 1024,
         response_format: { type: "json_object" },
     };
 
@@ -245,10 +241,7 @@ export const runGenerationJob = internalAction({
         // v3: Prefer emotionalZeitgeist from the job, fallback to zeitgeist.summary
         const emotionalZeitgeist = job.emotionalZeitgeist || zeitgeist.summary;
 
-        const masterSetting = await ctx.runQuery(internal.aiQueries.getSystemSettingInternal, {
-            key: "master_context",
-        });
-        const masterContext = masterSetting?.content || "";
+        const masterContext = await ctx.runQuery(internal.aiQueries.assembleSystemPrompt, {});
         if (!masterContext) {
             await ctx.runMutation(internal.admin.failJob, {
                 jobId: args.jobId,
@@ -267,173 +260,198 @@ export const runGenerationJob = internalAction({
             return;
         }
 
-        // 3b. Fetch or compute Cosmic Weather + Moon Phase Frame
-        let cosmicWeatherText: string | undefined;
-        let moonPhaseFrame: string | undefined;
-        let moonPhaseCategory: string | undefined;
-        try {
-            const targetDate = job.targetDates[0];
-            let cosmicWeather = await ctx.runQuery(
-                internal.aiQueries.getCosmicWeatherInternal,
-                { date: targetDate }
-            );
-            if (!cosmicWeather) {
-                // On-demand fallback: compute now if cron hasn't run yet
-                console.log(`Cosmic weather missing for ${targetDate}, computing on-demand...`);
-                await ctx.runAction(internal.cosmicWeather.computeAndStore, { date: targetDate });
-                cosmicWeather = await ctx.runQuery(
-                    internal.aiQueries.getCosmicWeatherInternal,
-                    { date: targetDate }
-                );
-            }
-            if (cosmicWeather) {
-                cosmicWeatherText = formatCosmicWeatherForPrompt(cosmicWeather);
-                // v3: Get moon phase frame from astronomyEngine
-                // We import the frame text computation at runtime since this is a "use node" file
-                const { getMoonPhaseFrame, getMoonPhaseCategory } = await import("./lib/astronomyEngine");
-                moonPhaseFrame = getMoonPhaseFrame(cosmicWeather.moonPhase.name);
-                moonPhaseCategory = getMoonPhaseCategory(cosmicWeather.moonPhase.name);
-                console.log(`Cosmic weather + moon phase frame loaded for ${targetDate} (${cosmicWeather.moonPhase.name})`);
-            }
-        } catch (err) {
-            // Non-fatal: generation proceeds without cosmic weather
-            console.warn("Failed to fetch/compute cosmic weather, proceeding without:", err);
-        }
-
-        // 3c. Fetch assigned hook archetype
-        let hookText: string | undefined;
-        try {
-            const hook = await ctx.runQuery(internal.hooks.getAssignedHook, {
-                hookId: job.hookId || undefined,
-                moonPhaseCategory: moonPhaseCategory,
-            });
-            if (hook) {
-                hookText = formatHookForPrompt(hook);
-                console.log(`Hook archetype assigned: ${hook.name}`);
-            }
-        } catch (err) {
-            console.warn("Failed to fetch hook archetype, proceeding without:", err);
-        }
-
-        // 4. Process signs one at a time
+        // 4. Process dates × signs — date-first axis
+        //    All 12 signs share identical cosmic weather for a given date.
+        //    Iterating date-first keeps the LLM context coherent.
         let completedCount = 0;
         let failedCount = 0;
         const errors: string[] = [];
 
-        for (const sign of job.targetSigns) {
+        for (let dateIdx = 0; dateIdx < job.targetDates.length; dateIdx++) {
+            const targetDate = job.targetDates[dateIdx];
+
+            // Fetch cosmic weather + moon phase frame ONCE per date
+            let cosmicWeatherText: string | undefined;
+            let moonPhaseFrame: string | undefined;
+            let moonPhaseCategory: string | undefined;
             try {
-                // First attempt
-                const result = await callOpenRouter(
-                    sign, job.targetDates, emotionalZeitgeist, masterContext,
-                    job.modelId, apiKey, cosmicWeatherText, moonPhaseFrame, hookText
+                let cosmicWeather = await ctx.runQuery(
+                    internal.aiQueries.getCosmicWeatherInternal,
+                    { date: targetDate }
                 );
-                const validated = LLMResponseSchema.safeParse(result);
+                if (!cosmicWeather) {
+                    console.log(`Cosmic weather missing for ${targetDate}, computing on-demand...`);
+                    await ctx.runAction(internal.cosmicWeather.computeAndStore, { date: targetDate });
+                    cosmicWeather = await ctx.runQuery(
+                        internal.aiQueries.getCosmicWeatherInternal,
+                        { date: targetDate }
+                    );
+                }
+                if (cosmicWeather) {
+                    // v4: Use felt language if available, fall back to raw data
+                    if (cosmicWeather.feltLanguage) {
+                        cosmicWeatherText = `COSMIC WEATHER FOR ${targetDate}:\n${cosmicWeather.feltLanguage}`;
+                    } else {
+                        cosmicWeatherText = formatCosmicWeatherForPrompt(cosmicWeather);
+                    }
+                    const { getMoonPhaseFrame, getMoonPhaseCategory } = await import("./lib/astronomyEngine");
+                    moonPhaseFrame = getMoonPhaseFrame(cosmicWeather.moonPhase.name);
+                    moonPhaseCategory = getMoonPhaseCategory(cosmicWeather.moonPhase.name);
+                    console.log(`Cosmic weather + moon phase frame loaded for ${targetDate} (${cosmicWeather.moonPhase.name})`);
+                }
+            } catch (err) {
+                console.warn(`Failed to fetch/compute cosmic weather for ${targetDate}, proceeding without:`, err);
+            }
 
-                if (!validated.success) {
-                    // Zod validation failed — retry once
-                    console.warn(`Validation failed for ${sign}, retrying...`, validated.error.message);
-                    await sleep(RETRY_DELAY_MS);
+            // Fetch hook archetype ONCE per date (moon phase is date-specific)
+            let hookText: string | undefined;
+            let selectedHookId: string | undefined;
+            try {
+                // v4: Pass emotional register from zeitgeist to hook selection
+                const emotionalRegister = zeitgeist.emotionalRegister
+                    ? zeitgeist.emotionalRegister.split(",").map((r: string) => r.trim())
+                    : undefined;
+                const hook = await ctx.runQuery(internal.hooks.getAssignedHook, {
+                    hookId: job.hookId || undefined,
+                    moonPhaseCategory: moonPhaseCategory,
+                    emotionalRegister,
+                });
+                if (hook) {
+                    hookText = formatHookForPrompt(hook);
+                    selectedHookId = hook._id;
+                    console.log(`Hook archetype assigned: ${hook.name}`);
+                }
+            } catch (err) {
+                console.warn("Failed to fetch hook archetype, proceeding without:", err);
+            }
 
-                    const retryResult = await callOpenRouter(
-                        sign, job.targetDates, emotionalZeitgeist, masterContext,
+            // Inner loop: iterate signs for this date
+            for (const sign of job.targetSigns) {
+                try {
+                    const result = await callOpenRouter(
+                        sign, targetDate, emotionalZeitgeist, masterContext,
                         job.modelId, apiKey, cosmicWeatherText, moonPhaseFrame, hookText
                     );
-                    const retryValidated = LLMResponseSchema.safeParse(retryResult);
+                    const validated = LLMResponseSchema.safeParse(result);
 
-                    if (!retryValidated.success) {
-                        // Second failure — mark as failed, move on
-                        failedCount++;
-                        errors.push(`${sign}: Validation failed after retry — ${retryValidated.error.message}`);
-                        await ctx.runMutation(internal.admin.updateJobProgress, {
-                            jobId: args.jobId,
-                            failed: failedCount,
-                            errors,
-                        });
+                    if (!validated.success) {
+                        console.warn(`Validation failed for ${sign} ${targetDate}, retrying...`, validated.error.message);
+                        await sleep(RETRY_DELAY_MS);
 
-                        if (failedCount >= MAX_TOTAL_FAILURES) {
-                            await ctx.runMutation(internal.admin.failJob, {
+                        const retryResult = await callOpenRouter(
+                            sign, targetDate, emotionalZeitgeist, masterContext,
+                            job.modelId, apiKey, cosmicWeatherText, moonPhaseFrame, hookText
+                        );
+                        const retryValidated = LLMResponseSchema.safeParse(retryResult);
+
+                        if (!retryValidated.success) {
+                            failedCount++;
+                            errors.push(`${sign} ${targetDate}: Validation failed after retry — ${retryValidated.error.message}`);
+                            await ctx.runMutation(internal.admin.updateJobProgress, {
                                 jobId: args.jobId,
+                                failed: failedCount,
                                 errors,
                             });
-                            return; // ABORT entire job
+
+                            if (failedCount >= MAX_TOTAL_FAILURES) {
+                                await ctx.runMutation(internal.admin.failJob, {
+                                    jobId: args.jobId,
+                                    errors,
+                                });
+                                return;
+                            }
+                            continue;
                         }
-                        continue; // Move to next sign
-                    }
 
-                    // Retry succeeded — save
-                    await ctx.runMutation(internal.admin.upsertHoroscopes, {
-                        data: retryValidated.data,
-                        zeitgeistId: job.zeitgeistId,
-                        jobId: args.jobId,
-                    });
-                } else {
-                    // First attempt succeeded — save immediately
-                    await ctx.runMutation(internal.admin.upsertHoroscopes, {
-                        data: validated.data,
-                        zeitgeistId: job.zeitgeistId,
-                        jobId: args.jobId,
-                    });
-                }
-
-                completedCount++;
-                await ctx.runMutation(internal.admin.updateJobProgress, {
-                    jobId: args.jobId,
-                    completed: completedCount,
-                });
-
-            } catch (error: unknown) {
-                // Network error, timeout, 429, 500, etc.
-                const errorMessage = error instanceof Error ? error.message : String(error);
-                console.error(`Error processing ${sign}:`, errorMessage);
-
-                // Retry once for network errors
-                try {
-                    await sleep(RETRY_DELAY_MS);
-                    const retryResult = await callOpenRouter(
-                        sign, job.targetDates, emotionalZeitgeist, masterContext,
-                        job.modelId, apiKey, cosmicWeatherText, moonPhaseFrame, hookText
-                    );
-                    const retryValidated = LLMResponseSchema.safeParse(retryResult);
-
-                    if (retryValidated.success) {
-                        await ctx.runMutation(internal.admin.upsertHoroscopes, {
+                        // Retry succeeded — save as single sign/date
+                        await ctx.runMutation(internal.admin.upsertHoroscope, {
                             data: retryValidated.data,
                             zeitgeistId: job.zeitgeistId,
                             jobId: args.jobId,
                         });
-                        completedCount++;
-                        await ctx.runMutation(internal.admin.updateJobProgress, {
+                    } else {
+                        // First attempt succeeded — save immediately as single sign/date
+                        await ctx.runMutation(internal.admin.upsertHoroscope, {
+                            data: validated.data,
+                            zeitgeistId: job.zeitgeistId,
                             jobId: args.jobId,
-                            completed: completedCount,
                         });
-                        continue;
                     }
-                    // Retry validation failed
-                    failedCount++;
-                    errors.push(`${sign}: ${retryValidated.error.message}`);
-                } catch (retryError: unknown) {
-                    const retryErrorMessage = retryError instanceof Error ? retryError.message : String(retryError);
-                    failedCount++;
-                    errors.push(`${sign}: ${retryErrorMessage}`);
-                }
 
-                await ctx.runMutation(internal.admin.updateJobProgress, {
-                    jobId: args.jobId,
-                    failed: failedCount,
-                    errors,
-                });
-
-                if (failedCount >= MAX_TOTAL_FAILURES) {
-                    await ctx.runMutation(internal.admin.failJob, {
+                    completedCount++;
+                    await ctx.runMutation(internal.admin.updateJobProgress, {
                         jobId: args.jobId,
+                        completed: completedCount,
+                    });
+
+                } catch (error: unknown) {
+                    const errorMessage = error instanceof Error ? error.message : String(error);
+                    console.error(`Error processing ${sign} ${targetDate}:`, errorMessage);
+
+                    // Retry once for network errors
+                    try {
+                        await sleep(RETRY_DELAY_MS);
+                        const retryResult = await callOpenRouter(
+                            sign, targetDate, emotionalZeitgeist, masterContext,
+                            job.modelId, apiKey, cosmicWeatherText, moonPhaseFrame, hookText
+                        );
+                        const retryValidated = LLMResponseSchema.safeParse(retryResult);
+
+                        if (retryValidated.success) {
+                            await ctx.runMutation(internal.admin.upsertHoroscope, {
+                                data: retryValidated.data,
+                                zeitgeistId: job.zeitgeistId,
+                                jobId: args.jobId,
+                            });
+                            completedCount++;
+                            await ctx.runMutation(internal.admin.updateJobProgress, {
+                                jobId: args.jobId,
+                                completed: completedCount,
+                            });
+                            continue;
+                        }
+                        failedCount++;
+                        errors.push(`${sign} ${targetDate}: ${retryValidated.error.message}`);
+                    } catch (retryError: unknown) {
+                        const retryErrorMessage = retryError instanceof Error ? retryError.message : String(retryError);
+                        failedCount++;
+                        errors.push(`${sign} ${targetDate}: ${retryErrorMessage}`);
+                    }
+
+                    await ctx.runMutation(internal.admin.updateJobProgress, {
+                        jobId: args.jobId,
+                        failed: failedCount,
                         errors,
                     });
-                    return; // ABORT
+
+                    if (failedCount >= MAX_TOTAL_FAILURES) {
+                        await ctx.runMutation(internal.admin.failJob, {
+                            jobId: args.jobId,
+                            errors,
+                        });
+                        return;
+                    }
                 }
+
+                // Rate limit: minimal delay between signs within same date
+                await sleep(INTER_SIGN_DELAY_MS);
             }
 
-            // Rate limit protection: sleep between signs
-            await sleep(INTER_SIGN_DELAY_MS);
+            // Rate limit: longer delay between date batches
+            if (dateIdx < job.targetDates.length - 1) {
+                await sleep(INTER_DATE_DELAY_MS);
+            }
+
+            // v4: Increment hook usage count after the date batch completes
+            if (selectedHookId) {
+                try {
+                    await ctx.runMutation(internal.hooks.incrementHookUsage, {
+                        hookId: selectedHookId as any,
+                    });
+                } catch (err) {
+                    console.warn("Failed to increment hook usage:", err);
+                }
+            }
         }
 
         // 5. Determine final job status
@@ -525,7 +543,8 @@ export const synthesizeEmotionalZeitgeist = internalAction({
         const apiKey = process.env.OPENROUTER_API_KEY;
         if (!apiKey) throw new Error("OPENROUTER_API_KEY not set");
 
-        const payload = {
+        // Pass 1: Emotional Translation
+        const emotionalPayload = {
             model: args.modelId,
             messages: [
                 {
@@ -550,7 +569,7 @@ Rules:
             max_tokens: 400,
         };
 
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        const emotionalResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${apiKey}`,
@@ -558,18 +577,69 @@ Rules:
                 "HTTP-Referer": "https://stars.guide",
                 "X-Title": "Stars.Guide Emotional Translation",
             },
-            body: JSON.stringify(payload),
+            body: JSON.stringify(emotionalPayload),
         });
 
-        if (!response.ok) {
-            const errorBody = await response.text();
-            throw new Error(`OpenRouter API error ${response.status}: ${errorBody}`);
+        if (!emotionalResponse.ok) {
+            const errorBody = await emotionalResponse.text();
+            throw new Error(`OpenRouter API error ${emotionalResponse.status}: ${errorBody}`);
         }
 
-        const data = await response.json() as any;
-        const content = data?.choices?.[0]?.message?.content;
-        if (!content) throw new Error("OpenRouter returned empty emotional translation");
+        const emotionalData = await emotionalResponse.json() as any;
+        const emotionalContent = emotionalData?.choices?.[0]?.message?.content;
+        if (!emotionalContent) throw new Error("OpenRouter returned empty emotional translation");
 
-        return content.trim();
+        // Pass 2: Emotional Register Classification
+        let emotionalRegister = "";
+        try {
+            const classifyPayload = {
+                model: "google/gemini-2.5-flash-lite",
+                messages: [
+                    {
+                        role: "system",
+                        content: `Classify the emotional register of this text.
+Choose 1-2 from: anxious, expansive, tender, defiant, restless, hopeful, grief, clarity.
+Output ONLY a JSON array, e.g. ["anxious", "restless"]`,
+                    },
+                    {
+                        role: "user",
+                        content: emotionalContent.trim(),
+                    },
+                ],
+                temperature: 0.3,
+                max_tokens: 100,
+                response_format: { type: "json_object" },
+            };
+
+            const classifyResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${apiKey}`,
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://stars.guide",
+                    "X-Title": "Stars.Guide Register Classification",
+                },
+                body: JSON.stringify(classifyPayload),
+            });
+
+            if (classifyResponse.ok) {
+                const classifyData = await classifyResponse.json() as any;
+                const classifyContent = classifyData?.choices?.[0]?.message?.content;
+                if (classifyContent) {
+                    const parsed = JSON.parse(classifyContent.replace(/```json\n?|```/g, "").trim());
+                    const registers = Array.isArray(parsed) ? parsed : (parsed.registers ?? []);
+                    emotionalRegister = registers.slice(0, 2).join(",");
+                }
+            }
+        } catch {
+            // Non-fatal: if classification fails, proceed without register
+            console.warn("Emotional register classification failed, continuing without.");
+        }
+
+        // Return both the translation and the register (comma-separated)
+        return JSON.stringify({
+            translation: emotionalContent.trim(),
+            emotionalRegister,
+        });
     },
 });
