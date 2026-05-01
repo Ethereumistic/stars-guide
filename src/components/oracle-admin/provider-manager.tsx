@@ -41,9 +41,11 @@ import {
 interface ProviderManagerProps {
   providers: ProviderConfig[];
   onChange: (providers: ProviderConfig[]) => void;
+  /** When true, show providers as read-only with a link to the AI Infrastructure page for editing */
+  readOnly?: boolean;
 }
 
-export function ProviderManager({ providers, onChange }: ProviderManagerProps) {
+export function ProviderManager({ providers, onChange, readOnly = false }: ProviderManagerProps) {
   const [showAdd, setShowAdd] = React.useState(false);
   const [newType, setNewType] = React.useState<ProviderType>("openrouter");
   const [newId, setNewId] = React.useState("");
@@ -93,6 +95,17 @@ export function ProviderManager({ providers, onChange }: ProviderManagerProps) {
 
   return (
     <div className="space-y-4">
+      {readOnly && (
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 flex items-center gap-3">
+          <svg className="h-5 w-5 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <div>
+            <p className="text-sm text-foreground">Providers are now managed in{" "}
+              <a href="/admin/ai" className="text-primary hover:underline font-medium">AI Infrastructure → Providers</a>.
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">Add, edit, and test providers from the centralized AI admin page.</p>
+          </div>
+        </div>
+      )}
       {providers.map((p) => (
         <Card key={p.id} className="border-border/50 bg-card/50">
           <CardContent className="pt-6">
@@ -118,14 +131,16 @@ export function ProviderManager({ providers, onChange }: ProviderManagerProps) {
                   </div>
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                onClick={() => setProviderToDelete(p.id)}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
+              {!readOnly && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                  onClick={() => setProviderToDelete(p.id)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -139,13 +154,15 @@ export function ProviderManager({ providers, onChange }: ProviderManagerProps) {
         </Card>
       )}
 
-      <Button
-        variant="outline"
-        className="w-full border-dashed"
-        onClick={() => setShowAdd(true)}
-      >
-        <Plus className="w-4 h-4 mr-2" /> Add Provider
-      </Button>
+      {!readOnly && (
+        <Button
+          variant="outline"
+          className="w-full border-dashed"
+          onClick={() => setShowAdd(true)}
+        >
+          <Plus className="w-4 h-4 mr-2" /> Add Provider
+        </Button>
+      )}
 
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent className="sm:max-w-[425px]">

@@ -158,9 +158,11 @@ Content must be 330–460 characters.`,
         temperature: 0.75,
         maxTokens: 4096,
         jsonMode: true,
+        thinkingMode: "disabled", // Disable chain-of-thought for structured JSON generation
         title: "Stars.Guide Horoscope Engine v4",
     });
 
+    if (!content) throw new Error("Empty content from horoscope generation");
     return sanitizeLLMJson(content);
 }
 
@@ -440,7 +442,7 @@ export const synthesizeZeitgeist = internalAction({
             title: "Stars.Guide Zeitgeist Synthesis",
         });
 
-        return content.trim();
+        return (content ?? "").trim();
     },
 });
 
@@ -501,7 +503,7 @@ Rules:
 Choose 1-2 from: anxious, expansive, tender, defiant, restless, hopeful, grief, clarity.
 Output ONLY a JSON array, e.g. ["anxious", "restless"]`,
                     },
-                    { role: "user", content: emotionalContent.trim() },
+                    { role: "user", content: (emotionalContent ?? "").trim() },
                 ],
                 temperature: 0.3,
                 maxTokens: 100,
@@ -509,7 +511,7 @@ Output ONLY a JSON array, e.g. ["anxious", "restless"]`,
                 title: "Stars.Guide Register Classification",
             });
 
-            const parsed = JSON.parse(classifyContent.replace(/```json\n?|```/g, "").trim());
+            const parsed = JSON.parse((classifyContent ?? "").replace(/```json\n?|```/g, "").trim());
             const registers = Array.isArray(parsed) ? parsed : (parsed.registers ?? []);
             emotionalRegister = registers.slice(0, 2).join(",");
         } catch {
@@ -517,7 +519,7 @@ Output ONLY a JSON array, e.g. ["anxious", "restless"]`,
         }
 
         return JSON.stringify({
-            translation: emotionalContent.trim(),
+            translation: (emotionalContent ?? "").trim(),
             emotionalRegister,
         });
     },

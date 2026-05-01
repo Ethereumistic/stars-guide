@@ -27,6 +27,9 @@ const PLANET_SYMBOLS = Object.values(planetUIConfig).map((ui) => ui.rulerSymbol)
 // ─── Aspect symbols ───
 const ASPECT_SYMBOLS = ["☌", "⚹", "□", "△", "☍", "⊼", "⊻"];
 
+// ─── Element symbols ───
+const ELEMENT_SYMBOLS = ["△", "◇", "▽", "◯"];
+
 // ─── Color palettes mirroring pricing-data.ts UI values ───
 // gray = Free tier, gold = Cosmic Flow, purple = Oracle
 const PALETTES = {
@@ -61,7 +64,8 @@ const CATEGORY_PALETTE: Record<string, keyof typeof PALETTES> = {
     signs: "gold",
     houses: "gray",
     planets: "purple",
-    aspects: "gold"
+    aspects: "gold",
+    elements: "gold"
 };
 
 interface CategoryCardData {
@@ -92,6 +96,7 @@ export function CompactCategoryCard({ category }: CompactCategoryCardProps) {
         if (id === "signs") return ZODIAC_ICONS.map((ZIcon, i) => ({ type: "icon" as const, Icon: ZIcon, key: i }));
         if (id === "houses") return Array.from({ length: 12 }, (_, i) => ({ type: "number" as const, num: i + 1, key: i }));
         if (id === "planets") return PLANET_SYMBOLS.map((s, i) => ({ type: "symbol" as const, symbol: s, key: i }));
+        if (id === "elements") return ELEMENT_SYMBOLS.map((s, i) => ({ type: "symbol" as const, symbol: s, key: i }));
         return ASPECT_SYMBOLS.map((s, i) => ({ type: "symbol" as const, symbol: s, key: i }));
     }, [id]);
 

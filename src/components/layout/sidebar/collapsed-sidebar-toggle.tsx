@@ -4,14 +4,18 @@ import { GiStarSwirl } from "react-icons/gi";
 import { PanelLeft } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 
-export function CollapsedOracleToggle() {
+interface CollapsedToggleProps {
+    className?: string;
+}
+
+export function CollapsedSidebarToggle({ className = "" }: CollapsedToggleProps) {
     const { toggleSidebar } = useSidebar();
 
     return (
         <button
             type="button"
             onClick={toggleSidebar}
-            className="group relative flex h-10 w-10 items-center justify-center rounded-xl border border-primary/30 bg-primary/15 text-primary transition-all duration-300 hover:border-primary/50 hover:bg-primary/20"
+            className={`group relative flex h-10 w-10 items-center justify-center rounded-xl border border-primary/30 bg-primary/15 text-primary transition-all duration-300 hover:border-primary/50 hover:bg-primary/20 ${className}`}
             aria-label="Expand sidebar"
             title="Expand sidebar"
         >

@@ -39,7 +39,7 @@ export const adminGetDebugProviders = query({
     const modelChain = parseModelChain(chainSetting?.value);
 
     return {
-      providers: providers.map((p) => ({
+      providers: providers.map((p: any) => ({
         id: p.id,
         name: p.name,
         type: p.type,

@@ -204,7 +204,7 @@ Moon Phase Frame: ${moonFrame}`,
 
             await ctx.runMutation(internal.cosmicWeather.storeFeltLanguage, {
                 date,
-                feltLanguage: content.trim(),
+                feltLanguage: (content ?? "").trim(),
             });
             console.log(`Felt language generated for ${date} via ${provider.name}`);
         } catch (err) {

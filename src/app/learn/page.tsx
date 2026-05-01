@@ -9,6 +9,7 @@ import {
     TbHomeSearch,
     TbPlanet,
     TbCompass,
+    TbFlame,
 } from "react-icons/tb";
 
 const containerVariants: Variants = {
@@ -62,6 +63,16 @@ const CATEGORIES = [
         href: "/learn/aspects",
         gradient: "from-emerald-500/10 via-cyan-500/10 to-transparent",
         status: "Available"
+    },
+    {
+        id: "elements",
+        title: "Elements",
+        subtitle: "Modes & Polarity",
+        description: "Fire, Earth, Air, Water — the primal forces that shape every sign's temperament. Explore the four elements, three modalities, and the Yang-Yin polarity that underpins the entire zodiac.",
+        icon: TbFlame,
+        href: "/learn/elements",
+        gradient: "from-orange-500/10 via-amber-500/10 to-transparent",
+        status: "Available"
     }
 ];
 
@@ -80,7 +91,7 @@ export default function LearnPage() {
             />
 
             <motion.div
-                className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mx-auto"
+                className="grid grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6 mx-auto"
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"

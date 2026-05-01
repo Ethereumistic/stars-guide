@@ -108,6 +108,236 @@ export interface ElementalManifestation {
     path: string;
 }
 
+// ── Learn Page Content ────────────────────────────────────────────────────────
+// Polished, scannable copy for /learn/elements cards.
+// Each entry kept to roughly the same visual weight so the page feels balanced.
+
+export interface ElementLearnData {
+    id: string;
+    tagline: string;
+    signs: string[];
+    motivation: string;
+    strengths: string[];
+    struggles: string[];
+    growth: string;
+}
+
+export interface ModeLearnData {
+    id: string;
+    tagline: string;
+    signs: string[];
+    motivation: string;
+    strengths: string[];
+    struggles: string[];
+    growth: string;
+}
+
+export interface PolarityLearnData {
+    id: string;
+    tagline: string;
+    elements: ElementType[];
+    signs: string[];
+    values: string[];
+    shadow: string[];
+}
+
+export const ELEMENTS_LEARN: Record<ElementType, ElementLearnData> = {
+    Fire: {
+        id: "Fire",
+        tagline: "Passionate & Inspiring",
+        signs: ["Aries", "Leo", "Sagittarius"],
+        motivation:
+            "Fire moves toward meaning. It wants to feel fully alive — to chase the thrill, stake a claim on authenticity, and refuse a life lived in half-measures. Adventure isn't a hobby; it's oxygen.",
+        strengths: [
+            "Confidence that fills a room",
+            "Contagious enthusiasm — they make you believe",
+            "Decisive under pressure",
+            "Warmth that draws people in effortlessly",
+            "An almost irrational faith that things will work out",
+        ],
+        struggles: [
+            "Self-absorption — the spotlight is hard to share",
+            "A quiet dread of being ordinary",
+            "Tendency toward drama when energy has nowhere to go",
+        ],
+        growth:
+            "Fire burns brightest when it learns to look inward, not just outward. Self-awareness and honest feedback are the fuel that turns a wildfire into a controlled burn — powerful, sustainable, and generous with its warmth.",
+    },
+    Earth: {
+        id: "Earth",
+        tagline: "Practical & Reliable",
+        signs: ["Taurus", "Virgo", "Capricorn"],
+        motivation:
+            "Earth moves toward stability. It wants to build something real — a structure that outlasts the week, a body of resources that holds under pressure, a life where the senses are fed and the ground doesn't shift beneath you.",
+        strengths: [
+            "Rock-solid reliability — they show up, every time",
+            "Practical problem-solving grounded in reality",
+            "Sensory intelligence — they notice what others miss",
+            "Patience that turns small efforts into lasting results",
+            "Resourcefulness with whatever's at hand",
+        ],
+        struggles: [
+            "Resistance to change, even when change is overdue",
+            "Inflexibility dressed up as \"being practical\"",
+            "Cautious to a fault — opportunity passes while they double-check",
+        ],
+        growth:
+            "Earth grows strongest when it learns that stability isn't the same as stillness. The deepest roots can survive a storm — and sometimes the smartest risk is the one that keeps the foundation alive rather than frozen.",
+    },
+    Air: {
+        id: "Air",
+        tagline: "Intellectual & Communicative",
+        signs: ["Gemini", "Libra", "Aquarius"],
+        motivation:
+            "Air moves toward understanding. It wants to crack the code, connect the dots, and put language to things that others only feel. Ideas are currency, and conversation is the marketplace where everything gets traded.",
+        strengths: [
+            "Razor-sharp analysis and pattern recognition",
+            "Natural mediators — they see every side of a conflict",
+            "Objectivity that cuts through emotional noise",
+            "Intellectual range — curious about everything, bored by nothing",
+            "The ability to make complex ideas feel simple",
+        ],
+        struggles: [
+            "Emotional detachment — processing feelings through logic",
+            "Overthinking that paralyzes action",
+            "Intellectualizing instead of actually feeling",
+        ],
+        growth:
+            "Air reaches full clarity when it stops trying to think its way through every emotion. Some truths only arrive through lived experience, and empathy isn't a weakness — it's the data set that logic alone can never access.",
+    },
+    Water: {
+        id: "Water",
+        tagline: "Intuitive & Emotional",
+        signs: ["Cancer", "Scorpio", "Pisces"],
+        motivation:
+            "Water moves toward depth. It wants to feel the full spectrum — joy, grief, longing, love — and build bonds that go beyond surface-level small talk. Connection isn't optional; it's the medium they live in.",
+        strengths: [
+            "Empathy that reads a room before anyone speaks",
+            "Intuition that borders on psychic — they just know",
+            "Nurturing instinct that makes others feel safe",
+            "Emotional depth that fuels extraordinary creativity",
+            "The ability to hold space for pain without flinching",
+        ],
+        struggles: [
+            "Mood shifts that arrive like weather — sudden and total",
+            "Blurry boundaries — absorbing others' emotions as their own",
+            "Hypersensitivity that turns small slights into deep wounds",
+        ],
+        growth:
+            "Water flows freest when it learns to hold its own shape. Boundaries aren't walls — they're riverbanks that give feeling direction. Self-validation and the courage to release what's expired turn sensitivity from a burden into a gift.",
+    },
+};
+
+export type ModeType = "Cardinal" | "Fixed" | "Mutable";
+
+export const MODES_LEARN: Record<ModeType, ModeLearnData> = {
+    Cardinal: {
+        id: "Cardinal",
+        tagline: "Initiating & Proactive",
+        signs: ["Aries", "Cancer", "Libra", "Capricorn"],
+        motivation:
+            "Cardinal energy exists to begin. It doesn't wait for permission or perfect conditions — it starts things. New projects, fresh seasons, bold first steps. The impulse is always forward.",
+        strengths: [
+            "Boldness that breaks through inertia",
+            "Natural assertiveness — they claim the first move",
+            "Determination that carries an idea from zero to real",
+            "Inspirational leadership that pulls others into motion",
+        ],
+        struggles: [
+            "Follow-through fades once the thrill of launch wears off",
+            "Restless when systems need maintenance, not revolution",
+            "Can bulldoze when a softer touch would land better",
+        ],
+        growth:
+            "Cardinal energy matures when it learns that starting is only half the equation. Long-term planning and the discipline to delegate — rather than doing everything solo — turn an initiator into a true leader.",
+    },
+    Fixed: {
+        id: "Fixed",
+        tagline: "Stable & Persistent",
+        signs: ["Taurus", "Leo", "Scorpio", "Aquarius"],
+        motivation:
+            "Fixed energy exists to sustain. It takes what Cardinal started and makes it last — deepening, intensifying, protecting. Loyalty isn't a word; it's an operating system.",
+        strengths: [
+            "Unwavering persistence through difficulty",
+            "Deep commitment — they don't quit on people or projects",
+            "Follow-through that turns potential into reality",
+            "The stamina to maintain what others abandon",
+        ],
+        struggles: [
+            "Resistance to change, even when the writing's on the wall",
+            "Stubbornness that calcifies into rigidity",
+            "Difficulty releasing outdated ideas, relationships, or identities",
+        ],
+        growth:
+            "Fixed energy matures when it learns that holding on isn't always loyalty — sometimes it's fear. Softening rigid edges and embracing necessary change turns endurance from a prison into genuine resilience.",
+    },
+    Mutable: {
+        id: "Mutable",
+        tagline: "Adaptable & Flexible",
+        signs: ["Gemini", "Virgo", "Sagittarius", "Pisces"],
+        motivation:
+            "Mutable energy exists to evolve. It senses when a season is ending and naturally pivots — adjusting, transforming, making something new from whatever just broke apart. Change isn't a threat; it's home.",
+        strengths: [
+            "Adaptability that thrives in uncertainty",
+            "Openness to new perspectives and experiences",
+            "Creative problem-solving — they find paths others miss",
+            "Flexibility that keeps things moving when plans collapse",
+        ],
+        struggles: [
+            "Inconsistency — today's priority is tomorrow's afterthought",
+            "Difficulty committing to a single path or decision",
+            "Scattered energy that fragments focus across too many things",
+        ],
+        growth:
+            "Mutable energy matures when it learns that freedom isn't the absence of commitment — it's the ability to choose one thing deeply. Grounding excess energy and practicing mindfulness turn flexibility from chaos into genuine versatility.",
+    },
+};
+
+export type PolarityType = "Yang" | "Yin";
+
+export const POLARITY_LEARN: Record<PolarityType, PolarityLearnData> = {
+    Yang: {
+        id: "Yang",
+        tagline: "Active & Individual",
+        elements: ["Fire", "Air"],
+        signs: ["Aries", "Gemini", "Leo", "Libra", "Sagittarius", "Aquarius"],
+        values: [
+            "The mind — thinking, reasoning, questioning limits",
+            "Innovation and the hunger for what's next",
+            "Movement, progress, and the thrill of initiation",
+            "Self-expression that refuses to be quiet",
+            "Leadership that inspires action over contemplation",
+        ],
+        shadow: [
+            "Ignoring real limits until they collapse",
+            "Hubris — confusing confidence with invincibility",
+            "Impatience that bypasses depth for speed",
+            "Burnout from perpetual motion without rest",
+            "Indifference to what can't be solved by thinking",
+        ],
+    },
+    Yin: {
+        id: "Yin",
+        tagline: "Receptive & Collective",
+        elements: ["Earth", "Water"],
+        signs: ["Taurus", "Cancer", "Virgo", "Scorpio", "Capricorn", "Pisces"],
+        values: [
+            "The body — feeling, instinct, and embodied wisdom",
+            "Nurturing and the instinct to protect what matters",
+            "Belonging — family, tradition, and collective survival",
+            "Patience that allows things to unfold at their own pace",
+            "Depth and sensitivity that others overlook",
+        ],
+        shadow: [
+            "Fixed mindset — protecting the familiar past the point of usefulness",
+            "Conformity that silences individual needs",
+            "Passivity that endures what should be changed",
+            "Stagnation mistaken for stability",
+            "Resistance to new ideas that challenge comfort",
+        ],
+    },
+};
+
 export const ELEMENTAL_MANIFESTATIONS: Record<string, ElementalManifestation> = {
     aries: {
         title: "Ignition",

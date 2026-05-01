@@ -2,6 +2,7 @@ import { query, mutation, action, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { requireAdmin } from "./lib/adminGuard";
+import { parseProvidersConfig, resolveProvider, callLLMEndpoint } from "./lib/llmProvider";
 
 // ─── VALID SIGNS (Canonical list) ─────────────────────────────────────────
 const VALID_SIGNS = [
@@ -754,5 +755,72 @@ export const synthesizeEmotionalZeitgeistAction = action({
         });
 
         return result;
+    },
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LLM ENDPOINT TESTER
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * testLLMEndpointAction — Test a provider + model with a custom prompt.
+ * Used by the /admin/ai testing panel. Returns structured results with
+ * content, reasoning, timing, and error information.
+ */
+export const testLLMEndpointAction = action({
+    args: {
+        providerId: v.string(),
+        modelId: v.string(),
+        prompt: v.string(),
+        thinkingMode: v.string(), // "auto" | "disabled" | "low" | "medium" | "high"
+    },
+    handler: async (ctx, args) => {
+        const userId = await ctx.runQuery(internal.aiQueries.validateAdmin, {});
+        if (!userId) {
+            throw new Error("UNAUTHORIZED: Admin access required");
+        }
+
+        const providersRaw = (await ctx.runQuery(internal.aiQueries.getOracleProvidersConfig, {})) ?? undefined;
+        const providers = parseProvidersConfig(providersRaw);
+        const provider = resolveProvider(providers, args.providerId);
+
+        const startTime = Date.now();
+
+        try {
+            const { content, reasoning } = await callLLMEndpoint({
+                provider,
+                model: args.modelId,
+                messages: [
+                    { role: "user", content: args.prompt },
+                ],
+                temperature: 0.7,
+                maxTokens: 2048,
+                thinkingMode: args.thinkingMode as any,
+                title: "Stars.Guide AI Test",
+            });
+
+            const durationMs = Date.now() - startTime;
+
+            return {
+                success: true,
+                content,
+                reasoning,
+                error: null,
+                modelUsed: `${provider.id}/${args.modelId}`,
+                thinkingModeUsed: args.thinkingMode,
+                durationMs,
+            };
+        } catch (error: any) {
+            const durationMs = Date.now() - startTime;
+            return {
+                success: false,
+                content: null,
+                reasoning: null,
+                error: error.message ?? String(error),
+                modelUsed: `${provider.id}/${args.modelId}`,
+                thinkingModeUsed: args.thinkingMode,
+                durationMs,
+            };
+        }
     },
 });

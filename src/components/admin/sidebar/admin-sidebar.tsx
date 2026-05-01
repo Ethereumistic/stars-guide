@@ -1,15 +1,19 @@
 "use client";
 
+import * as React from "react";
 import {
     Sidebar,
     SidebarContent,
-    SidebarHeader,
     SidebarMenu,
     SidebarMenuItem,
     SidebarMenuButton,
     SidebarSeparator,
-    SidebarTrigger,
-    useSidebar,
+    SidebarMenuSub,
+    SidebarMenuSubItem,
+    SidebarMenuSubButton,
+    SidebarGroup,
+    SidebarGroupContent,
+    SidebarGroupLabel,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -23,17 +27,20 @@ import {
     Settings,
     Bell,
     Bug,
-    PanelLeft,
+    Cpu,
+    ChevronRight,
 } from "lucide-react";
 import { GiCursedStar, GiScrollUnfurled, GiStarSwirl } from "react-icons/gi";
-import { Logo } from "@/components/ui/logo";
-import { cn } from "@/lib/utils";
-import { AdminSidebarFooter } from "./admin-sidebar-footer";
+import { SidebarHeaderLayout, SidebarUserFooter } from "@/components/layout/sidebar";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const dashboardNavItems = [
     { title: "Dashboard", href: "/admin", icon: LayoutDashboard },
+];
+
+const aiNavItems = [
+    { title: "AI Infrastructure", href: "/admin/ai", icon: Cpu },
 ];
 
 const horoscopeNavItems = [
@@ -64,73 +71,66 @@ const notificationNavItems = [
     { title: "Notifications", href: "/admin/notifications", icon: Bell },
 ];
 
-function CollapsedAdminToggle() {
-    const { toggleSidebar } = useSidebar();
-
-    return (
-        <button
-            type="button"
-            onClick={toggleSidebar}
-            className="group relative flex h-10 w-10 items-center justify-center rounded-xl border border-primary/30 bg-primary/15 text-primary transition-all duration-300 hover:border-primary/50 hover:bg-primary/20"
-            aria-label="Expand sidebar"
-            title="Expand sidebar"
-        >
-            <span className="absolute inset-0 flex items-center justify-center transition-all duration-200 group-hover:scale-90 group-hover:opacity-0">
-                <GiStarSwirl className="h-5 w-5" />
-            </span>
-            <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-all duration-200 group-hover:opacity-100">
-                <PanelLeft className="h-5 w-5" />
-            </span>
-            <span className="sr-only">Expand sidebar</span>
-        </button>
-    );
-}
-
-function renderNavSection(
-    items: typeof dashboardNavItems,
-    isActive: (item: typeof dashboardNavItems[number]) => boolean,
-) {
-    const pathname = usePathname();
-
-    return (
-        <SidebarMenu>
-            {items.map((item) => {
-                const active = isActive(item);
-                return (
-                    <SidebarMenuItem key={item.href}>
-                        <SidebarMenuButton
-                            asChild
-                            isActive={active}
-                            className="transition-all duration-200"
-                        >
-                            <Link href={item.href}>
-                                <item.icon className="h-4 w-4" />
-                                <span>{item.title}</span>
-                            </Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                );
-            })}
-        </SidebarMenu>
-    );
-}
-
-function SectionLabel({
-    icon,
-    label,
-    className,
+function NavItem({
+    item,
+    isActive,
 }: {
-    icon: React.ReactNode;
-    label: string;
-    className?: string;
+    item: typeof aiNavItems[number];
+    isActive: boolean;
 }) {
     return (
-        <div className={cn("px-3 py-1.5 flex items-center gap-2", className)}>
-            {icon}
-            <span className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground/70">
-                {label}
-            </span>
-        </div>
+        <SidebarMenuSubItem>
+            <SidebarMenuSubButton asChild isActive={isActive}>
+                <Link href={item.href}>
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.title}</span>
+                </Link>
+            </SidebarMenuSubButton>
+        </SidebarMenuSubItem>
+    );
+}
+
+function NavSection({
+    title,
+    icon,
+    items,
+    isItemActive,
+    defaultOpen = false,
+}: {
+    title: string;
+    icon: React.ReactNode;
+    items: typeof horoscopeNavItems;
+    isItemActive: (item: typeof horoscopeNavItems[number]) => boolean;
+    defaultOpen?: boolean;
+}) {
+    const [isOpen, setIsOpen] = React.useState(defaultOpen);
+    const isAnyActive = items.some((item) => isItemActive(item));
+
+    return (
+        <SidebarMenuItem>
+            <SidebarMenuButton
+                isActive={isAnyActive}
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full"
+            >
+                {icon}
+                <span>{title}</span>
+                <ChevronRight
+                    className={`ml-auto h-4 w-4 transition-transform ${isOpen ? "rotate-90" : ""}`}
+                />
+            </SidebarMenuButton>
+            {isOpen && (
+                <SidebarMenuSub>
+                    {items.map((item) => (
+                        <NavItem
+                            key={item.href}
+                            item={item}
+                            isActive={isItemActive(item)}
+                        />
+                    ))}
+                </SidebarMenuSub>
+            )}
+        </SidebarMenuItem>
     );
 }
 
@@ -154,82 +154,131 @@ export function AdminSidebar({ userEmail, user, onSignOut }: AdminSidebarProps) 
             collapsible="icon"
             className="border-r border-white/10 bg-background/40 backdrop-blur-md overflow-hidden"
         >
-            <SidebarHeader className="h-[76px] shrink-0 border-b border-white/10 px-2">
-                <div className="flex h-full items-center">
-                    <div className="flex w-full items-center justify-between gap-2 group-data-[collapsible=icon]:hidden">
-                        <div className="flex min-w-0 items-center justify-center mx-auto">
-                            <Logo size="sm" variant="logo" />
-                        </div>
-                        <SidebarTrigger className="hidden h-9 w-9 border border-white/15 bg-background/70 text-foreground/70 hover:border-primary/40 hover:text-primary md:inline-flex transition-all duration-500" />
-                    </div>
+            <SidebarHeaderLayout homeHref="/" />
 
-                    <div className="hidden w-full items-center justify-center group-data-[collapsible=icon]:flex">
-                        <CollapsedAdminToggle />
-                    </div>
-                </div>
-            </SidebarHeader>
+            <SidebarContent className="overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-white/10">
+                {/* Dashboard */}
+                <SidebarGroup className="px-2 py-1.5">
+                    <SidebarGroupContent>
+                        <SidebarMenu>
+                            {dashboardNavItems.map((item) => (
+                                <SidebarMenuItem key={item.href}>
+                                    <SidebarMenuButton
+                                        asChild
+                                        isActive={pathname === item.href}
+                                    >
+                                        <Link href={item.href}>
+                                            <item.icon className="h-4 w-4" />
+                                            <span>{item.title}</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            ))}
+                        </SidebarMenu>
+                    </SidebarGroupContent>
+                </SidebarGroup>
 
-            <SidebarContent className="flex flex-col overflow-hidden scrollbar-thin scrollbar-thumb-white/10 p-2">
-                {renderNavSection(
-                    dashboardNavItems,
-                    (item) =>
-                        pathname === item.href,
-                )}
+                <Separator className="my-1" />
 
-                {/* Horoscope Engine Section */}
-                <Separator className="opacity-20 my-3" />
-                <SectionLabel
-                    icon={<GiStarSwirl className="h-4 w-4 text-galactic" />}
-                    label="Horoscope Engine"
-                />
-                {renderNavSection(horoscopeNavItems, (item) =>
-                    pathname === item.href ||
-                    (item.href !== "/admin/horoscope" && pathname?.startsWith(item.href)),
-                )}
+                {/* Features Group */}
+                <SidebarGroup className="px-2 py-1.5">
+                    <SidebarGroupLabel className="pl-2 text-[11px] font-semibold tracking-wider uppercase text-muted-foreground/70">
+                        Features
+                    </SidebarGroupLabel>
+                    <SidebarGroupContent>
+                        <SidebarMenu>
+                            {/* AI Infrastructure */}
+                            <NavSection
+                                title="AI Infrastructure"
+                                icon={<Cpu className="h-4 w-4 text-galactic shrink-0" />}
+                                items={aiNavItems}
+                                defaultOpen={false}
+                                isItemActive={(item) =>
+                                    pathname === item.href ||
+                                    (item.href !== "/admin/ai" && pathname?.startsWith(item.href))
+                                }
+                            />
 
-                {/* Oracle CMS Section */}
-                <Separator className="opacity-20 my-3" />
-                <SectionLabel
-                    icon={<GiCursedStar className="h-4 w-4 text-galactic" />}
-                    label="Oracle CMS"
-                />
-                {renderNavSection(oracleNavItems, (item) =>
-                    pathname === item.href ||
-                    (item.href !== "/admin/oracle" && pathname?.startsWith(item.href)),
-                )}
+                            {/* Horoscope Engine */}
+                            <NavSection
+                                title="Horoscope Engine"
+                                icon={<GiStarSwirl className="h-4 w-4 text-galactic shrink-0" />}
+                                items={horoscopeNavItems}
+                                defaultOpen={false}
+                                isItemActive={(item) =>
+                                    pathname === item.href ||
+                                    (item.href !== "/admin/horoscope" && pathname?.startsWith(item.href))
+                                }
+                            />
 
-                {/* Journal CMS Section */}
-                <Separator className="opacity-20 my-3" />
-                <SectionLabel
-                    icon={<GiScrollUnfurled className="h-4 w-4 text-galactic" />}
-                    label="Journal CMS"
-                />
-                {renderNavSection(journalNavItems, (item) =>
-                    pathname === item.href ||
-                    (item.href !== "/admin/journal" && pathname?.startsWith(item.href)),
-                )}
+                            {/* Oracle CMS */}
+                            <NavSection
+                                title="Oracle CMS"
+                                icon={<GiCursedStar className="h-4 w-4 text-galactic shrink-0" />}
+                                items={oracleNavItems}
+                                defaultOpen={false}
+                                isItemActive={(item) =>
+                                    pathname === item.href ||
+                                    (item.href !== "/admin/oracle" && pathname?.startsWith(item.href))
+                                }
+                            />
 
-                {/* Moderation Section */}
-                <Separator className="opacity-20 my-3" />
-                <SectionLabel
-                    icon={<Shield className="h-4 w-4 text-red-400" />}
-                    label="MODERATION"
-                />
-                {renderNavSection(moderationNavItems, (item) => pathname === item.href)}
+                            {/* Journal CMS */}
+                            <NavSection
+                                title="Journal CMS"
+                                icon={<GiScrollUnfurled className="h-4 w-4 text-galactic shrink-0" />}
+                                items={journalNavItems}
+                                defaultOpen={false}
+                                isItemActive={(item) =>
+                                    pathname === item.href ||
+                                    (item.href !== "/admin/journal" && pathname?.startsWith(item.href))
+                                }
+                            />
+                        </SidebarMenu>
+                    </SidebarGroupContent>
+                </SidebarGroup>
 
-                {/* Notifications Section */}
-                <Separator className="opacity-20 my-3" />
-                <SectionLabel
-                    icon={<Bell className="h-4 w-4 text-galactic" />}
-                    label="NOTIFICATIONS"
-                />
-                {renderNavSection(notificationNavItems, (item) => pathname === item.href)}
+                <Separator className="my-1" />
+
+                {/* Global Group */}
+                <SidebarGroup className="px-2 py-1.5">
+                    <SidebarGroupLabel className="pl-2 text-[11px] font-semibold tracking-wider uppercase text-muted-foreground/70">
+                        Global
+                    </SidebarGroupLabel>
+                    <SidebarGroupContent>
+                        <SidebarMenu>
+                            {/* Moderation */}
+                            <NavSection
+                                title="Moderation"
+                                icon={<Shield className="h-4 w-4 text-red-400 shrink-0" />}
+                                items={moderationNavItems}
+                                defaultOpen={false}
+                                isItemActive={(item) => pathname === item.href}
+                            />
+
+                            {/* Notifications */}
+                            <NavSection
+                                title="Notifications"
+                                icon={<Bell className="h-4 w-4 text-galactic shrink-0" />}
+                                items={notificationNavItems}
+                                defaultOpen={false}
+                                isItemActive={(item) => pathname === item.href}
+                            />
+                        </SidebarMenu>
+                    </SidebarGroupContent>
+                </SidebarGroup>
             </SidebarContent>
 
             <SidebarSeparator className="mx-2 bg-white/10" />
 
-            <AdminSidebarFooter
+            <SidebarUserFooter
                 user={user}
+                label="Admin"
+                navItems={[
+                    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+                    { label: "Oracle", href: "/oracle", icon: GiCursedStar },
+                    { label: "Journal", href: "/journal", icon: GiScrollUnfurled },
+                ]}
                 onSignOut={onSignOut}
             />
         </Sidebar>

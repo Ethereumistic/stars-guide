@@ -220,20 +220,15 @@ export default function OracleSettingsPage() {
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <div>
                 <CardTitle className="text-base">Inference Providers</CardTitle>
-                <CardDescription>Configure external API endpoints and keys.</CardDescription>
+                <CardDescription>
+                  Providers are now managed centrally in{" "}
+                  <a href="/admin/ai" className="text-primary hover:underline font-medium">AI Infrastructure</a>.
+                  The list below shows the current providers for reference.
+                </CardDescription>
               </div>
-              <Button
-                onClick={() => saveProvidersAndChain(providers, modelChain, "providers", "Providers saved successfully")}
-                disabled={savingKey === "providers"}
-                size="sm"
-                className="gap-2"
-              >
-                <Save className="h-4 w-4" />
-                {savingKey === "providers" ? "Saving..." : "Save Providers"}
-              </Button>
             </CardHeader>
             <CardContent>
-              <ProviderManager providers={providers} onChange={setProviders} />
+              <ProviderManager providers={providers} onChange={setProviders} readOnly />
             </CardContent>
           </Card>
         </TabsContent>

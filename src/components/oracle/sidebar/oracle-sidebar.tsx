@@ -5,10 +5,10 @@ import {
     SidebarContent,
     SidebarSeparator,
 } from "@/components/ui/sidebar";
-import { OracleSidebarHeader } from "./oracle-sidebar-header";
-import { OracleSidebarActions } from "./oracle-sidebar-actions";
+import { SidebarHeaderLayout, SidebarUserFooter, SidebarQuickActions } from "@/components/layout/sidebar";
 import { PastWhispersSection } from "./past-whispers-section";
-import { OracleSidebarFooter } from "./oracle-sidebar-footer";
+import { GiScrollUnfurled } from "react-icons/gi";
+import { Plus } from "lucide-react";
 import { type SessionItem, type StarType } from "./utils";
 
 interface DeleteDialogState {
@@ -70,10 +70,23 @@ export function OracleSidebar({
             collapsible="icon"
             className="border-r border-white/10 bg-background/40 backdrop-blur-md overflow-hidden"
         >
-            <OracleSidebarHeader />
+            <SidebarHeaderLayout homeHref="/oracle" />
 
             <SidebarContent className="flex flex-col overflow-hidden scrollbar-thin scrollbar-thumb-white/10 p-2">
-                <OracleSidebarActions onNewChat={onNewChat} onSearchOpen={onSearchOpen} />
+                <SidebarQuickActions
+                    actions={[
+                        { icon: Plus, label: "New chat", tooltip: "New chat", onClick: onNewChat },
+                        { icon: (props: { className?: string }) => (
+                            <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="11" cy="11" r="8" />
+                                <path d="m21 21-4.3-4.3" />
+                            </svg>
+                        ), label: "Search", tooltip: "Search chats", onClick: onSearchOpen },
+                    ]}
+                    links={[
+                        { icon: GiScrollUnfurled, label: "Journal", tooltip: "Journal", href: "/journal" },
+                    ]}
+                />
 
                 <PastWhispersSection
                     sessions={sessions}
@@ -91,10 +104,21 @@ export function OracleSidebar({
 
             <SidebarSeparator className="mx-2 bg-white/10" />
 
-            <OracleSidebarFooter
+            <SidebarUserFooter
                 user={user}
-                tierLabel={tierLabel}
-                shouldShowUpgrade={shouldShowUpgrade}
+                label={tierLabel}
+                navItems={[
+                    { label: "Dashboard", href: "/dashboard", icon: (props: { className?: string }) => (
+                        <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect width="7" height="9" x="3" y="3" rx="1" />
+                            <rect width="7" height="5" x="14" y="3" rx="1" />
+                            <rect width="7" height="9" x="14" y="12" rx="1" />
+                            <rect width="7" height="5" x="3" y="16" rx="1" />
+                        </svg>
+                    )},
+                    { label: "Journal", href: "/journal", icon: GiScrollUnfurled },
+                ]}
+                showUpgrade={shouldShowUpgrade}
                 onSignOut={onSignOut}
             />
         </Sidebar>

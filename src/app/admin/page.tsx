@@ -24,9 +24,23 @@ import {
     Bell,
     Shield,
     Activity,
+    BrainCircuit,
 } from "lucide-react";
 
 const tools = [
+    // AI Infrastructure
+    {
+        section: "AI Infrastructure",
+        icon: <BrainCircuit className="h-5 w-5 text-galactic" />,
+        items: [
+            {
+                href: "/admin/ai",
+                icon: BrainCircuit,
+                title: "AI Infrastructure",
+                copy: "Centralized management of AI providers, models, reasoning settings, and endpoint testing.",
+            },
+        ],
+    },
     // Horoscope Engine
     {
         section: "Horoscope Engine",
