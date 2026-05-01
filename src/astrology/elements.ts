@@ -1,3 +1,30 @@
+import {
+  TbSparkles,
+  TbDirectionSign,
+  TbLockSquare,
+  TbLeaf,
+  TbCheckupList,
+  TbEar,
+  TbBrain,
+  TbScale,
+  TbWind,
+  TbEye,
+} from "react-icons/tb";
+import { HiOutlineChevronDoubleDown } from "react-icons/hi";
+import {
+  GiHealthNormal,
+  GiThirdEye,
+  GiArmoredBoomerang,
+  GiInspiration,
+  GiAtom,
+  GiMazeSaw,
+  GiHealing,
+  GiStalactites,
+} from "react-icons/gi";
+import { FaMountain, FaLink } from "react-icons/fa";
+import { ImShield } from "react-icons/im";
+import { MdHearing } from "react-icons/md";
+
 export type ElementType = "Fire" | "Earth" | "Air" | "Water";
 
 // ── Spider Chart Archetype Axes ──────────────────────────────────────────────
@@ -100,6 +127,29 @@ export const ELEMENT_CONTENT: Record<ElementType, { desc: string; keywords: stri
         desc: "Water is the fluid depths of emotion and the intuitive flow of life. It represents the memory of existence, the nurturing tides of the soul, and the deep interconnectedness of all living beings.",
         keywords: ["Depth", "Intuition", "Healing", "Enigma"]
     }
+};
+
+/** react-icons component map — one unique icon per keyword (no repeats) */
+export const KEYWORD_ICONS: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
+    // ── Fire ──────────────────────────────────────────────
+    Vitality:       GiHealthNormal,        // raw life-force energy
+    Intuition:      GiThirdEye,            // inner sight, unseen currents
+    Action:         GiArmoredBoomerang,    // forward movement, initiative
+    Inspiration:    GiInspiration,          // spark of creation, warmth
+    // ── Earth ────────────────────────────────────────────
+    Stability:      FaMountain,            // solid, unchanging foundation
+    Manifestation:  GiAtom,                // seed → form, bringing into being
+    Reliability:    ImShield,              // consistent, methodical, trusted
+    Senses:         MdHearing,            // embodied perception
+    // ── Air ──────────────────────────────────────────────
+    Intellect:      TbBrain,               // pattern recognition, analysis
+    Connection:     FaLink,                // bridge between ideas/people
+    Objectivity:    TbScale,               // balanced, impartial perspective
+    Flow:           TbWind,                // effortless movement, breath
+    // ── Water ────────────────────────────────────────────
+    Depth:          GiStalactites,          // diving beneath the surface
+    Healing:        GiHealing,              // restoration, nurturing
+    Enigma:         GiMazeSaw,              // mystery, hidden depths
 };
 
 export interface ElementalManifestation {

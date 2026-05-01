@@ -12,9 +12,11 @@ import { CompactSignCard } from "@/components/learn/signs/compact-sign-card";
 import { CompactPlanetCard } from "@/components/horoscopes/compact-planet-card";
 import { CompactAspectCard } from "@/components/learn/aspects/compact-aspect-card";
 import { CompactHouseCard } from "@/components/learn/houses/compact-house-card";
+import { CompactElementCard } from "@/components/learn/elements/compact-element-card";
+import { ELEMENTS_LEARN, ElementType } from "@/astrology/elements";
 import { motion } from "motion/react";
 
-export type ArchiveCategory = "signs" | "planets" | "aspects" | "houses";
+export type ArchiveCategory = "signs" | "planets" | "aspects" | "houses" | "elements";
 
 interface SystemArchiveLinkagesProps {
     /** Which category this archive belongs to */
@@ -64,6 +66,7 @@ export function SystemArchiveLinkages({
                 {category === "planets" && renderPlanetCards(currentId as string, count)}
                 {category === "aspects" && renderAspectCards(currentId as string, count)}
                 {category === "houses" && renderHouseCards(Number(currentId), count)}
+                {category === "elements" && renderElementCards(currentId as string, count)}
             </motion.div>
         </section>
     );
@@ -145,6 +148,27 @@ function renderHouseCards(currentId: number, count: number) {
                     data={h}
                     ui={ui}
                     href={`/learn/houses/${h.id}`}
+                />
+            );
+        });
+}
+
+// ─── Element Cards ──────────────────────────────────────────────────────────────
+
+const ELEMENT_ORDER: ElementType[] = ["Fire", "Earth", "Air", "Water"];
+
+function renderElementCards(currentId: string, count: number) {
+    return ELEMENT_ORDER
+        .filter(e => e !== currentId)
+        .slice(0, count)
+        .map(e => {
+            const data = ELEMENTS_LEARN[e];
+            if (!data) return null;
+            return (
+                <CompactElementCard
+                    key={e}
+                    data={data}
+                    href={`/learn/elements/${e.toLowerCase()}`}
                 />
             );
         });
