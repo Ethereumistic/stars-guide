@@ -10,9 +10,10 @@ import {
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { BirthChartSlide } from "./feature-slides/birth-chart-slide";
-import { PlaceholderSlide } from "./feature-slides/placeholder-slide";
 import { LearnSlide } from "./feature-slides/learn-slide";
 import { AstronomicalEngineSlide } from "./feature-slides/astronomical-engine-slide";
+import { DeepReadingsSlide } from "./feature-slides/deep-readings-slide";
+import { BinauralBeatsSlide } from "./feature-slides/binaural-beats-slide";
 
 /* ── Types ──────────────────────────────────────────────────── */
 
@@ -68,16 +69,6 @@ const SLIDES: SlideDef[] = [
     rightDescription:
       "Track retrogrades, lunar phases, and major conjunctions as they happen.",
     accentColor: "text-sky-400",
-  },
-  {
-    id: "celestial-art",
-    badge: "Visual Oracle",
-    title: "Celestial Art",
-    subtitle: "Generate cosmic artwork from your chart",
-    rightTitle: "Your Chart as Art",
-    rightDescription:
-      "Turn your unique planetary signature into stunning visual masterpieces.",
-    accentColor: "text-rose-400",
   },
   {
     id: "binaural-beats",
@@ -277,21 +268,20 @@ function DesktopShowcase() {
                   isActive={index === activeIndex && isContainerVisible}
                   wasActive={wasActiveStates[index] && index !== activeIndex}
                 />
+              ) : index === 2 ? (
+                <DeepReadingsSlide
+                  isActive={index === activeIndex && isContainerVisible}
+                  wasActive={wasActiveStates[index] && index !== activeIndex}
+                />
               ) : index === 3 ? (
                 <AstronomicalEngineSlide
                   isActive={index === activeIndex && isContainerVisible}
                   wasActive={wasActiveStates[index] && index !== activeIndex}
                 />
               ) : (
-                <PlaceholderSlide
+                <BinauralBeatsSlide
                   isActive={index === activeIndex && isContainerVisible}
                   wasActive={wasActiveStates[index] && index !== activeIndex}
-                  badge={slide.badge}
-                  title={slide.title}
-                  subtitle={slide.subtitle}
-                  rightTitle={slide.rightTitle}
-                  rightDescription={slide.rightDescription}
-                  accentColor={slide.accentColor}
                 />
               )}
             </section>
@@ -339,18 +329,12 @@ function MobileShowcase() {
             <BirthChartSlide isActive={true} />
           ) : index === 1 ? (
             <LearnSlide isActive={true} />
+          ) : index === 2 ? (
+            <DeepReadingsSlide isActive={true} />
           ) : index === 3 ? (
             <AstronomicalEngineSlide isActive={true} />
           ) : (
-            <PlaceholderSlide
-              isActive={true}
-              badge={slide.badge}
-              title={slide.title}
-              subtitle={slide.subtitle}
-              rightTitle={slide.rightTitle}
-              rightDescription={slide.rightDescription}
-              accentColor={slide.accentColor}
-            />
+            <BinauralBeatsSlide isActive={true} />
           )}
         </section>
       ))}

@@ -237,15 +237,12 @@ function AspectSlide({
           className="absolute inset-0 rounded-full blur-3xl opacity-30 scale-125"
           style={{ backgroundColor: ui.hexFallback }}
         />
-        <svg
-          viewBox="0 0 24 24"
-          className="relative w-20 h-20 lg:w-24 lg:h-24"
-          fill="none"
-          stroke={ui.hexFallback}
-          strokeWidth={1.1}
+        <span
+          className="relative text-6xl lg:text-[24rem]"
+          style={{ color: ui.hexFallback }}
         >
-          <path d={ui.glyphPath} />
-        </svg>
+          {ui.symbol}
+        </span>
       </div>
 
       <h2 className="text-5xl lg:text-6xl font-serif tracking-wide text-foreground">
@@ -284,40 +281,80 @@ function ElementSlide({
   ui: ElementUIConfigData;
   learn: (typeof ELEMENTS_LEARN)[ElementType];
 }) {
+  const [revealed, setRevealed] = React.useState(false);
+  React.useEffect(() => {
+    const t = setTimeout(() => setRevealed(true), 200);
+    return () => clearTimeout(t);
+  }, [elementKey]);
+
+  const ElementIcon = ui.icon;
+
   return (
     <div className="relative w-full h-full flex flex-col items-center justify-center">
-      <div className="relative w-40 h-40 lg:w-48 lg:h-48 mb-8">
-        <div
-          className="absolute inset-0 blur-[60px] opacity-30 scale-125"
-          style={{ backgroundColor: ui.styles.primary }}
-        />
+      {/* Glow */}
+      <div
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full blur-[100px] transition-opacity duration-700"
+        style={{
+          opacity: revealed ? 0.45 : 0,
+          backgroundColor: ui.styles.glow,
+        }}
+      />
+
+      {/* Icon + Frame */}
+      <div className="relative w-90 h-90 mb-8">
         <img
           src={ui.frameUrl}
-          alt={elementKey}
-          className="relative w-full h-full object-contain"
+          alt=""
+          className="absolute inset-0 w-full h-full object-contain transition-all duration-[1.4s] ease-out"
+          style={{
+            opacity: revealed ? 0.55 : 0,
+            transform: revealed ? "rotate(45deg)" : "rotate(0deg)",
+            filter: `drop-shadow(0 0 18px ${ui.styles.glow})`,
+          }}
+        />
+        <div
+          className="absolute inset-0 rounded-full blur-3xl transition-opacity duration-700"
+          style={{
+            opacity: revealed ? 0.35 : 0,
+            backgroundColor: ui.styles.glow,
+          }}
+        />
+        <ElementIcon
+          className="absolute inset-0 m-auto w-42 h-42 transition-all duration-700"
+          style={{
+            color: revealed ? "#ffffff" : ui.styles.secondary,
+            transform: revealed ? "scale(1.1)" : "scale(1)",
+            filter: revealed
+              ? `drop-shadow(0 0 14px ${ui.styles.glow})`
+              : `drop-shadow(0 0 6px ${ui.styles.glow})`,
+          }}
         />
       </div>
 
-      <h2 className="text-5xl lg:text-6xl font-serif tracking-wide text-foreground">
+      {/* Name */}
+      <h2
+        className="text-6xl lg:text-7xl font-serif tracking-wide transition-all duration-700"
+        style={{
+          color: revealed ? "#ffffff" : ui.styles.secondary,
+          textShadow: revealed
+            ? `0 0 24px ${ui.styles.glow}, 0 0 48px ${ui.styles.glow}40`
+            : "none",
+          transform: revealed ? "translateY(0)" : "translateY(12px)",
+        }}
+      >
         {elementKey}
       </h2>
+
+      {/* Tagline */}
       <p
-        className="text-[11px] uppercase tracking-[0.25em] mt-3 font-bold"
-        style={{ color: ui.styles.primary }}
+        className="text-xs uppercase tracking-[0.25em] mt-4 font-bold transition-opacity duration-500"
+        style={{
+          opacity: revealed ? 1 : 0,
+          color: ui.styles.secondary,
+        }}
       >
         {learn.tagline}
       </p>
-
-      <div className="flex gap-3 mt-6 flex-wrap justify-center max-w-xs">
-        {learn.signs.map((s) => (
-          <span
-            key={s}
-            className="text-[10px] uppercase tracking-widest font-medium px-3 py-1 rounded-full bg-card/40 border border-border/40 text-muted-foreground"
-          >
-            {s}
-          </span>
-        ))}
-      </div>
     </div>
   );
 }
@@ -370,10 +407,7 @@ function CategoryNavCards({
       color: planetUI.themeColor,
       content: planetUI.imageUrl ? (
         <div className="relative flex items-center justify-center">
-          <div
-            className="absolute w-12 h-12 rounded-full blur-xl opacity-30"
-            style={{ backgroundColor: planetUI.themeColor }}
-          />
+          <div className="absolute w-12 h-12 rounded-full blur-xl opacity-30" />
           <img
             src={planetUI.imageUrl}
             alt="Venus"
@@ -391,7 +425,11 @@ function CategoryNavCards({
     {
       label: CARD_REPRESENTATIVES.aspect.label,
       color: "var(--primary)",
-      content: <span className="text-2xl text-primary font-medium">☌</span>,
+      content: (
+        <span className="text-5xl text-primary font-medium">
+          {aspectUI.symbol}
+        </span>
+      ),
     },
     {
       label: CARD_REPRESENTATIVES.element.label,
@@ -509,13 +547,13 @@ export function LearnSlide({ isActive }: LearnSlideProps) {
       >
         <div className="space-y-5">
           <span className="inline-block text-[10px] uppercase tracking-[0.25em] font-bold px-3 py-1 rounded-full border bg-primary/5 border-primary/10 text-primary">
-            Zodiac Library
+            KNOWLEDGE
           </span>
           <h2 className="text-5xl lg:text-6xl font-serif tracking-tight text-nowrap leading-[1.05]">
-            CELESTIAL ARCHIVE
+            LEARN ASTROLOGY
           </h2>
           <p className="text-muted-foreground text-sm leading-relaxed max-w-lg">
-            Learn about the signs, planets, aspects, and elements that compose
+            Understand the signs, planets, aspects, and elements that compose
             your cosmic blueprint. A living index of astrological knowledge.
           </p>
         </div>

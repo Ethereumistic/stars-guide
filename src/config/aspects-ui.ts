@@ -24,6 +24,8 @@ export interface AspectUIConfig {
     borderColor: string;
     /** Color family used for icon/badge tinting logic */
     colorFamily: AspectColorFamily;
+    /** Unicode symbol for the aspect glyph */
+    symbol: string;
     /** SVG path string for the aspect glyph, renderable in a 24×24 viewBox */
     glyphPath: string;
     /** Short interpretive label shown in UI badges */
@@ -75,6 +77,7 @@ export const aspectUIConfig: Record<string, AspectUIConfig> = {
         colorFamily: "gold",
         // ☌ — circle with a small vertical hook beneath
         glyphPath: "M12 3a9 9 0 1 0 0 18A9 9 0 0 0 12 3zm0 2a7 7 0 1 1 0 14A7 7 0 0 1 12 5zm0 9v4",
+        symbol: "☌",
         badgeLabel: "Fusion",
         hexFallback: "#F5C842",
         lineStyle: "solid",
@@ -92,6 +95,7 @@ export const aspectUIConfig: Record<string, AspectUIConfig> = {
         colorFamily: "blue",
         // ⚹ — six-pointed asterisk / star
         glyphPath: "M12 4v16M4.93 7l12.14 10M19.07 7 6.93 17M4 12h16M4.93 17 17.07 7M19.07 17 6.93 7",
+        symbol: "⚹",
         badgeLabel: "Opportunity",
         hexFallback: "#5B9BD5",
         lineStyle: "solid",
@@ -109,6 +113,7 @@ export const aspectUIConfig: Record<string, AspectUIConfig> = {
         colorFamily: "red",
         // □ — open square
         glyphPath: "M5 5h14v14H5z",
+        symbol: "□",
         badgeLabel: "Tension",
         hexFallback: "#D94F4F",
         lineStyle: "dashed",
@@ -126,6 +131,7 @@ export const aspectUIConfig: Record<string, AspectUIConfig> = {
         colorFamily: "blue",
         // △ — equilateral triangle
         glyphPath: "M12 4 22 20H2L12 4z",
+        symbol: "△",
         badgeLabel: "Harmony",
         hexFallback: "#4A9E6B",
         lineStyle: "solid",
@@ -143,6 +149,7 @@ export const aspectUIConfig: Record<string, AspectUIConfig> = {
         colorFamily: "red",
         // ☍ — circle with a bar below and opposing circle with bar above
         glyphPath: "M7 12a5 5 0 1 0 10 0 5 5 0 0 0-10 0M12 17v2M12 5v2M12 19h4M12 5H8",
+        symbol: "☍",
         badgeLabel: "Polarity",
         hexFallback: "#C94040",
         lineStyle: "dashed",
@@ -160,6 +167,7 @@ export const aspectUIConfig: Record<string, AspectUIConfig> = {
         colorFamily: "teal",
         // Half-asterisk — top three rays of the sextile asterisk
         glyphPath: "M12 4v8M4.93 7l7.07 5M19.07 7l-7.07 5",
+        symbol: "⚺",
         badgeLabel: "Adjacent",
         hexFallback: "#4EBFBF",
         lineStyle: "dotted",
@@ -177,6 +185,7 @@ export const aspectUIConfig: Record<string, AspectUIConfig> = {
         colorFamily: "red",
         // ∠ — right angle mark
         glyphPath: "M5 19V5h14",
+        symbol: "∠",
         badgeLabel: "Irritation",
         hexFallback: "#D4735A",
         lineStyle: "dashed",
@@ -194,6 +203,7 @@ export const aspectUIConfig: Record<string, AspectUIConfig> = {
         colorFamily: "teal",
         // Q — pentagram star approximation
         glyphPath: "M12 3l2.47 7.6H22l-6.24 4.54 2.39 7.36L12 17.77 5.85 22.5l2.39-7.36L2 10.6h7.53L12 3z",
+        symbol: "Q",
         badgeLabel: "Craft",
         hexFallback: "#5ABFB0",
         lineStyle: "dotted",
@@ -211,6 +221,7 @@ export const aspectUIConfig: Record<string, AspectUIConfig> = {
         colorFamily: "red",
         // Square-and-a-half: square with an extra right-angle flag
         glyphPath: "M5 5h10v10H5zM15 15h4v-4",
+        symbol: "∡",
         badgeLabel: "Agitation",
         hexFallback: "#BF6060",
         lineStyle: "dashed",
@@ -228,6 +239,7 @@ export const aspectUIConfig: Record<string, AspectUIConfig> = {
         colorFamily: "amber",
         // ⚻ — approximation: two lines meeting at a diagonal with a circle cap
         glyphPath: "M12 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm0 6v12M6 21h12",
+        symbol: "⚻",
         badgeLabel: "Redirect",
         hexFallback: "#D4A84B",
         lineStyle: "dotted",
@@ -245,6 +257,7 @@ export const aspectUIConfig: Record<string, AspectUIConfig> = {
         colorFamily: "violet",
         // Double-Q / pentagram with second arc
         glyphPath: "M12 2l2.09 6.43H21l-5.47 3.97 2.09 6.43L12 14.87l-5.62 3.96 2.09-6.43L3 8.43h6.91L12 2zM8 20h8",
+        symbol: "Q̶",
         badgeLabel: "Mastery",
         hexFallback: "#8B62D4",
         lineStyle: "dotted",
@@ -262,6 +275,7 @@ export const aspectUIConfig: Record<string, AspectUIConfig> = {
         colorFamily: "violet",
         // Heptagram arc indicator — seven-pointed star approximation
         glyphPath: "M12 3l1.64 5.06L19 6.27l-3.27 4.23 1.64 5.06L12 13.5l-5.37 2.06 1.64-5.06L5 6.27l5.36 1.79L12 3z",
+        symbol: "✶",
         badgeLabel: "Fate",
         hexFallback: "#7B52C4",
         lineStyle: "dotted",
@@ -279,6 +293,7 @@ export const aspectUIConfig: Record<string, AspectUIConfig> = {
         colorFamily: "violet",
         // Partial triangle — hint of the trinovile (trine) relationship
         glyphPath: "M12 5l8 14H4L12 5zm0 6v5m0 0h-2m2 0h2",
+        symbol: "⊛",
         badgeLabel: "Grace",
         hexFallback: "#9B72CF",
         lineStyle: "dotted",

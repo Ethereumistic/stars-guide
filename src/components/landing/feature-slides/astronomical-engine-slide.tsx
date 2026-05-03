@@ -187,7 +187,7 @@ function RetrogradeCard({
         <div className="relative flex items-center justify-center">
           {/* Glow */}
           <div
-            className="absolute w-48 h-48 md:w-64 md:h-64 lg:w-80 lg:h-80 rounded-full blur-3xl opacity-20"
+            className="absolute w-48 h-48 md:w-64 md:h-64 lg:w-90 lg:h-90 rounded-full blur-3xl opacity-20"
             style={{ backgroundColor: themeColor }}
           />
           <motion.img
@@ -196,7 +196,7 @@ function RetrogradeCard({
             className={cn(
               "relative object-contain drop-shadow-2xl",
               featured
-                ? "w-48 h-48 md:w-64 md:h-64 lg:w-80 lg:h-80"
+                ? "w-48 h-48 md:w-64 md:h-64 lg:w-90 lg:h-90"
                 : "w-24 h-24 md:w-32 md:h-32",
             )}
             style={{
@@ -240,7 +240,7 @@ function RetrogradeCard({
         </div>
 
         {/* Date range */}
-        <div className="space-y-1">
+        <div className="space-y-1 flex gap-4">
           <p className="text-sm md:text-base text-white/90 font-mono tracking-wide">
             {format(window.startDate, "MMMM d, yyyy")} →{" "}
             {format(window.endDate, "MMMM d, yyyy")}
@@ -248,8 +248,8 @@ function RetrogradeCard({
           {window.daysLeft !== null && (
             <p
               className={cn(
-                "text-xs md:text-sm font-medium",
-                window.isActive ? "text-destructive" : "text-primary",
+                "text-sm md:text-base font-medium",
+                window.isActive ? "text-destructive" : "text-primary ",
               )}
             >
               {window.isActive
@@ -404,10 +404,8 @@ export function AstronomicalEngineSlide({
           <Badge className="inline-block text-[10px] uppercase tracking-[0.25em] font-bold px-3 py-1 rounded-full border bg-primary/5 border-primary/10 text-primary">
             Live Sky
           </Badge>
-          <h2 className="text-3xl md:text-5xl lg:text-6xl font-serif tracking-tight leading-[1.1]">
-            Astronomical
-            <br />
-            Engine
+          <h2 className="text-3xl md:text-5xl lg:text-6xl font-serif tracking-tight text-nowrap leading-[1.1]">
+            Astronomical Engine
           </h2>
           <p className="text-muted-foreground text-sm md:text-base uppercase tracking-widest font-medium max-w-md">
             Real-time planetary positions and sky events
