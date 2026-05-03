@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { motion } from "motion/react";
 import Link from "next/link";
 import { getPlanetTelemetry, type PlanetTelemetry } from "@/lib/planets/telemetry";
 import { planetUIConfig } from "@/config/planet-ui";
@@ -133,13 +132,7 @@ export function LiveSkyRadar() {
     return (
         <section className="relative w-full">
             {/* Section Header */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-100px" }}
-                transition={{ duration: 0.6 }}
-                className="text-center mb-12 md:mb-16"
-            >
+            <div className="text-center mb-12 md:mb-16">
                 <div className="inline-flex items-center gap-2 mb-4">
                     <span className="relative flex h-2.5 w-2.5 mr-4">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
@@ -153,19 +146,13 @@ export function LiveSkyRadar() {
 
 
 
-            </motion.div>
+            </div>
 
             {/* ═══════════════════════════════════════════════════════════════
                 DESKTOP: Bird's eye orbital view with zodiac wheel
                 Sun center, planets on orbits at live longitude angles
             ═══════════════════════════════════════════════════════════════ */}
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ duration: 0.8, delay: 0.2 }}
-                className="hidden md:block max-w-5xl mx-auto mb-12 md:mb-16"
-            >
+            <div className="hidden md:block max-w-5xl mx-auto mb-12 md:mb-16">
                 {/*
                     overflow-visible so tooltips escape freely.
                     The zodiac ring is clipped internally via a separate wrapper.
@@ -286,12 +273,8 @@ export function LiveSkyRadar() {
                         const isInTopHalf = offset.topPct < 50;
 
                         return (
-                            <motion.div
+                            <div
                                 key={entry.id}
-                                initial={{ opacity: 0, scale: 0 }}
-                                whileInView={{ opacity: 1, scale: 1 }}
-                                viewport={{ once: true }}
-                                transition={{ duration: 0.5, delay: 0.3 + i * 0.06, type: "spring", stiffness: 180 }}
                                 className={`absolute -translate-x-1/2 -translate-y-1/2 transition-[z-index] duration-200 ${isHighlighted ? "z-50" : "z-10"}`}
                                 style={{ left: offset.left, top: offset.top }}
                             >
@@ -358,23 +341,17 @@ export function LiveSkyRadar() {
                                         </div>
                                     </div>
                                 </Link>
-                            </motion.div>
+                            </div>
                         );
                     })}
                 </div>
-            </motion.div>
+            </div>
 
             {/* ═══════════════════════════════════════════════════════════════
                 MOBILE: Horizontal ecliptic strip with zodiac reference
                 Planets positioned by longitude along a linear track
             ═══════════════════════════════════════════════════════════════ */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ duration: 0.8, delay: 0.2 }}
-                className="md:hidden max-w-full mx-auto mb-10"
-            >
+            <div className="md:hidden max-w-full mx-auto mb-10">
                 <div className="border border-white/[0.06] bg-black/30 rounded-md overflow-hidden">
                     <div className="relative px-4 py-10">
                         {/* Ecliptic line */}
@@ -420,12 +397,8 @@ export function LiveSkyRadar() {
                                 const isRetrograde = entry.telemetry.retrograde;
 
                                 return (
-                                    <motion.div
+                                    <div
                                         key={entry.id}
-                                        initial={{ opacity: 0, y: 10 }}
-                                        whileInView={{ opacity: 1, y: 0 }}
-                                        viewport={{ once: true }}
-                                        transition={{ duration: 0.3, delay: 0.15 + i * 0.04 }}
                                         className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-10"
                                         style={{ left: `${xPct}%` }}
                                     >
@@ -448,23 +421,17 @@ export function LiveSkyRadar() {
                                                 </div>
                                             </div>
                                         </Link>
-                                    </motion.div>
+                                    </div>
                                 );
                             });
                         })()}
                     </div>
                 </div>
-            </motion.div>
+            </div>
 
             {/* Retrograde Alert */}
             {retrogradePlanets.length > 0 && (
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.6, delay: 0.4 }}
-                    className="max-w-3xl mx-auto mb-10"
-                >
+                <div className="max-w-3xl mx-auto mb-10">
                     <div className="border border-orange-500/20 bg-orange-500/5 rounded-md p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center gap-4">
                         <div className="flex items-center gap-3 shrink-0">
                             <GiOrbital className="w-5 h-5 text-orange-400" />
@@ -488,7 +455,7 @@ export function LiveSkyRadar() {
                             ))}
                         </div>
                     </div>
-                </motion.div>
+                </div>
             )}
 
             {/* Explore link */}

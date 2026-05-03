@@ -79,7 +79,7 @@ export function Hero() {
             >
               <Link href="/onboarding" className="flex items-center gap-2">
                 <GiMazeCornea className="size-5 transition-transform group-hover:rotate-180 duration-700" />
-                <span>Natal Chart</span>
+                <span>Birth Chart</span>
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-1 duration-300" />
               </Link>
             </Button>

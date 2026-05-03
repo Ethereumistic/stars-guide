@@ -294,7 +294,7 @@ export function BinauralBeatsSlide({ isActive }: BinauralBeatsSlideProps) {
     }
     const interval = setInterval(() => {
       setActiveFreq((prev) => (prev + 1) % BRAINWAVE_TYPES.length);
-    }, 3000);
+    }, 4000);
     return () => clearInterval(interval);
   }, [isActive]);
 

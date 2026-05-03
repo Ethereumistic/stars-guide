@@ -44,7 +44,8 @@ export function PlanetsCarousel({ placements, delay = 0 }: PlanetsCarouselProps)
     /* ── Embla ── */
     const [emblaRef, emblaApi] = useEmblaCarousel({
         align: "start",
-        slidesToScroll: 1,
+        slidesToScroll: 3,
+        dragFree: true,
         containScroll: "trimSnaps",
     })
     const [canScrollPrev, setCanScrollPrev] = useState(false)
@@ -56,6 +57,9 @@ export function PlanetsCarousel({ placements, delay = 0 }: PlanetsCarouselProps)
         setCanScrollNext(emblaApi.canScrollNext())
     }, [emblaApi])
 
+    const scrollPrev = useCallback(() => emblaApi?.scrollPrev(), [emblaApi])
+    const scrollNext = useCallback(() => emblaApi?.scrollNext(), [emblaApi])
+
     useEffect(() => {
         if (!emblaApi) return
         onSelect()
@@ -63,6 +67,7 @@ export function PlanetsCarousel({ placements, delay = 0 }: PlanetsCarouselProps)
         emblaApi.on("reInit", onSelect)
         return () => {
             emblaApi.off("select", onSelect)
+            emblaApi.off("reInit", onSelect)
         }
     }, [emblaApi, onSelect])
 
@@ -97,6 +102,30 @@ export function PlanetsCarousel({ placements, delay = 0 }: PlanetsCarouselProps)
             .filter((d) => d.signData && d.signUI)
     }, [placements])
 
+    const slides = useMemo(
+        () =>
+            cardData.map((d) => (
+                <div
+                    key={d.key}
+                    className="flex-none min-w-0 w-[80%] sm:w-[48%] md:w-[25%]"
+                >
+                    <PlanetSignCard
+                        planetName={d.planetName}
+                        planetSymbol={d.planetSymbol}
+                        planetColor={d.planetColor}
+                        planetId={d.planetId}
+                        planetImageUrl={d.planetImageUrl}
+                        planetImageScale={d.planetImageScale}
+                        data={d.signData!}
+                        ui={d.signUI!}
+                        house={d.house}
+                        delay={0}
+                    />
+                </div>
+            )),
+        [cardData],
+    )
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -112,38 +141,22 @@ export function PlanetsCarousel({ placements, delay = 0 }: PlanetsCarouselProps)
             </div>
 
             {/* ── Carousel (all breakpoints) ── */}
-            <div className="overflow-hidden select-none" ref={emblaRef}>
-                <div className="flex gap-4" style={{ touchAction: "pan-y" }}>
-                    {cardData.map((d) => (
-                        <div
-                            key={d.key}
-                            className="flex-none min-w-0
-                                w-[80%]
-                                sm:w-[48%]
-                                md:w-[25%]
-                            "
-                        >
-                            <PlanetSignCard
-                                planetName={d.planetName}
-                                planetSymbol={d.planetSymbol}
-                                planetColor={d.planetColor}
-                                planetId={d.planetId}
-                                planetImageUrl={d.planetImageUrl}
-                                planetImageScale={d.planetImageScale}
-                                data={d.signData!}
-                                ui={d.signUI!}
-                                house={d.house}
-                                delay={0}
-                            />
-                        </div>
-                    ))}
+            <div
+                className="overflow-hidden select-none cursor-grab active:cursor-grabbing"
+                ref={emblaRef}
+            >
+                <div
+                    className="flex gap-4"
+                    style={{ touchAction: "pan-y", willChange: "transform" }}
+                >
+                    {slides}
                 </div>
             </div>
 
             {/* Chevron nav — bottom right */}
             <div className="relative z-30 flex justify-end items-center gap-2 mt-4">
                 <button
-                    onClick={() => emblaApi?.scrollPrev()}
+                    onClick={scrollPrev}
                     disabled={!canScrollPrev}
                     className={`
                         flex items-center justify-center size-8 rounded-full border transition-all duration-200
@@ -158,7 +171,7 @@ export function PlanetsCarousel({ placements, delay = 0 }: PlanetsCarouselProps)
                     <ChevronLeft className="size-4" />
                 </button>
                 <button
-                    onClick={() => emblaApi?.scrollNext()}
+                    onClick={scrollNext}
                     disabled={!canScrollNext}
                     className={`
                         flex items-center justify-center size-8 rounded-full border transition-all duration-200
