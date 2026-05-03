@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { BirthChartSlide } from "./feature-slides/birth-chart-slide";
 import { PlaceholderSlide } from "./feature-slides/placeholder-slide";
+import { LearnSlide } from "./feature-slides/learn-slide";
+import { AstronomicalEngineSlide } from "./feature-slides/astronomical-engine-slide";
 
 /* ── Types ──────────────────────────────────────────────────── */
 
@@ -270,6 +272,16 @@ function DesktopShowcase() {
                   isActive={index === activeIndex && isContainerVisible}
                   wasActive={wasActiveStates[index] && index !== activeIndex}
                 />
+              ) : index === 1 ? (
+                <LearnSlide
+                  isActive={index === activeIndex && isContainerVisible}
+                  wasActive={wasActiveStates[index] && index !== activeIndex}
+                />
+              ) : index === 3 ? (
+                <AstronomicalEngineSlide
+                  isActive={index === activeIndex && isContainerVisible}
+                  wasActive={wasActiveStates[index] && index !== activeIndex}
+                />
               ) : (
                 <PlaceholderSlide
                   isActive={index === activeIndex && isContainerVisible}
@@ -325,6 +337,10 @@ function MobileShowcase() {
         >
           {index === 0 ? (
             <BirthChartSlide isActive={true} />
+          ) : index === 1 ? (
+            <LearnSlide isActive={true} />
+          ) : index === 3 ? (
+            <AstronomicalEngineSlide isActive={true} />
           ) : (
             <PlaceholderSlide
               isActive={true}
