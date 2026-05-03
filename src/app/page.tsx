@@ -5,7 +5,6 @@ import { LiveSkyRadar } from "@/components/landing/live-sky-radar";
 import { FeatureShowcase } from "@/components/landing/feature-showcase";
 import { FeatureShowcase2 } from "@/components/landing/feature-showcase2";
 import { SocialProof } from "@/components/landing/social-proof";
-import { FinalCTA } from "@/components/landing/final-cta";
 
 export default function Home() {
   return (
