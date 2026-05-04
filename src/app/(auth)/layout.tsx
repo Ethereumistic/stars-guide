@@ -1,9 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { ShootingStars } from "@/components/hero/shooting-stars"
-import { StarsBackground } from "@/components/hero/stars-background"
-import { motion } from "motion/react"
 
 export default function AuthLayout({
     children,
@@ -11,18 +8,11 @@ export default function AuthLayout({
     children: React.ReactNode
 }) {
     return (
-        <div className="relative min-h-[calc(100vh-5rem)] w-full flex items-center justify-center overflow-hidden py-12 px-4">
-            {/* Animated Background */}
-
-            {/* Content with subtle entrance animation */}
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5, ease: "easeOut" }}
-                className="relative z-10 w-full max-w-md"
-            >
+        <div className="relative min-h-[calc(100vh-5rem)] w-full overflow-hidden">
+            {/* Content */}
+            <div className="relative z-10 w-full min-h-[calc(100vh-5rem)]">
                 {children}
-            </motion.div>
+            </div>
 
             {/* Decorative vignette */}
             <div

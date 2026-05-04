@@ -159,7 +159,7 @@ export function StardustPurchaseV1() {
 
                             {/* Icon + Gradient Title */}
                             <div className="flex items-center gap-3">
-                                <div className="drop-shadow-[0_0_15px_rgba(212,175,55,0.6)] group-hover:rotate-[360deg] group-hover:scale-120 transition-all duration-[2000ms]">
+                                <div className="drop-shadow-[0_0_15px_rgba(212,175,55,0.6)] group-hover:scale-120 transition-all duration-[2000ms]">
                                     <GiStarSwirl className="size-10 text-primary" />
                                 </div>
                                 <h3

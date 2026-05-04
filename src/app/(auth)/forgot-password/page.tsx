@@ -50,6 +50,8 @@ export default function ForgotPasswordPage() {
     }
 
     return (
+        <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
         <Card className="border-primary/10 bg-background/60 backdrop-blur-xl shadow-2xl shadow-primary/10">
             <CardHeader className="space-y-2 text-center">
                 <CardTitle className="font-serif text-3xl tracking-tight text-foreground">
@@ -117,5 +119,7 @@ export default function ForgotPasswordPage() {
                 </Link>
             </CardFooter>
         </Card>
+        </div>
+        </div>
     )
 }

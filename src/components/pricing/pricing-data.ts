@@ -134,7 +134,7 @@ export const plans: PricingPlan[] = [
             iconGlowColor: "drop-shadow-[0_0_15px_rgba(157,78,221,0.6)]",
             buttonGlowColor: "hover:drop-shadow-[0_0_15px_rgba(138,43,226,0.6)]",
             iconColor: "text-galactic",
-            iconAnimate: "group-hover:rotate-[720deg] group-hover:scale-120 transition-all duration-[2000ms]",
+            iconAnimate: "group-hover:scale-120 transition-all duration-[2000ms]",
             starColor: "#9d4edd",
             trailColor: "#9d4edd",
         },
