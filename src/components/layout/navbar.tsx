@@ -224,9 +224,7 @@ function MobileNotifications() {
         disabled={!hasNotifications}
         className={cn(
           "w-full flex items-center gap-2.5 transition-all",
-          hasNotifications
-            ? "cursor-pointer"
-            : "opacity-40 cursor-default",
+          hasNotifications ? "cursor-pointer" : "opacity-40 cursor-default",
         )}
       >
         <Bell className="size-6 shrink-0 text-primary" />
@@ -257,10 +255,10 @@ function MobileNotifications() {
         )}
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="flex flex-col pl-8.5">
+        <div className="flex flex-col">
           {/* Mark all read */}
           {unreadCount > 0 && (
-            <div className="flex justify-end px-2 pb-1">
+            <div className="flex justify-start px-2 pb-1">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -295,10 +293,12 @@ function MobileNotifications() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className={cn(
-                        "text-lg font-serif italic leading-snug",
-                        !n.read ? "text-foreground/80" : "text-foreground/50",
-                      )}>
+                      <span
+                        className={cn(
+                          "text-lg font-serif italic leading-snug",
+                          !n.read ? "text-foreground/80" : "text-foreground/50",
+                        )}
+                      >
                         {n.message}
                       </span>
                     </div>
@@ -401,7 +401,7 @@ export function Navbar() {
                           href={item.href}
                           className={cn(
                             navigationMenuTriggerStyle(),
-                            "bg-transparent hover:bg-accent/40 text-foreground/70 hover:text-primary transition-all duration-500 font-serif text-sm tracking-wide lowercase italic flex items-center group/nav overflow-hidden",
+                            "bg-transparent hover:bg-accent/40 text-foreground/70 hover:text-primary transition-all duration-500 font-serif text-sm tracking-wide lowercase italic flex items-center group/nav overflow-hidden text-nowrap",
                             isActive && "text-primary font-medium",
                           )}
                         >
@@ -630,7 +630,7 @@ export function Navbar() {
       {/* Menu Panel: 60% from the right */}
       <div
         className={cn(
-          "fixed inset-y-0 right-0 z-[56] w-[60%] flex flex-col bg-background/95 backdrop-blur-xl transition-transform duration-300 lg:hidden border-l border-white/10",
+          "fixed inset-y-0 right-0 z-[56] w-full flex flex-col bg-background/95 backdrop-blur-xl transition-transform duration-300 lg:hidden",
           isMobileMenuOpen
             ? "translate-x-0"
             : "translate-x-full pointer-events-none",
@@ -639,65 +639,86 @@ export function Navbar() {
         {/* Spacer for navbar height */}
         <div className="h-16" />
 
-        {/* ── Top bar: user info + settings + stardust ── */}
-        <div className="flex items-center gap-3 px-4 py-3">
-          <Button
-            variant="ghost"
-            className="flex items-center gap-2.5 h-auto py-2 px-1.5 hover:bg-white/[0.03] shrink-0"
-            asChild
-          >
-            <Link href="/settings" onClick={() => setIsMobileMenuOpen(false)}>
-              <Avatar size="" className=" ring-1 ring-white/10">
-                <AvatarImage
-                  src={currentUser?.image}
-                  alt={currentUser?.username ?? "User"}
-                />
-                <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-serif">
-                  {currentUser?.username?.charAt(0)?.toUpperCase() ?? "U"}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col items-start min-w-0">
-                <p className="text-sm font-serif truncate text-foreground leading-tight">
-                  {currentUser?.username}
-                </p>
-                <p className="text-[9px] font-mono uppercase tracking-[0.15em] text-white/35 truncate">
-                  {currentUser?.email}
-                </p>
-              </div>
-              <Settings className="size-3.5 text-foreground/40 shrink-0 ml-0.5" />
-            </Link>
-          </Button>
-
-          <div className="flex" />
-
-          {isAuthenticated && (
-            <div className="shrink-0">
-              <StardustBadge stardust={currentUser?.stardust ?? 0} />
-            </div>
-          )}
-        </div>
-
-        <div className="border-b border-white/5" />
-
         {/* ── Scrollable content area ── */}
         <div className="flex flex-col gap-6 p-6 overflow-y-auto flex-1">
-          {/* Authenticated: Notifications collapsible */}
-          {isAuthenticated && <MobileNotifications />}
+          <div className="flex flex-col gap-6 items-start w-fit mx-auto">
+            {/* Top bar: user info & settings + stardust (authenticated only) */}
+            {isAuthenticated && (
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  className="flex items-center gap-2.5 h-auto py-2 px-1.5 hover:bg-white/[0.03] shrink-0"
+                  asChild
+                >
+                  <Link href="/settings" onClick={() => setIsMobileMenuOpen(false)}>
+                    <Avatar size="" className=" ring-1 ring-white/10">
+                      <AvatarImage
+                        src={currentUser?.image}
+                        alt={currentUser?.username ?? "User"}
+                      />
+                      <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-serif">
+                        {currentUser?.username?.charAt(0)?.toUpperCase() ?? "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col items-start min-w-0">
+                      <p className="text-sm font-serif truncate text-foreground leading-tight">
+                        {currentUser?.username}
+                      </p>
+                      <p className="text-[9px] font-mono uppercase tracking-[0.15em] text-white/35 truncate">
+                        {currentUser?.email}
+                      </p>
+                    </div>
+                    <Settings className="size-3.5 text-foreground/40 shrink-0 ml-0.5" />
+                  </Link>
+                </Button>
 
-          <div className="-mx-6 border-b border-white/5" />
+                <div className="shrink-0">
+                  <StardustBadge stardust={currentUser?.stardust ?? 0} />
+                </div>
+              </div>
+            )}
 
-          {/* Nav buttons */}
-          <nav className="flex flex-col items-start gap-5">
-            {navItems.map((item) => {
+            <div className="w-full border-b border-white/5" />
+
+            {/* Authenticated: Notifications collapsible */}
+            {isAuthenticated && <MobileNotifications />}
+
+            <div className="w-full border-b border-white/5" />
+
+            {/* Nav buttons */}
+            <nav className="flex flex-col items-start gap-5">
+            {navItems
+              .filter((item) => item.title !== "Horoscopes")
+              .map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.title}
+                    href={item.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={cn(
+                      "text-2xl font-serif italic text-foreground/80 hover:text-primary transition-all flex items-center gap-2.5 text-nowrap",
+                      isActive && "text-primary font-medium",
+                    )}
+                  >
+                    <Icon className="size-6 shrink-0 text-primary" />
+                    {item.title}
+                  </Link>
+                );
+              })}
+
+            {/* Horoscopes - just above CTA */}
+            {(() => {
+              const item = navItems.find((i) => i.title === "Horoscopes")!;
               const Icon = item.icon;
               const isActive = pathname === item.href;
               return (
                 <Link
-                  key={item.title}
                   href={item.href}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={cn(
-                    "text-2xl font-serif italic text-foreground/80 hover:text-primary transition-all flex items-center gap-2.5",
+                    "text-2xl font-serif italic text-foreground/80 hover:text-primary transition-all flex items-center gap-2.5 text-nowrap",
                     isActive && "text-primary font-medium",
                   )}
                 >
@@ -705,14 +726,14 @@ export function Navbar() {
                   {item.title}
                 </Link>
               );
-            })}
+            })()}
 
             {/* Mobile CTA Link */}
             <Link
               href={ctaHref}
               onClick={() => setIsMobileMenuOpen(false)}
               className={cn(
-                "text-2xl font-serif italic transition-all flex items-center gap-2.5 mt-2",
+                "text-2xl font-serif italic transition-all flex items-center gap-2.5 mt-2 text-nowrap",
                 pathname === "/onboarding" ||
                   pathname === "/dashboard" ||
                   pathname === "/natal-chart"
@@ -724,21 +745,40 @@ export function Navbar() {
               {ctaLabel}
             </Link>
           </nav>
+          </div>
         </div>
 
-        {/* ── Footer: Sign Out ── */}
-        {isAuthenticated && (
-          <div className="p-6 pt-0">
+        {/* ── Footer ── */}
+        {isAuthenticated ? (
+          <div className="p-6 pt-0 flex justify-center">
             <Button
               variant="outline"
               size="lg"
-              className="w-full font-sans italic text-destructive/80 hover:text-destructive border-destructive/20 hover:border-destructive/40 hover:bg-destructive/10"
+              className="w-full max-w-xs font-sans italic text-destructive/80 hover:text-destructive border-destructive/20 hover:border-destructive/40 hover:bg-destructive/10"
               onClick={() => {
                 setIsMobileMenuOpen(false);
                 signOut();
               }}
             >
               <LogOut className="mr-2 size-5" /> Sign Out
+            </Button>
+          </div>
+        ) : (
+          <div className="p-6 pt-0 flex flex-col gap-2 items-center max-w-xs mx-auto w-full">
+            <Button
+              variant="outline"
+              size="lg"
+              asChild
+              className="w-full font-serif uppercase"
+            >
+              <Link href="/sign-in" onClick={() => setIsMobileMenuOpen(false)}>
+                <LogIn className="mr-2 size-5" /> Sign In
+              </Link>
+            </Button>
+            <Button size="lg" asChild className="w-full font-serif uppercase">
+              <Link href="/sign-up" onClick={() => setIsMobileMenuOpen(false)}>
+                <UserPlus className="mr-2 size-5" /> Create Account
+              </Link>
             </Button>
           </div>
         )}
