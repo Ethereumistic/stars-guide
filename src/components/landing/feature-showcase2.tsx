@@ -236,7 +236,7 @@ function DesktopShowcase() {
         {/* Chevron Left */}
         <button
           onClick={handlePrev}
-          className="absolute left-4 xl:left-8 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full bg-card/80 backdrop-blur-sm border border-border shadow-lg hover:bg-card hover:shadow-xl transition-all duration-200 group cursor-pointer"
+          className="absolute left-4 xl:left-8 bottom-8 z-20 p-3 rounded-full bg-card/80 backdrop-blur-sm border border-border shadow-lg hover:bg-card hover:shadow-xl transition-all duration-200 group cursor-pointer"
           aria-label="Previous slide"
         >
           <ChevronLeft className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -245,7 +245,7 @@ function DesktopShowcase() {
         {/* Chevron Right */}
         <button
           onClick={handleNext}
-          className="absolute right-4 xl:right-8 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full bg-card/80 backdrop-blur-sm border border-border shadow-lg hover:bg-card hover:shadow-xl transition-all duration-200 group cursor-pointer"
+          className="absolute right-4 xl:right-8 bottom-8 z-20 p-3 rounded-full bg-card/80 backdrop-blur-sm border border-border shadow-lg hover:bg-card hover:shadow-xl transition-all duration-200 group cursor-pointer"
           aria-label="Next slide"
         >
           <ChevronRight className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -314,7 +314,7 @@ function DesktopShowcase() {
 function MobileShowcase() {
   return (
     <div
-      className="lg:hidden bg-background"
+      className="lg:hidden "
       style={{
         scrollSnapType: "y mandatory",
         scrollPadding: "0px",

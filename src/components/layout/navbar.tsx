@@ -267,7 +267,7 @@ export function Navbar() {
           </div>
 
           {/* --- Center Section: Desktop Nav links + CTA --- */}
-          <div className="hidden md:flex flex-1 justify-center">
+          <div className="hidden lg:flex flex-1 justify-center">
             <NavigationMenu>
               <NavigationMenuList className="gap-8">
                 {navItems.map((item) => {
@@ -331,7 +331,7 @@ export function Navbar() {
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="hidden md:flex relative h-9 w-9 rounded-full ring-1 ring-white/10 hover:ring-primary/40 transition-all"
+                    className="hidden lg:flex relative h-9 w-9 rounded-full ring-1 ring-white/10 hover:ring-primary/40 transition-all"
                   >
                     <Avatar className="h-9 w-9">
                       <AvatarImage
@@ -427,7 +427,7 @@ export function Navbar() {
 
             {/* Desktop: Stardust badge — right of avatar, end of navbar */}
             {isAuthenticated && (
-              <div className="hidden md:flex">
+              <div className="hidden lg:flex">
                 <StardustBadge stardust={currentUser?.stardust ?? 0} />
               </div>
             )}
@@ -438,7 +438,7 @@ export function Navbar() {
                 variant="ghost"
                 size="icon"
                 asChild
-                className="hidden md:flex text-foreground/70 hover:text-primary transition-colors"
+                className="hidden lg:flex text-foreground/70 hover:text-primary transition-colors"
               >
                 <Link href="/sign-in">
                   <LogIn className="size-5" />
@@ -451,7 +451,7 @@ export function Navbar() {
             {isAuthenticated && (
               <Button
                 variant="ghost"
-                className="md:hidden relative h-9 w-9 rounded-full ring-1 ring-white/10"
+                className="lg:hidden relative h-9 w-9 rounded-full ring-1 ring-white/10"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               >
                 {isMobileMenuOpen ? (
@@ -484,7 +484,7 @@ export function Navbar() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="md:hidden text-foreground/80 z-50 relative"
+                className="lg:hidden text-foreground/80 z-50 relative"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               >
                 {isMobileMenuOpen ? (
@@ -500,7 +500,7 @@ export function Navbar() {
       {/* --- Mobile Menu Overlay --- */}
       <div
         className={cn(
-          "fixed inset-0 z-40 flex flex-col bg-background/95 backdrop-blur-xl transition-all duration-300 md:hidden",
+          "fixed inset-0 z-40 flex flex-col bg-background/95 backdrop-blur-xl transition-all duration-300 lg:hidden",
           isMobileMenuOpen
             ? "opacity-100 translate-y-0"
             : "opacity-0 -translate-y-full pointer-events-none",
