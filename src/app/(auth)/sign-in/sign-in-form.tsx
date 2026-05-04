@@ -128,7 +128,7 @@ export function SignInForm({ bare, className, ...props }: SignInFormProps) {
               isLoading
             }
             onClick={onGoogleSignIn}
-            className="size-14 lg:h-11 lg:w-full lg:justify-start font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300"
+            className="size-14 lg:h-11 lg:w-full lg:justify-center font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300"
           >
             {isGoogleLoading ? (
               <Loader2 className="size-6 animate-spin lg:size-4" />
@@ -147,7 +147,7 @@ export function SignInForm({ bare, className, ...props }: SignInFormProps) {
               isLoading
             }
             onClick={onFacebookSignIn}
-            className="size-14 lg:h-11 lg:w-full lg:justify-start font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300"
+            className="size-14 lg:h-11 lg:w-full lg:justify-center font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300"
           >
             {isFacebookLoading ? (
               <Loader2 className="size-6 animate-spin lg:size-4" />
@@ -166,7 +166,7 @@ export function SignInForm({ bare, className, ...props }: SignInFormProps) {
               isLoading
             }
             onClick={onTwitterSignIn}
-            className="size-14 lg:h-11 lg:w-full lg:justify-start font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300"
+            className="size-14 lg:h-11 lg:w-full lg:justify-center font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300"
           >
             {isTwitterLoading ? (
               <Loader2 className="size-6 animate-spin lg:size-4" />

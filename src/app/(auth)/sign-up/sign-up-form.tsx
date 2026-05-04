@@ -25,11 +25,13 @@ import { FaXTwitter } from "react-icons/fa6";
 import { FaFacebook } from "react-icons/fa";
 import { useUserStore } from "@/store/use-user-store";
 
-interface SignUpFormProps extends React.ComponentPropsWithoutRef<'div'> {
+interface SignUpFormProps extends Omit<React.ComponentPropsWithoutRef<'div'>, 'title'> {
     bare?: boolean;
+    title?: React.ReactNode;
+    subtitle?: React.ReactNode;
 }
 
-export function SignUpForm({ bare, className, ...props }: SignUpFormProps) {
+export function SignUpForm({ bare, className, title, subtitle, ...props }: SignUpFormProps) {
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [error, setError] = useState<string | null>(null)
@@ -91,20 +93,20 @@ export function SignUpForm({ bare, className, ...props }: SignUpFormProps) {
     const inner = (
         <>
             <CardHeader className={headerCn}>
-                <CardTitle className="font-serif text-3xl tracking-tight text-foreground">Create Account</CardTitle>
-                <CardDescription className="font-sans italic text-muted-foreground">Begin your mapping of the heavens</CardDescription>
+                <CardTitle className="font-serif text-3xl tracking-tight text-foreground">{title ?? "Create Account"}</CardTitle>
+                <CardDescription className="font-sans italic text-muted-foreground">{subtitle ?? "Begin your mapping of the heavens"}</CardDescription>
             </CardHeader>
             <CardContent className={contentCn}>
                 <div className="flex flex-row justify-center gap-4 lg:flex-col lg:gap-4">
-                    <Button variant="outline" size="icon" disabled={isGoogleLoading || isTwitterLoading || isFacebookLoading || isLoading} onClick={onGoogleSignIn} className="size-14 lg:h-11 lg:w-full lg:justify-start font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300">
+                    <Button variant="outline" size="icon" disabled={isGoogleLoading || isTwitterLoading || isFacebookLoading || isLoading} onClick={onGoogleSignIn} className="size-14 lg:h-11 lg:w-full lg:justify-center font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300">
                         {isGoogleLoading ? <Loader2 className="size-6 animate-spin lg:size-4" /> : <FcGoogle className="size-6 lg:size-4" />}
                         <span className="hidden lg:inline">Continue with Google</span>
                     </Button>
-                    <Button variant="outline" size="icon" disabled={isGoogleLoading || isTwitterLoading || isFacebookLoading || isLoading} onClick={onFacebookSignIn} className="size-14 lg:h-11 lg:w-full lg:justify-start font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300">
+                    <Button variant="outline" size="icon" disabled={isGoogleLoading || isTwitterLoading || isFacebookLoading || isLoading} onClick={onFacebookSignIn} className="size-14 lg:h-11 lg:w-full lg:justify-center font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300">
                         {isFacebookLoading ? <Loader2 className="size-6 animate-spin lg:size-4" /> : <FaFacebook className="size-6 text-[#1877F2] lg:size-4" />}
                         <span className="hidden lg:inline">Continue with Facebook</span>
                     </Button>
-                    <Button variant="outline" size="icon" disabled={isGoogleLoading || isTwitterLoading || isFacebookLoading || isLoading} onClick={onTwitterSignIn} className="size-14 lg:h-11 lg:w-full lg:justify-start font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300">
+                    <Button variant="outline" size="icon" disabled={isGoogleLoading || isTwitterLoading || isFacebookLoading || isLoading} onClick={onTwitterSignIn} className="size-14 lg:h-11 lg:w-full lg:justify-center font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300">
                         {isTwitterLoading ? <Loader2 className="size-6 animate-spin lg:size-4" /> : <FaXTwitter className="size-6 lg:size-4" />}
                         <span className="hidden lg:inline">Continue with X</span>
                     </Button>
