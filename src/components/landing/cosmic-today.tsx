@@ -101,7 +101,7 @@ function findNextRetrogradeWindow(planetId: string, fromDate: Date): RetrogradeW
  * - If any planet is currently retrograde, pick the one ending soonest.
  * - Otherwise, pick the next upcoming retrograde across all planets.
  */
-function findFeaturedRetrograde(fromDate: Date): RetrogradeWindow | null {
+export function findFeaturedRetrograde(fromDate: Date): RetrogradeWindow | null {
     const windows: RetrogradeWindow[] = [];
 
     for (const planetId of RETROGRADE_PLANETS) {
@@ -119,14 +119,14 @@ function findFeaturedRetrograde(fromDate: Date): RetrogradeWindow | null {
     return windows.sort((a, b) => a.startDate.getTime() - b.startDate.getTime())[0];
 }
 
-interface TransitEntry {
+export interface TransitEntry {
     id: string;
     name: string;
     telemetry: PlanetTelemetry;
     signData: typeof compositionalSigns[number];
 }
 
-function getMoonPhaseInfo(phaseAngle: number): { name: string; illumination: number } {
+export function getMoonPhaseInfo(phaseAngle: number): { name: string; illumination: number } {
     const illum = Math.round((1 - Math.cos(phaseAngle * Math.PI / 180)) / 2 * 100);
     if (phaseAngle < 22.5) return { name: "New Moon", illumination: illum };
     if (phaseAngle < 67.5) return { name: "Waxing Crescent", illumination: illum };
@@ -141,7 +141,7 @@ function getMoonPhaseInfo(phaseAngle: number): { name: string; illumination: num
 /**
  * Build a TransitEntry for a given planet ID. Returns null if data is missing.
  */
-function buildTransitEntry(id: string): TransitEntry | null {
+export function buildTransitEntry(id: string): TransitEntry | null {
     const t = getPlanetTelemetry(id, new Date());
     const ui = planetUIConfig[id];
     if (!t || !ui) return null;
