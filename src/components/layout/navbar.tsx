@@ -54,6 +54,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Separator } from "../ui/separator";
 
 const navItems = [
   { title: "Horoscopes", href: "/horoscopes", icon: GiStarsStack },
@@ -201,6 +207,121 @@ function UserMenuNotifications() {
   );
 }
 
+function MobileNotifications() {
+  const [open, setOpen] = React.useState(false);
+  const notifications = useQuery(api.notifications.queries.list);
+  const markRead = useMutation(api.notifications.queries.markRead);
+  const markAllRead = useMutation(api.notifications.queries.markAllRead);
+  const dismissNotification = useMutation(
+    api.notifications.queries.dismissNotification,
+  );
+  const unreadCount = useQuery(api.notifications.queries.unreadCount) ?? 0;
+  const hasNotifications = notifications && notifications.length > 0;
+
+  return (
+    <Collapsible open={open && hasNotifications} onOpenChange={setOpen}>
+      <CollapsibleTrigger
+        disabled={!hasNotifications}
+        className={cn(
+          "w-full flex items-center gap-2.5 transition-all",
+          hasNotifications
+            ? "cursor-pointer"
+            : "opacity-40 cursor-default",
+        )}
+      >
+        <Bell className="size-6 shrink-0 text-primary" />
+        <span className="text-2xl font-serif italic text-foreground/80">
+          Notifications
+        </span>
+        {unreadCount > 0 && (
+          <span className="flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-galactic text-white text-[9px] font-mono leading-none">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
+        {hasNotifications && (
+          <svg
+            className={cn(
+              "size-5 shrink-0 text-foreground/40 transition-transform duration-200",
+              open && "rotate-180",
+            )}
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        )}
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="flex flex-col pl-8.5">
+          {/* Mark all read */}
+          {unreadCount > 0 && (
+            <div className="flex justify-end px-2 pb-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  markAllRead();
+                }}
+                className="text-[10px] text-primary/70 hover:text-primary font-mono uppercase tracking-wider transition-colors"
+              >
+                Mark all read
+              </button>
+            </div>
+          )}
+
+          <ScrollArea className="max-h-[200px]">
+            <div className="flex flex-col gap-1">
+              <AnimatePresence>
+                {notifications?.map((n: any) => (
+                  <motion.button
+                    key={n._id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    onClick={() => {
+                      if (!n.read) markRead({ notificationId: n._id });
+                    }}
+                    className={cn(
+                      "flex items-center gap-2.5 px-2 py-2 text-left transition-colors hover:bg-white/[0.03] rounded-sm w-full group/notif",
+                      !n.read && "bg-white/[0.02]",
+                    )}
+                  >
+                    <div className="shrink-0">
+                      {notificationTypeIcons[n.type] ?? (
+                        <Bell className="size-3.5 text-white/30" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className={cn(
+                        "text-lg font-serif italic leading-snug",
+                        !n.read ? "text-foreground/80" : "text-foreground/50",
+                      )}>
+                        {n.message}
+                      </span>
+                    </div>
+                    <button
+                      className="h-5 w-5 shrink-0 rounded-sm flex items-center justify-center text-white/0 group-hover/notif:text-white/20 hover:!text-destructive transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        dismissNotification({ notificationId: n._id });
+                      }}
+                    >
+                      <XIcon className="size-3" />
+                    </button>
+                  </motion.button>
+                ))}
+              </AnimatePresence>
+            </div>
+          </ScrollArea>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 export function Navbar() {
   const [scrolled, setScrolled] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
@@ -249,7 +370,7 @@ export function Navbar() {
     <>
       <header
         className={cn(
-          "sticky top-0 z-50 w-full transition-all duration-500",
+          "sticky top-0 z-[57] w-full transition-all duration-500",
           scrolled
             ? " bg-background/60 backdrop-blur-sm py-2"
             : "bg-transparent py-2",
@@ -498,23 +619,75 @@ export function Navbar() {
         </div>
       </header>
       {/* --- Mobile Menu Overlay --- */}
+      {/* Backdrop: 40% left side with blur */}
       <div
         className={cn(
-          "fixed inset-0 z-40 flex flex-col bg-background/95 backdrop-blur-xl transition-all duration-300 lg:hidden",
+          "fixed inset-0 z-[55] bg-background/20 backdrop-blur-xl transition-opacity duration-300 lg:hidden",
+          isMobileMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none",
+        )}
+        onClick={() => setIsMobileMenuOpen(false)}
+      />
+      {/* Menu Panel: 60% from the right */}
+      <div
+        className={cn(
+          "fixed inset-y-0 right-0 z-[56] w-[60%] flex flex-col bg-background/95 backdrop-blur-xl transition-transform duration-300 lg:hidden border-l border-white/10",
           isMobileMenuOpen
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 -translate-y-full pointer-events-none",
+            ? "translate-x-0"
+            : "translate-x-full pointer-events-none",
         )}
       >
-        {/* Spacer */}
-        <div className="h-24" />
+        {/* Spacer for navbar height */}
+        <div className="h-16" />
 
-        <div className="flex flex-col gap-8 p-8 overflow-y-auto">
-          {/* Mobile Nav Container
-                        w-fit + mx-auto -> Centers the block horizontally
-                        items-start -> Aligns the text to the left within that block
-                    */}
-          <nav className="flex flex-col items-start gap-6 w-fit mx-auto">
+        {/* ── Top bar: user info + settings + stardust ── */}
+        <div className="flex items-center gap-3 px-4 py-3">
+          <Button
+            variant="ghost"
+            className="flex items-center gap-2.5 h-auto py-2 px-1.5 hover:bg-white/[0.03] shrink-0"
+            asChild
+          >
+            <Link href="/settings" onClick={() => setIsMobileMenuOpen(false)}>
+              <Avatar size="" className=" ring-1 ring-white/10">
+                <AvatarImage
+                  src={currentUser?.image}
+                  alt={currentUser?.username ?? "User"}
+                />
+                <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-serif">
+                  {currentUser?.username?.charAt(0)?.toUpperCase() ?? "U"}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col items-start min-w-0">
+                <p className="text-sm font-serif truncate text-foreground leading-tight">
+                  {currentUser?.username}
+                </p>
+                <p className="text-[9px] font-mono uppercase tracking-[0.15em] text-white/35 truncate">
+                  {currentUser?.email}
+                </p>
+              </div>
+              <Settings className="size-3.5 text-foreground/40 shrink-0 ml-0.5" />
+            </Link>
+          </Button>
+
+          <div className="flex" />
+
+          {isAuthenticated && (
+            <div className="shrink-0">
+              <StardustBadge stardust={currentUser?.stardust ?? 0} />
+            </div>
+          )}
+        </div>
+
+        <div className="border-b border-white/5" />
+
+        {/* ── Scrollable content area ── */}
+        <div className="flex flex-col gap-6 p-6 overflow-y-auto flex-1">
+          {/* Authenticated: Notifications collapsible */}
+          {isAuthenticated && <MobileNotifications />}
+
+          <div className="-mx-6 border-b border-white/5" />
+
+          {/* Nav buttons */}
+          <nav className="flex flex-col items-start gap-5">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
@@ -524,21 +697,11 @@ export function Navbar() {
                   href={item.href}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={cn(
-                    "text-2xl font-serif italic text-foreground/80 hover:text-primary transition-all flex items-center group/nav",
+                    "text-2xl font-serif italic text-foreground/80 hover:text-primary transition-all flex items-center gap-2.5",
                     isActive && "text-primary font-medium",
                   )}
                 >
-                  {/* Mobile Icon: Reserved fixed width (w-8) to prevent text jump */}
-                  <div
-                    className={cn(
-                      "flex items-center justify-center transition-all duration-500 ease-in-out w-8 mr-2",
-                      isActive
-                        ? "opacity-100 translate-x-0"
-                        : "opacity-0 -translate-x-2 group-hover/nav:opacity-100 group-hover/nav:translate-x-0",
-                    )}
-                  >
-                    <Icon className="size-6 shrink-0" />
-                  </div>
+                  <Icon className="size-6 shrink-0 text-primary" />
                   {item.title}
                 </Link>
               );
@@ -548,133 +711,37 @@ export function Navbar() {
             <Link
               href={ctaHref}
               onClick={() => setIsMobileMenuOpen(false)}
-              className="text-2xl font-serif italic text-primary font-medium hover:text-primary/80 transition-all flex items-center group/nav mt-2"
+              className={cn(
+                "text-2xl font-serif italic transition-all flex items-center gap-2.5 mt-2",
+                pathname === "/onboarding" ||
+                  pathname === "/dashboard" ||
+                  pathname === "/natal-chart"
+                  ? "text-primary font-medium"
+                  : "text-foreground/80 hover:text-primary",
+              )}
             >
-              <div
-                className={cn(
-                  "flex items-center justify-center transition-all duration-500 ease-in-out w-8 mr-2",
-                  pathname === "/onboarding" ||
-                    pathname === "/dashboard" ||
-                    pathname === "/natal-chart"
-                    ? "opacity-100 translate-x-0"
-                    : "opacity-0 -translate-x-2 group-hover/nav:opacity-100 group-hover/nav:translate-x-0",
-                )}
-              >
-                <GiMazeCornea className="size-6 shrink-0" />
-              </div>
+              <GiMazeCornea className="size-6 shrink-0 text-primary" />
               {ctaLabel}
             </Link>
-
-            {/* Authenticated: Settings & Upgrade links */}
-            {isAuthenticated && (
-              <>
-                <Link
-                  href="/settings"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={cn(
-                    "text-2xl font-serif italic text-foreground/80 hover:text-primary transition-all flex items-center group/nav",
-                    pathname === "/settings" && "text-primary font-medium",
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "flex items-center justify-center transition-all duration-500 ease-in-out w-8 mr-2",
-                      pathname === "/settings"
-                        ? "opacity-100 translate-x-0"
-                        : "opacity-0 -translate-x-2 group-hover/nav:opacity-100 group-hover/nav:translate-x-0",
-                    )}
-                  >
-                    <Settings className="size-6 shrink-0" />
-                  </div>
-                  Settings
-                </Link>
-                <Link
-                  href="/settings"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-2xl font-serif italic text-foreground/80 hover:text-primary transition-all flex items-center group/nav"
-                >
-                  <div className="flex items-center justify-center transition-all duration-500 ease-in-out w-8 mr-2 opacity-0 -translate-x-2 group-hover/nav:opacity-100 group-hover/nav:translate-x-0">
-                    <Bell className="size-6 shrink-0" />
-                  </div>
-                  <span>Notifications</span>
-                  {unreadCount > 0 && (
-                    <span className="ml-3 flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-galactic text-white text-[11px] font-mono leading-none">
-                      {unreadCount > 99 ? "99+" : unreadCount}
-                    </span>
-                  )}
-                </Link>
-                <Link
-                  href="/pricing"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-2xl font-serif italic text-galactic hover:text-galactic/80 transition-all flex items-center group/nav"
-                >
-                  <div className="flex items-center justify-center transition-all duration-500 ease-in-out w-8 mr-2 opacity-0 -translate-x-2 group-hover/nav:opacity-100 group-hover/nav:translate-x-0">
-                    <Sparkles className="size-6 shrink-0" />
-                  </div>
-                  Upgrade
-                </Link>
-              </>
-            )}
           </nav>
-
-          <div className="w-full h-px bg-border/50 max-w-[200px] mx-auto" />
-
-          {/* Mobile menu footer: conditional on auth state */}
-          <div className="flex flex-col items-center gap-4 w-full">
-            {isAuthenticated ? (
-              // Authenticated: User card + sign out
-              <div className="w-full max-w-[260px] space-y-4">
-                <div className="flex items-center gap-3 px-2">
-                  <Avatar className="h-10 w-10 ring-1 ring-white/10">
-                    <AvatarImage
-                      src={currentUser?.image}
-                      alt={currentUser?.username ?? "User"}
-                    />
-                    <AvatarFallback className="bg-primary/10 text-primary text-sm font-serif">
-                      {currentUser?.username?.charAt(0)?.toUpperCase() ?? "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col min-w-0">
-                    <p className="text-sm font-serif truncate text-foreground">
-                      {currentUser?.username}
-                    </p>
-                    <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/40 truncate">
-                      {currentUser?.email}
-                    </p>
-                  </div>
-                </div>
-                {/* Mobile: Stardust balance */}
-                <StardustBadge stardust={currentUser?.stardust ?? 0} />
-                <Button
-                  variant="ghost"
-                  size="lg"
-                  className="w-full text-destructive/80 hover:text-destructive hover:bg-destructive/10 font-sans italic"
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    signOut();
-                  }}
-                >
-                  <LogOut className="mr-2 size-5" /> Sign Out
-                </Button>
-              </div>
-            ) : (
-              /* Unauthenticated: Sign In button */
-              <Button
-                variant="outline"
-                size="lg"
-                asChild
-                className="w-full max-w-[200px] font-serif tracking-wide"
-              >
-                <Link
-                  href="/sign-in"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <LogIn className="mr-2 size-5" /> Sign In
-                </Link>
-              </Button>
-            )}
-          </div>
         </div>
+
+        {/* ── Footer: Sign Out ── */}
+        {isAuthenticated && (
+          <div className="p-6 pt-0">
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full font-sans italic text-destructive/80 hover:text-destructive border-destructive/20 hover:border-destructive/40 hover:bg-destructive/10"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                signOut();
+              }}
+            >
+              <LogOut className="mr-2 size-5" /> Sign Out
+            </Button>
+          </div>
+        )}
       </div>
     </>
   );
