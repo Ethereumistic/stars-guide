@@ -3,6 +3,17 @@ import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "../_generated/api";
 
+/** 
+ * Resolve a Convex file-storage ID to a playback URL for an audio file.
+ * Used by the client to turn message.audioStorageId into an <audio src> URL.
+ */
+export const getAudioUrl = query({
+    args: { storageId: v.id("_storage") },
+    handler: async (ctx, { storageId }) => {
+        return await ctx.storage.getUrl(storageId);
+    },
+});
+
 export const getUserSessions = query({
     args: {},
     handler: async (ctx) => {
@@ -93,6 +104,8 @@ export const addMessage = mutation({
             v.literal("D"),
         )),
         journalPrompt: v.optional(v.string()),
+        audioData: v.optional(v.string()),
+        audioStorageId: v.optional(v.id("_storage")),
     },
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);
@@ -114,6 +127,8 @@ export const addMessage = mutation({
             completionTokens: args.completionTokens,
             fallbackTierUsed: args.fallbackTierUsed,
             journalPrompt: args.journalPrompt,
+            audioData: args.audioData,
+            audioStorageId: args.audioStorageId,
             createdAt: now,
         });
 

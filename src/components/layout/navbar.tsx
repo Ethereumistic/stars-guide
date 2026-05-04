@@ -650,8 +650,11 @@ export function Navbar() {
                   className="flex items-center gap-2.5 h-auto py-2 px-1.5 hover:bg-white/[0.03] shrink-0"
                   asChild
                 >
-                  <Link href="/settings" onClick={() => setIsMobileMenuOpen(false)}>
-                    <Avatar size="" className=" ring-1 ring-white/10">
+                  <Link
+                    href="/settings"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <Avatar className=" ring-1 ring-white/10">
                       <AvatarImage
                         src={currentUser?.image}
                         alt={currentUser?.username ?? "User"}
@@ -687,14 +690,34 @@ export function Navbar() {
 
             {/* Nav buttons */}
             <nav className="flex flex-col items-start gap-5">
-            {navItems
-              .filter((item) => item.title !== "Horoscopes")
-              .map((item) => {
+              {navItems
+                .filter((item) => item.title !== "Horoscopes")
+                .map((item) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.title}
+                      href={item.href}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={cn(
+                        "text-2xl font-serif italic text-foreground/80 hover:text-primary transition-all flex items-center gap-2.5 text-nowrap",
+                        isActive && "text-primary font-medium",
+                      )}
+                    >
+                      <Icon className="size-6 shrink-0 text-primary" />
+                      {item.title}
+                    </Link>
+                  );
+                })}
+
+              {/* Horoscopes - just above CTA */}
+              {(() => {
+                const item = navItems.find((i) => i.title === "Horoscopes")!;
                 const Icon = item.icon;
                 const isActive = pathname === item.href;
                 return (
                   <Link
-                    key={item.title}
                     href={item.href}
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={cn(
@@ -706,45 +729,25 @@ export function Navbar() {
                     {item.title}
                   </Link>
                 );
-              })}
+              })()}
 
-            {/* Horoscopes - just above CTA */}
-            {(() => {
-              const item = navItems.find((i) => i.title === "Horoscopes")!;
-              const Icon = item.icon;
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  href={item.href}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={cn(
-                    "text-2xl font-serif italic text-foreground/80 hover:text-primary transition-all flex items-center gap-2.5 text-nowrap",
-                    isActive && "text-primary font-medium",
-                  )}
-                >
-                  <Icon className="size-6 shrink-0 text-primary" />
-                  {item.title}
-                </Link>
-              );
-            })()}
-
-            {/* Mobile CTA Link */}
-            <Link
-              href={ctaHref}
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={cn(
-                "text-2xl font-serif italic transition-all flex items-center gap-2.5 mt-2 text-nowrap",
-                pathname === "/onboarding" ||
-                  pathname === "/dashboard" ||
-                  pathname === "/natal-chart"
-                  ? "text-primary font-medium"
-                  : "text-foreground/80 hover:text-primary",
-              )}
-            >
-              <GiMazeCornea className="size-6 shrink-0 text-primary" />
-              {ctaLabel}
-            </Link>
-          </nav>
+              {/* Mobile CTA Link */}
+              <Link
+                href={ctaHref}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={cn(
+                  "text-2xl font-serif italic transition-all flex items-center gap-2.5 mt-2 text-nowrap",
+                  pathname === "/onboarding" ||
+                    pathname === "/dashboard" ||
+                    pathname === "/natal-chart"
+                    ? "text-primary font-medium"
+                    : "text-foreground/80 hover:text-primary",
+                )}
+              >
+                <GiMazeCornea className="size-6 shrink-0 text-primary" />
+                {ctaLabel}
+              </Link>
+            </nav>
           </div>
         </div>
 

@@ -633,6 +633,9 @@ export default defineSchema({
         timingInitialDecodeMs: v.optional(v.number()),
         timingTotalMs: v.optional(v.number()),
         debugModelUsed: v.optional(v.string()),
+        // Audio generation (e.g. binaural beats)
+        audioData: v.optional(v.string()), // DEPRECATED: old base64 inline — too large for Convex doc limits
+        audioStorageId: v.optional(v.id("_storage")), // Convex file storage — preferred
         createdAt: v.number(),
     })
         .index("by_session", ["sessionId"])

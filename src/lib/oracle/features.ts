@@ -88,10 +88,11 @@ export const ORACLE_FEATURES: readonly OracleFeatureDefinition[] = [
   {
     key: "binaural_beat",
     label: "Create binaural beat",
-    shortLabel: "Create binaural beat",
+    shortLabel: "Binaural beat",
     description: "Generate an astrology-tuned binaural beat",
-    menuGroup: "more",
-    implemented: false,
+    defaultPrompt: "Generate a calming theta-wave binaural beat tuned to my astrological energy.",
+    menuGroup: "primary",
+    implemented: true,
     requiresBirthData: false,
   },
   {

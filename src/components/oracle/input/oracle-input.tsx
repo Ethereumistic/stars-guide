@@ -162,15 +162,22 @@ export function OracleInput({
                 <DropdownMenuSubContent className="w-64 border-galactic/20 bg-background/95 backdrop-blur-xl">
                   {moreFeatureItems.map((feature) => {
                     const disabled = isFeatureDisabled(feature)
+                    const reason = getFeatureDisabledReason(feature)
                     return (
                       <DropdownMenuItem
                         key={feature.key}
                         disabled={disabled}
-                        className="gap-2.5 text-white/80"
+                        className="gap-2.5 cursor-pointer text-white/80 hover:text-white focus:text-white"
+                        onSelect={() => !disabled && onFeatureSelect(feature.key)}
                       >
                         <Wand2 className="w-4 h-4 text-galactic" />
                         <span className="text-sm">{feature.label}</span>
-                        <DropdownMenuShortcut>Soon</DropdownMenuShortcut>
+                        {!feature.implemented && (
+                          <DropdownMenuShortcut>Soon</DropdownMenuShortcut>
+                        )}
+                        {feature.implemented && reason && (
+                          <span className="ml-auto text-[10px] text-white/30">{reason}</span>
+                        )}
                       </DropdownMenuItem>
                     )
                   })}
