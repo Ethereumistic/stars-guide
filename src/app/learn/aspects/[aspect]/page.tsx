@@ -112,13 +112,17 @@ export default function AspectDetailPage() {
 
                     <div className="flex flex-col gap-8">
                         <AspectDevelopmentalArc data={data} ui={ui} />
-                        <AspectRealTimeCard data={data} ui={ui} />
                     </div>
                     <div className="flex flex-col gap-8">
                         <AspectInterpretiveContexts data={data} ui={ui} />
                         <AspectTechnicalData data={data} ui={ui} />
                     </div>
 
+                </div>
+
+                {/* ── Real-Time Aspects (full width) ─────────────────────── */}
+                <div className="mt-8">
+                    <AspectRealTimeCard data={data} ui={ui} />
                 </div>
 
                 <SystemArchiveLinkages category="aspects" currentId={data.id} />
