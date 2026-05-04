@@ -4,6 +4,15 @@ import { useMemo, useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { compositionalPlanets } from "@/astrology/planets";
 import { planetUIConfig } from "@/config/planet-ui";
+import {
+  Crown,
+  Flame,
+  Droplets,
+  Wind,
+  Mountain,
+  Ruler,
+  Moon,
+} from "lucide-react";
 
 const PLANET_IDS = [
   "sun",
@@ -38,6 +47,98 @@ const fallbackColors: Record<string, string> = {
   neptune: "#4682B4",
   pluto: "#8B7355",
 };
+
+const elementIcons: Record<string, React.ReactNode> = {
+  Fire: <Flame className="w-4 h-4" />,
+  Water: <Droplets className="w-4 h-4" />,
+  Air: <Wind className="w-4 h-4" />,
+  Earth: <Mountain className="w-4 h-4" />,
+};
+
+interface Spec {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+}
+
+function buildSpecs(planetData: (typeof compositionalPlanets)[number]): Spec[] {
+  const specs: Spec[] = [];
+
+  if (planetData.astrology?.archetype) {
+    specs.push({
+      label: "Archetype",
+      value: planetData.astrology.archetype,
+      icon: <Crown className="w-4 h-4" />,
+    });
+  }
+
+  if (planetData.astrology?.element) {
+    const element = planetData.astrology.element.split(",")[0].trim();
+    specs.push({
+      label: "Element",
+      value: element,
+      icon: elementIcons[element] || null,
+    });
+  }
+
+  if (planetData.astronomy?.diameter) {
+    const short = planetData.astronomy.diameter.split("(")[0].trim();
+    specs.push({
+      label: "Diameter",
+      value: short,
+      icon: <Ruler className="w-4 h-4" />,
+    });
+  }
+
+  if (planetData.astronomy?.moons) {
+    const short = planetData.astronomy.moons.split("(")[0].trim();
+    specs.push({
+      label: "Moons",
+      value: short,
+      icon: <Moon className="w-4 h-4" />,
+    });
+  }
+
+  return specs;
+}
+
+function SpecGrid({
+  planetData,
+}: {
+  planetData: (typeof compositionalPlanets)[number];
+}) {
+  const specs = buildSpecs(planetData);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.35 }}
+      className="relative z-10 w-full"
+    >
+      <div className="grid grid-cols-2 gap-px bg-black/50 border border-white/10 rounded-md overflow-hidden">
+        {specs.map((spec, i) => (
+          <div
+            key={i}
+            className="p-3 flex flex-row items-center justify-between group hover:bg-white/[0.02] transition-colors"
+          >
+            <div className="flex flex-col space-y-1 min-w-0">
+              <span className="text-[8px] font-mono uppercase tracking-[0.2em] opacity-40">
+                {spec.label}
+              </span>
+              <p className="text-sm font-serif text-white tracking-tight truncate">
+                {spec.value}
+              </p>
+            </div>
+            <div className="flex items-center justify-center opacity-20 group-hover:opacity-40 transition-opacity pl-2 shrink-0">
+              {spec.icon}
+            </div>
+          </div>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
 
 export function PlanetShowcase() {
   const planetId = useMemo(() => getDailyPlanetId(), []);
@@ -126,24 +227,9 @@ export function PlanetShowcase() {
         {planetData.domain}
       </motion.p>
 
-      {/* Psychological Function Quote */}
-      {planetData.psychologicalFunction && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.35 }}
-          className="relative z-10 w-full rounded-md border border-white/[0.06] bg-white/[0.02] p-4"
-        >
-          <div
-            className="absolute top-0 left-0 w-full h-px"
-            style={{
-              background: `linear-gradient(to right, transparent, ${themeColor}25, transparent)`,
-            }}
-          />
-          <p className="font-serif text-[13px] text-white/55 leading-relaxed italic text-center">
-            &ldquo;{planetData.psychologicalFunction}&rdquo;
-          </p>
-        </motion.div>
+      {/* Spec Grid */}
+      {planetData.astronomy && planetData.astrology && (
+        <SpecGrid planetData={planetData} />
       )}
 
       {/* Bottom divider line */}

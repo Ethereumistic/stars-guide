@@ -10,6 +10,7 @@ import { getPlanetTelemetry } from "@/lib/planets/telemetry";
 import { TbArrowRight } from "react-icons/tb";
 import type { compositionalSigns } from "@/astrology/signs";
 import type { PlanetTelemetry } from "@/lib/planets/telemetry";
+import type { RetrogradeWindow } from "../cosmic-today";
 
 /**
  * Scans forward day-by-day to find when the current retrograde period ends.
@@ -53,13 +54,16 @@ function daysBetween(a: Date, b: Date): number {
 }
 
 interface RetrogradeProps {
+    window: RetrogradeWindow;
     planetId: string;
     planetName: string;
     telemetry: PlanetTelemetry;
     signData: typeof compositionalSigns[number];
 }
 
-export function Retrograde({ planetId, planetName, telemetry, signData }: RetrogradeProps) {
+export function Retrograde({ window: retroWindow, planetId, planetName, telemetry, signData }: RetrogradeProps) {
+    const isActive = retroWindow.isActive;
+    const retroDaysLeft = retroWindow.daysLeft;
     const planetUi = planetUIConfig[planetId];
     const signUi = zodiacUIConfig[telemetry.signId];
     const elementUi = elementUIConfig[signData.element];
@@ -69,27 +73,29 @@ export function Retrograde({ planetId, planetName, telemetry, signData }: Retrog
     const imageScale = planetUi?.imageScale ?? 1;
     const themeColor = planetUi?.themeColor ?? "#f97316";
 
-    const [endDate, setEndDate] = useState<Date | null>(null);
-    const [startDate, setStartDate] = useState<Date | null>(null);
+    const [endDate, setEndDate] = useState<Date | null>(retroWindow.endDate);
+    const [startDate, setStartDate] = useState<Date | null>(retroWindow.isActive ? null : retroWindow.startDate);
     const [progress, setProgress] = useState<number>(0);
 
     useEffect(() => {
-        const now = new Date();
+        if (isActive) {
+            const now = new Date();
+            const start = findRetrogradeStartDate(planetId, now);
+            const end = findRetrogradeEndDate(planetId, now);
+            setStartDate(start);
+            setEndDate(end);
 
-        const end = findRetrogradeEndDate(planetId, now);
-        const start = findRetrogradeStartDate(planetId, now);
-
-        setEndDate(end);
-        setStartDate(start);
-
-        if (start && end) {
-            const totalDays = daysBetween(start, end);
-            const elapsed = daysBetween(start, now);
-            setProgress(Math.max(0, Math.min(100, (elapsed / totalDays) * 100)));
+            if (start && end) {
+                const totalDays = daysBetween(start, end);
+                const elapsed = daysBetween(start, now);
+                setProgress(Math.max(0, Math.min(100, (elapsed / totalDays) * 100)));
+            }
         }
-    }, [planetId]);
+    }, [planetId, isActive]);
 
-    const daysLeft = endDate ? daysBetween(new Date(), endDate) : null;
+    const daysLeft = isActive
+        ? endDate ? daysBetween(new Date(), endDate) : null
+        : retroDaysLeft;
 
     return (
         <motion.div
@@ -113,7 +119,7 @@ export function Retrograde({ planetId, planetName, telemetry, signData }: Retrog
                     <h3
                         className="text-3xl md:text-5xl font-serif tracking-tight leading-[0.85]"
                     >
-                        Retrograde
+                        {isActive ? "Retrograde" : "Next Retrograde"}
                     </h3>
                 </div>
 
@@ -174,7 +180,9 @@ export function Retrograde({ planetId, planetName, telemetry, signData }: Retrog
                                     <span className="text-xl md:text-2xl font-serif text-white/65 tabular-nums">
                                         {daysLeft !== null && daysLeft > 0 ? daysLeft : "—"}
                                     </span>
-                                    <span className="text-[10px] font-mono text-white/30 uppercase tracking-wider">days left</span>
+                                    <span className="text-[10px] font-mono text-white/30 uppercase tracking-wider">
+                                        {isActive ? "days left" : "days away"}
+                                    </span>
                                 </div>
 
                                 <span className="text-white/8">|</span>
@@ -195,23 +203,25 @@ export function Retrograde({ planetId, planetName, telemetry, signData }: Retrog
                                 </div>
                             </div>
 
-                            <div className="relative w-full h-[2px] bg-white/[0.06] rounded-full overflow-hidden mb-3">
-                                <motion.div
-                                    initial={{ width: 0 }}
-                                    whileInView={{ width: `${progress}%` }}
-                                    viewport={{ once: true }}
-                                    transition={{ duration: 1.4, delay: 0.6, ease: "easeOut" }}
-                                    className="absolute inset-y-0 left-0 rounded-full"
-                                    style={{
-                                        background: `linear-gradient(to right, ${themeColor}25, ${themeColor}60)`,
-                                        boxShadow: `0 0 8px ${themeColor}15`,
-                                    }}
-                                />
-                            </div>
+                            {isActive && (
+                                <div className="relative w-full h-[2px] bg-white/[0.06] rounded-full overflow-hidden mb-3">
+                                    <motion.div
+                                        initial={{ width: 0 }}
+                                        whileInView={{ width: `${progress}%` }}
+                                        viewport={{ once: true }}
+                                        transition={{ duration: 1.4, delay: 0.6, ease: "easeOut" }}
+                                        className="absolute inset-y-0 left-0 rounded-full"
+                                        style={{
+                                            background: `linear-gradient(to right, ${themeColor}25, ${themeColor}60)`,
+                                            boxShadow: `0 0 8px ${themeColor}15`,
+                                        }}
+                                    />
+                                </div>
+                            )}
 
                             <div className="flex items-center justify-between">
                                 <span className="font-mono text-[9px] text-white/20">
-                                    {startDate ? formatDate(startDate) : "—"} → {endDate ? formatDate(endDate) : "—"}
+                                    {formatDate(retroWindow.startDate)} → {formatDate(retroWindow.endDate)}
                                 </span>
                                 <span className="flex items-center gap-1 font-mono text-[9px] text-white/30 group-hover:text-white/60 transition-colors">
                                     Explore <TbArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-0.5" />

@@ -5,6 +5,7 @@ import * as Astronomy from "astronomy-engine";
 import { getPlanetTelemetry, type PlanetTelemetry } from "@/lib/planets/telemetry";
 import { planetUIConfig } from "@/config/planet-ui";
 import { compositionalSigns } from "@/astrology/signs";
+import { compositionalPlanets } from "@/astrology/planets";
 import { zodiacUIConfig } from "@/config/zodiac-ui";
 import { elementUIConfig } from "@/config/elements-ui";
 import { ElementType } from "@/astrology/elements";
@@ -14,6 +15,109 @@ import { Retrograde } from "./cosmic-today/retrograde";
 import { CosmicConnections } from "./cosmic-today/cosmic-connections";
 
 const PLANET_IDS = ["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune", "pluto"] as const;
+
+const RETROGRADE_PLANETS = [
+    "mercury",
+    "venus",
+    "mars",
+    "jupiter",
+    "saturn",
+    "uranus",
+    "neptune",
+    "pluto",
+] as const;
+
+export interface RetrogradeWindow {
+    planetId: string;
+    planetName: string;
+    startDate: Date;
+    endDate: Date;
+    isActive: boolean;
+    daysLeft: number | null;
+}
+
+/**
+ * Find the next retrograde window for a planet — either currently active or upcoming.
+ * Mirrors the logic from astronomical-engine-slide.tsx.
+ */
+function findNextRetrogradeWindow(planetId: string, fromDate: Date): RetrogradeWindow | null {
+    const planet = compositionalPlanets.find(p => p.id === planetId);
+    if (!planet) return null;
+
+    const maxScanDays = 730;
+    const todayTelemetry = getPlanetTelemetry(planetId, fromDate);
+    const currentlyRetro = todayTelemetry?.retrograde ?? false;
+
+    if (currentlyRetro) {
+        // Currently retrograde — find the end date
+        const d = new Date(fromDate);
+        for (let i = 0; i < maxScanDays; i++) {
+            d.setDate(d.getDate() + 1);
+            const t = getPlanetTelemetry(planetId, d);
+            if (t && !t.retrograde) {
+                return {
+                    planetId,
+                    planetName: planet.name,
+                    startDate: new Date(fromDate),
+                    endDate: new Date(d),
+                    isActive: true,
+                    daysLeft: Math.round((d.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24)),
+                };
+            }
+        }
+        return null;
+    }
+
+    // Not currently retrograde — find the next one
+    const scanStart = new Date(fromDate);
+    for (let i = 0; i < maxScanDays; i++) {
+        scanStart.setDate(scanStart.getDate() + 1);
+        const t = getPlanetTelemetry(planetId, scanStart);
+        if (t?.retrograde) {
+            const startDate = new Date(scanStart);
+            const scanEnd = new Date(startDate);
+            for (let j = 0; j < maxScanDays; j++) {
+                scanEnd.setDate(scanEnd.getDate() + 1);
+                const endT = getPlanetTelemetry(planetId, scanEnd);
+                if (endT && !endT.retrograde) {
+                    return {
+                        planetId,
+                        planetName: planet.name,
+                        startDate,
+                        endDate: new Date(scanEnd),
+                        isActive: false,
+                        daysLeft: Math.round((startDate.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24)),
+                    };
+                }
+            }
+            break;
+        }
+    }
+    return null;
+}
+
+/**
+ * Find the most relevant retrograde to display:
+ * - If any planet is currently retrograde, pick the one ending soonest.
+ * - Otherwise, pick the next upcoming retrograde across all planets.
+ */
+function findFeaturedRetrograde(fromDate: Date): RetrogradeWindow | null {
+    const windows: RetrogradeWindow[] = [];
+
+    for (const planetId of RETROGRADE_PLANETS) {
+        const w = findNextRetrogradeWindow(planetId, fromDate);
+        if (w) windows.push(w);
+    }
+
+    if (windows.length === 0) return null;
+
+    // Prioritize active retrogrades, sorted by daysLeft ascending (ending soonest first)
+    const active = windows.filter(w => w.isActive).sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0));
+    if (active.length > 0) return active[0];
+
+    // No active retrogrades — return the next upcoming one
+    return windows.sort((a, b) => a.startDate.getTime() - b.startDate.getTime())[0];
+}
 
 interface TransitEntry {
     id: string;
@@ -52,20 +156,13 @@ function buildTransitEntry(id: string): TransitEntry | null {
     };
 }
 
-export interface CosmicTodayProps {
-    /**
-     * Force a retrograde card for a planet, even if it's not currently retrograde.
-     * Set to a planet ID like "mercury" to debug. Remove or set to undefined to go live.
-     */
-    debugRetrogradePlanet?: string;
-}
-
-export function CosmicToday({ debugRetrogradePlanet }: CosmicTodayProps = {}) {
+export function CosmicToday() {
     const [transits, setTransits] = useState<TransitEntry[]>([]);
     const [moonPhase, setMoonPhase] = useState<{ name: string; illumination: number } | null>(null);
     const [moonPhaseAngle, setMoonPhaseAngle] = useState<number>(0);
     const [sunEntry, setSunEntry] = useState<TransitEntry | null>(null);
     const [moonEntry, setMoonEntry] = useState<TransitEntry | null>(null);
+    const [retrogradeWindow, setRetrogradeWindow] = useState<RetrogradeWindow | null>(null);
 
     useEffect(() => {
         const now = new Date();
@@ -84,28 +181,22 @@ export function CosmicToday({ debugRetrogradePlanet }: CosmicTodayProps = {}) {
         const phaseInfo = getMoonPhaseInfo(moonElongation);
         setMoonPhase(phaseInfo);
         setMoonPhaseAngle(moonElongation);
+
+        const featured = findFeaturedRetrograde(now);
+        setRetrogradeWindow(featured);
     }, []);
 
     if (!sunEntry) return null;
 
-    // Real retrogrades (planets actually retrograde right now)
-    const retrogradeEntries = transits.filter(e => e.telemetry.retrograde);
-
-    // If debug planet is set, ensure it's in the list (avoid duplicate if already retrograde)
-    const debugAlreadyRetro = retrogradeEntries.some(e => e.id === debugRetrogradePlanet);
-    let debugEntry: TransitEntry | null = null;
-    if (debugRetrogradePlanet && !debugAlreadyRetro) {
-        debugEntry = buildTransitEntry(debugRetrogradePlanet);
-    }
-
-    const allRetroEntries = [...retrogradeEntries, ...(debugEntry ? [debugEntry] : [])];
-    const showGrid = allRetroEntries.length > 0;
+    // Build a TransitEntry for the retrograde planet (for sign data etc.)
+    const retrogradeEntry = retrogradeWindow
+        ? buildTransitEntry(retrogradeWindow.planetId)
+        : null;
 
     return (
         <section className="relative w-full overflow-hidden">
             {/* ═════════════ MAIN FEATURE ═════════════ */}
-            <div className={`grid grid-cols-1 gap-6 max-w-[1600px] mx-auto mb-8 ${showGrid ? "lg:grid-cols-3" : "lg:grid-cols-2"
-                }`}>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-[1600px] mx-auto mb-8">
 
                 <SignSeason
                     signData={sunEntry.signData}
@@ -123,15 +214,15 @@ export function CosmicToday({ debugRetrogradePlanet }: CosmicTodayProps = {}) {
                     />
                 )}
 
-                {allRetroEntries.map((entry) => (
+                {retrogradeWindow && retrogradeEntry && (
                     <Retrograde
-                        key={entry.id}
-                        planetId={entry.id}
-                        planetName={entry.name}
-                        telemetry={entry.telemetry}
-                        signData={entry.signData}
+                        window={retrogradeWindow}
+                        planetId={retrogradeEntry.id}
+                        planetName={retrogradeEntry.name}
+                        telemetry={retrogradeEntry.telemetry}
+                        signData={retrogradeEntry.signData}
                     />
-                ))}
+                )}
             </div>
 
             {/* ═════════════ COSMIC CONNECTIONS ═════════════ */}
