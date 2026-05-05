@@ -74,6 +74,7 @@ export function OracleInput({
       if (consent === null) return true // no consent record
       if (!consent.oracleCanReadJournal) return true // revoked
     }
+    // Features that don't require journal consent are never blocked by consent loading
     return false
   }
 

@@ -12,6 +12,10 @@ import {
   getFeatureDefaultPrompt,
   type OracleFeatureKey,
 } from "@/lib/oracle/features";
+import {
+  serializeBeat,
+  type BinauralBeatParams,
+} from "@/lib/binaural-presets";
 import { useOracleStore } from "@/store/use-oracle-store";
 import { useUserStore } from "@/store/use-user-store";
 import {
@@ -79,6 +83,27 @@ export default function OracleNewPage() {
       inputRef.current?.focus();
     },
     [setSelectedFeature],
+  );
+
+  const handleBinauralGenerate = useCallback(
+    async (params: BinauralBeatParams) => {
+      if (quota && !quota.allowed) return;
+
+      const message = serializeBeat(params);
+      try {
+        const newSessionId = await createSession({
+          featureKey: "binaural_beats",
+          questionText: message,
+        });
+
+        setSessionId(newSessionId);
+        router.push(`/oracle/chat/${newSessionId}`);
+        // Do NOT call setOracleResponding — beat messages don't invoke Oracle AI
+      } catch (error) {
+        console.error("Failed to create session for binaural beat:", error);
+      }
+    },
+    [quota, createSession, setSessionId, router],
   );
 
   const handleSubmit = useCallback(async () => {
@@ -182,6 +207,7 @@ export default function OracleNewPage() {
               onFeatureSelect={handleFeatureSelect}
               onFeatureClear={clearSelectedFeature}
               birthData={user?.birthData}
+              onBinauralGenerate={handleBinauralGenerate}
             />
 
             {quota && quota.remaining !== undefined && (

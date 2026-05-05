@@ -157,7 +157,7 @@ export function BinauralBeatsCard({ onDismiss, onGenerate }: BinauralBeatsCardPr
       {/* ── Playing: compact visualizer + info ── */}
       {isPlaying && (
         <div className="flex items-center gap-3 px-1">
-          <div className="flex items-center gap-[2px] h-4 shrink-0">
+          <div className="flex items-center gap-[2px] h-4 shrink-0 overflow-visible">
             {Array.from({ length: 16 }).map((_, i) => (
               <div key={i} className="binaural-bar" style={{ animationDelay: `${i * 50}ms` }} />
             ))}
