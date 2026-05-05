@@ -4,6 +4,7 @@ export const ORACLE_FEATURE_KEYS = [
   "synastry_core",
   "synastry_full",
   "sign_card_image",
+  "binaural_beats",
   "journal_recall",
 ] as const
 
@@ -84,7 +85,15 @@ export const ORACLE_FEATURES: readonly OracleFeatureDefinition[] = [
     implemented: false,
     requiresBirthData: true,
   },
-  // binaural_beat removed — will be rebuilt separately
+  {
+    key: "binaural_beats",
+    label: "Binaural Beats",
+    shortLabel: "Binaural Beats",
+    description: "Generate binaural beat sessions for focus, meditation, or sleep",
+    menuGroup: "primary",
+    implemented: true,
+    requiresBirthData: false,
+  },
   {
     key: "journal_recall",
     label: "Cosmic Recall",

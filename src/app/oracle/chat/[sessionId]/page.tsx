@@ -18,6 +18,13 @@ import {
 import { GiCursedStar } from "react-icons/gi";
 import ReactMarkdown from "react-markdown";
 import { OracleInput } from "@/components/oracle/input/oracle-input";
+import { BinauralBeatHistoryCard } from "@/components/oracle/input/binaural-beat-history-card";
+import {
+  isBeatMessage as isBinauralBeatMessage,
+  parseBeat as parseBinauralBeatMessage,
+  serializeBeat as serializeBinauralBeatMessage,
+  type BinauralBeatParams,
+} from "@/lib/binaural-presets";
 import { Button } from "@/components/ui/button";
 import { getFeatureDefaultPrompt, isImplementedFeature, type OracleFeatureKey } from "@/lib/oracle/features";
 import { useOracleStore } from "@/store/use-oracle-store";
@@ -391,6 +398,19 @@ export default function OracleChatPage() {
         });
     }, [clearSelectedFeature, sessionId, updateSessionFeatureMutation]);
 
+    const handleBinauralGenerate = useCallback(
+      async (params: BinauralBeatParams) => {
+        const message = serializeBinauralBeatMessage(params);
+        await addMessageMutation({
+          sessionId,
+          role: "user",
+          content: message,
+        });
+        // Do NOT call invokeOracle — this is a metadata message, not a question
+      },
+      [sessionId, addMessageMutation],
+    );
+
     const handleSendFollowUp = useCallback(async () => {
         const content = inputValue.trim() || getFeatureDefaultPrompt(selectedFeatureKey);
         if (!content || isStreaming) return;
@@ -486,6 +506,18 @@ export default function OracleChatPage() {
                             transition={{ duration: 0.4, delay: i * 0.05 }}
                         >
                             {msg.role === "user" ? (
+                                isBinauralBeatMessage(msg.content) ? (
+                                    (() => {
+                                        const beatParams = parseBinauralBeatMessage(msg.content);
+                                        return beatParams ? (
+                                            <div className="flex justify-end">
+                                                <div className="max-w-[80%]">
+                                                    <BinauralBeatHistoryCard params={beatParams} />
+                                                </div>
+                                            </div>
+                                        ) : null;
+                                    })()
+                                ) : (
                                 /* User message */
                                 <div className="flex justify-end">
                                     <div className="max-w-[80%] bg-galactic/15 border border-galactic/20 rounded-2xl rounded-br-md px-5 py-3.5">
@@ -494,6 +526,7 @@ export default function OracleChatPage() {
                                         </p>
                                     </div>
                                 </div>
+                                )
                             ) : msg.role === "assistant" ? (() => {
                                 const isLastAssistant = i === allMessages.length - 1 ||
                                     !allMessages.slice(i + 1).some(m => m.role === "assistant");
@@ -692,6 +725,7 @@ export default function OracleChatPage() {
                                 onFeatureSelect={handleFeatureSelect}
                                 onFeatureClear={handleFeatureClear}
                                 birthData={user?.birthData}
+                                onBinauralGenerate={handleBinauralGenerate}
                             />
 
                             {/* Quota indicator */}

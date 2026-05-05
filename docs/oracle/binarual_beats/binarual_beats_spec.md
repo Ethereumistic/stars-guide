@@ -10,16 +10,6 @@ from UI cards, hits generate, and gets a playing binaural beat session.
 
 ---
 
-## What Exists That Must Be Deleted First
-
-There is existing Worker code that attempted to generate full-length binaural beat
-audio (full-duration WAV or MP3 for 30–60 minutes). Delete it entirely. It was
-architecturally wrong. Do not salvage it. The new approach generates a SHORT loop
-segment (~30 seconds) and loops it in the browser. Also delete any Convex action
-that called that Worker for audio generation.
-
----
-
 ## Architecture Overview
 
 ```
@@ -45,8 +35,7 @@ playback logic.
 
 ### 1.1 Location
 
-This Worker already exists in your project. Find it, delete the old binaural
-generation code, and replace with the implementation below. The Worker handles
+This Worker does not yet exist in the project. Create it, and follow the implementation below. The Worker handles
 all audio generation routes.
 
 ### 1.2 wrangler.toml — Required Config Change

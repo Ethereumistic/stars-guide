@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Plus, Send, Sparkles, Wand2, X } from "lucide-react"
+import { Brain, Plus, Send, Sparkles, Wand2, X } from "lucide-react"
 import { useQuery } from "convex/react"
 import { api } from "../../../../convex/_generated/api"
 
@@ -26,6 +26,8 @@ import {
   getOracleFeature,
   isBirthChartFeature,
 } from "@/lib/oracle/features"
+import { BinauralBeatsCard } from "@/components/oracle/input/binaural-beats-card"
+import type { BinauralBeatParams } from "@/lib/binaural-presets"
 
 interface OracleInputProps {
   value: string
@@ -39,6 +41,7 @@ interface OracleInputProps {
   onFeatureSelect: (featureKey: OracleFeatureKey) => void
   onFeatureClear: () => void
   birthData?: OracleBirthData | null
+  onBinauralGenerate?: (params: BinauralBeatParams) => void
 }
 
 export function OracleInput({
@@ -53,9 +56,11 @@ export function OracleInput({
   onFeatureSelect,
   onFeatureClear,
   birthData,
+  onBinauralGenerate,
 }: OracleInputProps) {
   const activeFeature = getOracleFeature(featureKey)
   const showBirthPreview = isBirthChartFeature(featureKey)
+  const showBinauralBeats = featureKey === "binaural_beats"
 
   // Check journal consent for features that require it
   const consent = useQuery(api.journal.consent.getConsent)
@@ -113,6 +118,13 @@ export function OracleInput({
 
       {showBirthPreview ? <OracleSignPreviewCards birthData={birthData} /> : null}
 
+      {showBinauralBeats ? (
+        <BinauralBeatsCard
+          onDismiss={onFeatureClear}
+          onGenerate={onBinauralGenerate}
+        />
+      ) : null}
+
       <div className="relative group">
         <div className="absolute -inset-1 bg-linear-to-r from-galactic/20 via-primary/10 to-galactic/20 rounded-2xl blur opacity-30 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
         <div className="relative flex items-center bg-background/90 backdrop-blur-2xl border border-white/10 focus-within:border-galactic/50 rounded-2xl p-1.5 shadow-xl transition-all h-14 gap-1">
@@ -143,7 +155,11 @@ export function OracleInput({
                     className="gap-2.5 cursor-pointer text-white/80 hover:text-white focus:text-white"
                     onSelect={() => !disabled && onFeatureSelect(feature.key)}
                   >
-                    <Wand2 className="w-4 h-4 text-galactic" />
+                    {feature.key === "binaural_beats" ? (
+                      <Brain className="w-4 h-4 text-galactic" />
+                    ) : (
+                      <Wand2 className="w-4 h-4 text-galactic" />
+                    )}
                     <span className="text-sm">{feature.label}</span>
                     {reason && (
                       <span className="ml-auto text-[10px] text-white/30">{reason}</span>
