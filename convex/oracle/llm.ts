@@ -13,6 +13,7 @@ import {
 import {
   buildUniversalBirthContext,
   getBirthChartDepthInstructions,
+  getBinauralBeatContext,
 } from "../../lib/oracle/featureContext";
 import {
   getOracleFeature,
@@ -30,6 +31,7 @@ import {
   buildProviderUrl,
   tierForIndex,
 } from "../../lib/oracle/providers";
+import { generateBinauralBeat } from "../../src/lib/binaural-presets";
 
 const CRISIS_PATTERNS: RegExp[] = [
   /\b(suicide|suicidal)\b/i,
@@ -248,6 +250,7 @@ export const invokeOracle = action({
 
     // ── Build feature injection (dynamic depth for birth_chart) ──────────────
     let featureInjection = "";
+    let binauralParams: any = undefined;
     if (activeFeature) {
       if (activeFeature.key === "birth_chart") {
         // Birth chart uses depth-specific instructions (separate from data)
@@ -262,6 +265,11 @@ export const invokeOracle = action({
         } catch (e) {
           featureInjection = getBirthChartDepthInstructions(depth);
         }
+      } else if (activeFeature.key === "binaural_beats") {
+        // Binaural beats — deterministic generation + context injection
+        const beat = generateBinauralBeat(args.userQuestion, user?.birthData);
+        binauralParams = beat;
+        featureInjection = getBinauralBeatContext(beat);
       } else {
         // Other features use their standard injection text
         const featureRecord = await ctx.runQuery(api.oracle.features.getFeatureInjection, {
@@ -437,6 +445,14 @@ export const invokeOracle = action({
               timingInitialDecodeMs: timingMetrics.initialDecodeMs,
               timingTotalMs: timingMetrics.totalMs,
               debugModelUsed: i === 0 && debugModelUsed ? debugModelUsed : undefined,
+            });
+          }
+
+          // Store binaural params on the message (deterministic generation, not LLM output)
+          if (result.messageId && binauralParams) {
+            await ctx.runMutation(internal.oracle.sessions.patchMessageBinauralParams, {
+              messageId: result.messageId,
+              binauralParams,
             });
           }
 

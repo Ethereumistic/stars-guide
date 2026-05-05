@@ -480,6 +480,7 @@ export default function OracleChatPage() {
         audioData: (m as any).audioData as string | undefined,
         audioStorageId: (m as any).audioStorageId as string | undefined,
         audioUrl: (m as any).audioUrl as string | undefined,
+        binauralParams: (m as any).binauralParams as (BinauralBeatParams & { rationale?: any }) | undefined,
     }));
     const allMessages = pendingUserMessage && !serverMessages.some(m => m.role === "user" && m.content === pendingUserMessage)
         ? [...serverMessages, { role: "user" as const, content: pendingUserMessage, createdAt: Date.now() }]
@@ -533,6 +534,9 @@ export default function OracleChatPage() {
                                 const isStreamingThis = isLastAssistant && isStreaming;
                                 const isEmpty = !msg.content;
 
+                                // Binaural params from message metadata (deterministic generation)
+                                const beatParams = !isStreamingThis ? (msg as any).binauralParams as (BinauralBeatParams & { rationale?: any }) | undefined : undefined;
+
                                 // Empty streaming message → show loading dots
                                 if (isStreamingThis && isEmpty) {
                                     return (
@@ -557,6 +561,10 @@ export default function OracleChatPage() {
                                 }
 
                                 // Normal or streaming-with-content assistant message
+                                const displayContent = isStreamingThis
+                                    ? msg.content
+                                    : msg.content;
+
                                 return (
                                     <div className="flex gap-3">
                                         <div className="shrink-0 w-8 h-8 rounded-full bg-galactic/15 border border-galactic/25 flex items-center justify-center mt-1">
@@ -565,7 +573,7 @@ export default function OracleChatPage() {
                                         <div className="flex-1 min-w-0">
                                             <div className="bg-white/4 border border-white/8 rounded-2xl rounded-tl-md px-5 py-4">
                                                 <div className="text-sm md:text-base text-white/85 leading-relaxed">
-                                                    <AssistantMessageContent content={msg.content} isStreamingThis={isStreamingThis} />
+                                                    <AssistantMessageContent content={displayContent} isStreamingThis={isStreamingThis} />
                                                 </div>
                                                 {(msg as any).audioUrl ? (
                                                     <div className="mt-3">
@@ -611,6 +619,20 @@ export default function OracleChatPage() {
                                                             ✦ Journal about this
                                                         </button>
                                                     )}
+                                                </div>
+                                            )}
+                                            {/* Binaural beat card — rendered from message metadata */}
+                                            {!isStreamingThis && beatParams && (
+                                                <div className="mt-3">
+                                                    {beatParams.rationale && (
+                                                        <p className="text-[10px] text-white/35 italic mb-1.5 pl-1">
+                                                            {beatParams.rationale.beatBand} beat
+                                                            {beatParams.rationale.personalization
+                                                                ? ` — ${beatParams.rationale.personalization}`
+                                                                : ""}
+                                                        </p>
+                                                    )}
+                                                    <BinauralBeatHistoryCard params={beatParams} />
                                                 </div>
                                             )}
                                         </div>

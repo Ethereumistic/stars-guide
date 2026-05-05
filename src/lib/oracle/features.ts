@@ -232,6 +232,36 @@ const DEPTH_SIGNAL_FULL_PATTERNS: RegExp[] = [
 ]
 
 /**
+ * Regex patterns for binaural beat intent.
+ * Checked AFTER journal recall and AFTER birth chart, since binaural
+ * intent is less common than chart intent.
+ */
+const BINAURAL_INTENT_PATTERNS: RegExp[] = [
+  // Explicit generation requests (with optional pronoun: "generate me a beat", "make me a beat")
+  /\b(generate|create|make|craft|compose)\s+(me\s+)?(a\s+)?(binaural\s+)?beat/i,
+  /\b(generate|create|make)\s+(me\s+)?(a\s+)?(sound|frequency|tone|audio)\s+(for|tuned|aligned)/i,
+
+  // Binaural-specific keywords
+  /\bbinaural\b.*\b(for|tuned|aligned|my|generate|create|me)\b/i,
+  /\b(frequency|frequencies)\s+(for|tuned|aligned|to\s+my)\b/i,
+
+  // Intent + frequency/beat combination
+  /\b(sleep|meditation|focus|concentration|relaxation|peak)\s+(frequency|frequencies|beat|beats|tone|tones|sound|sounds)\b/i,
+  /\b(beat|beats|tone|tones)\s+(for|to\s+help|to\s+aid)\s+(sleep|meditation|focus|concentration|relaxation)\b/i,
+
+  // Astrological + frequency crossover
+  /\bbinaural\b.*\b(my\s+)?(chart|sign|birth|sun|moon|rising|placement|element)\b/i,
+  /\b(frequency|sound|beat)\s+(for|aligned|tuned)\s+.*\b(sign|chart|moon|sun|mercury|venus|mars|retrograde|transit)\b/i,
+
+  // "Sound healing" / "frequency healing" style requests
+  /\b(sound\s+healing|frequency\s+healing|solfeggio|healing\s+frequency|healing\s+sound)\b/i,
+  /\b(sleep\s+frequency|meditation\s+frequency|focus\s+frequency)\b/i,
+
+  // Direct binaural beat reference ("a binaural beat", "binaural beats")
+  /\bbinaural\s+beat/i,
+]
+
+/**
  * Regex patterns for Cosmic Recall (journal search intent).
  * Checked before birth chart patterns because journal intent is explicit
  * ("journal", "entries", "Cosmic Recall"), preventing ambiguous queries
@@ -263,7 +293,8 @@ const JOURNAL_RECALL_PATTERNS: RegExp[] = [
  * 3. Birth chart (two-phase):
  *    Phase 1: Chart intent patterns — does the user want a chart reading at all?
  *    Phase 2: Depth signal patterns — if any depth signal found → full, else → core
- * 4. No match → null
+ * 4. Binaural beats — sound/frequency intent
+ * 5. No match → null
  *
  * Consent gates:
  * - Birth chart requires `hasBirthData === true`
@@ -302,6 +333,11 @@ export function classifyOracleToolIntent(
       }
       return { featureKey: "birth_chart", depth: "core", reason: "core_chart_intent" }
     }
+  }
+
+  // 3. Binaural beats — sound/frequency intent
+  if (BINAURAL_INTENT_PATTERNS.some((p) => p.test(question))) {
+    return { featureKey: "binaural_beats", reason: "binaural_intent" }
   }
 
   // 4. No match

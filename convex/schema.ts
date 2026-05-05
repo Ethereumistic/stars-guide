@@ -637,6 +637,8 @@ export default defineSchema({
         audioData: v.optional(v.string()), // DEPRECATED: old base64 inline — too large for Convex doc limits
         audioStorageId: v.optional(v.id("_storage")), // Convex file storage — preferred for synth audio
         audioUrl: v.optional(v.string()), // Playback URL for generated audio (binaural beats, etc.)
+        // Deterministic binaural beat params (generated server-side, not by LLM)
+        binauralParams: v.optional(v.any()), // BinauralBeatParams & { rationale?: BinauralRationale }
         createdAt: v.number(),
     })
         .index("by_session", ["sessionId"])

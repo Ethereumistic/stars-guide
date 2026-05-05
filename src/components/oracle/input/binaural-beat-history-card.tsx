@@ -22,7 +22,8 @@ export function BinauralBeatHistoryCard({
   const { status, elapsed, play, stop } = useBinauralPlayer();
 
   const preset = BRAIN_STATE_PRESETS.find((p) => p.id === params.presetId);
-  const label = preset?.label ?? "Custom Beat";
+  const isAIGenerated = params.presetId === "ai_generated";
+  const label = isAIGenerated ? "AI Beat" : (preset?.label ?? "Custom Beat");
   const isPlaying = status === "playing" || status === "stopping";
   const beatHz = Math.abs(params.rightHz - params.leftHz);
   const brainState = getBrainState(beatHz);
@@ -50,6 +51,11 @@ export function BinauralBeatHistoryCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p className="text-xs font-medium text-white/80 truncate">{label}</p>
+          {isAIGenerated ? (
+            <span className="text-[9px] font-medium text-galactic/80 bg-galactic/10 px-1.5 py-0.5 rounded-full">
+              AI
+            </span>
+          ) : null}
           <span className={`text-[9px] font-medium ${brainState.color}`}>
             {brainState.name}
           </span>

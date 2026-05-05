@@ -342,6 +342,17 @@ export const patchMessageTiming = internalMutation({
     },
 });
 
+/** Patch binaural beat params onto an assistant message (deterministic generation). */
+export const patchMessageBinauralParams = internalMutation({
+    args: {
+        messageId: v.id("oracle_messages"),
+        binauralParams: v.any(),
+    },
+    handler: async (ctx, args) => {
+        await ctx.db.patch(args.messageId, { binauralParams: args.binauralParams });
+    },
+});
+
 export const updateSessionTitle = internalMutation({
     args: {
         sessionId: v.id("oracle_sessions"),

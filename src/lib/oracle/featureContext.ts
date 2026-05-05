@@ -6,6 +6,7 @@ import type {
   StoredChartPlanet,
 } from "../birth-chart/types"
 import { compositionalSigns } from "../../astrology/signs"
+import type { BinauralRationale } from "../binaural-presets"
 
 export type OracleBirthData = StoredBirthData
 
@@ -287,6 +288,39 @@ export function getBirthChartDepthInstructions(depth: BirthChartDepth): string {
  */
 export function getDefaultBirthInstructions(depth: BirthChartDepth): string {
   return getBirthChartDepthInstructions(depth)
+}
+
+// ── Binaural Prescription Mode Instructions ─────────────────────────────────
+
+/**
+ * Build the system prompt injection for a deterministically-generated binaural beat.
+ * This is DATA context, not instructions to produce JSON — the LLM just explains it.
+ */
+export function getBinauralBeatContext(params: {
+  leftHz: number
+  rightHz: number
+  waveform: string
+  noiseVolume: number
+  noiseCutoff: number
+  durationSeconds: number
+  rationale: BinauralRationale
+}): string {
+  const { leftHz, rightHz, waveform, noiseVolume, noiseCutoff, durationSeconds, rationale } = params
+  const minutes = Math.round(durationSeconds / 60)
+
+  return [
+    '[BINAURAL BEAT CONTEXT]',
+    'A binaural beat session has been generated for the user. Integrate this naturally into your response — explain what the beat does, why these frequencies were chosen, and how it relates to their request. You do NOT need to repeat exact Hz values; the user will see a playable card with full details. Do NOT output any JSON or prescription blocks.',
+    '',
+    `Intent: ${rationale.intent}`,
+    `Band: ${rationale.beatBand} (${rationale.beatHz} Hz beat frequency)`,
+    `Carrier: ${leftHz} Hz (left) / ${rightHz} Hz (right)`,
+    `Waveform: ${waveform}`,
+    `Noise: ${noiseVolume} volume, ${noiseCutoff} Hz cutoff`,
+    `Duration: ${minutes} minutes`,
+    rationale.personalization ?? '',
+    '[END BINAURAL BEAT CONTEXT]',
+  ].filter(Boolean).join('\n')
 }
 
 // ── Legacy feature context builder ──────────────────────────────────────────
