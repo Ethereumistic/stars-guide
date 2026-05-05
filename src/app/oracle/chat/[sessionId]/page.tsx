@@ -512,7 +512,7 @@ export default function OracleChatPage() {
                                         const beatParams = parseBinauralBeatMessage(msg.content);
                                         return beatParams ? (
                                             <div className="flex justify-end">
-                                                <div className="max-w-[80%]">
+                                                <div className="w-full max-w-2xl">
                                                     <BinauralBeatHistoryCard params={beatParams} />
                                                 </div>
                                             </div>
@@ -623,7 +623,7 @@ export default function OracleChatPage() {
                                             )}
                                             {/* Binaural beat card — rendered from message metadata */}
                                             {!isStreamingThis && beatParams && (
-                                                <div className="mt-3">
+                                                <div className="mt-3 w-full max-w-2xl">
                                                     {beatParams.rationale && (
                                                         <p className="text-[10px] text-white/35 italic mb-1.5 pl-1">
                                                             {beatParams.rationale.beatBand} beat

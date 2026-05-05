@@ -1,0 +1,155 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+.wrap { padding: 1rem 0; }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.filter-btn { padding: 5px 14px; border-radius: 20px; border: 0.5px solid var(--color-border-secondary); background: transparent; color: var(--color-text-secondary); font-size: 13px; cursor: pointer; transition: background 0.15s; }
+.filter-btn.active { background: var(--color-background-info); color: var(--color-text-info); border-color: transparent; font-weight: 500; }
+.search-row { display: flex; gap: 10px; margin-bottom: 1rem; align-items: center; }
+.search-row input { flex: 1; height: 36px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: var(--color-background-secondary); color: var(--color-text-primary); font-size: 14px; padding: 0 12px; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 1rem; font-size: 12px; color: var(--color-text-secondary); }
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th { text-align: left; padding: 7px 10px; color: var(--color-text-secondary); font-weight: 500; border-bottom: 0.5px solid var(--color-border-tertiary); white-space: nowrap; }
+tbody tr { border-bottom: 0.5px solid var(--color-border-tertiary); }
+tbody tr:hover { background: var(--color-background-secondary); }
+td { padding: 7px 10px; vertical-align: middle; }
+.band-pill { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+.band-delta { background: #B5D4F4; color: #0C447C; }
+.band-theta { background: #CCC8F5; color: #3C3489; }
+.band-alpha { background: #9FE1CB; color: #085041; }
+.band-low-beta { background: #C0DD97; color: #27500A; }
+.band-mid-beta { background: #FAC775; color: #633806; }
+.band-high-beta { background: #F5C4B3; color: #712B13; }
+.band-gamma { background: #F4C0D1; color: #72243E; }
+.beat-hz { font-weight: 500; color: var(--color-text-primary); font-size: 13px; }
+.carrier { font-size: 12px; color: var(--color-text-secondary); }
+.use-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.use-tag { background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: 4px; padding: 1px 7px; font-size: 11px; color: var(--color-text-secondary); }
+.count { font-size: 12px; color: var(--color-text-tertiary); margin-bottom: 0.5rem; }
+@media (prefers-color-scheme: dark) {
+  .band-delta { background: #0C447C; color: #B5D4F4; }
+  .band-theta { background: #3C3489; color: #CECBF6; }
+  .band-alpha { background: #085041; color: #9FE1CB; }
+  .band-low-beta { background: #27500A; color: #C0DD97; }
+  .band-mid-beta { background: #633806; color: #FAC775; }
+  .band-high-beta { background: #712B13; color: #F5C4B3; }
+  .band-gamma { background: #72243E; color: #F4C0D1; }
+}
+</style>
+
+<div class="wrap">
+<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">Binaural beat frequencies reference table with carrier tones and uses</h2>
+
+<div class="filters" id="filters">
+  <button class="filter-btn active" data-band="all">All bands</button>
+  <button class="filter-btn" data-band="Delta">Delta (0.5–4 Hz)</button>
+  <button class="filter-btn" data-band="Theta">Theta (4–8 Hz)</button>
+  <button class="filter-btn" data-band="Alpha">Alpha (8–14 Hz)</button>
+  <button class="filter-btn" data-band="Low Beta">Low Beta (14–21 Hz)</button>
+  <button class="filter-btn" data-band="Mid Beta">Mid Beta (21–30 Hz)</button>
+  <button class="filter-btn" data-band="High Beta">High Beta (30–40 Hz)</button>
+  <button class="filter-btn" data-band="Gamma">Gamma (40+ Hz)</button>
+</div>
+
+<div class="search-row">
+  <input type="text" id="search" placeholder="Search uses or beat frequency…" />
+</div>
+<div class="count" id="count"></div>
+
+<div style="overflow-x:auto;">
+<table id="table">
+  <thead>
+    <tr>
+      <th>Beat (Hz)</th>
+      <th>Band</th>
+      <th>Left ear (Hz)</th>
+      <th>Right ear (Hz)</th>
+      <th>Uses / effects</th>
+    </tr>
+  </thead>
+  <tbody id="tbody"></tbody>
+</table>
+</div>
+</div>
+
+<script>
+const data = [
+  { beat:0.5, band:"Delta", L:100, R:100.5, uses:["deep dreamless sleep","cellular repair","growth hormone release"] },
+  { beat:1, band:"Delta", L:80, R:81, uses:["pain relief","very deep sleep","unconscious healing"] },
+  { beat:1.5, band:"Delta", L:120, R:121.5, uses:["sleep induction","nerve regeneration"] },
+  { beat:2, band:"Delta", L:100, R:102, uses:["nerve regeneration","deep sleep","natural painkiller"] },
+  { beat:2.5, band:"Delta", L:200, R:202.5, uses:["pain gate","deep relaxation","sedation"] },
+  { beat:3, band:"Delta", L:100, R:103, uses:["deep sleep maintenance","theta border","lucid dream onset"] },
+  { beat:3.5, band:"Delta", L:250, R:253.5, uses:["sleep stage 3-4","memory consolidation"] },
+  { beat:4, band:"Theta", L:100, R:104, uses:["REM sleep","light meditation","drowsiness"] },
+  { beat:4.5, band:"Theta", L:200, R:204.5, uses:["shamanic states","deep relaxation","stress relief"] },
+  { beat:5, band:"Theta", L:100, R:105, uses:["vivid imagery","hypnagogic state","emotional processing"] },
+  { beat:5.5, band:"Theta", L:300, R:305.5, uses:["intuition boost","dream recall","inner child healing"] },
+  { beat:6, band:"Theta", L:200, R:206, uses:["long-term memory access","light trance","creative ideation"] },
+  { beat:6.3, band:"Theta", L:100, R:106.3, uses:["accelerated learning","Schumann resonance harmonic"] },
+  { beat:7, band:"Theta", L:200, R:207, uses:["deep meditation","astral projection attempts","anxiety reduction"] },
+  { beat:7.5, band:"Theta", L:100, R:107.5, uses:["creative visualization","theta peak","interiorization"] },
+  { beat:7.83, band:"Theta", L:200, R:207.83, uses:["Schumann resonance","earth grounding","circadian sync"] },
+  { beat:8, band:"Alpha", L:200, R:208, uses:["relaxed alertness","stress reduction","pre-sleep wind-down"] },
+  { beat:8.5, band:"Alpha", L:100, R:108.5, uses:["light relaxation","open awareness","mood lift"] },
+  { beat:9, band:"Alpha", L:200, R:209, uses:["serotonin release","positivity","mild pain relief"] },
+  { beat:10, band:"Alpha", L:100, R:110, uses:["peak alpha","mood enhancement","relaxed focus","flow state entry"] },
+  { beat:10.5, band:"Alpha", L:200, R:210.5, uses:["healing visualization","mid-alpha peak"] },
+  { beat:11, band:"Alpha", L:100, R:111, uses:["calm concentration","stress recovery","light study mode"] },
+  { beat:12, band:"Alpha", L:200, R:212, uses:["mental clarity","relaxed thinking","alpha-beta bridge"] },
+  { beat:13, band:"Alpha", L:300, R:313, uses:["alert relaxation","transition to focus","task readiness"] },
+  { beat:14, band:"Low Beta", L:200, R:214, uses:["focused concentration","problem solving","waking alertness"] },
+  { beat:15, band:"Low Beta", L:300, R:315, uses:["mental energy","active thinking","exam prep"] },
+  { beat:16, band:"Low Beta", L:200, R:216, uses:["cognitive engagement","reading focus","working memory"] },
+  { beat:18, band:"Low Beta", L:400, R:418, uses:["alertness","active processing","light energizing"] },
+  { beat:20, band:"Low Beta", L:200, R:220, uses:["active problem solving","complex task focus","anti-drowsiness"] },
+  { beat:21, band:"Mid Beta", L:300, R:321, uses:["mental stimulation","energized focus","motivation"] },
+  { beat:23, band:"Mid Beta", L:200, R:223, uses:["sustained attention","creative problem solving"] },
+  { beat:25, band:"Mid Beta", L:300, R:325, uses:["mental sharpness","active engagement","anxiety if overused"] },
+  { beat:28, band:"Mid Beta", L:400, R:428, uses:["high cognitive demand","analytical tasks"] },
+  { beat:30, band:"High Beta", L:300, R:330, uses:["intense focus","adrenaline-like alertness","hyperactivity risk"] },
+  { beat:33, band:"High Beta", L:500, R:533, uses:["fight-or-flight arousal","crisis thinking","overstimulation risk"] },
+  { beat:35, band:"High Beta", L:400, R:435, uses:["peak alertness","high-intensity work sessions"] },
+  { beat:38, band:"High Beta", L:300, R:338, uses:["extreme arousal","use only short-term","anxiety if prolonged"] },
+  { beat:40, band:"Gamma", L:400, R:440, uses:["gamma synchrony","memory binding","Alzheimer's research","peak cognition"] },
+  { beat:40, band:"Gamma", L:200, R:240, uses:["gamma synchrony — lower carrier variant","perception integration"] },
+  { beat:60, band:"Gamma", L:500, R:560, uses:["hyperfast processing","sensory integration","experimental only"] },
+  { beat:100, band:"Gamma", L:400, R:500, uses:["extreme high gamma","research only","not recommended casually"] },
+];
+
+const bandClass = { Delta:"band-delta", Theta:"band-theta", Alpha:"band-alpha", "Low Beta":"band-low-beta", "Mid Beta":"band-mid-beta", "High Beta":"band-high-beta", Gamma:"band-gamma" };
+let activeBand = "all";
+let searchVal = "";
+
+function render() {
+  const filtered = data.filter(d => {
+    const bandOk = activeBand === "all" || d.band === activeBand;
+    const s = searchVal.toLowerCase();
+    const searchOk = !s || d.uses.some(u => u.toLowerCase().includes(s)) || String(d.beat).includes(s) || d.band.toLowerCase().includes(s);
+    return bandOk && searchOk;
+  });
+  document.getElementById("count").textContent = filtered.length + " entries";
+  const tbody = document.getElementById("tbody");
+  tbody.innerHTML = filtered.map(d => `
+    <tr>
+      <td><span class="beat-hz">${d.beat} Hz</span></td>
+      <td><span class="band-pill ${bandClass[d.band]}">${d.band}</span></td>
+      <td class="carrier">${d.L} Hz</td>
+      <td class="carrier">${d.R} Hz</td>
+      <td><div class="use-tags">${d.uses.map(u => `<span class="use-tag">${u}</span>`).join("")}</div></td>
+    </tr>
+  `).join("");
+}
+
+document.getElementById("filters").addEventListener("click", e => {
+  if (!e.target.dataset.band) return;
+  activeBand = e.target.dataset.band;
+  document.querySelectorAll(".filter-btn").forEach(b => b.classList.toggle("active", b.dataset.band === activeBand));
+  render();
+});
+document.getElementById("search").addEventListener("input", e => { searchVal = e.target.value; render(); });
+render();
+</script>

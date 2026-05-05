@@ -1,4 +1,8 @@
+// ── Deterministic Binaural Beat Generation ──────────────────────────────────
+import { BINAURAL_FREQUENCIES } from './binaural-frequencies';
+
 export interface BinauralParams {
+  name: string             // User-defined name for the beat
   leftHz: number           // Left ear frequency (Hz)
   rightHz: number          // Right ear frequency (Hz)
   leftVolume: number       // 0.0 – 1.0
@@ -15,26 +19,7 @@ export interface BinauralBeatParams extends BinauralParams {
   generatedAt: string
 }
 
-export const BRAIN_STATE_PRESETS = [
-  { id: 'deep_sleep',       label: 'Deep Sleep',       leftHz: 100, rightHz: 101.5, waveform: 'sine' as const,     leftVolume: 1, rightVolume: 1, noiseVolume: 0.05, noiseCutoff: 300,  duration: 3600 },
-  { id: 'deep_meditation',  label: 'Deep Meditation',  leftHz: 150, rightHz: 155,   waveform: 'sine' as const,     leftVolume: 1, rightVolume: 1, noiseVolume: 0.10, noiseCutoff: 500,  duration: 1800 },
-  { id: 'relaxed_focus',    label: 'Relaxed Focus',    leftHz: 200, rightHz: 210,   waveform: 'sine' as const,     leftVolume: 1, rightVolume: 1, noiseVolume: 0.15, noiseCutoff: 800,  duration: 900  },
-  { id: 'concentration',    label: 'Concentration',    leftHz: 250, rightHz: 268,   waveform: 'triangle' as const, leftVolume: 1, rightVolume: 1, noiseVolume: 0.10, noiseCutoff: 1000, duration: 1800 },
-  { id: 'peak_performance', label: 'Peak Performance', leftHz: 300, rightHz: 340,   waveform: 'sine' as const,     leftVolume: 1, rightVolume: 1, noiseVolume: 0.20, noiseCutoff: 1400, duration: 1200 },
-] as const
-
-export type PresetId = typeof BRAIN_STATE_PRESETS[number]['id']
-
-// ── Brain state band from beat frequency ────────────────────────────────────
-export function getBrainState(beatHz: number): { name: string; band: string; color: string } {
-  const abs = Math.abs(beatHz)
-  if (abs <= 4)   return { name: 'Delta',  band: 'Deep Sleep',      color: 'text-indigo-400' }
-  if (abs <= 8)   return { name: 'Theta',  band: 'Deep Meditation', color: 'text-violet-400' }
-  if (abs <= 13)  return { name: 'Alpha',  band: 'Relaxed Focus',   color: 'text-cyan-400' }
-  if (abs <= 30)  return { name: 'Beta',   band: 'Concentration',   color: 'text-amber-400' }
-  if (abs <= 50)  return { name: 'Gamma',  band: 'Peak Performance',color: 'text-rose-400' }
-  return { name: 'Ultra', band: 'Beyond typical range', color: 'text-white/40' }
-}
+export type PresetId = string
 
 // ── Chat message serialization ──────────────────────────────────────────────
 export function serializeBeat(params: BinauralBeatParams): string {
@@ -49,9 +34,9 @@ export function parseBeat(content: string): BinauralBeatParams | null {
 
     // V2 format — native leftHz / rightHz
     if (p.version === 2 && typeof p.leftHz === 'number') {
-      // Backfill leftVolume/rightVolume for V2 messages saved before they existed
       if (p.leftVolume === undefined) p.leftVolume = 1
       if (p.rightVolume === undefined) p.rightVolume = 1
+      if (p.name === undefined) p.name = 'Custom Beat'
       return p
     }
 
@@ -59,6 +44,7 @@ export function parseBeat(content: string): BinauralBeatParams | null {
     if (p.version === 1 && typeof p.carrierHz === 'number') {
       return {
         version: 2,
+        name: 'Custom Beat',
         leftHz: p.carrierHz,
         rightHz: p.carrierHz + (p.beatHz ?? 10),
         leftVolume: 1,
@@ -79,8 +65,6 @@ export function isBeatMessage(content: string): boolean {
   return content.includes('[BINAURAL_BEAT]')
 }
 
-// ── Deterministic Binaural Beat Generation ──────────────────────────────────
-
 export type BinauralIntent =
   | "sleep" | "meditation" | "focus" | "relaxation"
   | "peak_performance" | "study" | "creativity" | "healing"
@@ -92,14 +76,34 @@ export interface BinauralRationale {
   personalization: string | null
 }
 
-interface BeatProfile {
-  leftHz: number
-  rightHz: number
-  waveform: OscillatorType
-  noiseVolume: number
-  noiseCutoff: number
-  durationSeconds: number
-  band: string
+export function serializeBeatRationale(rationale: BinauralRationale): string {
+  return JSON.stringify(rationale);
+}
+
+export function parseBeatRationale(json: string): BinauralRationale | null {
+  try {
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+// Get the best matching preset from frequencies library
+function getBestMatchingPreset(intent: BinauralIntent): { beat: number; band: string; leftHz: number; rightHz: number } {
+  const intentMap: Record<BinauralIntent, { beat: number; band: string }> = {
+    sleep: { beat: 3, band: "Delta" },
+    meditation: { beat: 7, band: "Theta" },
+    focus: { beat: 18, band: "Low Beta" },
+    relaxation: { beat: 10, band: "Alpha" },
+    peak_performance: { beat: 40, band: "Gamma" },
+    study: { beat: 14, band: "Low Beta" },
+    creativity: { beat: 6, band: "Theta" },
+    healing: { beat: 7.83, band: "Theta" },
+  };
+
+  const { beat, band } = intentMap[intent];
+  const match = BINAURAL_FREQUENCIES.find(f => f.beat === beat && f.band === band);
+  return match ? { beat: match.beat, band: match.band, leftHz: match.leftHz, rightHz: match.rightHz } : { beat: 10, band: "Alpha", leftHz: 100, rightHz: 110 };
 }
 
 const INTENT_KEYWORDS: Record<BinauralIntent, RegExp[]> = {
@@ -119,67 +123,6 @@ const INTENT_PRIORITY: BinauralIntent[] = [
   "creativity", "study", "focus", "peak_performance",
 ]
 
-const INTENT_PROFILES: Record<BinauralIntent, BeatProfile> = {
-  sleep: {
-    leftHz: 100, rightHz: 103,       // 3 Hz beat (Delta)
-    waveform: "sine",
-    noiseVolume: 0.15, noiseCutoff: 300,
-    durationSeconds: 3600,            // 60 min
-    band: "Delta",
-  },
-  meditation: {
-    leftHz: 150, rightHz: 155,       // 5 Hz beat (Theta)
-    waveform: "sine",
-    noiseVolume: 0.10, noiseCutoff: 500,
-    durationSeconds: 1800,            // 30 min
-    band: "Theta",
-  },
-  relaxation: {
-    leftHz: 200, rightHz: 210,       // 10 Hz beat (Alpha)
-    waveform: "sine",
-    noiseVolume: 0.08, noiseCutoff: 800,
-    durationSeconds: 1200,            // 20 min
-    band: "Alpha",
-  },
-  focus: {
-    leftHz: 250, rightHz: 264,       // 14 Hz beat (Beta)
-    waveform: "triangle",
-    noiseVolume: 0.10, noiseCutoff: 1000,
-    durationSeconds: 1800,            // 30 min
-    band: "Beta",
-  },
-  peak_performance: {
-    leftHz: 320, rightHz: 350,       // 30 Hz beat (Gamma)
-    waveform: "sine",
-    noiseVolume: 0.12, noiseCutoff: 1500,
-    durationSeconds: 1200,            // 20 min
-    band: "Gamma",
-  },
-  study: {
-    leftHz: 230, rightHz: 243,       // 13 Hz beat (Beta)
-    waveform: "triangle",
-    noiseVolume: 0.10, noiseCutoff: 1000,
-    durationSeconds: 1800,
-    band: "Beta",
-  },
-  creativity: {
-    leftHz: 180, rightHz: 186,       // 6 Hz beat (Theta)
-    waveform: "sine",
-    noiseVolume: 0.08, noiseCutoff: 600,
-    durationSeconds: 1800,
-    band: "Theta",
-  },
-  healing: {
-    leftHz: 120, rightHz: 124,       // 4 Hz beat (Delta/Theta border)
-    waveform: "sine",
-    noiseVolume: 0.15, noiseCutoff: 400,
-    durationSeconds: 2400,            // 40 min
-    band: "Theta",
-  },
-}
-
-// ── Birth chart personalization ────────────────────────────────────────────
-
 const SIGN_ELEMENT: Record<string, string> = {
   aries: "fire", leo: "fire", sagittarius: "fire",
   taurus: "earth", virgo: "earth", capricorn: "earth",
@@ -188,10 +131,10 @@ const SIGN_ELEMENT: Record<string, string> = {
 }
 
 const ELEMENT_CARRIER_OFFSET: Record<string, number> = {
-  fire:  +50,
-  earth: -30,
-  air:   +20,
-  water: -20,
+  fire:  +30,
+  earth: -20,
+  air:   +15,
+  water: -15,
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -218,20 +161,17 @@ export function extractBinauralIntent(message: string): BinauralIntent {
       if (pattern.test(message)) return intent
     }
   }
-  return "meditation" // safest default
+  return "relaxation" // default to alpha/relaxed focus
 }
 
 /** Extract duration hint from user message, or null for default */
 function extractDuration(message: string): number | null {
-  // "20 minutes", "30 min", etc.
   const minMatch = message.match(/\b(\d+)\s*min(?:ute)?s?\b/i)
   if (minMatch) return clamp(parseInt(minMatch[1], 10) * 60, 300, 7200)
 
-  // "1 hr", "2 hours", etc.
   const hrMatch = message.match(/\b(\d+)\s*hr(?:s?|ours?)?\b/i)
   if (hrMatch) return clamp(parseInt(hrMatch[1], 10) * 3600, 300, 7200)
 
-  // Named durations
   if (/\bshort\b|\bquick\b|\bbrief\b/i.test(message)) return 900
   if (/\blong\b|\bextended\b|\bdeep\b/i.test(message)) return 3600
   if (/\bstandard\b|\bnormal\b|\bregular\b/i.test(message)) return 1800
@@ -255,19 +195,17 @@ export function generateBinauralBeat(
   // 1. Extract intent
   const intent = extractBinauralIntent(userMessage)
 
-  // 2. Get base profile
-  const baseProfile = INTENT_PROFILES[intent]
+  // 2. Get matching preset
+  const basePreset = getBestMatchingPreset(intent)
 
   // 3. Personalize with birth chart (if available)
-  let leftHz = baseProfile.leftHz
-  let rightHz = baseProfile.rightHz
+  let leftHz = basePreset.leftHz
+  let rightHz = basePreset.rightHz
   let personalizationText: string | null = null
 
   if (birthData) {
-    // Collect elements from Sun, Moon, Rising
     const elements: string[] = []
 
-    // From placements (legacy format)
     if (birthData.placements) {
       for (const p of birthData.placements) {
         if (p.body === "Sun" || p.body === "Moon" || p.body === "Ascendant") {
@@ -278,7 +216,6 @@ export function generateBinauralBeat(
       }
     }
 
-    // From chart (v2 format)
     if (birthData.chart) {
       if (birthData.chart.ascendant?.signId) {
         const el = SIGN_ELEMENT[birthData.chart.ascendant.signId.toLowerCase()]
@@ -297,40 +234,41 @@ export function generateBinauralBeat(
     if (elements.length > 0) {
       const dominantElement = mode(elements)
       const offset = ELEMENT_CARRIER_OFFSET[dominantElement] ?? 0
-      leftHz = clamp(leftHz + offset, 40, 600)
-      rightHz = clamp(rightHz + offset, 40, 600)
-      personalizationText = `Tuned for your ${dominantElement}-dominant chart placements — ${dominantElement} energy responds well to ${baseProfile.band} frequencies.`
+      leftHz = clamp(leftHz + offset, 80, 600)
+      rightHz = clamp(rightHz + offset, 80, 600)
+      personalizationText = `Tuned for your ${dominantElement}-dominant chart — ${dominantElement} energy resonates well with ${basePreset.band} frequencies.`
     }
   }
 
   // 4. Extract duration
-  const duration = extractDuration(userMessage) ?? baseProfile.durationSeconds
+  const duration = extractDuration(userMessage) ?? 1800
 
   // 5. Build params with safety clamps
   const params: BinauralBeatParams = {
     version: 2,
-    leftHz:      clamp(leftHz, 40, 600),
-    rightHz:     clamp(rightHz, 40, 600),
+    name: `${basePreset.band} ${basePreset.beat}Hz`,
+    leftHz:      clamp(leftHz, 80, 600),
+    rightHz:     clamp(rightHz, 80, 600),
     leftVolume:  1,
     rightVolume: 1,
-    waveform:    baseProfile.waveform,
-    noiseVolume: clamp(baseProfile.noiseVolume, 0, 0.5),
-    noiseCutoff: clamp(baseProfile.noiseCutoff, 100, 3000),
+    waveform:    "sine",
+    noiseVolume: 0.1,
+    noiseCutoff: 500,
     durationSeconds: clamp(duration, 300, 7200),
     presetId:    "ai_generated",
     generatedAt: new Date().toISOString(),
   }
 
-  // 6. Safety: ensure beat frequency ≤ 40 Hz
+  // 6. Safety: ensure beat frequency ≤ 50 Hz
   const beatHz = Math.abs(params.rightHz - params.leftHz)
-  if (beatHz > 40) {
-    params.rightHz = params.leftHz + Math.sign(params.rightHz - params.leftHz) * 40
+  if (beatHz > 50) {
+    params.rightHz = params.leftHz + Math.sign(params.rightHz - params.leftHz) * 50
   }
 
   // 7. Build rationale
   const rationale: BinauralRationale = {
     intent: userMessage.slice(0, 100),
-    beatBand: baseProfile.band,
+    beatBand: basePreset.band,
     beatHz: Math.abs(params.rightHz - params.leftHz),
     personalization: personalizationText,
   }
