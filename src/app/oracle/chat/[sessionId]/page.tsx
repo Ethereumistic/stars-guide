@@ -262,7 +262,6 @@ export default function OracleChatPage() {
     const addMessageMutation = useMutation(api.oracle.sessions.addMessage);
     const updateSessionFeatureMutation = useMutation(api.oracle.sessions.updateSessionFeature);
     const invokeOracle = useAction(api.oracle.llm.invokeOracle);
-    const generateBinauralBeat = useAction(api.oracle.audio.generateBinauralBeat);
 
     useEffect(() => {
         if (sessionData === null) {
@@ -327,8 +326,6 @@ export default function OracleChatPage() {
 
         hasInvokedRef.current = true;
 
-        const isBinaural = sessionData?.featureKey === "binaural_beat";
-
         const callOracle = async () => {
             setIsStreaming(true);
             // Track client-side timing
@@ -338,35 +335,23 @@ export default function OracleChatPage() {
             await new Promise((resolve) => setTimeout(resolve, 50));
 
             try {
-                if (isBinaural) {
-                    await generateBinauralBeat({
-                        sessionId,
-                        prompt: lastUserMessage.content,
-                    });
-                    setDebugClientTiming({ requestStartMs, firstContentMs: Date.now(), completeMs: Date.now() });
-                } else {
-                    const result = await invokeOracle({
-                        sessionId,
-                        userQuestion: lastUserMessage.content,
-                        timezone,
-                        ...(debugModelOverride ? { debugModelOverride } : {}),
-                    });
-                    // Capture server-side timing metrics and token counts
-                    if (result) {
-                        setDebugLastMetrics(result.timingMetrics ?? null);
-                        setDebugDebugModelUsed(result.debugModelUsed ?? null);
-                        setDebugPromptTokens(result.promptTokens ?? null);
-                        setDebugCompletionTokens(result.completionTokens ?? null);
-                    }
-                    // Track client completion time
-                    setDebugClientTiming({ requestStartMs, firstContentMs: useOracleStore.getState().debugClientTiming.firstContentMs, completeMs: Date.now() });
+                const result = await invokeOracle({
+                    sessionId,
+                    userQuestion: lastUserMessage.content,
+                    timezone,
+                    ...(debugModelOverride ? { debugModelOverride } : {}),
+                });
+                // Capture server-side timing metrics and token counts
+                if (result) {
+                    setDebugLastMetrics(result.timingMetrics ?? null);
+                    setDebugDebugModelUsed(result.debugModelUsed ?? null);
+                    setDebugPromptTokens(result.promptTokens ?? null);
+                    setDebugCompletionTokens(result.completionTokens ?? null);
                 }
+                // Track client completion time
+                setDebugClientTiming({ requestStartMs, firstContentMs: useOracleStore.getState().debugClientTiming.firstContentMs, completeMs: Date.now() });
             } catch (error) {
-                if (isBinaural) {
-                    console.error("Binaural beat generation failed:", error);
-                } else {
-                    console.error("Oracle invocation failed:", error);
-                }
+                console.error("Oracle invocation failed:", error);
             } finally {
                 setIsStreaming(false);
                 setConversationActive();
@@ -375,7 +360,7 @@ export default function OracleChatPage() {
         };
 
         callOracle();
-    }, [state, sessionId, sessionData?.messages?.length, sessionData, invokeOracle, setConversationActive, setIsStreaming, debugModelOverride, setDebugLastMetrics, setDebugDebugModelUsed, setDebugClientTiming, generateBinauralBeat]);
+    }, [state, sessionId, sessionData?.messages?.length, sessionData, invokeOracle, setConversationActive, setIsStreaming, debugModelOverride, setDebugLastMetrics, setDebugDebugModelUsed, setDebugClientTiming]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -410,8 +395,6 @@ export default function OracleChatPage() {
         const content = inputValue.trim() || getFeatureDefaultPrompt(selectedFeatureKey);
         if (!content || isStreaming) return;
 
-        const isBinaural = sessionData?.featureKey === "binaural_beat";
-
         setInputValue("");
         setPendingUserMessage(content);
 
@@ -429,39 +412,27 @@ export default function OracleChatPage() {
         await new Promise((resolve) => setTimeout(resolve, 50));
 
         try {
-            if (isBinaural) {
-                await generateBinauralBeat({
-                    sessionId,
-                    prompt: content,
-                });
-                setDebugClientTiming({ requestStartMs, firstContentMs: Date.now(), completeMs: Date.now() });
-            } else {
-                const result = await invokeOracle({
-                    sessionId,
-                    userQuestion: content,
-                    timezone,
-                    ...(debugModelOverride ? { debugModelOverride } : {}),
-                });
-                // Capture server-side timing metrics and token counts
-                if (result) {
-                    setDebugLastMetrics(result.timingMetrics ?? null);
-                    setDebugDebugModelUsed(result.debugModelUsed ?? null);
-                    setDebugPromptTokens(result.promptTokens ?? null);
-                    setDebugCompletionTokens(result.completionTokens ?? null);
-                }
-                // Track client completion time
-                setDebugClientTiming({ requestStartMs, firstContentMs: useOracleStore.getState().debugClientTiming.firstContentMs, completeMs: Date.now() });
+            const result = await invokeOracle({
+                sessionId,
+                userQuestion: content,
+                timezone,
+                ...(debugModelOverride ? { debugModelOverride } : {}),
+            });
+            // Capture server-side timing metrics and token counts
+            if (result) {
+                setDebugLastMetrics(result.timingMetrics ?? null);
+                setDebugDebugModelUsed(result.debugModelUsed ?? null);
+                setDebugPromptTokens(result.promptTokens ?? null);
+                setDebugCompletionTokens(result.completionTokens ?? null);
             }
+            // Track client completion time
+            setDebugClientTiming({ requestStartMs, firstContentMs: useOracleStore.getState().debugClientTiming.firstContentMs, completeMs: Date.now() });
         } catch (error) {
-            if (isBinaural) {
-                console.error("Binaural beat generation failed:", error);
-            } else {
-                console.error("Follow-up Oracle call failed:", error);
-            }
+            console.error("Follow-up Oracle call failed:", error);
         } finally {
             setIsStreaming(false);
         }
-    }, [inputValue, selectedFeatureKey, isStreaming, sessionId, addMessageMutation, invokeOracle, setIsStreaming, debugModelOverride, setDebugLastMetrics, setDebugDebugModelUsed, setDebugClientTiming, sessionData?.featureKey, generateBinauralBeat]);
+    }, [inputValue, selectedFeatureKey, isStreaming, sessionId, addMessageMutation, invokeOracle, setIsStreaming, debugModelOverride, setDebugLastMetrics, setDebugDebugModelUsed, setDebugClientTiming]);
 
     // Compute countdown for daily cap
     const quotaCountdown = React.useMemo(() => {
@@ -488,6 +459,7 @@ export default function OracleChatPage() {
         createdAt: m.createdAt,
         audioData: (m as any).audioData as string | undefined,
         audioStorageId: (m as any).audioStorageId as string | undefined,
+        audioUrl: (m as any).audioUrl as string | undefined,
     }));
     const allMessages = pendingUserMessage && !serverMessages.some(m => m.role === "user" && m.content === pendingUserMessage)
         ? [...serverMessages, { role: "user" as const, content: pendingUserMessage, createdAt: Date.now() }]
@@ -562,7 +534,15 @@ export default function OracleChatPage() {
                                                 <div className="text-sm md:text-base text-white/85 leading-relaxed">
                                                     <AssistantMessageContent content={msg.content} isStreamingThis={isStreamingThis} />
                                                 </div>
-                                                {(msg as any).audioStorageId ? (
+                                                {(msg as any).audioUrl ? (
+                                                    <div className="mt-3">
+                                                        <audio
+                                                            controls
+                                                            src={(msg as any).audioUrl}
+                                                            className="w-full h-10 opacity-80 hover:opacity-100 transition-opacity"
+                                                        />
+                                                    </div>
+                                                ) : (msg as any).audioStorageId ? (
                                                     <AudioPlayer storageId={(msg as any).audioStorageId} />
                                                 ) : (msg as any).audioData && !isStreamingThis ? (
                                                     <div className="mt-3">

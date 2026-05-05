@@ -106,6 +106,7 @@ export const addMessage = mutation({
         journalPrompt: v.optional(v.string()),
         audioData: v.optional(v.string()),
         audioStorageId: v.optional(v.id("_storage")),
+        audioUrl: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);
@@ -129,6 +130,7 @@ export const addMessage = mutation({
             journalPrompt: args.journalPrompt,
             audioData: args.audioData,
             audioStorageId: args.audioStorageId,
+            audioUrl: args.audioUrl,
             createdAt: now,
         });
 
