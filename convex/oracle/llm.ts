@@ -5,33 +5,36 @@ import { action } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
 import {
-  buildPrompt,
   parseTitleFromResponse,
   parseJournalPromptFromResponse,
   deriveTitleFromContent,
+  sanitizeUserQuestion,
+  ORACLE_TITLE_DIRECTIVE,
+  JOURNAL_PROMPT_DIRECTIVE,
 } from "../../lib/oracle/promptBuilder";
 import {
-  buildUniversalBirthContext,
-  getBirthChartDepthInstructions,
-  getBinauralBeatContext,
-} from "../../lib/oracle/featureContext";
-import {
-  getOracleFeature,
-  isOracleFeatureKey,
-  classifyOracleToolIntent,
   type BirthChartDepth,
 } from "../../lib/oracle/features";
+import { buildUniversalBirthContext } from "../../lib/oracle/featureContext";
 import { buildTimespaceContext } from "./timespace";
 import {
   type ProviderConfig,
   type ModelChainEntry,
-  parseProvidersConfig,
-  parseModelChain,
   buildProviderHeaders,
   buildProviderUrl,
   tierForIndex,
 } from "../../lib/oracle/providers";
-import { generateBinauralBeat } from "../../src/lib/binaural-presets";
+import { selectProvider, releaseProvider } from "./providerRouter";
+import { scoreIntentsWithLLM } from "../../lib/oracle/intentRouter";
+import { getPipeline } from "../../lib/oracle/pipelines/index";
+import type {
+  OraclePipeline,
+  PipelineContext,
+  SystemPromptBlock,
+  UserMessageBlock,
+  PostResponseAction,
+} from "../../lib/oracle/pipelineTypes";
+import { ORACLE_SAFETY_RULES } from "../../lib/oracle/safetyRules";
 
 const CRISIS_PATTERNS: RegExp[] = [
   /\b(suicide|suicidal)\b/i,
@@ -105,6 +108,10 @@ export const invokeOracle = action({
   handler: async (ctx, args): Promise<LLMResponse> => {
     const actionStartTime = Date.now();
 
+    // ════════════════════════════════════════════════════════════════════════
+    // PHASE 0: SAFETY GATES (unchanged from original)
+    // ════════════════════════════════════════════════════════════════════════
+
     // ── Input validation ──────────────────────────────────────────────────
     if (args.userQuestion.length > MAX_USER_QUESTION_LENGTH) {
       throw new Error(
@@ -165,7 +172,10 @@ export const invokeOracle = action({
       };
     }
 
-    // ── Load session and runtime settings ─────────────────────────────────
+    // ════════════════════════════════════════════════════════════════════════
+    // PHASE 1: LOAD CONTEXT (unchanged from original)
+    // ════════════════════════════════════════════════════════════════════════
+
     const session = await ctx.runQuery(api.oracle.sessions.getSessionWithMessages, {
       sessionId: args.sessionId,
     });
@@ -178,26 +188,16 @@ export const invokeOracle = action({
       {},
     );
 
-    // ── Load user ──────────────────────────────────────────────────────────
     const user = await ctx.runQuery(api.users.current, {});
 
-    // ── Universal birth context (always inject full data if available) ──────
-    let birthContext = "";
-    if (user?.birthData) {
-      birthContext = buildUniversalBirthContext(user.birthData);
-    }
-
-    // ── Determine active feature ────────────────────────────────────────
-    // Handle legacy feature keys from sessions created before v2
+    // ── Legacy feature key migration ──────────────────────────────────────
     let resolvedFeatureKey = session.featureKey;
     if (resolvedFeatureKey === "birth_chart_core" || resolvedFeatureKey === "birth_chart_full") {
       resolvedFeatureKey = "birth_chart";
-      // Patch the session to the new key so next call doesn't need migration
       await ctx.runMutation(api.oracle.sessions.updateSessionFeature, {
         sessionId: args.sessionId,
         featureKey: "birth_chart",
       });
-      // Also set depth from legacy key
       const legacyDepth: BirthChartDepth = session.featureKey === "birth_chart_full" ? "full" : "core";
       if (!session.birthChartDepth) {
         await ctx.runMutation(internal.oracle.sessions.updateSessionBirthChartDepth, {
@@ -207,12 +207,7 @@ export const invokeOracle = action({
       }
     }
 
-    let activeFeature = isOracleFeatureKey(resolvedFeatureKey)
-      ? getOracleFeature(resolvedFeatureKey)
-      : null;
-
-    // ── Implicit feature activation (intent classification) ────────────────
-    // Fetch journal consent for the classifier
+    // ── Journal consent ──────────────────────────────────────────────────
     let hasJournalConsent = false;
     if (user?._id) {
       try {
@@ -223,110 +218,207 @@ export const invokeOracle = action({
       }
     }
 
-    if (!activeFeature) {
-      const intent = classifyOracleToolIntent(
-        args.userQuestion,
-        session.featureKey ?? null,
-        Boolean(user?.birthData),
-        hasJournalConsent,
-      );
-
-      if (intent.featureKey) {
-        // Auto-activate the feature on the session
-        await ctx.runMutation(api.oracle.sessions.updateSessionFeature, {
-          sessionId: args.sessionId,
-          featureKey: intent.featureKey,
-        });
-        // If birth_chart with depth, persist that too
-        if (intent.depth) {
-          await ctx.runMutation(internal.oracle.sessions.updateSessionBirthChartDepth, {
-            sessionId: args.sessionId,
-            depth: intent.depth,
-          });
-        }
-        activeFeature = getOracleFeature(intent.featureKey);
-      }
-    }
-
-    // ── Build feature injection (dynamic depth for birth_chart) ──────────────
-    let featureInjection = "";
-    let binauralParams: any = undefined;
-    if (activeFeature) {
-      if (activeFeature.key === "birth_chart") {
-        // Birth chart uses depth-specific instructions (separate from data)
-        const depth: BirthChartDepth = session.birthChartDepth ?? "core";
-
-        // Try DB injection first (admin-editable), fall back to hardcoded
-        try {
-          const depthRecord = await ctx.runQuery(api.oracle.features.getFeatureInjection, {
-            featureKey: `birth_chart_depth_${depth}`,
-          });
-          featureInjection = depthRecord?.contextText ?? getBirthChartDepthInstructions(depth);
-        } catch (e) {
-          featureInjection = getBirthChartDepthInstructions(depth);
-        }
-      } else if (activeFeature.key === "binaural_beats") {
-        // Binaural beats — deterministic generation + context injection
-        const beat = generateBinauralBeat(args.userQuestion, user?.birthData);
-        binauralParams = beat;
-        featureInjection = getBinauralBeatContext(beat);
-      } else {
-        // Other features use their standard injection text
-        const featureRecord = await ctx.runQuery(api.oracle.features.getFeatureInjection, {
-          featureKey: activeFeature.key,
-        });
-        featureInjection = featureRecord?.contextText ?? activeFeature.fallbackInjectionText ?? "";
-      }
-    }
-
     // ── Determine if this is the first response ────────────────────────────
     const isFirstResponse = !session.messages.some(
       (message: any) => message.role === "assistant",
     );
 
-    // ── Journal context assembly (non-blocking) ──────────────────────────────
-    // Journal context is now ALWAYS injected if consent is granted,
-    // regardless of which feature is active. Cosmic Recall sessions get expanded budget.
-    const isCosmicRecall = activeFeature?.key === "journal_recall";
+    // ════════════════════════════════════════════════════════════════════════
+    // PHASE 2: INTENT ROUTING (NEW — replaces classifyOracleToolIntent)
+    // ════════════════════════════════════════════════════════════════════════
+
+    const intentResult = await scoreIntentsWithLLM({
+      question: args.userQuestion,
+      hasBirthData: Boolean(user?.birthData),
+      hasJournalConsent,
+      currentFeatureKey: resolvedFeatureKey ?? null,
+      providers: config.providers,
+      modelChain: config.modelChain,
+    });
+
+    console.log(`[Oracle] Intent: ${JSON.stringify(intentResult.intents.map(i => `${i.pipelineKey}(${i.confidence.toFixed(2)}:${i.reason})`))}, hasBirthData=${Boolean(user?.birthData)}, hasJournalConsent=${hasJournalConsent}`);
+
+    // Resolve pipelines for all matched intents
+    const activePipelines: OraclePipeline[] = intentResult.intents
+      .filter((i) => i.confidence >= 0.5)
+      .map((intent) => getPipeline(intent.pipelineKey))
+      .filter((p): p is OraclePipeline => p !== undefined);
+
+    // If no pipeline matched (shouldn't happen — scoreIntents always returns at least generic_chat)
+    if (activePipelines.length === 0) {
+      const fallback = getPipeline("generic_chat");
+      if (fallback) activePipelines.push(fallback);
+    }
+
+    console.log(`[Oracle] Active pipelines: ${activePipelines.map(p => `${p.key}[needsBirth=${p.dataRequirements.needsBirthData}]`).join(', ')}`);
+
+    // Primary pipeline determines model hint
+    const primaryPipeline = activePipelines[0];
+    const primaryIntent = intentResult.primary;
+
+    // ── Persist auto-activated feature to session ──────────────────────────
+    if (!session.featureKey && primaryIntent && primaryIntent.pipelineKey !== "generic_chat") {
+      await ctx.runMutation(api.oracle.sessions.updateSessionFeature, {
+        sessionId: args.sessionId,
+        featureKey: primaryIntent.pipelineKey,
+      });
+      // If birth_chart with depth, persist that too
+      if (primaryIntent.pipelineKey === "birth_chart" && primaryIntent.metadata?.depth) {
+        await ctx.runMutation(internal.oracle.sessions.updateSessionBirthChartDepth, {
+          sessionId: args.sessionId,
+          depth: primaryIntent.metadata.depth as BirthChartDepth,
+        });
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // PHASE 3: GATHER DATA (pipeline-driven)
+    // ════════════════════════════════════════════════════════════════════════
+
+    // Merge data requirements from ALL active pipelines
+    const needsBirth = activePipelines.some((p) => p.dataRequirements.needsBirthData);
+    const needsJournal = activePipelines.some((p) => p.dataRequirements.needsJournalContext);
+    const expandedJournal = activePipelines.some((p) => p.dataRequirements.expandedJournalBudget);
+    const needsTimespace = activePipelines.some((p) => p.dataRequirements.needsTimespace);
+
+    // Gather birth data ONLY if a pipeline needs it
+    let birthData: string | null = null;
+    if (needsBirth && user?.birthData) {
+      birthData = buildUniversalBirthContext(user.birthData);
+    }
+
+    // Gather journal context (if any pipeline needs it and consent exists)
     let journalContext: string | null = null;
-    try {
-      if (user?._id && hasJournalConsent) {
+    if (needsJournal && user?._id && hasJournalConsent) {
+      try {
         journalContext = await ctx.runQuery(
           internal.journal.context.assembleJournalContext,
-          { userId: user._id, expandedBudget: isCosmicRecall },
+          { userId: user._id, expandedBudget: expandedJournal },
         );
+      } catch (e) {
+        console.error("Journal context assembly failed (non-blocking):", e);
       }
-    } catch (e) {
-      console.error("Journal context assembly failed (non-blocking):", e);
-      journalContext = null;
     }
 
-    // ── Timespace context (timezone + cosmic weather) ──────────────────────
+    // Gather timespace context
     let timespaceContext: string | null = null;
-    const userTimezone = args.timezone || "UTC";
-    try {
-      const tsResult = buildTimespaceContext(userTimezone, args.userQuestion);
-      timespaceContext = tsResult.context;
-    } catch (e) {
-      console.error("Timespace context assembly failed (non-blocking):", e);
+    if (needsTimespace) {
+      try {
+        const tsResult = buildTimespaceContext(
+          args.timezone || "UTC",
+          args.userQuestion,
+        );
+        timespaceContext = tsResult.context;
+      } catch (e) {
+        console.error("Timespace context assembly failed (non-blocking):", e);
+      }
     }
 
-    const prompt = buildPrompt({
-      soulDoc: config.soulDoc,
-      featureInjection: featureInjection || null,
-      birthContext: birthContext || null,
+    // Load feature injection from DB (for pipelines that use it)
+    let featureInjection: string | null = null;
+    if (primaryIntent?.pipelineKey === "birth_chart") {
+      const depth = (primaryIntent.metadata?.depth as BirthChartDepth) ?? session.birthChartDepth ?? "core";
+      try {
+        const depthRecord = await ctx.runQuery(api.oracle.features.getFeatureInjection, {
+          featureKey: `birth_chart_depth_${depth}`,
+        });
+        featureInjection = depthRecord?.contextText ?? null;
+      } catch (e) {
+        // Fall back to hardcoded — pipeline handles this
+      }
+    } else if (primaryIntent?.pipelineKey === "journal_recall") {
+      try {
+        const record = await ctx.runQuery(api.oracle.features.getFeatureInjection, {
+          featureKey: "journal_recall",
+        });
+        featureInjection = record?.contextText ?? null;
+      } catch (e) {
+        // Fall back to hardcoded — pipeline handles this
+      }
+    }
+    // binaural_beats pipeline generates its own injection internally via buildPromptBlocks
+
+    console.log(`[Oracle] Data gathered: birthDataLen=${birthData?.length ?? 0} journalLen=${journalContext?.length ?? 0} timespaceLen=${timespaceContext?.length ?? 0} featureInjection=${featureInjection ? 'yes' : 'no'}`);
+
+    // ════════════════════════════════════════════════════════════════════════
+    // PHASE 4: BUILD PROMPT (pipeline-driven)
+    // ════════════════════════════════════════════════════════════════════════
+
+    const pipelineCtx: PipelineContext = {
       userQuestion: args.userQuestion,
+      timezone: args.timezone || "UTC",
       isFirstResponse,
+      featureKey: session.featureKey ?? null,
+      birthChartDepth: session.birthChartDepth ?? (primaryIntent?.metadata?.depth as BirthChartDepth | null) ?? null,
+      birthData,
       journalContext,
       timespaceContext,
-    });
+      soulDoc: config.soulDoc,
+      featureInjection,
+      rawBirthData: user?.birthData ?? null,
+    };
+
+    // Collect prompt blocks from ALL pipelines
+    const allSystemBlocks: SystemPromptBlock[] = [];
+    const allUserBlocks: UserMessageBlock[] = [];
+    for (const pipeline of activePipelines) {
+      const blocks = pipeline.buildPromptBlocks(pipelineCtx);
+      allSystemBlocks.push(...blocks.systemBlocks);
+      allUserBlocks.push(...blocks.userBlocks);
+    }
+
+    // Sort system blocks by priority (descending — highest priority first)
+    allSystemBlocks.sort((a, b) => b.priority - a.priority);
+
+    console.log(`[Oracle] Prompt blocks: system=[${allSystemBlocks.map(b => `${b.label}(${b.priority})`).join(',')}] user=[${allUserBlocks.map(b => b.label).join(',')}]`);
+
+    // Build the final system prompt
+    // Safety rules are ALWAYS first (prepended, not a pipeline concern)
+    const systemPromptParts: string[] = [
+      ORACLE_SAFETY_RULES,                                                    // Always first, hardcoded
+    ];
+
+    for (const block of allSystemBlocks) {
+      if (block.content) {
+        systemPromptParts.push(block.content);
+      }
+    }
+
+    // Title directive on first response only
+    if (isFirstResponse) {
+      systemPromptParts.push(ORACLE_TITLE_DIRECTIVE);
+    }
+
+    // Journal prompt directive on first response when journal context is present
+    if (isFirstResponse && journalContext) {
+      systemPromptParts.push(JOURNAL_PROMPT_DIRECTIVE);
+    }
+
+    const systemPrompt = systemPromptParts.join("\n\n");
+
+    // Build the user message
+    const sanitizedQuestion = sanitizeUserQuestion(args.userQuestion);
+    const userMessageParts: string[] = [];
+
+    for (const block of allUserBlocks) {
+      if (block.content) {
+        userMessageParts.push(block.content);
+      }
+    }
+    userMessageParts.push(sanitizedQuestion);
+
+    const userMessage = userMessageParts.join("\n\n");
 
     const promptBuildEndTime = Date.now();
 
-    // Hash the system prompt for observability (stored on each assistant message)
-    const systemPromptHash = simpleHash(prompt.systemPrompt);
+    // Hash the system prompt for observability
+    const systemPromptHash = simpleHash(systemPrompt);
 
-    // ── Conversation history (truncated to maxContextMessages and maxContextTokens) ─
+    // ════════════════════════════════════════════════════════════════════════
+    // PHASE 5: PROVIDER SELECTION + LLM CALL
+    // ════════════════════════════════════════════════════════════════════════
+
+    // ── Conversation history ───────────────────────────────────────────────
     const allHistory = session.messages
       .filter((message: any) => message.role === "user" || message.role === "assistant")
       .map((message: any) => ({
@@ -345,7 +437,6 @@ export const invokeOracle = action({
     let conversationHistory = historyWithoutCurrentQuestion.slice(-config.maxContextMessages);
 
     // Then truncate further to fit within a token budget (~4 chars per token)
-    // This prevents token explosion from very long messages
     const MAX_CONTEXT_CHARS = 16000; // ~4000 tokens
     let totalChars = conversationHistory.reduce((sum: number, m: { content: string }) => sum + m.content.length, 0);
     while (totalChars > MAX_CONTEXT_CHARS && conversationHistory.length > 1) {
@@ -360,7 +451,6 @@ export const invokeOracle = action({
       stream: config.modelSettings.streamEnabled,
     };
 
-    // ── Multi-Provider Model Chain (with optional debug override) ────────────
     const providers = config.providers;
     let modelChain = config.modelChain;
     let debugModelUsed: string | null = null;
@@ -375,126 +465,215 @@ export const invokeOracle = action({
       debugModelUsed = `${args.debugModelOverride.providerId}/${args.debugModelOverride.model}`;
     }
 
-    for (let i = 0; i < modelChain.length; i++) {
-      const entry = modelChain[i];
-      const provider = providers.find((p: ProviderConfig) => p.id === entry.providerId);
+    // ── Try provider router first, then fallback chain ──────────────────────
+    const prompt = { systemPrompt, userMessage };
+    let result: Awaited<ReturnType<typeof callProviderStreaming>> = null;
+    let usedProviderId: string | null = null;
+    let usedModel: string | null = null;
+    let usedTier: string | null = null;
 
-      if (!provider) {
-        console.error(`Oracle: Provider "${entry.providerId}" not found for model "${entry.model}", skipping`);
-        continue;
-      }
+    // Attempt 1: Use the provider router for concurrency-aware selection
+    const selection = selectProvider(modelChain, providers, primaryPipeline?.modelHint);
 
-      const tier = tierForIndex(i);
+    if (selection) {
+      usedProviderId = selection.provider.id;
+      usedModel = selection.entry.model;
+      usedTier = selection.tier;
 
       try {
-        const result = await callProviderStreaming(
+        result = await callProviderStreaming(
           ctx,
-          provider,
-          entry.model,
+          selection.provider,
+          selection.entry.model,
           prompt,
           llmConfig,
           conversationHistory,
           args.sessionId,
-          tier,
+          selection.tier,
           systemPromptHash,
           { actionStartTime, promptBuildEndTime },
         );
-
-        if (result) {
-          if (isFirstResponse) {
-            await ctx.runMutation(api.oracle.quota.incrementQuota, {});
-          }
-
-          // Persist title on first response
-          if (isFirstResponse) {
-            const hasAI = Boolean(result.title);
-            const title = result.title || deriveTitleFromContent(result.contentWithoutTitle);
-            await ctx.runMutation(internal.oracle.sessions.updateSessionTitle, {
-              sessionId: args.sessionId,
-              title,
-              titleGenerated: hasAI,
-            });
-          }
-
-          // Compute timing metrics
-          const totalEndTime = Date.now();
-          const timingMetrics: TimingMetrics = {
-            promptBuildMs: promptBuildEndTime - actionStartTime,
-            requestQueueMs: (result.fetchStartTime ?? totalEndTime) - promptBuildEndTime,
-            ttftMs: result.firstTokenTime
-              ? result.firstTokenTime - (result.fetchStartTime ?? promptBuildEndTime)
-              : 0,
-            initialDecodeMs: result.initialDecodeTime
-              ? result.initialDecodeTime - (result.firstTokenTime ?? result.fetchStartTime ?? promptBuildEndTime)
-              : 0,
-            totalMs: totalEndTime - actionStartTime,
-          };
-
-          // Determine actual model used (check if debug override was used)
-          const actualModelUsed = i === 0 && debugModelUsed
-            ? debugModelUsed
-            : `${provider.id}/${entry.model}`;
-
-          // Store timing metrics on the message for admin debug observability
-          if (result.messageId) {
-            await ctx.runMutation(internal.oracle.sessions.patchMessageTiming, {
-              messageId: result.messageId,
-              timingPromptBuildMs: timingMetrics.promptBuildMs,
-              timingRequestQueueMs: timingMetrics.requestQueueMs,
-              timingTtftMs: timingMetrics.ttftMs,
-              timingInitialDecodeMs: timingMetrics.initialDecodeMs,
-              timingTotalMs: timingMetrics.totalMs,
-              debugModelUsed: i === 0 && debugModelUsed ? debugModelUsed : undefined,
-            });
-          }
-
-          // Store binaural params on the message (deterministic generation, not LLM output)
-          if (result.messageId && binauralParams) {
-            await ctx.runMutation(internal.oracle.sessions.patchMessageBinauralParams, {
-              messageId: result.messageId,
-              binauralParams,
-            });
-          }
-
-          return {
-            content: result.contentWithoutTitle,
-            modelUsed: actualModelUsed,
-            fallbackTier: tier,
-            promptTokens: result.promptTokens,
-            completionTokens: result.completionTokens,
-            timingMetrics,
-            debugModelUsed: i === 0 && debugModelUsed ? debugModelUsed : null,
-          };
-        }
       } catch (error) {
-        console.error(`Oracle ${provider.id}/${entry.model} (tier ${tier}) failed:`, error);
+        console.error(`Oracle ${selection.provider.id}/${selection.entry.model} failed:`, error);
+      } finally {
+        releaseProvider(selection.provider.id);
       }
     }
 
-    // ── Hardcoded fallback ────────────────────────────────────────────────
-    const fallbackText = await ctx.runQuery(internal.oracle.settings.getSettingInternal, {
-      key: "fallback_response_text",
-    });
-    const fallbackContent =
-      fallbackText?.value ??
-      "The stars are momentarily beyond my reach - cosmic interference is rare, but it happens. Please try again in a moment. ->";
+    // Attempt 2: If router-selected provider failed, try remaining chain entries
+    if (!result) {
+      for (let i = 0; i < modelChain.length; i++) {
+        const entry = modelChain[i];
 
-    await ctx.runMutation(api.oracle.sessions.addMessage, {
-      sessionId: args.sessionId,
-      role: "assistant",
-      content: fallbackContent,
-      fallbackTierUsed: "D",
-    });
+        // Skip the provider we already tried via the router
+        if (selection && entry.providerId === selection.provider.id && entry.model === selection.entry.model) {
+          continue;
+        }
 
+        const provider = providers.find((p: ProviderConfig) => p.id === entry.providerId);
+        if (!provider) {
+          console.error(`Oracle: Provider "${entry.providerId}" not found for model "${entry.model}", skipping`);
+          continue;
+        }
+
+        const tier = tierForIndex(i);
+
+        // Try concurrency-aware selection for this specific provider
+        const retrySelection = selectProvider([entry], [provider]);
+        if (!retrySelection) {
+          // Provider at capacity — skip
+          continue;
+        }
+
+        try {
+          result = await callProviderStreaming(
+            ctx,
+            provider,
+            entry.model,
+            prompt,
+            llmConfig,
+            conversationHistory,
+            args.sessionId,
+            tier,
+            systemPromptHash,
+            { actionStartTime, promptBuildEndTime },
+          );
+
+          if (result) {
+            usedProviderId = provider.id;
+            usedModel = entry.model;
+            usedTier = tier;
+            break; // finally will release
+          }
+        } catch (error) {
+          console.error(`Oracle ${provider.id}/${entry.model} (tier ${tier}) failed:`, error);
+        } finally {
+          releaseProvider(provider.id);
+        }
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // FALLBACK — all providers failed
+    // ════════════════════════════════════════════════════════════════════════
+
+    if (!result) {
+      const fallbackText = await ctx.runQuery(internal.oracle.settings.getSettingInternal, {
+        key: "fallback_response_text",
+      });
+      const fallbackContent =
+        fallbackText?.value ??
+        "The stars are momentarily beyond my reach - cosmic interference is rare, but it happens. Please try again in a moment. ->";
+
+      await ctx.runMutation(api.oracle.sessions.addMessage, {
+        sessionId: args.sessionId,
+        role: "assistant",
+        content: fallbackContent,
+        fallbackTierUsed: "D",
+      });
+
+      await ctx.runMutation(api.oracle.sessions.updateSessionStatus, {
+        sessionId: args.sessionId,
+        status: "active",
+      });
+
+      return {
+        content: fallbackContent,
+        modelUsed: "fallback_hardcoded",
+        fallbackTier: "D",
+      };
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // POST-PROCESS: Quota, Title, Timing, Pipeline Hooks
+    // ════════════════════════════════════════════════════════════════════════
+
+    // ── Quota increment ────────────────────────────────────────────────────
+    if (isFirstResponse) {
+      await ctx.runMutation(api.oracle.quota.incrementQuota, {});
+    }
+
+    // ── Title generation (first response only) ────────────────────────────
+    if (isFirstResponse) {
+      const hasAI = Boolean(result.title);
+      const title = result.title || deriveTitleFromContent(result.contentWithoutTitle);
+      await ctx.runMutation(internal.oracle.sessions.updateSessionTitle, {
+        sessionId: args.sessionId,
+        title,
+        titleGenerated: hasAI,
+      });
+    }
+
+    // ── Timing metrics ────────────────────────────────────────────────────
+    const totalEndTime = Date.now();
+    const timingMetrics: TimingMetrics = {
+      promptBuildMs: promptBuildEndTime - actionStartTime,
+      requestQueueMs: (result.fetchStartTime ?? totalEndTime) - promptBuildEndTime,
+      ttftMs: result.firstTokenTime
+        ? result.firstTokenTime - (result.fetchStartTime ?? promptBuildEndTime)
+        : 0,
+      initialDecodeMs: result.initialDecodeTime
+        ? result.initialDecodeTime - (result.firstTokenTime ?? result.fetchStartTime ?? promptBuildEndTime)
+        : 0,
+      totalMs: totalEndTime - actionStartTime,
+    };
+
+    // Determine actual model used (check if debug override was used)
+    const actualModelUsed =
+      debugModelUsed && usedProviderId === args.debugModelOverride?.providerId
+        ? debugModelUsed
+        : `${usedProviderId}/${usedModel}`;
+
+    // ── Store timing metrics on the message ────────────────────────────────
+    if (result.messageId) {
+      await ctx.runMutation(internal.oracle.sessions.patchMessageTiming, {
+        messageId: result.messageId,
+        timingPromptBuildMs: timingMetrics.promptBuildMs,
+        timingRequestQueueMs: timingMetrics.requestQueueMs,
+        timingTtftMs: timingMetrics.ttftMs,
+        timingInitialDecodeMs: timingMetrics.initialDecodeMs,
+        timingTotalMs: timingMetrics.totalMs,
+        debugModelUsed: debugModelUsed && usedProviderId === args.debugModelOverride?.providerId
+          ? debugModelUsed
+          : undefined,
+      });
+    }
+
+    // ── Pipeline afterResponse hooks ───────────────────────────────────────
+    for (const pipeline of activePipelines) {
+      if (pipeline.afterResponse) {
+        try {
+          const actions = pipeline.afterResponse(result.contentWithoutTitle, pipelineCtx);
+          for (const action of actions) {
+            if (action.type === "store_binaural_params" && result.messageId) {
+              await ctx.runMutation(internal.oracle.sessions.patchMessageBinauralParams, {
+                messageId: result.messageId,
+                binauralParams: action.payload,
+              });
+            }
+          }
+        } catch (e) {
+          console.error(`Pipeline ${pipeline.key} afterResponse hook failed:`, e);
+        }
+      }
+    }
+
+    // ── Update session status ──────────────────────────────────────────────
     await ctx.runMutation(api.oracle.sessions.updateSessionStatus, {
       sessionId: args.sessionId,
       status: "active",
     });
 
     return {
-      content: fallbackContent,
-      modelUsed: "fallback_hardcoded",
-      fallbackTier: "D",
+      content: result.contentWithoutTitle,
+      modelUsed: actualModelUsed,
+      fallbackTier: usedTier ?? "A",
+      promptTokens: result.promptTokens,
+      completionTokens: result.completionTokens,
+      timingMetrics,
+      debugModelUsed: debugModelUsed && usedProviderId === args.debugModelOverride?.providerId
+        ? debugModelUsed
+        : null,
     };
   },
 });
@@ -502,6 +681,10 @@ export const invokeOracle = action({
 /**
  * Generic streaming call to any OpenAI-compatible chat completions endpoint.
  * Works with OpenRouter, Ollama, and any OpenAI-compatible API.
+ *
+ * COMPLETELY UNCHANGED from the original implementation.
+ * Do not modify this function — it handles SSE parsing, streaming mutations,
+ * flush throttling, and error recovery.
  */
 async function callProviderStreaming(
   ctx: any,
@@ -736,9 +919,6 @@ async function callProviderStreaming(
       }
 
       // Flush after every SSE chunk, throttled to MIN_FLUSH_INTERVAL_MS.
-      // This is simpler and more robust than time-based flush intervals —
-      // natural network chunk boundaries provide optimal batching,
-      // and the throttle prevents Convex overload during fast generation.
       const now = Date.now();
       if (fullContent !== lastFlushedContent && (now - lastFlushTime >= MIN_FLUSH_INTERVAL_MS || lastFlushTime === 0)) {
         await ctx.runMutation(internal.oracle.sessions.updateStreamingContent, {

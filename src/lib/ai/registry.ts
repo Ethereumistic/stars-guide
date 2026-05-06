@@ -20,6 +20,7 @@ export interface ProviderConfig {
   type: ProviderType;
   baseUrl: string;
   apiKeyEnvVar: string;
+  maxConcurrent?: number; // Max simultaneous LLM calls. undefined = unlimited.
 }
 
 // ─── MODEL CAPABILITIES ─────────────────────────────────────────────────────
@@ -500,6 +501,7 @@ export const PROVIDER_TYPE_INFO: Record<ProviderType, ProviderTypeInfo> = {
 
 // ─── DEFAULTS ───────────────────────────────────────────────────────────────
 
+// Default provider — maxConcurrent omitted means unlimited.
 export const DEFAULT_PROVIDERS: ProviderConfig[] = [
   {
     id: "openrouter",
@@ -507,6 +509,7 @@ export const DEFAULT_PROVIDERS: ProviderConfig[] = [
     type: "openrouter",
     baseUrl: "https://openrouter.ai/api/v1",
     apiKeyEnvVar: "OPENROUTER_API_KEY",
+    // maxConcurrent: undefined → unlimited
   },
 ];
 
@@ -604,7 +607,22 @@ export function parseProvidersConfig(raw: string | undefined): ProviderConfig[] 
         typeof p.baseUrl === "string" &&
         typeof p.apiKeyEnvVar === "string"
     );
-    return validated.length > 0 ? (validated as ProviderConfig[]) : DEFAULT_PROVIDERS;
+    // Preserve maxConcurrent if present and valid
+    return validated.length > 0
+      ? (validated.map((p: any) => {
+          const entry: ProviderConfig = {
+            id: p.id,
+            name: p.name,
+            type: p.type,
+            baseUrl: p.baseUrl,
+            apiKeyEnvVar: p.apiKeyEnvVar,
+          };
+          if (typeof p.maxConcurrent === "number" && p.maxConcurrent >= 1) {
+            entry.maxConcurrent = p.maxConcurrent;
+          }
+          return entry;
+        }) as ProviderConfig[])
+      : DEFAULT_PROVIDERS;
   } catch {
     return DEFAULT_PROVIDERS;
   }
@@ -645,6 +663,14 @@ export function validateProvidersConfig(providers: any[]): string[] {
     } else {
       if (p.apiKeyEnvVar && typeof p.apiKeyEnvVar !== "string") {
         errors.push(`Provider '${p.id}' apiKeyEnvVar must be a string if provided.`);
+      }
+    }
+    // maxConcurrent — optional, but if present must be a number >= 1
+    if (p.maxConcurrent !== undefined && p.maxConcurrent !== null) {
+      if (typeof p.maxConcurrent !== "number") {
+        errors.push(`Provider '${p.id}' maxConcurrent must be a number if provided.`);
+      } else if (!Number.isInteger(p.maxConcurrent) || p.maxConcurrent < 1) {
+        errors.push(`Provider '${p.id}' maxConcurrent must be an integer >= 1.`);
       }
     }
   });

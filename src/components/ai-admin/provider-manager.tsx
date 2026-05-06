@@ -68,11 +68,13 @@ export function ProviderManager({ providers, onChange, onSave, saving }: Provide
   const [newName, setNewName] = React.useState("");
   const [newBaseUrl, setNewBaseUrl] = React.useState("");
   const [newApiKeyEnvVar, setNewApiKeyEnvVar] = React.useState("");
+  const [newMaxConcurrent, setNewMaxConcurrent] = React.useState("");
   const [providerToDelete, setProviderToDelete] = React.useState<string | null>(null);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editName, setEditName] = React.useState("");
   const [editBaseUrl, setEditBaseUrl] = React.useState("");
   const [editApiKeyEnvVar, setEditApiKeyEnvVar] = React.useState("");
+  const [editMaxConcurrent, setEditMaxConcurrent] = React.useState<string>("");
 
   React.useEffect(() => {
     if (showAdd) {
@@ -93,15 +95,20 @@ export function ProviderManager({ providers, onChange, onSave, saving }: Provide
     if (!newId || !newName || !newBaseUrl || (!newApiKeyEnvVar && newType !== "ollama")) {
       return;
     }
+    const maxConcurrentNum = newMaxConcurrent.trim() !== "" ? Number(newMaxConcurrent) : undefined;
+    const newProvider: ProviderConfig = {
+      id: newId,
+      type: newType,
+      name: newName,
+      baseUrl: newBaseUrl,
+      apiKeyEnvVar: newApiKeyEnvVar,
+    };
+    if (maxConcurrentNum != null && maxConcurrentNum >= 1) {
+      newProvider.maxConcurrent = maxConcurrentNum;
+    }
     const updated = [
       ...providers,
-      {
-        id: newId,
-        type: newType,
-        name: newName,
-        baseUrl: newBaseUrl,
-        apiKeyEnvVar: newApiKeyEnvVar,
-      },
+      newProvider,
     ];
     onChange(updated);
     onSave(updated);
@@ -122,15 +129,27 @@ export function ProviderManager({ providers, onChange, onSave, saving }: Provide
     setEditName(p.name);
     setEditBaseUrl(p.baseUrl);
     setEditApiKeyEnvVar(p.apiKeyEnvVar);
+    setEditMaxConcurrent(p.maxConcurrent != null ? String(p.maxConcurrent) : "");
   };
 
   const handleEditSave = () => {
     if (!editingId) return;
-    const updated = providers.map(p =>
-      p.id === editingId
-        ? { ...p, name: editName, baseUrl: editBaseUrl, apiKeyEnvVar: editApiKeyEnvVar }
-        : p
-    );
+    const maxConcurrentNum = editMaxConcurrent.trim() !== "" ? Number(editMaxConcurrent) : undefined;
+    const updated = providers.map(p => {
+      if (p.id !== editingId) return p;
+      const updatedP: ProviderConfig = {
+        ...p,
+        name: editName,
+        baseUrl: editBaseUrl,
+        apiKeyEnvVar: editApiKeyEnvVar,
+      };
+      if (maxConcurrentNum != null && maxConcurrentNum >= 1) {
+        updatedP.maxConcurrent = maxConcurrentNum;
+      } else {
+        delete updatedP.maxConcurrent;
+      }
+      return updatedP;
+    });
     onChange(updated);
     onSave(updated);
     setEditingId(null);
@@ -171,6 +190,20 @@ export function ProviderManager({ providers, onChange, onSave, saving }: Provide
                     className="border-white/10 bg-black/20"
                   />
                 </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Max Concurrent Requests</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={editMaxConcurrent}
+                    onChange={e => setEditMaxConcurrent(e.target.value)}
+                    placeholder="Unlimited"
+                    className="border-white/10 bg-black/20"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Maximum simultaneous LLM calls. Leave empty for unlimited.
+                  </p>
+                </div>
                 <div className="flex gap-2">
                   <Button size="sm" onClick={handleEditSave}>Save Changes</Button>
                   <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
@@ -196,6 +229,10 @@ export function ProviderManager({ providers, onChange, onSave, saving }: Provide
                     <div className="flex items-center gap-2">
                       <Key className="w-4 h-4" />
                       <span className="font-mono text-xs">{p.apiKeyEnvVar || "(No API Key required)"}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                      <span className="font-mono text-xs">Max Concurrent: {p.maxConcurrent ?? "Unlimited"}</span>
                     </div>
                   </div>
                 </div>
@@ -309,6 +346,21 @@ export function ProviderManager({ providers, onChange, onSave, saving }: Provide
               />
               <p className="text-xs text-muted-foreground">
                 Name of the environment variable. Never stored in DB.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Max Concurrent Requests</Label>
+              <Input
+                type="number"
+                min={1}
+                value={newMaxConcurrent}
+                onChange={e => setNewMaxConcurrent(e.target.value)}
+                placeholder="Unlimited"
+                className="border-white/10 bg-black/20"
+              />
+              <p className="text-xs text-muted-foreground">
+                Maximum simultaneous LLM calls this provider supports. Leave empty for unlimited.
               </p>
             </div>
           </div>

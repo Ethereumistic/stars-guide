@@ -38,6 +38,7 @@ import type * as notifications_queries from "../notifications/queries.js";
 import type * as oracle_debug from "../oracle/debug.js";
 import type * as oracle_features from "../oracle/features.js";
 import type * as oracle_llm from "../oracle/llm.js";
+import type * as oracle_providerRouter from "../oracle/providerRouter.js";
 import type * as oracle_quota from "../oracle/quota.js";
 import type * as oracle_sessions from "../oracle/sessions.js";
 import type * as oracle_settings from "../oracle/settings.js";
@@ -84,6 +85,7 @@ declare const fullApi: ApiFromModules<{
   "oracle/debug": typeof oracle_debug;
   "oracle/features": typeof oracle_features;
   "oracle/llm": typeof oracle_llm;
+  "oracle/providerRouter": typeof oracle_providerRouter;
   "oracle/quota": typeof oracle_quota;
   "oracle/sessions": typeof oracle_sessions;
   "oracle/settings": typeof oracle_settings;

@@ -176,7 +176,7 @@ export interface ToolIntentResult {
  * so they get caught as chart-intent first, then the same patterns
  * in DEPTH_SIGNAL_FULL_PATTERNS will also match, yielding full depth.
  */
-const BIRTH_CHART_INTENT_PATTERNS: RegExp[] = [
+export const BIRTH_CHART_INTENT_PATTERNS: RegExp[] = [
   // Action verb + chart reference (handles word-order variations)
   /\b(analy[sz]e|read|interpret|explain|review|look\s+at|do|give\s+me|get|show|tell\s+me\s+about)\b.*\b(birth\s*chart|brith\s*chart|natal\s*chart|chart)\b/i,
   // Chart reference + action noun (reversed word order)
@@ -215,7 +215,7 @@ const BIRTH_CHART_INTENT_PATTERNS: RegExp[] = [
  * We also include structural signals (specific planets beyond Big Three,
  * houses, aspects, nodes) that imply the user wants more than the basics.
  */
-const DEPTH_SIGNAL_FULL_PATTERNS: RegExp[] = [
+export const DEPTH_SIGNAL_FULL_PATTERNS: RegExp[] = [
   // Explicit depth words ANYWHERE in the question (handles suffixed forms like "fully", "thoroughly", "detailedly")
   /\bin\s+depth\b/i,
   /\b(deep|full|full[y]|complete|detailed|detailedl[y]|thorough|thoroughl[y]|comprehensive|comprehensively|layered|in-?depth|exhaustive|extensively|extensive)\b/i,
@@ -236,7 +236,7 @@ const DEPTH_SIGNAL_FULL_PATTERNS: RegExp[] = [
  * Checked AFTER journal recall and AFTER birth chart, since binaural
  * intent is less common than chart intent.
  */
-const BINAURAL_INTENT_PATTERNS: RegExp[] = [
+export const BINAURAL_INTENT_PATTERNS: RegExp[] = [
   // Explicit generation requests (with optional pronoun: "generate me a beat", "make me a beat")
   /\b(generate|create|make|craft|compose)\s+(me\s+)?(a\s+)?(binaural\s+)?beat/i,
   /\b(generate|create|make)\s+(me\s+)?(a\s+)?(sound|frequency|tone|audio)\s+(for|tuned|aligned)/i,
@@ -268,7 +268,7 @@ const BINAURAL_INTENT_PATTERNS: RegExp[] = [
  * like "What did I journal about my chart?" from being misclassified as
  * a birth chart request.
  */
-const JOURNAL_RECALL_PATTERNS: RegExp[] = [
+export const JOURNAL_RECALL_PATTERNS: RegExp[] = [
   /\b(cosmic\s+recall)\b/i,
   /\brecall\s+my\s+journal\b/i,
   /\blook\s+(through|in|at)\s+my\s+journal\b/i,
