@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { GiCursedStar } from "react-icons/gi";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { OracleInput } from "@/components/oracle/input/oracle-input";
 import { BinauralBeatHistoryCard } from "@/components/oracle/input/binaural-beat-history-card";
 import {
@@ -26,8 +27,9 @@ import {
   type BinauralBeatParams,
 } from "@/lib/binaural-presets";
 import { Button } from "@/components/ui/button";
-import { getFeatureDefaultPrompt, isImplementedFeature, type OracleFeatureKey } from "@/lib/oracle/features";
+import { getFeatureDefaultPrompt, isBirthChartFeature, isImplementedFeature, type OracleFeatureKey } from "@/lib/oracle/features";
 import { useOracleStore } from "@/store/use-oracle-store";
+import { OracleChartBubble } from "@/components/oracle/input/oracle-chart-bubble";
 import { useUserStore } from "@/store/use-user-store";
 import { useLoadingMessage } from "@/hooks/use-loading-message";
 
@@ -80,6 +82,7 @@ function AssistantMessageContent({ content, isStreamingThis }: { content: string
         return (
             <div className="oracle-markdown">
                 <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
                     components={{
                         h2: ({ children }) => (
                             <h2 className="text-base font-semibold text-white/90 mt-4 mb-2 border-b border-white/10 pb-1">
@@ -154,6 +157,7 @@ function AssistantMessageContent({ content, isStreamingThis }: { content: string
     return (
         <div className="oracle-markdown">
             <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
                 components={{
                     h2: ({ children }) => (
                         <h2 className="text-base font-semibold text-white/90 mt-4 mb-2 border-b border-white/10 pb-1">
@@ -250,7 +254,6 @@ export default function OracleChatPage() {
         setSelectedFeature,
         setBirthChartDepth,
         clearSelectedFeature,
-        hydrateSessionFeature,
         setConversationActive,
         setIsStreaming,
         timezone,
@@ -282,19 +285,15 @@ export default function OracleChatPage() {
     useEffect(() => {
         if (!sessionData || !sessionData.messages) return;
 
-        const featureKey = (sessionData.featureKey as OracleFeatureKey | null) ?? null;
-
         if ((sessionData.status === "active" || sessionData.status === "completed") && !initialLoadDoneRef.current) {
             initialLoadDoneRef.current = true;
             setSessionId(sessionId);
-            hydrateSessionFeature(featureKey);
             setConversationActive();
         } else if (state === "oracle_responding" && !initialLoadDoneRef.current) {
             initialLoadDoneRef.current = true;
             setSessionId(sessionId);
-            hydrateSessionFeature(featureKey);
         }
-    }, [sessionData?.status, sessionData?.featureKey, hydrateSessionFeature, sessionId, setConversationActive, setSessionId, state]);
+    }, [sessionData?.status, sessionData?.featureKey, sessionId, setConversationActive, setSessionId, state]);
 
     useEffect(() => {
         if (!sessionData?.messages || !pendingUserMessage) return;
@@ -395,11 +394,8 @@ export default function OracleChatPage() {
 
     const handleFeatureClear = useCallback(async () => {
         clearSelectedFeature();
-        await updateSessionFeatureMutation({
-            sessionId,
-            featureKey: undefined,
-        });
-    }, [clearSelectedFeature, sessionId, updateSessionFeatureMutation]);
+        // Do NOT clear session feature here — the chart bubble in chat must persist.
+    }, [clearSelectedFeature]);
 
     const handleBirthChartDepthChange = useCallback(async (depth: "core" | "full") => {
         setBirthChartDepth(depth);
@@ -428,6 +424,12 @@ export default function OracleChatPage() {
 
         setInputValue("");
         setPendingUserMessage(content);
+
+        // Dismiss the feature import card in the input area (local UI only).
+        // Do NOT clear the session feature — the chart bubble in chat must persist.
+        if (selectedFeatureKey) {
+            clearSelectedFeature();
+        }
 
         await addMessageMutation({
             sessionId,
@@ -463,7 +465,7 @@ export default function OracleChatPage() {
         } finally {
             setIsStreaming(false);
         }
-    }, [inputValue, selectedFeatureKey, isStreaming, sessionId, addMessageMutation, invokeOracle, setIsStreaming, debugModelOverride, setDebugLastMetrics, setDebugDebugModelUsed, setDebugClientTiming]);
+    }, [inputValue, selectedFeatureKey, isStreaming, sessionId, addMessageMutation, invokeOracle, setIsStreaming, debugModelOverride, setDebugLastMetrics, setDebugDebugModelUsed, setDebugClientTiming, clearSelectedFeature]);
 
     // Compute countdown for daily cap
     const quotaCountdown = React.useMemo(() => {
@@ -497,6 +499,22 @@ export default function OracleChatPage() {
         ? [...serverMessages, { role: "user" as const, content: pendingUserMessage, createdAt: Date.now() }]
         : serverMessages;
 
+    // Show birth chart bubble in chat when session was created with birth chart feature.
+    // Key off sessionData.featureKey (persisted), NOT selectedFeatureKey (ephemeral UI state)
+    // so the bubble survives the user closing the import card.
+    const sessionFeatureKey = (sessionData?.featureKey as OracleFeatureKey | null) ?? null;
+    const showChartBubble = isBirthChartFeature(sessionFeatureKey);
+
+    // Insert chart bubble AFTER the first user message
+    const firstUserIdx = allMessages.findIndex(m => m.role === "user");
+    const renderedMessages = showChartBubble && firstUserIdx >= 0
+        ? [
+            ...allMessages.slice(0, firstUserIdx + 1).map((m, i) => ({ ...m, _key: `msg-${i}` })),
+            { role: "chart-bubble" as const, content: "", createdAt: 0, _key: "chart-bubble" },
+            ...allMessages.slice(firstUserIdx + 1).map((m, i) => ({ ...m, _key: `msg-${firstUserIdx + 2 + i}` })),
+        ]
+        : allMessages.map((m, i) => ({ ...m, _key: `msg-${i}` }));
+
     // Determine input bar state
     const isInputDisabled = isStreaming || state === "oracle_responding" || !!quotaExhausted;
     const inputPlaceholder = isStreaming || state === "oracle_responding"
@@ -510,9 +528,26 @@ export default function OracleChatPage() {
             {/* Messages area */}
             <div className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin scrollbar-thumb-white/10">
                 <div className="max-w-3xl mx-auto space-y-6">
-                    {allMessages.map((msg, i) => (
+                    {renderedMessages.map((msg, i) => {
+                        if ((msg as any).role === "chart-bubble") {
+                            return (
+                                <motion.div
+                                    key="chart-bubble"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.4 }}
+                                >
+                                    <OracleChartBubble
+                                        birthData={user?.birthData}
+                                        username={user?.username}
+                                        depth={birthChartDepth}
+                                    />
+                                </motion.div>
+                            );
+                        }
+                        return (
                         <motion.div
-                            key={i}
+                            key={(msg as any)._key || i}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.4, delay: i * 0.05 }}
@@ -540,8 +575,8 @@ export default function OracleChatPage() {
                                 </div>
                                 )
                             ) : msg.role === "assistant" ? (() => {
-                                const isLastAssistant = i === allMessages.length - 1 ||
-                                    !allMessages.slice(i + 1).some(m => m.role === "assistant");
+                                const isLastAssistant = i === renderedMessages.length - 1 ||
+                                    !renderedMessages.slice(i + 1).some(m => m.role === "assistant");
                                 const isStreamingThis = isLastAssistant && isStreaming;
                                 const isEmpty = !msg.content;
 
@@ -651,11 +686,12 @@ export default function OracleChatPage() {
                                 );
                             })() : null}
                         </motion.div>
-                    ))}
+                    );
+                    })}
 
                     {/* Fallback loading: shown while isStreaming but before the streaming message appears in Convex */}
                     <AnimatePresence>
-                        {isStreaming && allMessages[allMessages.length - 1]?.role !== "assistant" && (
+                        {isStreaming && renderedMessages[renderedMessages.length - 1]?.role !== "assistant" && (
                             <motion.div
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}

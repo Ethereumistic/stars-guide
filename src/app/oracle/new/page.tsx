@@ -182,6 +182,9 @@ export default function OracleNewPage() {
         questionText,
       });
 
+      // Dismiss the feature import card before navigating
+      clearSelectedFeature();
+
       setSessionId(sessionId);
       setOracleResponding();
       router.push(`/oracle/chat/${sessionId}`);
@@ -196,6 +199,7 @@ export default function OracleNewPage() {
     setSessionId,
     setOracleResponding,
     router,
+    clearSelectedFeature,
   ]);
 
   const currentTier = (user?.tier ?? "free") as "free" | "popular" | "premium";
@@ -290,6 +294,7 @@ export default function OracleNewPage() {
                 username={user?.username}
                 onBinauralGenerate={handleBinauralGenerate}
                 birthChartDepth={birthChartDepth}
+                onBirthChartDepthChange={setBirthChartDepth}
               />
 
               {quota && quota.remaining !== undefined && (

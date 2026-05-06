@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
-import { X, Plus } from "lucide-react"
+import { X, Info } from "lucide-react"
 import type { OracleBirthData } from "@/lib/oracle/featureContext"
 import type { ChartData } from "@/lib/birth-chart/full-chart"
 import type { BirthChartDepth } from "@/lib/oracle/features"
@@ -10,6 +10,7 @@ import { compositionalSigns } from "@/astrology/signs"
 import { zodiacUIConfig } from "@/config/zodiac-ui"
 import { elementUIConfig } from "@/config/elements-ui"
 import { planetUIConfig } from "@/config/planet-ui"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 // ── Big Three placements to display ──────────────────────────────────────────
 const BIG_THREE = [
@@ -90,110 +91,120 @@ export function OracleChartPreview({
 
   return (
     <div className="flex justify-end">
-      <div
-        className="group/card relative w-[45%] min-w-[200px] max-w-[320px] rounded-2xl overflow-hidden border border-white/[0.08] bg-white/[0.03] backdrop-blur-2xl"
-        style={{
-          boxShadow: dominantElementUi
-            ? `0 0 40px -15px ${dominantElementUi.styles.glow}, inset 0 1px 0 rgba(255,255,255,0.06)`
-            : "inset 0 1px 0 rgba(255,255,255,0.06)",
-        }}
-      >
-        {/* ── Dismiss X (hover only) ── */}
+      <div className="relative">
+        {/* ── Dismiss X: above the card, top-right ── */}
         {onDismiss && (
-          <button
-            type="button"
-            onClick={onDismiss}
-            className="absolute top-2 right-2 z-20 flex items-center justify-center size-6 rounded-full bg-black/40 border border-white/10 text-white/0 group-hover/card:text-white/60 hover:!text-white hover:!bg-white/15 transition-all duration-200"
-            aria-label="Dismiss chart"
-          >
-            <X className="w-3 h-3" />
-          </button>
+          <div className="flex justify-end mb-1">
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="flex items-center justify-center size-5 rounded-full text-white/30 hover:text-white hover:bg-white/10 transition-all duration-200"
+              aria-label="Dismiss chart"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
         )}
 
-        {/* ── Depth toggle (+ button) ── */}
-        {onDepthChange && (
-          <button
-            type="button"
-            onClick={() => onDepthChange(depth === "core" ? "full" : "core")}
-            className={`
-              absolute top-2 left-2 z-20 flex items-center justify-center
-              size-6 rounded-full border transition-all duration-200
-              ${depth === "full"
-                ? "border-galactic/50 bg-galactic/25 text-white shadow-[0_0_10px_rgba(157,78,221,0.35)]"
-                : "border-white/10 bg-black/30 text-white/30 hover:bg-white/10 hover:text-white/60"
-              }
-            `}
-            aria-label={depth === "full" ? "Switch to core depth" : "Enable full depth"}
-            title={depth === "full" ? "Full depth active" : "Enable full depth"}
-          >
-            <Plus className="w-3 h-3" />
-          </button>
-        )}
-
-        {/* ── Username header ── */}
-        <div className="relative px-3 pt-2.5 pb-1">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-white/30 font-medium truncate">
-            {username ?? "Unknown"}&apos;s chart
-          </p>
-        </div>
-
-        {/* ── Chart circle ── */}
-        <div className="relative -mt-1">
-          {dominantElementUi && (
-            <div
-              className="absolute inset-0 opacity-20 blur-2xl scale-75"
-              style={{ background: dominantElementUi.styles.gradient }}
-            />
-          )}
-          <ChartCircleView data={chartData} />
-        </div>
-
-        {/* ── Big Three Grid: 2 rows × 3 columns ── */}
-        <div className="relative px-3 pb-3 pt-1">
-          {/* Depth badge */}
-          {depth === "full" && (
-            <div className="absolute top-0 right-3 flex items-center">
-              <span className="text-[8px] uppercase tracking-[0.18em] text-galactic/70 font-semibold bg-galactic/10 border border-galactic/20 rounded-full px-1.5 py-0.5">
-                Full depth
-              </span>
+        <div
+          className="group/card relative rounded-2xl overflow-hidden border border-white/[0.08] bg-white/[0.03] backdrop-blur-2xl"
+          style={{
+            boxShadow: dominantElementUi
+              ? `0 0 40px -15px ${dominantElementUi.styles.glow}, inset 0 1px 0 rgba(255,255,255,0.06)`
+              : "inset 0 1px 0 rgba(255,255,255,0.06)",
+          }}
+        >
+          {/* ── Header: title + depth toggle ── */}
+          <div className="relative flex items-center justify-between px-3 pt-2.5 pb-1">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <p className="text-sm tracking-[0.2em] text-white font-serif font-medium truncate">
+                {username ?? "Unknown"}&apos;s chart
+              </p>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="w-3 h-3 text-white/25 hover:text-white/50 transition-colors shrink-0 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[220px] text-balance">
+                    <p className="leading-relaxed">
+                      {depth === "full"
+                        ? "The Oracle will deeply analyze your full birth chart — planets, houses, aspects and all placements — to deliver a comprehensive reading."
+                        : "The Oracle will read your Sun, Moon, and Ascendant to provide a focused cosmic insight."}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
-          )}
+            {onDepthChange && (
+              <button
+                type="button"
+                onClick={() => onDepthChange(depth === "core" ? "full" : "core")}
+                className={`
+                  flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-medium
+                  rounded-full px-2.5 py-1 border transition-all duration-200 shrink-0 ml-2
+                  ${depth === "full"
+                    ? "border-galactic/40 bg-galactic/15 text-galactic shadow-[0_0_10px_rgba(157,78,221,0.25)]"
+                    : "border-white/10 text-white/30 hover:text-white/50 hover:border-white/20"
+                  }
+                `}
+                aria-label={depth === "full" ? "Switch to core depth" : "Enable full depth"}
+              >
+                {depth === "full" ? "Full" : "Core"}
+              </button>
+            )}
+          </div>
 
-          <div className="grid grid-cols-3 gap-1">
-            {placements.map((p) => {
-              if (!p) return null
-              const { body, label, sign, signUi, elementUi, planetUi, Icon } = p
+          {/* ── Chart circle ── */}
+          <div className="relative -mt-1">
+            {dominantElementUi && (
+              <div
+                className="absolute inset-0 opacity-20 blur-2xl scale-75"
+                style={{ background: dominantElementUi.styles.gradient }}
+              />
+            )}
+            <ChartCircleView data={chartData} />
+          </div>
 
-              return (
-                <div key={body} className="flex flex-col items-center">
-                  {/* ── Top cell: Planet glyph ── */}
-                  <div className="w-full flex items-center justify-center py-1.5 rounded-t-lg bg-white/[0.04] border border-white/[0.06] border-b-0">
-                    <span
-                      className="text-lg leading-none"
-                      style={{ color: planetUi.themeColor }}
-                    >
-                      {planetUi.rulerSymbol}
+          {/* ── Big Three: 3×2 grid ── */}
+          <div className="border-t border-white/[0.06]">
+            <div className="grid grid-cols-3 overflow-hidden divide-x divide-white/[0.06]">
+              {/* Row 1: Planet glyphs */}
+              {placements.map((p) => {
+                if (!p) return null
+                const { body, elementUi } = p
+                return (
+                  <div
+                    key={body}
+                    className="relative flex items-center justify-center py-1.5 border-b border-white/[0.06]"
+                  >
+                    <div
+                      className="absolute inset-0 opacity-[0.07]"
+                      style={{ background: elementUi.styles.gradient }}
+                    />
+                    <span className="relative z-10 text-lg leading-none text-white">
+                      {p.planetUi.rulerSymbol}
                     </span>
                   </div>
-
-                  {/* ── Bottom cell: Sign icon on element frame ── */}
+                )
+              })}
+              {/* Row 2: Sign icons with element frames */}
+              {placements.map((p) => {
+                if (!p) return null
+                const { body, elementUi, Icon } = p
+                return (
                   <div
-                    className="relative w-full flex items-center justify-center py-2.5 rounded-b-lg bg-white/[0.04] border border-white/[0.06] border-t-0 overflow-hidden"
+                    key={body}
+                    className="relative flex items-center justify-center py-2.5 overflow-hidden"
                   >
-                    {/* Element frame image */}
                     <img
                       src={elementUi.frameUrl}
                       alt=""
                       className="absolute inset-0 w-full h-full object-contain opacity-50 pointer-events-none"
                     />
-
-                    {/* Element glow behind icon */}
                     <div
                       className="absolute inset-0 blur-md opacity-20"
                       style={{ backgroundColor: elementUi.styles.glow }}
                     />
-
-                    {/* Sign icon */}
                     {Icon && (
                       <Icon
                         className="relative z-10 w-6 h-6 text-amber-100"
@@ -203,9 +214,9 @@ export function OracleChartPreview({
                       />
                     )}
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
         </div>
       </div>
