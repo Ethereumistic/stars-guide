@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState } from "react"
+import React, { useMemo, useState, useEffect } from "react"
 import { motion } from "motion/react"
 import {
   ElementType,
@@ -258,6 +258,23 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
   const [tooltip, setTooltip] = useState<TooltipData | null>(null)
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
   const [visualization, setVisualization] = useState<string>("both")
+
+  // On mobile, "both" is not available so default to "table"
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  // Switch to "table" when switching to mobile while in "both" view
+  useEffect(() => {
+    if (isMobile && visualization === "both") {
+      setVisualization("table");
+    }
+  }, [isMobile, visualization]);
 
   const { scores, elementScores, dominant, dominantColor } = useMemo(
     () => computeSpiderScores(birthData.placements, birthData.chart),
@@ -528,6 +545,7 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
         titleAccent="Elemental Chart"
         activeVisualization={visualization}
         onVisualizationChange={setVisualization}
+        hideBothOnMobile
       />
 
       {visualization === "both" ? (

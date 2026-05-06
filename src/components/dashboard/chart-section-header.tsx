@@ -28,11 +28,18 @@ export interface ChartSectionHeaderProps {
     activeVisualization: string;
     onVisualizationChange: (value: string) => void;
     filterLabel?: string;
+    /** Hide the "Both" option on mobile screens (recommended for side-by-side views) */
+    hideBothOnMobile?: boolean;
     className?: string;
 }
 
 const visualizationFilters = [
     { value: "both", label: "Both", icon: LayoutGrid },
+    { value: "table", label: "Table", icon: Table2 },
+    { value: "circle", label: "Circle", icon: CircleDot },
+];
+
+const mobileOnlyFilters = [
     { value: "table", label: "Table", icon: Table2 },
     { value: "circle", label: "Circle", icon: CircleDot },
 ];
@@ -44,10 +51,12 @@ export function ChartSectionHeader({
     activeVisualization,
     onVisualizationChange,
     filterLabel = "Filter by Visualization",
+    hideBothOnMobile = false,
     className,
 }: ChartSectionHeaderProps) {
     const currentPageLabel = breadcrumbs?.[breadcrumbs.length - 1]?.label;
     const navItems = breadcrumbs ? breadcrumbs.slice(0, -1) : [];
+    const activeFilters = hideBothOnMobile ? mobileOnlyFilters : visualizationFilters;
 
     return (
         <>
@@ -95,7 +104,7 @@ export function ChartSectionHeader({
                     </span>
                     <Tabs value={activeVisualization} onValueChange={onVisualizationChange} className="w-fit rounded-md mx-auto md:mx-0">
                         <TabsList className="bg-white/5 border border-white/10 p-1 h-auto gap-2 justify-center">
-                            {visualizationFilters.map((filter) => (
+                            {activeFilters.map((filter) => (
                                 <TabsTrigger
                                     key={filter.value}
                                     value={filter.value}

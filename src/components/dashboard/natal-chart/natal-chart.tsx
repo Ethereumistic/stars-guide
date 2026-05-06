@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { calculateFullChart } from "@/lib/birth-chart/full-chart";
 import { ChartTableView } from "./chart-table-view";
@@ -24,6 +24,23 @@ interface BirthData {
 
 export function NatalChart({ birthData }: { birthData: BirthData }) {
     const [visualization, setVisualization] = useState<string>("both");
+
+    // On mobile, "both" is not available so default to "table"
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        const mq = window.matchMedia("(max-width: 767px)");
+        setIsMobile(mq.matches);
+        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+        mq.addEventListener("change", handler);
+        return () => mq.removeEventListener("change", handler);
+    }, []);
+
+    // Switch to "table" when switching to mobile while in "both" view
+    useEffect(() => {
+        if (isMobile && visualization === "both") {
+            setVisualization("table");
+        }
+    }, [isMobile, visualization]);
 
     const chartData = useMemo(() => {
         try {
@@ -73,15 +90,10 @@ export function NatalChart({ birthData }: { birthData: BirthData }) {
             <TabsList className="bg-white/5 border border-white/10 p-1 h-auto gap-2 justify-center">
                 <TabsTrigger
                     value="both"
-                    className="relative w-20 md:w-24 text-center px-4 py-2.5 text-sm font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300"
+                    className="hidden md:inline-flex relative w-24 text-center px-4 py-2.5 text-sm font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300"
                 >
-                    <LayoutGrid className="size-5 md:size-4 md:mr-2 text-primary" />
-                    <span className="font-mono text-sm md:text-xs uppercase tracking-wider md:hidden">
-                        Both
-                    </span>
-                    <span className="font-mono text-xs uppercase tracking-wider hidden md:inline">
-                        Both
-                    </span>
+                    <LayoutGrid className="size-4 mr-2 text-primary" />
+                    <span className="font-mono text-xs uppercase tracking-wider">Both</span>
                 </TabsTrigger>
                 <TabsTrigger
                     value="table"

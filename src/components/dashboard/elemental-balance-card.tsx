@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { motion } from "motion/react"
 import { compositionalSigns } from "@/astrology/signs"
 import { ElementType, ELEMENT_CONTENT, ELEMENT_COLORS } from "@/astrology/elements"
@@ -23,6 +23,23 @@ interface ElementalBalanceCardProps {
 
 export function ElementalBalanceCard({ birthData, delay = 0.3 }: ElementalBalanceCardProps) {
     const [visualization, setVisualization] = useState<string>("both")
+
+    // On mobile, "both" is not available so default to "table"
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        const mq = window.matchMedia("(max-width: 767px)");
+        setIsMobile(mq.matches);
+        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+        mq.addEventListener("change", handler);
+        return () => mq.removeEventListener("change", handler);
+    }, []);
+
+    // Switch to "table" when switching to mobile while in "both" view
+    useEffect(() => {
+        if (isMobile && visualization === "both") {
+            setVisualization("table");
+        }
+    }, [isMobile, visualization]);
 
     const { counts, total, placementsByElement, dominant } = useMemo(() => {
         const counts: Record<ElementType, number> = { Fire: 0, Earth: 0, Air: 0, Water: 0 }
@@ -63,6 +80,7 @@ export function ElementalBalanceCard({ birthData, delay = 0.3 }: ElementalBalanc
                 titleAccent="Elemental Distribution"
                 activeVisualization={visualization}
                 onVisualizationChange={setVisualization}
+                hideBothOnMobile
             />
 
             {visualization === "both" ? (
