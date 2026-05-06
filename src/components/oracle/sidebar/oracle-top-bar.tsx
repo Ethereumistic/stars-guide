@@ -22,26 +22,20 @@ export function OracleTopBar({ showLogo, centerCtaLabel }: OracleTopBarProps) {
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 flex-1 items-center justify-start gap-2">
             <SidebarTrigger className="h-9 w-9 border border-white/15 bg-background/60 text-foreground/70 hover:border-primary/40 hover:text-primary md:hidden transition-all duration-500" />
-            <div
-              className={`flex min-w-0 items-center gap-2 transition-all duration-300 ${
-                showLogo
-                  ? "translate-y-0 opacity-100 blur-0"
-                  : "-translate-y-1 opacity-0 blur-[2px]"
-              }`}
-            >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl  text-galactic">
-                <GiCursedStar className="size-10" />
-              </div>
-              <span className="truncate text-lg font-serif font-black tracking-wide lowercase text-white">
-                Oracle
-              </span>
-            </div>
           </div>
 
           <div className="flex flex-1 items-center justify-center">
-            <Button className="h-9 shrink-0 border border-galactic/40 bg-galactic/15 text-xs font-serif font-black uppercase tracking-[0.14em] text-white hover:bg-galactic/25 md:h-10 md:text-sm">
-              {centerCtaLabel}
-            </Button>
+            <div
+              className={`flex items-center gap-1.5 transition-all duration-300 ${showLogo
+                  ? "translate-y-0 opacity-100 blur-0"
+                  : "-translate-y-1 opacity-0 blur-[2px]"
+                }`}
+            >
+              <GiCursedStar className="size-6 text-galactic" />
+              <span className="text-base font-serif font-black tracking-wide lowercase text-white">
+                Oracle
+              </span>
+            </div>
           </div>
 
           <div className="flex flex-1 items-center justify-end gap-1 md:gap-2">

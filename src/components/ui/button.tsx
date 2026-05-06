@@ -22,6 +22,8 @@ const buttonVariants = cva(
 
         galactic: "text-sm bg-galactic/10 text-white tracking-widest border border-galactic/30  hover:border-galactic/50 hover:text-white",
 
+        stardust: "text-sm bg-gradient-to-r from-primary/10 to-galactic/10 text-white/60 border border-white/10 tracking-widest hover:from-primary/20 hover:to-galactic/20 hover:text-white hover:border-primary/30 transition-all duration-700",
+
 
         fire: "bg-fire/10 text-white hover:bg-fire/20 border-fire/40 border uppercase tracking-[0.2em] font-serif shadow-[0_0_15px_-5px_var(--fire-glow)]",
         earth: "bg-earth/10 text-white hover:bg-earth/20 border-earth/40 border uppercase tracking-[0.2em] font-serif shadow-[0_0_15px_-5px_var(--earth-glow)]",

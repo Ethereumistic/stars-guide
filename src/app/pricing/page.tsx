@@ -6,10 +6,8 @@ import { TbSparkles } from "react-icons/tb";
 import { PricingCard } from "@/components/pricing/pricing-card";
 import { plans } from "@/components/pricing/pricing-data";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { StardustPurchaseV1 } from "@/components/pricing/stardust-purchase-v1";
-import { StardustPurchaseV5 } from "@/components/pricing/stardust-purchase-v5";
-import { PageHeader } from "@/components/layout/page-header";
 import { StardustPurchase } from "@/components/pricing/stardust-purchase";
+import { PageHeader } from "@/components/layout/page-header";
 
 export default function PricingPage() {
   const [isYearly, setIsYearly] = useState(false);
@@ -62,7 +60,7 @@ export default function PricingPage() {
           ))}
         </div>
 
-        <StardustPurchaseV1 />
+        <StardustPurchase />
       </main>
     </div>
   );

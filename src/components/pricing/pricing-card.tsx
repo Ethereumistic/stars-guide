@@ -5,8 +5,7 @@ import Link from "next/link";
 import { Check, X } from "lucide-react";
 import { PricingPlan, IconMap } from "./pricing-data";
 import { useState, useRef, useEffect } from "react";
-import { StarsBackground } from "@/components/hero/stars-background";
-import { ShootingStars } from "@/components/hero/shooting-stars";
+import { ShootingStars, StarsBackground } from "@/components/hero/stars-canvas";
 import { Button } from "../ui/button";
 
 interface PricingCardProps {
@@ -168,13 +167,12 @@ export function PricingCard({ plan, index, isYearly }: PricingCardProps) {
               >
                 {feature.included ? (
                   <div
-                    className={`mt-0.5 rounded-full p-1 border ${
-                      isPopular
-                        ? "border-primary/20 bg-primary/10 text-primary"
-                        : isPremium
-                          ? "border-galactic/20 bg-galactic/10 text-galactic"
-                          : "border-white/10 bg-white/5 text-white/80"
-                    }`}
+                    className={`mt-0.5 rounded-full p-1 border ${isPopular
+                      ? "border-primary/20 bg-primary/10 text-primary"
+                      : isPremium
+                        ? "border-galactic/20 bg-galactic/10 text-galactic"
+                        : "border-white/10 bg-white/5 text-white/80"
+                      }`}
                   >
                     <Check className="w-3 h-3" />
                   </div>
