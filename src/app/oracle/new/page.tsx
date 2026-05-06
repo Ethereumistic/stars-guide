@@ -90,8 +90,10 @@ export default function OracleNewPage() {
   const {
     pendingQuestion,
     selectedFeatureKey,
+    birthChartDepth,
     setPendingQuestion,
     setSelectedFeature,
+    setBirthChartDepth,
     clearSelectedFeature,
     setSessionId,
     setOracleResponding,
@@ -285,7 +287,9 @@ export default function OracleNewPage() {
                 onFeatureSelect={handleFeatureSelect}
                 onFeatureClear={clearSelectedFeature}
                 birthData={user?.birthData}
+                username={user?.username}
                 onBinauralGenerate={handleBinauralGenerate}
+                birthChartDepth={birthChartDepth}
               />
 
               {quota && quota.remaining !== undefined && (

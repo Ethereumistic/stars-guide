@@ -96,8 +96,8 @@ export const ORACLE_FEATURES: readonly OracleFeatureDefinition[] = [
   },
   {
     key: "journal_recall",
-    label: "Cosmic Recall",
-    shortLabel: "Recall",
+    label: "Journal Recall",
+    shortLabel: "Journal Recall",
     description: "Search your journal entries for patterns tied to astrological events",
     defaultPrompt: "Look through my journal and help me find patterns",
     fallbackInjectionText: [

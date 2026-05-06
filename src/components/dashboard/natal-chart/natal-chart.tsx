@@ -5,13 +5,7 @@ import { motion } from "motion/react";
 import { calculateFullChart } from "@/lib/birth-chart/full-chart";
 import { ChartTableView } from "./chart-table-view";
 import { ChartCircleView } from "./chart-circle-view";
-import { PageHeader } from "@/components/layout/page-header";
-import {
-    Tabs,
-    TabsList,
-    TabsTrigger,
-} from "@/components/ui/tabs";
-import { Table2, CircleDot, LayoutGrid } from "lucide-react";
+import { ChartSectionHeader } from "@/components/dashboard/chart-section-header";
 
 interface BirthData {
     date: string;
@@ -79,49 +73,11 @@ export function NatalChart({ birthData }: { birthData: BirthData }) {
 
     if (!chartData) {
         return (
-            <div className="p-8 text-center text-white/50 bg-[#0F0F0F] rounded-md border border-white/10">
+            <div className=" text-center text-white/50 bg-[#0F0F0F] rounded-md border border-white/10">
                 Incomplete birth data.
             </div>
         );
     }
-
-    const filterControl = (
-        <Tabs value={visualization} onValueChange={setVisualization} className="w-fit rounded-md mx-auto md:mx-0">
-            <TabsList className="bg-white/5 border border-white/10 p-1 h-auto gap-2 justify-center">
-                <TabsTrigger
-                    value="both"
-                    className="hidden md:inline-flex relative w-24 text-center px-4 py-2.5 text-sm font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300"
-                >
-                    <LayoutGrid className="size-4 mr-2 text-primary" />
-                    <span className="font-mono text-xs uppercase tracking-wider">Both</span>
-                </TabsTrigger>
-                <TabsTrigger
-                    value="table"
-                    className="relative w-20 md:w-24 text-center px-4 py-2.5 text-sm font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300"
-                >
-                    <Table2 className="size-5 md:size-4 md:mr-2 text-primary" />
-                    <span className="font-mono text-sm md:text-xs uppercase tracking-wider md:hidden">
-                        Table
-                    </span>
-                    <span className="font-mono text-xs uppercase tracking-wider hidden md:inline">
-                        Table
-                    </span>
-                </TabsTrigger>
-                <TabsTrigger
-                    value="circle"
-                    className="relative w-20 md:w-24 text-center px-4 py-2.5 text-sm font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300"
-                >
-                    <CircleDot className="size-5 md:size-4 md:mr-2 text-primary" />
-                    <span className="font-mono text-sm md:text-xs uppercase tracking-wider md:hidden">
-                        Circle
-                    </span>
-                    <span className="font-mono text-xs uppercase tracking-wider hidden md:inline">
-                        Circle
-                    </span>
-                </TabsTrigger>
-            </TabsList>
-        </Tabs>
-    );
 
     return (
         <motion.div
@@ -130,17 +86,12 @@ export function NatalChart({ birthData }: { birthData: BirthData }) {
             transition={{ duration: 0.5 }}
             className="w-full"
         >
-            <PageHeader
-                breadcrumbs={[
-                    { label: "Home", href: "/" },
-                    { label: "Dashboard", href: "/dashboard" },
-                    { label: "Birth Chart" },
-                ]}
-                title="Your"
-                subtitle="Birth Chart"
-                customFilter={filterControl}
-                filterLabel=""
-                showElementFilter={false}
+            <ChartSectionHeader
+                title="Birth"
+                titleAccent="Chart"
+                activeVisualization={visualization}
+                onVisualizationChange={setVisualization}
+                hideBothOnMobile
             />
 
             {visualization === "both" ? (

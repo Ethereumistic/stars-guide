@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { Id } from "../../convex/_generated/dataModel";
-import type { OracleFeatureKey } from "@/lib/oracle/features";
+import type { OracleFeatureKey, BirthChartDepth } from "@/lib/oracle/features";
 import { detectTimezone } from "@/lib/timezone";
 
 export type OracleState =
@@ -27,6 +27,7 @@ interface OracleStore {
     sessionId: Id<"oracle_sessions"> | null;
     state: OracleState;
     selectedFeatureKey: OracleFeatureKey | null;
+    birthChartDepth: BirthChartDepth;
     pendingQuestion: string;
     isStreaming: boolean;
     quotaRemaining: number | null;
@@ -48,6 +49,7 @@ interface OracleStore {
     debugCompletionTokens: number | null;
 
     setSelectedFeature: (featureKey: OracleFeatureKey | null) => void;
+    setBirthChartDepth: (depth: BirthChartDepth) => void;
     clearSelectedFeature: () => void;
     hydrateSessionFeature: (featureKey: OracleFeatureKey | null) => void;
     setPendingQuestion: (text: string) => void;
@@ -77,6 +79,7 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
     sessionId: null,
     state: "idle",
     selectedFeatureKey: null,
+    birthChartDepth: "core",
     pendingQuestion: "",
     isStreaming: false,
     quotaRemaining: null,
@@ -99,9 +102,11 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
 
     setSelectedFeature: (featureKey) => set({ selectedFeatureKey: featureKey }),
 
+    setBirthChartDepth: (depth) => set({ birthChartDepth: depth }),
+
     clearSelectedFeature: () => set({ selectedFeatureKey: null }),
 
-    hydrateSessionFeature: (featureKey) => set({ selectedFeatureKey: featureKey }),
+    hydrateSessionFeature: (featureKey) => set({ selectedFeatureKey: featureKey, birthChartDepth: "core" }),
 
     setPendingQuestion: (text) => set({ pendingQuestion: text }),
 
@@ -127,6 +132,7 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
             sessionId: null,
             state: "idle",
             selectedFeatureKey: null,
+            birthChartDepth: "core",
             pendingQuestion: "",
             isStreaming: false,
         }),

@@ -1,21 +1,17 @@
 "use client"
 
 import * as React from "react"
-import { Brain, Plus, Send, Sparkles, Wand2, X } from "lucide-react"
+import { Plus, Send, Sparkles, X } from "lucide-react"
 import { useQuery } from "convex/react"
 import { api } from "../../../../convex/_generated/api"
+import { GiMazeCornea, GiMusicalNotes, GiScrollUnfurled } from "react-icons/gi"
 
-import { OracleSignPreviewCards } from "@/components/oracle/input/oracle-sign-preview-cards"
+import { OracleChartPreview } from "@/components/oracle/input/oracle-chart-preview"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
@@ -23,6 +19,7 @@ import type { OracleBirthData } from "@/lib/oracle/featureContext"
 import {
   ORACLE_FEATURES,
   type OracleFeatureKey,
+  type BirthChartDepth,
   getOracleFeature,
   isBirthChartFeature,
 } from "@/lib/oracle/features"
@@ -41,7 +38,10 @@ interface OracleInputProps {
   onFeatureSelect: (featureKey: OracleFeatureKey) => void
   onFeatureClear: () => void
   birthData?: OracleBirthData | null
+  username?: string | null
   onBinauralGenerate?: (params: BinauralBeatParams) => void
+  birthChartDepth?: BirthChartDepth
+  onBirthChartDepthChange?: (depth: BirthChartDepth) => void
 }
 
 export function OracleInput({
@@ -56,25 +56,27 @@ export function OracleInput({
   onFeatureSelect,
   onFeatureClear,
   birthData,
+  username,
   onBinauralGenerate,
+  birthChartDepth = "core",
+  onBirthChartDepthChange,
 }: OracleInputProps) {
   const activeFeature = getOracleFeature(featureKey)
   const showBirthPreview = isBirthChartFeature(featureKey)
   const showBinauralBeats = featureKey === "binaural_beats"
+  // Other features (not birth chart) still show the pill badge
+  const showFeatureBadge = activeFeature && !showBirthPreview
 
   // Check journal consent for features that require it
   const consent = useQuery(api.journal.consent.getConsent)
 
-  // A feature requires journal consent and the user hasn't granted it
   function isFeatureDisabled(feat: typeof ORACLE_FEATURES[number]): boolean {
     if (!feat.implemented) return true
     if (feat.requiresJournalConsent) {
-      // consent is undefined while loading, null if no record, object if exists
-      if (consent === undefined) return true // still loading
-      if (consent === null) return true // no consent record
-      if (!consent.oracleCanReadJournal) return true // revoked
+      if (consent === undefined) return true
+      if (consent === null) return true
+      if (!consent.oracleCanReadJournal) return true
     }
-    // Features that don't require journal consent are never blocked by consent loading
     return false
   }
 
@@ -87,17 +89,26 @@ export function OracleInput({
     return null
   }
 
-  // Separate features into menu groups
+  function getFeatureIcon(key: OracleFeatureKey) {
+    switch (key) {
+      case "birth_chart":
+        return <GiMazeCornea className="w-4 h-4 text-galactic" />
+      case "binaural_beats":
+        return <GiMusicalNotes className="w-4 h-4 text-galactic" />
+      case "journal_recall":
+        return <GiScrollUnfurled className="w-4 h-4 text-galactic" />
+      default:
+        return <Sparkles className="w-4 h-4 text-galactic" />
+    }
+  }
+
   const primaryFeatureItems = ORACLE_FEATURES.filter(
     (feature) => feature.menuGroup === "primary",
-  )
-  const moreFeatureItems = ORACLE_FEATURES.filter(
-    (feature) => feature.menuGroup === "more",
   )
 
   return (
     <div className="space-y-3">
-      {activeFeature ? (
+      {showFeatureBadge ? (
         <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex items-center gap-2 rounded-full border border-galactic/35 bg-galactic/12 px-3 py-1.5 text-xs text-white/80 backdrop-blur-xl">
             <Sparkles className="size-3.5 text-galactic" />
@@ -117,7 +128,15 @@ export function OracleInput({
         </div>
       ) : null}
 
-      {showBirthPreview ? <OracleSignPreviewCards birthData={birthData} /> : null}
+      {showBirthPreview ? (
+        <OracleChartPreview
+          birthData={birthData}
+          username={username}
+          depth={birthChartDepth}
+          onDepthChange={onBirthChartDepthChange}
+          onDismiss={onFeatureClear}
+        />
+      ) : null}
 
       {showBinauralBeats ? (
         <BinauralBeatsCard
@@ -156,11 +175,7 @@ export function OracleInput({
                     className="gap-2.5 cursor-pointer text-white/80 hover:text-white focus:text-white"
                     onSelect={() => !disabled && onFeatureSelect(feature.key)}
                   >
-                    {feature.key === "binaural_beats" ? (
-                      <Brain className="w-4 h-4 text-galactic" />
-                    ) : (
-                      <Wand2 className="w-4 h-4 text-galactic" />
-                    )}
+                    {getFeatureIcon(feature.key)}
                     <span className="text-sm">{feature.label}</span>
                     {reason && (
                       <span className="ml-auto text-[10px] text-white/30">{reason}</span>
@@ -168,38 +183,6 @@ export function OracleInput({
                   </DropdownMenuItem>
                 )
               })}
-
-              <DropdownMenuSeparator />
-
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger className="gap-2.5 text-white/80 focus:text-white">
-                  <Sparkles className="w-4 h-4 text-galactic" />
-                  <span className="text-sm">More</span>
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-64 border-galactic/20 bg-background/95 backdrop-blur-xl">
-                  {moreFeatureItems.map((feature) => {
-                    const disabled = isFeatureDisabled(feature)
-                    const reason = getFeatureDisabledReason(feature)
-                    return (
-                      <DropdownMenuItem
-                        key={feature.key}
-                        disabled={disabled}
-                        className="gap-2.5 cursor-pointer text-white/80 hover:text-white focus:text-white"
-                        onSelect={() => !disabled && onFeatureSelect(feature.key)}
-                      >
-                        <Wand2 className="w-4 h-4 text-galactic" />
-                        <span className="text-sm">{feature.label}</span>
-                        {!feature.implemented && (
-                          <DropdownMenuShortcut>Soon</DropdownMenuShortcut>
-                        )}
-                        {feature.implemented && reason && (
-                          <span className="ml-auto text-[10px] text-white/30">{reason}</span>
-                        )}
-                      </DropdownMenuItem>
-                    )
-                  })}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
             </DropdownMenuContent>
           </DropdownMenu>
 

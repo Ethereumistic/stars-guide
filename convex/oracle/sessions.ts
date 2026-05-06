@@ -206,6 +206,24 @@ export const updateSessionBirthChartDepth = internalMutation({
     },
 });
 
+export const setSessionBirthChartDepth = mutation({
+    args: {
+        sessionId: v.id("oracle_sessions"),
+        depth: v.union(v.literal("core"), v.literal("full")),
+    },
+    handler: async (ctx, { sessionId, depth }) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Not authenticated");
+        const session = await ctx.db.get(sessionId);
+        if (!session) throw new Error("Session not found");
+        if (session.userId !== userId) throw new Error("Unauthorized");
+        await ctx.db.patch(sessionId, {
+            birthChartDepth: depth,
+            updatedAt: Date.now(),
+        });
+    },
+});
+
 export const createStreamingMessage = internalMutation({
     args: { sessionId: v.id("oracle_sessions") },
     handler: async (ctx, { sessionId }) => {

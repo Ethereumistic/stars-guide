@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { ElementType, ELEMENT_CONTENT, ELEMENT_COLORS } from "@/astrology/elements";
 import { GiFlame, GiStonePile, GiTornado, GiWaveCrest } from "react-icons/gi";
@@ -43,14 +44,24 @@ interface ElementalTableViewProps {
 export function ElementalTableView({ data, delay = 0.3 }: ElementalTableViewProps) {
     const { counts, total, placementsByElement, dominant } = data;
 
+    // Detect mobile for responsive sizing
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        const mq = window.matchMedia("(max-width: 767px)");
+        setIsMobile(mq.matches);
+        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+        mq.addEventListener("change", handler);
+        return () => mq.removeEventListener("change", handler);
+    }, []);
+
     return (
-        <div className="w-full max-w-3xl mx-auto bg-black/50 rounded-md border border-white/10 text-white/90">
-            <table className="w-full border-collapse font-serif" style={{ tableLayout: "fixed" }}>
+        <div className={`w-full bg-black/50 rounded-md border border-white/10 text-white/90 ${isMobile ? "max-w-sm" : "max-w-3xl"} mx-auto`}>
+            <table className="w-full border-collapse font-serif min-w-[320px]">
+                {/* Responsive col widths: Element (flexible) / Content (flexible) / Score+Bar (fixed) */}
                 <colgroup>
-                    <col style={{ width: "4" }} />
-                    <col style={{ width: "0%" }} />
-                    <col style={{ width: "4rem" }} />
-                    <col style={{ width: "6rem" }} />
+                    <col className="w-[min(55%,200px)]" />
+                    <col className="w-[min(40%,180px)]" />
+                    <col className="w-12 md:w-16" />
                 </colgroup>
                 <tbody>
                     {ELEMENT_ORDER.map((el, i) => {
@@ -68,15 +79,15 @@ export function ElementalTableView({ data, delay = 0.3 }: ElementalTableViewProp
                                 {/* ── ELEMENT COLUMN ── icon + name, horizontal */}
                                 <td
                                     rowSpan={1}
-                                    className={`py-3 pl-8 pr-3 align-middle border-r border-white/[0.08] ${!isLast ? "border-b border-white/[0.08]" : ""}`}
+                                    className={`${isMobile ? "py-2 pl-4 pr-2" : "py-3 pl-8 pr-3"} align-middle border-r border-white/[0.08] ${!isLast ? "border-b border-white/[0.08]" : ""}`}
                                 >
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1">
                                         <Icon
-                                            className="size-9 shrink-0"
+                                            className={`shrink-0 ${isMobile ? "size-5" : "md:size-9"}`}
                                             style={{ color: color.stroke, opacity: isDominant ? 1 : 0.55 }}
                                         />
                                         <span
-                                            className="text-xl tracking-[0.12em] font-serif text-white"
+                                            className={`tracking-[0.12em] font-serif text-white ${isMobile ? "text-base" : "md:text-xl"}`}
                                             style={{ color: color.stroke, opacity: isDominant ? 1 : 0.55 }}
                                         >
                                             {el}
@@ -85,12 +96,12 @@ export function ElementalTableView({ data, delay = 0.3 }: ElementalTableViewProp
                                 </td>
 
                                 {/* ── KEYWORDS + PLANETS ── */}
-                                <td className={`py-2 pl-2.5 pr-1 ${isLast ? "" : "border-b border-white/[0.03]"}`}>
-                                    <div className="flex flex-wrap gap-1.5 mb-2">
+                                <td className={`py-2 pl-2 pr-1 ${isLast ? "" : "border-b border-white/[0.03]"}`}>
+                                    <div className={`flex flex-wrap gap-1 mb-2 ${isMobile ? "-mt-0.5" : ""}`}>
                                         {content.keywords.map(k => (
                                             <span
                                                 key={k}
-                                                className="text-[11px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border"
+                                                className={`font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border ${isMobile ? "text-[9px]" : "md:text-[11px]"}`}
                                                 style={{
                                                     color: color.stroke,
                                                     borderColor: `${color.stroke}30`,
@@ -102,15 +113,15 @@ export function ElementalTableView({ data, delay = 0.3 }: ElementalTableViewProp
                                         ))}
                                     </div>
                                     {planets.length > 0 && (
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-mono uppercase tracking-widest text-white/20">
+                                        <div className="flex items-center gap-1">
+                                            <span className={`font-mono uppercase tracking-widest text-white/20 ${isMobile ? "text-[8px]" : "md:text-[10px]"}`}>
                                                 Placements
                                             </span>
-                                            <div className="flex items-center gap-1.5">
+                                            <div className="flex items-center gap-1">
                                                 {planets.map((p, pi) => (
                                                     <span
                                                         key={pi}
-                                                        className="text-base font-serif text-white/60"
+                                                        className={`font-serif text-white/60 ${isMobile ? "text-sm" : "md:text-base"}`}
                                                         title={p.body}
                                                     >
                                                         {getPlanetSymbol(p.body)}
@@ -121,22 +132,13 @@ export function ElementalTableView({ data, delay = 0.3 }: ElementalTableViewProp
                                     )}
                                 </td>
 
-                                {/* ── COUNT ── */}
+                                {/* ── SCORE + BAR ── */}
                                 <td
-                                    className={`py-3 pl-2 pr-3 align-middle text-center border-l border-white/[0.08] ${!isLast ? "border-b border-white/[0.08]" : ""}`}
-                                >
-                                    <span className="text-lg font-serif text-white tracking-wider">
-                                        {count}/{total}
-                                    </span>
-                                </td>
-
-                                {/* ── BAR + PERCENTAGE ── */}
-                                <td
-                                    className={`py-3 pl-2 pr-3 align-middle border-l border-white/[0.08] ${!isLast ? "border-b border-white/[0.08]" : ""}`}
+                                    className={`${isMobile ? "py-2" : "py-3"} pl-1 pr-2 align-middle text-center border-l border-white/[0.08] ${!isLast ? "border-b border-white/[0.08]" : ""}`}
                                 >
                                     <div className="flex flex-col items-center gap-1">
-                                        <span className="text-lg font-serif text-white tabular-nums">
-                                            {pct}%
+                                        <span className={`font-serif text-white tabular-nums ${isMobile ? "text-sm" : "md:text-lg"}`}>
+                                            {count}/{total}
                                         </span>
                                         <div className="w-full h-1.5 bg-white/[0.08] rounded-full overflow-hidden">
                                             <motion.div

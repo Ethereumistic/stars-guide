@@ -390,7 +390,7 @@ export function Navbar() {
           {/* --- Center Section: Desktop Nav links + CTA --- */}
           <div className="hidden lg:flex flex-1 justify-center">
             <NavigationMenu>
-              <NavigationMenuList className="gap-8">
+              <NavigationMenuList className="gap-5">
                 {navItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
@@ -401,7 +401,7 @@ export function Navbar() {
                           href={item.href}
                           className={cn(
                             navigationMenuTriggerStyle(),
-                            "bg-transparent hover:bg-accent/40 text-foreground/70 hover:text-primary transition-all duration-500 font-serif text-sm tracking-wide lowercase italic flex items-center group/nav overflow-hidden text-nowrap",
+                            "bg-transparent hover:bg-transparent text-white/80 hover:text-primary transition-all duration-500 font-serif text-sm tracking-wide uppercase italic flex items-center group/nav overflow-hidden text-nowrap",
                             isActive && "text-primary font-medium",
                           )}
                         >
@@ -701,7 +701,7 @@ export function Navbar() {
                       href={item.href}
                       onClick={() => setIsMobileMenuOpen(false)}
                       className={cn(
-                        "text-2xl font-serif italic text-foreground/80 hover:text-primary transition-all flex items-center gap-2.5 text-nowrap",
+                        "text-2xl font-serif italic text-white/80 hover:text-primary transition-all flex items-center gap-2.5 text-nowrap",
                         isActive && "text-primary font-medium",
                       )}
                     >

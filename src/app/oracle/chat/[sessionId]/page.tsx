@@ -245,8 +245,10 @@ export default function OracleChatPage() {
         state,
         isStreaming,
         selectedFeatureKey,
+        birthChartDepth,
         setSessionId,
         setSelectedFeature,
+        setBirthChartDepth,
         clearSelectedFeature,
         hydrateSessionFeature,
         setConversationActive,
@@ -268,6 +270,7 @@ export default function OracleChatPage() {
 
     const addMessageMutation = useMutation(api.oracle.sessions.addMessage);
     const updateSessionFeatureMutation = useMutation(api.oracle.sessions.updateSessionFeature);
+    const updateBirthChartDepthMutation = useMutation(api.oracle.sessions.setSessionBirthChartDepth);
     const invokeOracle = useAction(api.oracle.llm.invokeOracle);
 
     useEffect(() => {
@@ -397,6 +400,14 @@ export default function OracleChatPage() {
             featureKey: undefined,
         });
     }, [clearSelectedFeature, sessionId, updateSessionFeatureMutation]);
+
+    const handleBirthChartDepthChange = useCallback(async (depth: "core" | "full") => {
+        setBirthChartDepth(depth);
+        await updateBirthChartDepthMutation({
+            sessionId,
+            depth,
+        });
+    }, [setBirthChartDepth, sessionId, updateBirthChartDepthMutation]);
 
     const handleBinauralGenerate = useCallback(
       async (params: BinauralBeatParams) => {
@@ -747,7 +758,10 @@ export default function OracleChatPage() {
                                 onFeatureSelect={handleFeatureSelect}
                                 onFeatureClear={handleFeatureClear}
                                 birthData={user?.birthData}
+                                username={user?.username}
                                 onBinauralGenerate={handleBinauralGenerate}
+                                birthChartDepth={birthChartDepth}
+                                onBirthChartDepthChange={handleBirthChartDepthChange}
                             />
 
                             {/* Quota indicator */}

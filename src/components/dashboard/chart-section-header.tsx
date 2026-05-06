@@ -27,7 +27,6 @@ export interface ChartSectionHeaderProps {
     titleAccent: string;
     activeVisualization: string;
     onVisualizationChange: (value: string) => void;
-    filterLabel?: string;
     /** Hide the "Both" option on mobile screens (recommended for side-by-side views) */
     hideBothOnMobile?: boolean;
     className?: string;
@@ -50,7 +49,6 @@ export function ChartSectionHeader({
     titleAccent,
     activeVisualization,
     onVisualizationChange,
-    filterLabel = "Filter by Visualization",
     hideBothOnMobile = false,
     className,
 }: ChartSectionHeaderProps) {
@@ -98,30 +96,25 @@ export function ChartSectionHeader({
                     </h1>
                 </div>
 
-                <div className="flex flex-col gap-4 md:items-end text-center md:text-left mt-8 md:mt-0">
-                    <span className="text-base uppercase font-mono text-primary/60 tracking-[0.3em] font-bold">
-                        {filterLabel}
-                    </span>
-                    <Tabs value={activeVisualization} onValueChange={onVisualizationChange} className="w-fit rounded-md mx-auto md:mx-0">
-                        <TabsList className="bg-white/5 border border-white/10 p-1 h-auto gap-2 justify-center">
-                            {activeFilters.map((filter) => (
-                                <TabsTrigger
-                                    key={filter.value}
-                                    value={filter.value}
-                                    className="relative w-20 md:w-24 text-center px-4 py-2.5 text-sm font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300"
-                                >
-                                    <filter.icon className="size-5 md:size-4 md:mr-2 text-primary" />
-                                    <span className="font-mono text-sm md:text-xs uppercase tracking-wider md:hidden">
-                                        {filter.label}
-                                    </span>
-                                    <span className="font-mono text-xs uppercase tracking-wider hidden md:inline">
-                                        {filter.label}
-                                    </span>
-                                </TabsTrigger>
-                            ))}
-                        </TabsList>
-                    </Tabs>
-                </div>
+                <Tabs value={activeVisualization} onValueChange={onVisualizationChange} className="w-fit rounded-md mx-auto md:mx-0 mt-8 md:mt-0">
+                    <TabsList className="bg-white/5 border border-white/10 p-1 h-auto gap-1 justify-center">
+                        {activeFilters.map((filter) => (
+                            <TabsTrigger
+                                key={filter.value}
+                                value={filter.value}
+                                className="relative w-20 md:w-24 text-center px-4 py-2.5 text-sm font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300"
+                            >
+                                <filter.icon className="size-5 md:size-4 md:mr-2 text-primary" />
+                                <span className="font-mono text-sm md:text-xs uppercase tracking-wider md:hidden">
+                                    {filter.label}
+                                </span>
+                                <span className="font-mono text-xs uppercase tracking-wider hidden md:inline">
+                                    {filter.label}
+                                </span>
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+                </Tabs>
             </div>
         </>
     );

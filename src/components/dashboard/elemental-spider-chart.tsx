@@ -281,15 +281,20 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
     [birthData],
   )
 
-  // ── Dimensions (reduced 15%) ─────────────────────────────────────────────
-  const svgSize = 666
-  const cx = svgSize / 2
-  const cy = svgSize / 2
-  const maxRadius = 232
-  const rings = 5
-  const total = birthData.placements.length
-  const iconSize = 48
-  const iconOffset = 33
+  // ── Dimensions ─────────────────────────────────────────────────────────────
+  const baseSvgSize = 666
+  const baseCx = baseSvgSize / 2
+  const baseCy = baseSvgSize / 2
+  const baseMaxRadius = 232
+  const baseIconSize = 48
+  const baseIconOffset = 33
+
+  const svgSize = isMobile ? baseSvgSize * 0.73 : baseSvgSize
+  const cx = isMobile ? baseCx * 0.73 : baseCx
+  const cy = isMobile ? baseCy * 0.73 : baseCy
+  const maxRadius = isMobile ? baseMaxRadius * 0.73 : baseMaxRadius
+  const iconSize = isMobile ? baseIconSize * 0.73 : baseIconSize
+  const iconOffset = isMobile ? baseIconOffset * 0.73 : baseIconOffset
   const iconCenterRadius = maxRadius + iconOffset
 
   const dominantFrameUrl = elementUIConfig[dominant].frameUrl
@@ -327,19 +332,19 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
       width={svgSize}
       height={svgSize}
       viewBox={`0 0 ${svgSize} ${svgSize}`}
-      className="overflow-visible"
+      className={`overflow-visible ${isMobile ? "max-w-[420px]" : ""}`}
       onMouseLeave={clearHover}
     >
       <defs>
         <filter id="glow-poly" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="8" result="blur" />
+          <feGaussianBlur stdDeviation={isMobile ? 6 : 8} result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
         <filter id="glow-dot" x="-200%" y="-200%" width="500%" height="500%">
-          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feGaussianBlur stdDeviation={isMobile ? 3 : 4} result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
@@ -348,8 +353,8 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
       </defs>
 
       {/* Concentric rings */}
-      {Array.from({ length: rings }, (_, i) => {
-        const r = maxRadius * ((i + 1) / rings)
+      {Array.from({ length: 5 }, (_, i) => {
+        const r = maxRadius * ((i + 1) / 5)
         return (
           <polygon
             key={`ring-${i}`}
@@ -473,16 +478,21 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
       >
         <image
           href={dominantFrameUrl}
-          x={cx - 47}
-          y={cy - 47}
-          width={94}
-          height={94}
+          x={cx - (isMobile ? 34 : 47)}
+          y={cy - (isMobile ? 34 : 47)}
+          width={isMobile ? 68 : 94}
+          height={isMobile ? 68 : 94}
           opacity={0.3}
           style={{ pointerEvents: "none" }}
         />
-        <foreignObject x={cx - 19} y={cy - 19} width={38} height={38}>
+        <foreignObject
+          x={cx - (isMobile ? 14 : 19)}
+          y={cy - (isMobile ? 14 : 19)}
+          width={isMobile ? 28 : 38}
+          height={isMobile ? 28 : 38}
+        >
           <div className="flex items-center justify-center w-full h-full">
-            <DominantElIcon size={27} style={{ color: dominantColor.stroke, opacity: 0.9 }} />
+            <DominantElIcon size={isMobile ? 20 : 27} style={{ color: dominantColor.stroke, opacity: 0.9 }} />
           </div>
         </foreignObject>
       </motion.g>
@@ -541,8 +551,8 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
       className="w-full"
     >
       <ChartSectionHeader
-        title="Your"
-        titleAccent="Elemental Chart"
+        title="Elemental"
+        titleAccent="Chart"
         activeVisualization={visualization}
         onVisualizationChange={setVisualization}
         hideBothOnMobile
