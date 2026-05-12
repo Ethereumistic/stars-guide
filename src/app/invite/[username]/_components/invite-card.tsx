@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { QRCodeSVG } from "qrcode.react";
 import { TbX, TbCopy, TbCheck, TbShare } from "react-icons/tb";
 import { FaInstagram, FaFacebookF, FaRedditAlien, FaDiscord, FaTiktok, FaWhatsapp } from "react-icons/fa";
