@@ -36,9 +36,9 @@ export default function InviteLayout({
                 <Logo size="sm" variant="logo" layout="horizontal_right" />
             </div>
 
-            {/* Content area */}
+            {/* Content area — scrollable, centred horizontally, top-aligned so card scrolls naturally on short screens */}
             <div className="relative z-10 flex-1 overflow-y-auto">
-                <div className="min-h-full flex items-center justify-center px-4 py-4">
+                <div className="min-h-full flex items-start justify-center px-4 py-4">
                     {children}
                 </div>
             </div>

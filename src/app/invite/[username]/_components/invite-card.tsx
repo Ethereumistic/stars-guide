@@ -58,6 +58,66 @@ function getSignForBody(
     return null;
 }
 
+// Social share platforms
+const SOCIAL_PLATFORMS = [
+    {
+        id: "instagram",
+        Icon: FaInstagram,
+        color: "#E4405F",
+        label: "Share to Instagram",
+        getUrl: () => "https://www.instagram.com/",
+    },
+    {
+        id: "facebook",
+        Icon: FaFacebookF,
+        color: "#1877F2",
+        label: "Share to Facebook",
+        getUrl: (url: string) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+    },
+    {
+        id: "x",
+        Icon: FaXTwitter,
+        color: "#FFFFFF",
+        label: "Share to X",
+        getUrl: (url: string) => `https://x.com/intent/post?url=${encodeURIComponent(url)}&text=${encodeURIComponent(`Join me on stars.guide ✨ ${url}`)}`,
+    },
+    {
+        id: "reddit",
+        Icon: FaRedditAlien,
+        color: "#FF4500",
+        label: "Share to Reddit",
+        getUrl: (url: string) => `https://www.reddit.com/submit?url=${encodeURIComponent(url)}&title=${encodeURIComponent(`Join me on stars.guide ✨`)}`,
+    },
+    {
+        id: "whatsapp",
+        Icon: FaWhatsapp,
+        color: "#25D366",
+        label: "Share to WhatsApp",
+        getUrl: (url: string) => `https://wa.me/?text=${encodeURIComponent(`Join me on stars.guide and discover your cosmic blueprint! ✨ ${url}`)}`,
+    },
+    {
+        id: "discord",
+        Icon: FaDiscord,
+        color: "#5865F2",
+        label: "Share to Discord",
+        getUrl: () => "https://discord.com/channels/@me",
+    },
+    {
+        id: "tiktok",
+        Icon: FaTiktok,
+        color: "#FFFFFF",
+        label: "Share to TikTok",
+        getUrl: () => "https://www.tiktok.com/",
+    },
+    {
+        id: "vk",
+        Icon: FaVk,
+        color: "#0077FF",
+        label: "Share to VK",
+        getUrl: (url: string) => `https://vk.com/share.php?url=${encodeURIComponent(url)}`,
+    },
+] as const;
+
 export function InviteCard({ user, inviteUrl }: InviteCardProps) {
     const router = useRouter();
     const [copied, setCopied] = useState(false);
@@ -137,10 +197,9 @@ export function InviteCard({ user, inviteUrl }: InviteCardProps) {
     }, [inviteUrl, user.username, handleCopy]);
 
     return (
-        <div
-            className="w-full max-w-[420px] flex flex-col gap-2"
-            style={{ height: "calc(100dvh - 6rem)" }}
-        >
+        /* Outer: full-height scrollable column, centred, safe padding for notch/status bar */
+        <div className="w-full max-w-[420px] flex flex-col items-stretch">
+
             {/* Close button — fixed top right */}
             <motion.button
                 initial={{ opacity: 0, scale: 0.8 }}
@@ -160,17 +219,15 @@ export function InviteCard({ user, inviteUrl }: InviteCardProps) {
                 initial={{ opacity: 0, y: 30, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                className="relative flex-1 min-h-0 rounded-3xl overflow-hidden border border-border/30"
+                className="relative rounded-3xl overflow-hidden border border-border/30 flex flex-col"
             >
-                {/* ── Background: glass morphism (matches compact-sign-card exactly) ── */}
-                {/* Transparent glass gradient — no opaque dark fill, lets starfield through */}
+                {/* ── Background layers ── */}
                 <div
                     className="absolute inset-0 backdrop-blur-[0.5px] rounded-3xl"
                     style={{
                         background: `linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%)`,
                     }}
                 />
-                {/* Element gradient overlay — whole card (matches compact-sign-card hover state) */}
                 {elementStyles && (
                     <motion.div
                         initial={{ opacity: 0 }}
@@ -180,7 +237,6 @@ export function InviteCard({ user, inviteUrl }: InviteCardProps) {
                         style={{ background: elementStyles.gradient }}
                     />
                 )}
-                {/* Radial glow — whole card (matches compact-sign-card hover) */}
                 {elementStyles && (
                     <motion.div
                         initial={{ opacity: 0 }}
@@ -212,41 +268,40 @@ export function InviteCard({ user, inviteUrl }: InviteCardProps) {
                     }}
                 />
 
-                {/* ── Content: 3 equal thirds ────────── */}
-                <div className="relative z-10 h-full grid grid-rows-[1fr_auto_1fr_auto_1fr]">
+                {/* ── Content ── */}
+                <div className="relative z-10 flex flex-col">
 
                     {/* ═══════════════════════════════════ */}
-                    {/* ═══ UPPER THIRD ════════════════════ */}
-                    {/* ═══ (Compact-sign-card layout, animates from unhovered → hovered) ═══ */}
+                    {/* ═══ UPPER — Sign header ════════════ */}
                     {/* ═══════════════════════════════════ */}
-                    <div className="relative overflow-hidden">
-                        {/* Constellation watermark — animates from hidden right to center (matches compact-sign-card hover) */}
+                    <div className="relative overflow-hidden px-4 pt-5 pb-4 sm:px-5 sm:pt-6">
+                        {/* Constellation watermark — bigger, centred, overflows section height */}
                         {sunSignUI?.constellationUrl && elementStyles && (
-                            <div className="absolute inset-0 pointer-events-none">
+                            <div className="absolute inset-0 pointer-events-none overflow-visible">
                                 <motion.img
                                     src={sunSignUI.constellationUrl}
                                     alt=""
-                                    initial={{ opacity: 0.1, right: "-20%", x: "0%" }}
-                                    animate={{ opacity: 0.4, right: "50%", x: "50%" }}
+                                    initial={{ opacity: 0.08, right: "-20%", x: "0%" }}
+                                    animate={{ opacity: 0.45, right: "46%", x: "50%" }}
                                     transition={{ duration: 1.4, delay: 0.6, ease: "easeOut" }}
-                                    className="absolute top-1/2 -translate-y-1/2 h-full object-contain"
+                                    className="absolute top-1/2 -translate-y-1/2 object-contain"
                                     style={{
-                                        filter: `drop-shadow(0 0 10px ${themeColor})`,
+                                        height: "160%",
+                                        filter: `drop-shadow(0 0 14px ${themeColor}) drop-shadow(0 0 28px ${themeColor}60)`,
                                     }}
                                     draggable={false}
                                 />
                             </div>
                         )}
 
-                        {/* ── Content: Left text + Right icon (compact-sign-card layout) ── */}
-                        <div className="relative z-10 h-full flex items-center justify-between px-4 sm:px-5">
+                        <div className="relative z-10 flex items-center gap-3">
                             {/* Left: Text & Details */}
-                            <div className="flex flex-col justify-center space-y-1 max-w-[60%]">
+                            <div className="flex flex-col justify-center space-y-1 flex-1 min-w-0">
                                 {/* Element icon + dates */}
                                 <div className="flex items-center gap-1.5">
                                     {ElementIcon && elementStyles && (
                                         <ElementIcon
-                                            className="w-3 h-3 sm:w-3.5 sm:h-3.5"
+                                            className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0"
                                             style={{ color: elementStyles.primary }}
                                         />
                                     )}
@@ -254,7 +309,7 @@ export function InviteCard({ user, inviteUrl }: InviteCardProps) {
                                         initial={{ opacity: 0.6 }}
                                         animate={{ opacity: 0.8 }}
                                         transition={{ delay: 0.8, duration: 0.5 }}
-                                        className="text-[8px] sm:text-[9px] font-sans uppercase tracking-[0.2em]"
+                                        className="text-[8px] sm:text-[9px] font-sans uppercase tracking-[0.2em] truncate"
                                         style={{ color: elementStyles?.secondary }}
                                     >
                                         {sunSign?.dates}
@@ -266,7 +321,7 @@ export function InviteCard({ user, inviteUrl }: InviteCardProps) {
                                     initial={{ color: elementStyles?.secondary }}
                                     animate={{ color: "#ffffff" }}
                                     transition={{ delay: 0.6, duration: 0.8 }}
-                                    className="text-xl sm:text-2xl md:text-3xl font-serif tracking-wide leading-tight"
+                                    className="text-2xl sm:text-3xl font-serif tracking-wide leading-tight"
                                     style={{
                                         textShadow: `0 0 5px ${elementStyles?.glow}`,
                                     }}
@@ -274,7 +329,7 @@ export function InviteCard({ user, inviteUrl }: InviteCardProps) {
                                     {sunSign?.name}
                                 </motion.h2>
 
-                                {/* Archetype — fades in (matches hover reveal) */}
+                                {/* Archetype */}
                                 <motion.p
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
@@ -285,21 +340,34 @@ export function InviteCard({ user, inviteUrl }: InviteCardProps) {
                                 </motion.p>
                             </div>
 
-                            {/* Right: Sign icon (animates like hover: scale + slight rotate) */}
-                            {SunSignIcon && elementStyles && (
+                            {/* Right: Sign icon inside elemental frame — pulled a bit left via mr-2 */}
+                            {SunSignIcon && elementStyles && sunElementUI?.frameUrl && (
                                 <motion.div
-                                    initial={{ scale: 1 }}
-                                    animate={{ scale: 1.1, rotate: 1 }}
+                                    initial={{ scale: 1, opacity: 0 }}
+                                    animate={{ scale: 1.08, rotate: 1, opacity: 1 }}
                                     transition={{ delay: 0.5, duration: 0.8, ease: "easeOut" }}
-                                    className="relative flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 shrink-0"
+                                    className="relative flex items-center justify-center w-[72px] h-[72px] sm:w-20 sm:h-20 shrink-0 mr-2"
                                 >
+                                    {/* Elemental frame PNG */}
+                                    <img
+                                        src={sunElementUI.frameUrl}
+                                        alt=""
+                                        draggable={false}
+                                        className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none"
+                                        style={{
+                                            filter: `drop-shadow(0 0 6px ${elementStyles.glow}) drop-shadow(0 0 14px ${elementStyles.glow})`,
+                                            opacity: 0.9,
+                                        }}
+                                    />
+                                    {/* Sign icon centred inside frame */}
                                     <motion.div
                                         initial={{ color: "#fef3c7" }}
                                         animate={{ color: "#ffffff" }}
                                         transition={{ delay: 0.5, duration: 0.8 }}
+                                        className="relative z-10"
                                     >
                                         <SunSignIcon
-                                            className="w-8 h-8 sm:w-12 sm:h-12"
+                                            className="w-8 h-8 sm:w-10 sm:h-10"
                                             style={{
                                                 filter: `drop-shadow(0 0 8px ${elementStyles.glow})`,
                                             }}
@@ -308,82 +376,102 @@ export function InviteCard({ user, inviteUrl }: InviteCardProps) {
                                 </motion.div>
                             )}
                         </div>
-
-
                     </div>
 
-                    {/* Separator: upper → middle */}
+                    {/* Separator */}
                     <div
-                        className="mx-8 my-3 h-px shrink-0"
+                        className="mx-6 h-px shrink-0"
                         style={{
                             background: `linear-gradient(to right, transparent, ${themeColor}18, transparent)`,
                         }}
                     />
 
-                    {/* ═══════════════════════════════════ */}
-                    {/* ═══ MIDDLE THIRD — QR CODE + MOTTO ═ */}
-                    {/* ═══════════════════════════════════ */}
-                    <div className="flex flex-col items-center justify-center relative gap-4 sm:gap-5">
-                        {/* Username — above QR */}
+                    {/* ═══════════════════════════════════════════ */}
+                    {/* ═══ MIDDLE — Username + QR + Motto ══════════ */}
+                    {/* ═══════════════════════════════════════════ */}
+                    <div className="flex flex-col items-center gap-3 px-5 py-4 sm:py-5">
+
+                        {/* Username */}
                         <motion.p
                             initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.45, duration: 0.4 }}
-                            className="text-base sm:text-4xl font-serif tracking-tight text-white"
-                            style={{
-                                textShadow: `0 0 16px rgba(255,255,255,0.1)`,
-                            }}
+                            className="relative z-10 text-lg sm:text-xl font-serif tracking-tight text-white"
+                            style={{ textShadow: `0 0 16px rgba(255,255,255,0.1)` }}
                         >
                             {user.username}
                         </motion.p>
 
+                        {/* QR Code + element glow — glow is a sibling inside this relative wrapper so it's always perfectly centred on the QR */}
                         <motion.div
                             initial={{ opacity: 0, scale: 0.85 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ delay: 0.35, duration: 0.5 }}
-                            className="aspect-square max-h-[70%] max-w-[234px] sm:max-w-[260px]"
+                            className="relative shrink-0 flex items-center justify-center"
                         >
+                            {/* Element glow — absolutely centred on the QR */}
+                            {elementStyles && (
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.6 }}
+                                    animate={{ opacity: 0.28, scale: 1 }}
+                                    transition={{ duration: 1.6, delay: 0.4, ease: "easeOut" }}
+                                    aria-hidden
+                                    className="absolute pointer-events-none"
+                                    style={{
+                                        width: "280px",
+                                        height: "280px",
+                                        top: "50%",
+                                        left: "50%",
+                                        transform: "translate(-50%, -50%)",
+                                        borderRadius: "50%",
+                                        background: `radial-gradient(circle, ${elementStyles.glow} 0%, ${elementStyles.glow} 25%, transparent 70%)`,
+                                        filter: "blur(36px)",
+                                    }}
+                                />
+                            )}
+
                             <QRCodeSVG
                                 value={inviteUrl}
-                                size={256}
+                                size={180}
                                 bgColor="transparent"
                                 fgColor="#FFFFFF"
                                 level="M"
                                 includeMargin={false}
                                 style={{
-                                    width: "100%",
-                                    height: "100%",
+                                    display: "block",
+                                    position: "relative",
+                                    zIndex: 10,
                                     filter: "drop-shadow(0 0 12px rgba(255,255,255,0.08))",
                                 }}
                             />
                         </motion.div>
 
-
-                        {/* Sign motto — below QR, in quotes, font-serif */}
+                        {/* Sign motto */}
                         {sunSign && (
                             <motion.p
                                 initial={{ opacity: 0, y: 6 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.7, duration: 0.5 }}
-                                className="text-center text-base sm:text-xl text-white/90 font-serif italic leading-snug px-6 max-w-[90%]"
+                                className="relative z-10 text-center text-sm sm:text-base text-white/75 font-serif italic leading-snug px-2 max-w-[85%]"
                             >
                                 &ldquo;{sunSign.motto}&rdquo;
                             </motion.p>
                         )}
                     </div>
 
-                    {/* Separator: middle → lower */}
+                    {/* Separator */}
                     <div
-                        className="mx-8 my-3 h-px shrink-0"
+                        className="mx-6 h-px shrink-0"
                         style={{
                             background: `linear-gradient(to right, transparent, ${themeColor}18, transparent)`,
                         }}
                     />
 
-                    {/* ═══════════════════════════════════ */}
-                    {/* ═══ LOWER THIRD — COPY URL + SHARE ICONS ═════ */}
-                    {/* ═══════════════════════════════════ */}
-                    <div className="flex flex-col items-center justify-center gap-3 px-5 py-3 relative">
+                    {/* ═══════════════════════════════════════════ */}
+                    {/* ═══ LOWER — URL + Share buttons ══════════ */}
+                    {/* ═══════════════════════════════════════════ */}
+                    <div className="flex flex-col items-center gap-3 px-4 pt-4 pb-5 sm:px-5 sm:pb-6">
+
                         {/* URL copy input */}
                         <motion.div
                             initial={{ opacity: 0, y: 10 }}
@@ -431,104 +519,47 @@ export function InviteCard({ user, inviteUrl }: InviteCardProps) {
                             </button>
                         </motion.div>
 
-                        {/* Social share icons row */}
+                        {/* Social share icons — 2 rows of 4, equal sizing, always fits */}
                         <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.65, duration: 0.4 }}
-                            className="flex flex-row items-center justify-center gap-2"
+                            className="w-full"
                         >
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => window.open(`https://www.instagram.com/`, '_blank')}
-                                className=" text-[#E4405F] hover:text-[#E4405F] hover:border-[#E4405F]/30 hover:bg-[#E4405F]/10"
-                                aria-label="Share to Instagram"
-                            >
-                                <FaInstagram className="size-8" />
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(inviteUrl)}`, '_blank')}
-                                className=" text-[#1877F2] hover:text-[#1877F2] hover:border-[#1877F2]/30 hover:bg-[#1877F2]/10"
-                                aria-label="Share to Facebook"
-                            >
-                                <FaFacebookF className="size-6" />
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => window.open(`https://x.com/intent/post?url=${encodeURIComponent(inviteUrl)}&text=${encodeURIComponent(`Join me on stars.guide ✨ ${inviteUrl}`)}`, '_blank')}
-                                className=" text-white hover:text-white hover:border-white/20 hover:bg-white/10"
-                                aria-label="Share to X"
-                            >
-                                <FaXTwitter className="size-6" />
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => window.open(`https://www.reddit.com/submit?url=${encodeURIComponent(inviteUrl)}&title=${encodeURIComponent(`Join me on stars.guide ✨`)}`, '_blank')}
-                                className=" text-[#FF4500] hover:text-[#FF4500] hover:border-[#FF4500]/30 hover:bg-[#FF4500]/10"
-                                aria-label="Share to Reddit"
-                            >
-                                <FaRedditAlien className="size-7" />
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => window.open(`https://discord.com/channels/@me`, '_blank')}
-                                className=" text-[#5865F2] hover:text-[#5865F2] hover:border-[#5865F2]/30 hover:bg-[#5865F2]/10"
-                                aria-label="Share to Discord"
-                            >
-                                <FaDiscord className="size-7" />
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => window.open(`https://www.tiktok.com/`, '_blank')}
-                                className=" text-white hover:text-white hover:border-white/20 hover:bg-white/10"
-                                aria-label="Share to TikTok"
-                            >
-                                <FaTiktok className="size-6" />
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`Join me on stars.guide and discover your cosmic blueprint! ✨ ${inviteUrl}`)}`, '_blank')}
-                                className="text-[#25D366] hover:text-[#25D366] hover:border-[#25D366]/30 hover:bg-[#25D366]/10"
-                                aria-label="Share to WhatsApp"
-                            >
-                                <FaWhatsapp className="size-7" />
-                            </Button>
-
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => window.open(`https://vk.com/share.php?url=${encodeURIComponent(inviteUrl)}`, '_blank')}
-                                className=" text-[#0077FF] hover:text-[#0077FF] hover:border-[#0077FF]/30 hover:bg-[#0077FF]/10"
-                                aria-label="Share to VK"
-                            >
-                                <FaVk className="size-7" />
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => {
-                                    if (navigator.share) {
-                                        navigator.share({
-                                            title: `${user.username}'s Stars Guide`,
-                                            text: `Join me on stars.guide and discover your cosmic blueprint! ✨`,
-                                            url: inviteUrl,
-                                        });
-                                    }
-                                }}
-                                className=" text-white/50 hover:text-white hover:border-white/20 hover:bg-white/10"
-                                aria-label="More share options"
-                            >
-                                <TbShare className="size-5" />
-                            </Button>
+                            <div className="grid grid-cols-4 gap-2">
+                                {SOCIAL_PLATFORMS.map(({ id, Icon, color, label, getUrl }) => (
+                                    <button
+                                        key={id}
+                                        onClick={() => window.open(getUrl(inviteUrl), "_blank")}
+                                        aria-label={label}
+                                        className="flex items-center justify-center h-10 rounded-xl border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] transition-all duration-200 active:scale-95"
+                                        style={
+                                            {
+                                                "--btn-color": color,
+                                            } as React.CSSProperties
+                                        }
+                                    >
+                                        <Icon
+                                            className="w-4 h-4 sm:w-[18px] sm:h-[18px] transition-colors duration-200"
+                                            style={{ color }}
+                                        />
+                                    </button>
+                                ))}
+                            </div>
                         </motion.div>
+
+                        {/* Native share button (full width) */}
+                        <motion.button
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.75, duration: 0.4 }}
+                            onClick={handleShare}
+                            className="w-full h-9 flex items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] text-white/50 hover:text-white text-xs font-sans tracking-wider uppercase transition-all duration-200 active:scale-[0.98]"
+                            aria-label="More share options"
+                        >
+                            <TbShare className="w-3.5 h-3.5" />
+                            Share
+                        </motion.button>
                     </div>
                 </div>
             </motion.div>
