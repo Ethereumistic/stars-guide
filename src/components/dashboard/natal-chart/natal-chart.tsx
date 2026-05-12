@@ -17,9 +17,8 @@ interface BirthData {
 }
 
 export function NatalChart({ birthData }: { birthData: BirthData }) {
-    const [visualization, setVisualization] = useState<string>("both");
+    const [visualization, setVisualization] = useState<string>("table");
 
-    // On mobile, "both" is not available so default to "table"
     const [isMobile, setIsMobile] = useState(false);
     useEffect(() => {
         const mq = window.matchMedia("(max-width: 767px)");
@@ -28,13 +27,6 @@ export function NatalChart({ birthData }: { birthData: BirthData }) {
         mq.addEventListener("change", handler);
         return () => mq.removeEventListener("change", handler);
     }, []);
-
-    // Switch to "table" when switching to mobile while in "both" view
-    useEffect(() => {
-        if (isMobile && visualization === "both") {
-            setVisualization("table");
-        }
-    }, [isMobile, visualization]);
 
     const chartData = useMemo(() => {
         try {
@@ -91,19 +83,9 @@ export function NatalChart({ birthData }: { birthData: BirthData }) {
                 titleAccent="Chart"
                 activeVisualization={visualization}
                 onVisualizationChange={setVisualization}
-                hideBothOnMobile
             />
 
-            {visualization === "both" ? (
-                <div className="grid grid-cols-7 gap-6">
-                    <div className="col-span-3">
-                        <ChartTableView data={chartData} />
-                    </div>
-                    <div className="col-span-4">
-                        <ChartCircleView data={chartData} />
-                    </div>
-                </div>
-            ) : visualization === "table" ? (
+            {visualization === "table" ? (
                 <ChartTableView data={chartData} />
             ) : (
                 <div className="w-full flex justify-center">

@@ -14,7 +14,7 @@ import {
     TabsList,
     TabsTrigger,
 } from "@/components/ui/tabs";
-import { Table2, CircleDot, LayoutGrid } from "lucide-react";
+import { Table2, CircleDot } from "lucide-react";
 
 export interface BreadcrumbConfig {
     label: string;
@@ -27,18 +27,10 @@ export interface ChartSectionHeaderProps {
     titleAccent: string;
     activeVisualization: string;
     onVisualizationChange: (value: string) => void;
-    /** Hide the "Both" option on mobile screens (recommended for side-by-side views) */
-    hideBothOnMobile?: boolean;
     className?: string;
 }
 
 const visualizationFilters = [
-    { value: "both", label: "Both", icon: LayoutGrid },
-    { value: "table", label: "Table", icon: Table2 },
-    { value: "circle", label: "Circle", icon: CircleDot },
-];
-
-const mobileOnlyFilters = [
     { value: "table", label: "Table", icon: Table2 },
     { value: "circle", label: "Circle", icon: CircleDot },
 ];
@@ -49,12 +41,11 @@ export function ChartSectionHeader({
     titleAccent,
     activeVisualization,
     onVisualizationChange,
-    hideBothOnMobile = false,
     className,
 }: ChartSectionHeaderProps) {
     const currentPageLabel = breadcrumbs?.[breadcrumbs.length - 1]?.label;
     const navItems = breadcrumbs ? breadcrumbs.slice(0, -1) : [];
-    const activeFilters = hideBothOnMobile ? mobileOnlyFilters : visualizationFilters;
+    const activeFilters = visualizationFilters;
 
     return (
         <>

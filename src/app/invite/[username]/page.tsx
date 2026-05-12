@@ -7,6 +7,8 @@ import { PlanetShowcase } from "@/components/auth/planet-showcase";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "motion/react";
 import { planetUIConfig } from "@/config/planet-ui";
+import { useUserStore } from "@/store/use-user-store";
+import { InviteCard } from "./_components/invite-card";
 
 function setReferrerCookie(username: string) {
     document.cookie = `starsguide_referrer=${username}; path=/; max-age=${604800}; SameSite=Lax`;
@@ -34,6 +36,7 @@ export default function InvitePage() {
     const params = useParams();
     const username = params.username as string;
     const [mounted, setMounted] = useState(false);
+    const { user, isLoading, isAuthenticated } = useUserStore();
 
     const planetId = useMemo(() => PLANET_IDS[Math.floor(Math.random() * PLANET_IDS.length)], []);
     const ui = planetUIConfig[planetId];
@@ -58,15 +61,40 @@ export default function InvitePage() {
         }
     }, [username]);
 
+    // Determine if this is the invite owner viewing their own card
+    const isOwnInvite = !isLoading && isAuthenticated() && user?.username === username;
+
+    // Authenticated but viewing someone else's invite — redirect to own invite page
+    const isDifferentUserInvite = !isLoading && isAuthenticated() && user?.username && user.username !== username;
+
+    // Build invite URL
+    const inviteUrl = typeof window !== "undefined"
+        ? `${window.location.origin}/invite/${username}`
+        : `/invite/${username}`;
+
     if (!mounted) return null;
 
+    // ===== OWN INVITE CARD VIEW =====
+    if (isOwnInvite && user) {
+        return <InviteCard user={user} inviteUrl={inviteUrl} />;
+    }
+
+    // ===== AUTHENTICATED DIFFERENT USER — REDIRECT TO OWN INVITE =====
+    if (isDifferentUserInvite && user.username) {
+        if (typeof window !== "undefined") {
+            window.location.href = `/invite/${user.username}`;
+        }
+        return null;
+    }
+
+    // ===== DEFAULT: SIGN-UP INVITE VIEW (unauthenticated) =====
     return (
-        <div className="min-h-screen flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-[880px]">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, ease: "easeOut" }}
-                className="w-full max-w-[880px]"
+                className="w-full"
             >
                 <Card className="border-primary/10 bg-background/60 backdrop-blur-xl shadow-2xl shadow-primary/10 overflow-hidden relative">
                     {/* Mobile planet inside the card */}

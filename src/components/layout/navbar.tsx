@@ -354,7 +354,8 @@ export function Navbar() {
   const isFullscreenApp =
     pathname.startsWith("/oracle") ||
     pathname.startsWith("/journal") ||
-    pathname.startsWith("/admin");
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/invite");
 
   // Handle Scroll Effect
   React.useEffect(() => {
