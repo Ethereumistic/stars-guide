@@ -26,9 +26,20 @@ The Oracle is a conversational astrology AI built on a **Convex + Next.js** stac
 │  oracle/upsertProviders.ts — Provider/chain config mutations │
 │  lib/adminGuard.ts   — Admin authorization enforcement        │
 │                                                               │
-│  ═══ Oracle Tools v2 Architecture ═══                        │
-│  lib/oracle/features.ts — Unified birth_chart, intent         │
-│                           classification with depth           │
+│  ═══ Intent Router (LLM + regex fallback) ═══              │
+│  lib/oracle/intentRouter.ts — scoreIntentsWithLLM() primary,  │
+│                                  scoreIntents() regex fallback│
+│  lib/oracle/intentRouterPrompt.ts — LLM prompt + parser       │
+│                               │
+│  ═══ Pipeline Architecture ═══                              │
+│  lib/oracle/pipelines/ — birthChart, journalRecall,           │
+│                           binauralBeats, genericChat           │
+│  lib/oracle/pipelineTypes.ts — shared types (ScoredIntent,  │
+│                                  IntentRouterResult, Pipeline)│
+│                               │
+│  ═══ Feature System ═══                                      │
+│  lib/oracle/features.ts — Regex patterns (fallback),          │
+│                           feature definitions, injection text │
 │  lib/oracle/featureContext.ts — Universal birth context       │
 │                                  builder + depth instructions │
 │                                                               │
@@ -59,8 +70,10 @@ The Oracle is a conversational astrology AI built on a **Convex + Next.js** stac
 - **Streaming-first**: Tokens stream from the LLM through Convex into the reactive UI in near-real-time (300ms flush intervals).
 - **Hardcoded safety first**: The safety rules block is hardcoded in code, always position 1 in the system prompt, and cannot be overridden by admin-editable settings.
 - **Multi-provider resilience**: A ranked fallback chain tries multiple models/providers; if all fail, a hardcoded fallback message is returned.
-- **Universal birth context** (v2): Birth data is ALWAYS injected into the prompt when available, regardless of which feature is active. Depth is controlled by instructions, not data scope.
-- **Cross-context mixing** (v2): Birth data, journal context, and timespace context coexist in every prompt. A Cosmic Recall session can reference Venus placements because birth data is always present.
+- **LLM intent routing**: The intent classifier uses a fast LLM call (~200 tokens, ~200-500ms) for semantic understanding of the user's message, with regex patterns as a reliable fallback on LLM failure. This handles typos, creative phrasing, and multi-intent detection that regex cannot.
+- **Pipeline architecture**: Intents are resolved to pipeline objects that declare their data requirements and build their own prompt blocks. Multiple pipelines can be active simultaneously (e.g., birth_chart + journal_recall). Pipelines are composed by the orchestrator — their system blocks are sorted by priority and their user blocks are merged.
+- **Universal birth context** (v2): Birth data is ALWAYS injected into the prompt when available and a pipeline needs it, regardless of which feature is active. Depth is controlled by instructions, not data scope. The birth_chart pipeline injects a [CHART DATA UNAVAILABLE] block when there's no stored data, so the AI responds in chart-reading format and asks for data.
+- **Cross-context mixing** (v2): Birth data, journal context, and timespace context coexist in every prompt. A Cosmic Recall session can reference Venus placements because birth data is always present. Data gathering is driven by pipeline requirements — if ANY active pipeline needs it, it's gathered.
 
 ## Wiring — What Connects to What
 
@@ -68,7 +81,9 @@ The Oracle is a conversational astrology AI built on a **Convex + Next.js** stac
 |---|---|---|
 | Frontend (Next.js) | Convex backend (queries, mutations, actions) | User interaction, streaming display |
 | Convex backend | Inference providers, Journal system, DB | Prompt assembly, LLM invocation, session management |
-| Inference providers | — | LLM completions, streaming tokens |
+| Inference providers | — | LLM completions (main Oracle call + intent router call) |
+| Intent router (LLM) | Inference providers (fast model from chain) | IntentRouterResult → pipeline resolution |
+| Intent router (regex) | Pattern lists in features.ts | IntentRouterResult → pipeline resolution (fallback) |
 | Journal system | Convex DB (consent, entries) | `[JOURNAL CONTEXT]` block for Oracle |
 | Zustand store | Convex reactive queries | Client state (selected feature, debug metrics, streaming flag) |
 

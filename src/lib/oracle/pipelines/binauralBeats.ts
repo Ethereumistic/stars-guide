@@ -50,6 +50,7 @@ export const binauralBeatsPipeline: OraclePipeline = {
     needsJournalContext: false,
     expandedJournalBudget: false,
     needsTimespace: true,
+    needsSynastryData: false,
   },
 
   modelHint: "creative",

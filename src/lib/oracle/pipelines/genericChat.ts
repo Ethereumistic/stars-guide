@@ -26,6 +26,7 @@ export const genericChatPipeline: OraclePipeline = {
     needsJournalContext: true, // Journal is additive, not directive
     expandedJournalBudget: false,
     needsTimespace: true,
+    needsSynastryData: false,
   },
 
   modelHint: "fast",

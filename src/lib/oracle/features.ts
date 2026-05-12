@@ -1,8 +1,7 @@
 export const ORACLE_FEATURE_KEYS = [
   "attach_files",
   "birth_chart",
-  "synastry_core",
-  "synastry_full",
+  "synastry",
   "sign_card_image",
   "binaural_beats",
   "journal_recall",
@@ -59,21 +58,13 @@ export const ORACLE_FEATURES: readonly OracleFeatureDefinition[] = [
     ].join("\n"),
   },
   {
-    key: "synastry_core",
-    label: "Synastry analysis",
-    shortLabel: "Synastry analysis",
-    description: "Relationship chart comparison",
-    menuGroup: "more",
-    implemented: false,
-    requiresBirthData: true,
-  },
-  {
-    key: "synastry_full",
-    label: "Deep synastry analysis",
-    shortLabel: "Deep synastry analysis",
-    description: "Full relationship chart comparison",
-    menuGroup: "more",
-    implemented: false,
+    key: "synastry",
+    label: "Synastry",
+    shortLabel: "Synastry",
+    description: "Overlay two birth charts to analyze alignment, balance, and clashing",
+    defaultPrompt: "Analyze the synastry between our charts. What are our strongest alignments and areas of friction?",
+    menuGroup: "primary",
+    implemented: true,
     requiresBirthData: true,
   },
   {
@@ -136,6 +127,12 @@ export function isBirthChartFeature(
   featureKey?: string | null,
 ): featureKey is "birth_chart" {
   return featureKey === "birth_chart"
+}
+
+export function isSynastryFeature(
+  featureKey?: string | null,
+): featureKey is "synastry" {
+  return featureKey === "synastry"
 }
 
 export function getFeatureDefaultPrompt(
@@ -232,6 +229,28 @@ export const DEPTH_SIGNAL_FULL_PATTERNS: RegExp[] = [
 ]
 
 /**
+ * Synastry intent patterns — detect relationship/compatibility chart requests.
+ * Checked after birth chart but before binaural beats.
+ */
+export const SYNASTRY_INTENT_PATTERNS: RegExp[] = [
+  // Explicit synastry/composite/relationship chart references
+  /\bsynastry\b/i,
+  /\bcomposite\s+chart\b/i,
+  /\bsynastry\b/i,
+  /\brelationship\s+chart\b/i,
+  /\bcouple'?s?\s+chart\b/i,
+  // "me and [person]" chart questions
+  /\b(my\s+)?chart\s+(with|and|vs|compared\s+to)\b/i,
+  /\bcompare\s+(our|my|the)\s+(chart|charts|placements)\b/i,
+  /\b(how\s+)?compatible\s+(are|is)\b/i,
+  /\b(our|my\s+partner'?s?)\s+(astrological?\s+)?compatibility\b/i,
+  // "chart overlay" / "chart comparison"
+  /\bchart\s+(overlay|comparison|match|reading)\b/i,
+  // "me and my partner/friend"
+  /\b(me\s+and\s+my\s+)(partner|boyfriend|girlfriend|wife|husband|friend|lover|crush)\b.*\b(chart|sign|compatib|astro|stars)\b/i,
+]
+
+/**
  * Regex patterns for binaural beat intent.
  * Checked AFTER journal recall and AFTER birth chart, since binaural
  * intent is less common than chart intent.
@@ -318,7 +337,16 @@ export function classifyOracleToolIntent(
     }
   }
 
-  // 2 & 3. Birth chart — two-phase classification:
+  // 2. Synastry — relationship/compatibility chart intent
+  //    Checked before birth chart because "my chart with my partner" is
+  //    synastry, not a solo birth chart reading.
+  if (hasBirthData) {
+    if (SYNASTRY_INTENT_PATTERNS.some((p) => p.test(question))) {
+      return { featureKey: "synastry", reason: "synastry_intent" }
+    }
+  }
+
+  // 3. Birth chart — two-phase classification:
   //    Phase 1: Is this a chart question at all? (broad intent match)
   //    Phase 2: Does it contain depth signals? → full, otherwise → core
   //
@@ -335,12 +363,12 @@ export function classifyOracleToolIntent(
     }
   }
 
-  // 3. Binaural beats — sound/frequency intent
+  // 4. Binaural beats — sound/frequency intent
   if (BINAURAL_INTENT_PATTERNS.some((p) => p.test(question))) {
     return { featureKey: "binaural_beats", reason: "binaural_intent" }
   }
 
-  // 4. No match
+  // 5. No match
   return { featureKey: null, reason: "no_match" }
 }
 

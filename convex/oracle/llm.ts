@@ -34,6 +34,7 @@ import type {
   UserMessageBlock,
   PostResponseAction,
 } from "../../lib/oracle/pipelineTypes";
+import type { SynastryPayload } from "../../lib/oracle/pipelineTypes";
 import { ORACLE_SAFETY_RULES } from "../../lib/oracle/safetyRules";
 
 const CRISIS_PATTERNS: RegExp[] = [
@@ -280,6 +281,7 @@ export const invokeOracle = action({
     const needsJournal = activePipelines.some((p) => p.dataRequirements.needsJournalContext);
     const expandedJournal = activePipelines.some((p) => p.dataRequirements.expandedJournalBudget);
     const needsTimespace = activePipelines.some((p) => p.dataRequirements.needsTimespace);
+    const needsSynastryData = activePipelines.some((p) => p.dataRequirements.needsSynastryData);
 
     // Gather birth data ONLY if a pipeline needs it
     let birthData: string | null = null;
@@ -338,7 +340,17 @@ export const invokeOracle = action({
     }
     // binaural_beats pipeline generates its own injection internally via buildPromptBlocks
 
-    console.log(`[Oracle] Data gathered: birthDataLen=${birthData?.length ?? 0} journalLen=${journalContext?.length ?? 0} timespaceLen=${timespaceContext?.length ?? 0} featureInjection=${featureInjection ? 'yes' : 'no'}`);
+    // ── Gather synastry data ────────────────────────────────────────────────────
+    let synastryData: SynastryPayload | null = null;
+    if (needsSynastryData) {
+      // Synastry data comes from the session (stored when the user created it)
+      synastryData = (session as any).synastryPayload ?? null;
+      if (!synastryData) {
+        console.warn("[Oracle] Synastry pipeline active but no synastry payload on session");
+      }
+    }
+
+    console.log(`[Oracle] Data gathered: birthDataLen=${birthData?.length ?? 0} journalLen=${journalContext?.length ?? 0} timespaceLen=${timespaceContext?.length ?? 0} featureInjection=${featureInjection ? 'yes' : 'no'} synastry=${synastryData ? 'yes' : 'no'}`);
 
     // ════════════════════════════════════════════════════════════════════════
     // PHASE 4: BUILD PROMPT (pipeline-driven)
@@ -356,6 +368,7 @@ export const invokeOracle = action({
       soulDoc: config.soulDoc,
       featureInjection,
       rawBirthData: user?.birthData ?? null,
+      synastryData,
     };
 
     // Collect prompt blocks from ALL pipelines

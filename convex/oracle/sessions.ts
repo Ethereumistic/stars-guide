@@ -54,6 +54,13 @@ export const createSession = mutation({
     args: {
         featureKey: v.optional(v.string()),
         questionText: v.string(),
+        synastryPayload: v.optional(v.object({
+            chartB: v.any(), // StoredBirthData shape
+            source: v.union(v.literal("friend"), v.literal("custom")),
+            friendUserId: v.optional(v.id("users")),
+            relationship: v.string(),
+            chartBName: v.string(),
+        })),
     },
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);
@@ -70,6 +77,7 @@ export const createSession = mutation({
             featureKey: args.featureKey,
             status: "active",
             messageCount: 1,
+            synastryPayload: args.synastryPayload,
             createdAt: now,
             updatedAt: now,
             lastMessageAt: now,

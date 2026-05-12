@@ -18,6 +18,7 @@ import { genericChatPipeline } from "./genericChat";
 import { birthChartPipeline } from "./birthChart";
 import { journalRecallPipeline } from "./journalRecall";
 import { binauralBeatsPipeline } from "./binauralBeats";
+import { synastryPipeline } from "./synastry";
 
 const pipelineRegistry = new Map<PipelineKey, OraclePipeline>();
 
@@ -32,6 +33,7 @@ registerPipeline(genericChatPipeline);
 registerPipeline(birthChartPipeline);
 registerPipeline(journalRecallPipeline);
 registerPipeline(binauralBeatsPipeline);
+registerPipeline(synastryPipeline);
 
 /**
  * Look up a pipeline by its key.

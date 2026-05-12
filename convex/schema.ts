@@ -212,7 +212,7 @@ export default defineSchema({
         resetAt: v.number(), // timestamp for when the limit resets
     }).index("by_userId_action", ["userId", "action"]),
 
-    // РІвЂќР‚РІвЂќР‚РІвЂќР‚ DAILY HOROSCOPE ENGINE РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚
+    //DAILY HOROSCOPE ENGINE
 
     // 5. SYSTEM SETTINGS (Master Prompt Storage)
     systemSettings: defineTable({
@@ -237,7 +237,7 @@ export default defineSchema({
         emotionalRegister: v.optional(v.string()),   // detected or manually set, e.g. "anxious,restless"
     }).index("by_createdAt", ["createdAt"]),
 
-    // 7. HOROSCOPES (Generated Content РІР‚вЂќ the product)
+    // 7. HOROSCOPES (Generated Content the product)
     horoscopes: defineTable({
         zeitgeistId: v.id("zeitgeists"),
         sign: v.string(),             // One of the 12 canonical sign names
@@ -282,9 +282,9 @@ export default defineSchema({
     }).index("by_status", ["status"])
         .index("by_admin", ["adminUserId"]),
 
-    // 9. COSMIC WEATHER (Astronomical Data РІР‚вЂќ computed daily)
+    // 9. COSMIC WEATHER (Astronomical Data computed daily)
     cosmicWeather: defineTable({
-        date: v.string(),                  // "YYYY-MM-DD" UTC РІР‚вЂќ primary lookup key
+        date: v.string(),                  // "YYYY-MM-DD" UTC primary lookup key
         planetPositions: v.array(
             v.object({
                 planet: v.string(),            // e.g. "Mars"
@@ -310,7 +310,7 @@ export default defineSchema({
         feltLanguageGeneratedAt: v.optional(v.number()),
     }).index("by_date", ["date"]),
 
-    // 10. HOOKS (Hook Archetype Library РІР‚вЂќ DB-driven, zero deploy updates)
+    // 10. HOOKS (Hook Archetype Library DB-driven, zero deploy updates)
     hooks: defineTable({
         name: v.string(),                    // e.g. "The Mirror Hook"
         description: v.string(),             // One-sentence description
@@ -325,7 +325,7 @@ export default defineSchema({
         createdAt: v.number(),
         updatedAt: v.number(),
     }).index("by_active", ["isActive"])
-      .index("by_active_and_source", ["isActive", "source"]),
+        .index("by_active_and_source", ["isActive", "source"]),
 
     // 10b. CONTEXT SLOTS (Split master context — independently versioned prompt sections)
     contextSlots: defineTable({
@@ -340,9 +340,9 @@ export default defineSchema({
         updatedAt: v.number(),
         updatedBy: v.id("users"),
     }).index("by_slotKey", ["slotKey"])
-      .index("by_order", ["order"]),
+        .index("by_order", ["order"]),
 
-    // РІвЂќР‚РІвЂќР‚РІвЂќР‚ ORACLE AI ASTROLOGY GUIDE РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚
+    //ORACLE AI ASTROLOGY GUIDE
 
     // 11. ORACLE FEATURE INJECTIONS (Per-feature prompt blocks)
     oracle_feature_injections: defineTable({
@@ -358,7 +358,7 @@ export default defineSchema({
     // 12. ORACLE SETTINGS (Key-value config: soul prompt, models, limits, etc.)
     oracle_settings: defineTable({
         key: v.string(),
-        value: v.string(),                   // Always stored as string РІР‚вЂќ parsed at app layer
+        value: v.string(),                   // Always stored as string parsed at app layer
         valueType: v.union(
             v.literal("string"),
             v.literal("number"),
@@ -405,6 +405,13 @@ export default defineSchema({
         usedFallback: v.optional(v.boolean()),
         birthChartDepth: v.optional(v.union(v.literal("core"), v.literal("full"))),
         starType: v.optional(v.union(v.literal("beveled"), v.literal("cursed"))), // Two pin tiers: cursed > beveled
+        synastryPayload: v.optional(v.object({
+          chartB: v.any(), // StoredBirthData shape
+          source: v.union(v.literal("friend"), v.literal("custom")),
+          friendUserId: v.optional(v.id("users")),
+          relationship: v.string(),
+          chartBName: v.string(),
+        })),
         createdAt: v.number(),
         updatedAt: v.number(),
         lastMessageAt: v.number(),

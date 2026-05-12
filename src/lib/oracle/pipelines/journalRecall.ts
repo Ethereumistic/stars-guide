@@ -36,6 +36,7 @@ export const journalRecallPipeline: OraclePipeline = {
     needsJournalContext: true, // Obviously needs journal
     expandedJournalBudget: true, // Doubled budget for Cosmic Recall
     needsTimespace: true,
+    needsSynastryData: false,
   },
 
   modelHint: "smart", // Pattern analysis benefits from smarter models

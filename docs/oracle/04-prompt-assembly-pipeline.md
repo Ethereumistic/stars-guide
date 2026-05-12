@@ -2,7 +2,13 @@
 
 > Source: ORACLE_EXPLAINED.md §4
 
-The prompt is the heart of the Oracle. It is assembled in `buildPrompt()` (`lib/oracle/promptBuilder.ts:79-110`) from 7 parameters: `soulDoc`, `featureInjection`, `birthContext`, `userQuestion`, `isFirstResponse`, `journalContext`, `timespaceContext`. Both `journalContext` and `timespaceContext` are consent-gated / conditionally available.
+The prompt is assembled by the **pipeline architecture**: each active pipeline (birth chart, journal recall, binaural beats, generic chat) contributes system prompt blocks and user message blocks. The orchestrator merges blocks from all active pipelines, sorts system blocks by priority, and concatenates them.
+
+This replaces the older `buildPrompt()` / `buildSystemPrompt()` functions. The pipeline-driven approach enables:
+- **Multi-intent composition**: birth_chart + journal_recall can be active simultaneously
+- **Data-driven gathering**: each pipeline declares what it needs (birth data, journal context, timespace)
+- **Priority-based ordering**: safety rules always first (priority 100), then other blocks
+- **Pipeline-specific hooks**: e.g., binaural beats stores params after the response
 
 ---
 
@@ -107,24 +113,25 @@ invokeOracle (entry point)
   │
   ├─ loadRuntimeSettings() ──────────▶ reads oracle_settings for soul, model params, kill_switch
   │
-  ├─ buildUniversalBirthContext() ───▶ reads user.birthData → produces [BIRTH CHART DATA] block
-  │                                       (see 11-birth-context-injection.md)
-  │
-  ├─ getOracleFeature() ────────────▶ resolves active feature + depth → produces featureInjection
-  │                                       (see 10-feature-system.md)
-  │
-  ├─ assembleJournalContext() ───────▶ reads journal_consent + journal_entries → produces [JOURNAL CONTEXT] block
-  │                                       (see 12-journal-context-injection.md)
-  │
-  ├─ buildTimespaceContext() ────────▶ produces local datetime + cosmic weather
-  │
-  ├─ classifyOracleToolIntent() ─────▶ may auto-activate a feature → updates session → loop back to feature injection
+  ├─ scoreIntentsWithLLM() ──────────▶ LLM classify → regex fallback → IntentRouterResult
   │                                       (see 13-intent-classification.md)
+  ├─ Resolve active pipelines ────────▶ map intents to pipeline objects, merge data requirements
   │
-  ├─ buildSystemPrompt() ────────────▶ concatenates blocks 1-6 (safety → soul → feature → timespace → journal → title/prompt dir)
+  ├─ Gather data per pipelines ──────▶ merged from ALL active pipelines
+  │   ├─ buildUniversalBirthContext() ─▶ if ANY pipeline needs birth data
+  │   ├─ assembleJournalContext()     ─▶ if ANY pipeline needs journal + consent
+  │   └─ buildTimespaceContext()      ─▶ if ANY pipeline needs timespace
   │
-  ├─ buildUserMessage() ─────────────▶ concatenates birth data + sanitized question
+  ├─ Each pipeline.buildPromptBlocks() ─ returns { systemBlocks[], userBlocks[] }
+  │   ├─ birthChartPipeline   ──────────── depth instructions + birth data + [CHART DATA UNAVAILABLE]
+  │   ├─ journalRecallPipeline ─────────── Cosmic Recall mode + journal context
+  │   ├─ binauralBeatsPipeline ──────────── binaural protocol + personalization
+  │   └─ genericChatPipeline   ──────────── soul-driven open conversation
   │
-  └─ buildPrompt() ──────────────────▶ final message array [system, ...history, user]
-                                         → sent to model chain
+  ├─ Sort system blocks by priority (descending) ── safety=100, soul=90, features vary
+  │
+  ├─ Compose final prompt ──────────── safety + soul + merged feature blocks + timespace + journal + title
+  │                                     + user blocks + sanitized question
+  │
+  └─ Iterate model chain ────────────▶ send to provider, stream response
 ```

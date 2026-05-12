@@ -10,6 +10,7 @@ import { OracleInput } from "@/components/oracle/input/oracle-input";
 import {
   getFeatureDefaultPrompt,
   type OracleFeatureKey,
+  isSynastryFeature,
 } from "@/lib/oracle/features";
 import {
   serializeBeat,
@@ -91,6 +92,7 @@ export default function OracleNewPage() {
     pendingQuestion,
     selectedFeatureKey,
     birthChartDepth,
+    synastryData,
     setPendingQuestion,
     setSelectedFeature,
     setBirthChartDepth,
@@ -98,6 +100,10 @@ export default function OracleNewPage() {
     setSessionId,
     setOracleResponding,
     setQuota,
+    setSynastryChartB,
+    setSynastryRelationship,
+    clearSynastry,
+    clearSynastryChartB,
   } = useOracleStore();
 
   const quota = useQuery(api.oracle.quota.checkQuota);
@@ -176,10 +182,24 @@ export default function OracleNewPage() {
     if (!questionText) return;
     if (quota && !quota.allowed) return;
 
+    // For synastry, validate that chart B and relationship are set
+    if (isSynastryFeature(selectedFeatureKey) && (!synastryData?.chartB || !synastryData?.relationship)) {
+      return; // Don't submit — UI shows validation
+    }
+
     try {
       const sessionId = await createSession({
         featureKey: selectedFeatureKey ?? undefined,
         questionText,
+        synastryPayload: isSynastryFeature(selectedFeatureKey) && synastryData?.chartB && synastryData?.relationship
+          ? {
+              chartB: synastryData.chartB,
+              source: synastryData.source!,
+              friendUserId: synastryData.friendUserId as any,
+              relationship: synastryData.relationship!,
+              chartBName: synastryData.chartBName,
+            }
+          : undefined,
       });
 
       // Dismiss the feature import card before navigating
@@ -194,6 +214,7 @@ export default function OracleNewPage() {
   }, [
     pendingQuestion,
     selectedFeatureKey,
+    synastryData,
     quota,
     createSession,
     setSessionId,
@@ -286,7 +307,7 @@ export default function OracleNewPage() {
                 onValueChange={setPendingQuestion}
                 onSubmit={handleSubmit}
                 placeholder="Ask the stars anything..."
-                canSubmit={Boolean(pendingQuestion.trim() || selectedFeatureKey)}
+                canSubmit={Boolean((pendingQuestion.trim() || selectedFeatureKey) && (isSynastryFeature(selectedFeatureKey) ? synastryData?.chartB && synastryData?.relationship : true))}
                 featureKey={selectedFeatureKey}
                 onFeatureSelect={handleFeatureSelect}
                 onFeatureClear={clearSelectedFeature}
@@ -295,6 +316,11 @@ export default function OracleNewPage() {
                 onBinauralGenerate={handleBinauralGenerate}
                 birthChartDepth={birthChartDepth}
                 onBirthChartDepthChange={setBirthChartDepth}
+                synastryState={synastryData}
+                onSetSynastryChartB={setSynastryChartB}
+                onSetSynastryRelationship={setSynastryRelationship}
+                onClearSynastry={clearSynastry}
+                onClearSynastryChartB={clearSynastryChartB}
               />
 
               {quota && quota.remaining !== undefined && (

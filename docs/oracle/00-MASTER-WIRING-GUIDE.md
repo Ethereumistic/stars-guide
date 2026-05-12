@@ -11,7 +11,7 @@
 | 01 | [Architecture Overview](./01-architecture-overview.md) | Three-layer architecture (Frontend → Backend → Providers), key properties |
 | 02 | [Database Schema](./02-database-schema.md) | Five Convex tables, fields, relationships |
 | 03 | [Admin Configuration](./03-admin-configuration.md) | Six-tab admin UI, all settings, authentication |
-| 04 | [Prompt Assembly Pipeline](./04-prompt-assembly-pipeline.md) | Seven-block system prompt, two-block user message, history, sanitization |
+| 04 | [Prompt Assembly Pipeline](./04-prompt-assembly-pipeline.md) | Pipeline-driven prompt composition, system/user blocks, history, sanitization |
 | 05 | [Model Chain & Providers](./05-model-chain-providers.md) | Multi-provider fallback chain, request construction, API key resolution |
 | 06 | [Streaming Architecture](./06-streaming-architecture.md) | SSE streaming, flush intervals, Convex mutations, timing instrumentation |
 | 07 | [Safety & Crisis Detection](./07-safety-crisis-detection.md) | Hardcoded safety rules, crisis keywords, kill switch, input validation, sanitization |
@@ -20,7 +20,7 @@
 | 10 | [Feature System](./10-feature-system.md) | Seven features, selection flow, injection mechanism, default prompts |
 | 11 | [Birth Context Injection](./11-birth-context-injection.md) | Universal birth data, depth instructions, data-vs-instructions separation |
 | 12 | [Journal Context Injection](./12-journal-context-injection.md) | Consent-gated journal context, budgets, Cosmic Recall, journal prompts |
-| 13 | [Intent Classification](./13-intent-classification.md) | Auto-activation, pattern sets, priority order, consent gates |
+| 13 | [Intent Classification](./13-intent-classification.md) | LLM intent router (primary) + regex fallback, multi-intent scoring, pipeline resolution |
 | 14 | [Cross-Context Mixing](./14-cross-context-mixing.md) | How birth/journal/timespace contexts coexist in prompts |
 | 15 | [User-Facing Flow](./15-user-facing-flow.md) | End-to-end walkthrough from opening Oracle to seeing response |
 | 16 | [Operational Controls](./16-operational-controls.md) | Kill switch, fallback text, crisis text |
@@ -56,23 +56,23 @@
 │  │  4. Load session + messages ────▶ [8-Sessions] oracle_sessions      │  │
 │  │  5. Load runtime settings ──────▶ [3-Admin] oracle_settings          │  │
 │  │  6. Load user + birthData ──────▶ [11-BirthContext] user table       │  │
-│  │  7. Build universal birth context─▶ [11-BirthContext] → user msg     │  │
-│  │  8. Resolve active feature ─────▶ [10-Features] session.featureKey  │  │
-│  │  9. Check journal consent ──────▶ [12-Journal] journal_consent      │  │
-│  │  10. Intent classification ─────▶ [13-Intent] may update session     │  │
-│  │  11. Build feature injection ──▶ [10-Features] depth instructions   │  │
-│  │  12. Assemble journal context ──▶ [12-Journal] → system prompt blk4  │  │
-│  │  13. Build timespace context ──▶ → system prompt blk3.5             │  │
-│  │  14. Assemble full prompt ─────▶ [4-Prompt] safety+soul+feature+    │  │
-│  │                                   timespace+journal+title+birth+q    │  │
+│  │  7. Resolve active feature ─────▶ [10-Features] session.featureKey  │  │
+│  │  8. Check journal consent ──────▶ [12-Journal] journal_consent      │  │
+│  │  9. Intent routing ────────────▶ [13-Intent] LLM router → regex    │  │
+│  │  10. Resolve pipelines ───────▶ [Pipelines] compose active set     │  │
+│  │  11. Persist auto-activated ──▶ [8-Sessions] update feature/depth  │  │
+│  │  12. Gather pipeline data ─────▶ birth, journal, timespace per req │  │
+│  │  13. Build feature injection ──▶ [10-Features] depth instructions   │  │
+│  │  14. Build prompt blocks ──────▶ [4-Prompt] merge all pipeline blk │  │
 │  │  15. Append debug model override ▶ [19-Debug] prepend to chain      │  │
 │  │  16. Iterate model chain ──────▶ [5-ModelChain] Tier A→B→C→D        │  │
 │  │  17. Stream response ──────────▶ [6-Streaming] SSE → Convex → UI   │  │
 │  │  18. Parse title ──────────────▶ [17-Title] update session.title    │  │
 │  │  19. Parse journal prompt ─────▶ [12-Journal] store on message     │  │
 │  │  20. Increment quota ──────────▶ [9-Quota] only on success          │  │
-│  │  21. Persist timing metrics ────▶ [19-Debug] patchMessageTiming      │  │
-│  │  22. Finalize message ─────────▶ [6-Streaming] finalizeStreaming    │  │
+│  │  21. Persist timing metrics ───▶ [19-Debug] patchMessageTiming      │  │
+│  │  22. Pipeline afterResponse ──▶ e.g., binaural params on message   │  │
+│  │  23. Finalize message ─────────▶ [6-Streaming] finalizeStreaming    │  │
 │  └─────────────────────────────────────────────────────────────────────┘  │
 │                                                                            │
 │  Supporting modules (called by invokeOracle or by the frontend):          │
@@ -87,6 +87,10 @@
 │                     INFERENCE PROVIDERS                                   │
 │  OpenRouter, Ollama, OpenAI-compatible endpoints                          │
 │  Configured via admin UI → oracle_settings → providers_config + model_chain│
+│                                                                          │
+│  TWO LLM CALLS per request:                                             │
+│  1. Intent Router — fast classify (~200 tokens, ~200-500ms)            │
+│  2. Main Oracle — full response (streaming, 1000+ tokens)              │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -111,8 +115,8 @@ Admin UI tabs
                                                                                                 │
                                                                                                 ├── soul → [Block 2: System Prompt]
                                                                                                 ├── temperature, top_p, max_tokens, stream → LLM request body
-                                                                                                ├── providers_config → resolve provider for each chain entry
-                                                                                                ├── model_chain → ordered fallback list
+                                                                                                ├── providers_config → resolve provider for each chain entry (used by BOTH intent router and main call)
+                                                                                                ├── model_chain → ordered fallback list (used by BOTH intent router and main call)
                                                                                                 ├── kill_switch → early return check
                                                                                                 ├── crisis_response_text → crisis response
                                                                                                 ├── fallback_response_text → all-models-failed response
@@ -120,30 +124,31 @@ Admin UI tabs
                                                                                                 └── quota_limit_* → quota checks
 ```
 
-### Map 2: Prompt Assembly Flow (The Heart of the System)
+### Map 2: Prompt Assembly Flow (Pipeline-Driven)
 
 ```
-invokeOracle assembles the prompt via buildPrompt() and buildSystemPrompt():
+invokeOracle assembles the prompt by composing blocks from ALL active pipelines:
 
-SYSTEM PROMPT (concatenation of blocks 1-6):
+SYSTEM PROMPT (blocks sorted by priority, descending):
 │
-├── Block 1: [SAFETY RULES] ─────────── hardcoded in safetyRules.ts ── NOT editable
-├── Block 2: [SOUL DOCUMENT] ─────────── from oracle_settings "oracle_soul" ── admin editable
-├── Block 3: [FEATURE INJECTION] ─────── from active feature:
+├── Block: [SAFETY RULES] ────────── hardcoded in safetyRules.ts ── priority 100, NOT editable
+├── Block: [SOUL DOCUMENT] ────────── from oracle_settings "oracle_soul" ── priority 90
+├── Block: [FEATURE INJECTION] ───── from active pipeline(s):
 │   ├── birth_chart → depth instructions (core/full) ── oracle_feature_injections or hardcoded
 │   ├── journal_recall → [COSMIC RECALL MODE] block ── oracle_feature_injections or hardcoded
-│   └── (null) → no feature injection
-├── Block 3.5: [TIMESPACE CONTEXT] ───── from buildTimespaceContext() ── always present, conditionally expanded
-├── Block 4: [JOURNAL CONTEXT] ───────── from assembleJournalContext() ── consent-gated:
+│   └── generic_chat → no feature injection
+├── Block: [TIMESPACE CONTEXT] ───── from buildTimespaceContext() ── always present, conditionally expanded
+├── Block: [JOURNAL CONTEXT] ──────── from assembleJournalContext() ── consent-gated:
 │   ├── oracleCanReadJournal === true → [JOURNAL CONTEXT] block with entry summaries
 │   └── oracleCanReadJournal === false → null (no block)
-├── Block 5: [TITLE DIRECTIVE] ───────── hardcoded in promptBuilder.ts ── only on first response
-└── Block 6: [JOURNAL PROMPT DIRECTIVE] ── hardcoded ── only when journalContext present AND first response
+├── Block: [TITLE DIRECTIVE] ──────── hardcoded ── only on first response
+└── Block: [JOURNAL PROMPT DIRECTIVE] ── hardcoded ── only when journalContext present AND first response
 
-USER MESSAGE (concatenation of 2 blocks):
+USER MESSAGE (blocks from all active pipelines + sanitized question):
 │
-├── Block 1: [BIRTH CHART DATA] ──────── from buildUniversalBirthContext(user.birthData) ── ALWAYS when birthData exists
-└── Block 2: sanitized user question ──── sanitizeUserQuestion() strips [TAG...] injection attempts
+├── Block: [BIRTH CHART DATA] ────── from buildUniversalBirthContext(user.birthData) ── ALWAYS when birthData exists
+├── Block: [CHART DATA UNAVAILABLE] ── when birth_chart intent but no stored data ── instructs AI to ask for data
+├── Block: sanitized user question ──── sanitizeUserQuestion() strips [TAG...] injection attempts
 
 CONVERSATION HISTORY (inserted between system prompt and final user message):
 │
@@ -152,22 +157,39 @@ CONVERSATION HISTORY (inserted between system prompt and final user message):
     Last user message removed if it matches current question
 ```
 
-### Map 3: Feature Activation Flow
+### Map 3: Feature Activation Flow (LLM Intent Router)
 
 ```
 Feature can be activated two ways:
 
-  ┌─────────────────────────────────┐    ┌──────────────────────────────────┐
-  │  MANUAL: User clicks [+] menu   │    │  AUTO: Intent classifier detects  │
-  │  in OracleInput component       │    │  feature intent in user question   │
-  │                                 │    │                                   │
-  │  → onFeatureSelect(featureKey)  │    │  → classifyOracleToolIntent()     │
-  │  → Zustand store update         │    │  → Consent gates:                 │
-  │  → createSession(featureKey)     │    │    birth_chart requires hasBirthData│
-  │    OR                           │    │    journal_recall requires          │
-  │  → updateSessionFeature(mutation)│   │      hasJournalConsent             │
-  │                                 │    │  → updateSessionFeature(mutation)  │
-  └──────────────┬──────────────────┘    └──────────────┬───────────────────┘
+  ┌─────────────────────────────────┐    ┌──────────────────────────────────────┐
+  │  MANUAL: User clicks [+] menu   │    │  AUTO: Intent router detects          │
+  │  in OracleInput component       │    │  feature intent in user question     │
+  │                                 │    │                                       │
+  │  → onFeatureSelect(featureKey)  │    │  → scoreIntentsWithLLM()              │
+  │  → Zustand store update         │    │    ├─ (fast LLM call, ~200-500ms)     │
+  │  → createSession(featureKey)     │    │    │  Semantically classifies intent   │
+  │    OR                           │    │    │  Handles typos, creative phrasing  │
+  │  → updateSessionFeature(mutation)│   │    │  Can return MULTIPLE intents        │
+  │                                 │    │    └─ Falls back to regex scoreIntents()│
+  │                                 │    │       if LLM fails/timeout             │
+  │                                 │    │                                       │
+  │                                 │    │  → Consent gates (applied after):     │
+  │                                 │    │    journal_recall: filtered out if      │
+  │                                 │    │      no consent                       │
+  │                                 │    │    birth_chart: always allowed;         │
+  │                                 │    │      data injected if available        │
+  │                                 │    │                                       │
+  │                                 │    │  → Multi-intent composition:           │
+  │                                 │    │    birth_chart + journal_recall can    │
+  │                                 │    │    activate simultaneously             │
+  │                                 │    │                                       │
+  │                                 │    │  → Confidence scoring:                 │
+  │                                 │    │    Each intent gets 0-1 confidence     │
+  │                                 │    │    Intents ≥0.5 activate pipelines    │
+  │                                 │    │                                       │
+  │                                 │    │  → updateSessionFeature(mutation)      │
+  └──────────────┬──────────────────┘    └──────────────┬───────────────────────┘
                  │                                      │
                  └──────────────┬───────────────────────┘
                                 │
@@ -176,32 +198,107 @@ Feature can be activated two ways:
                  oracle_sessions.birthChartDepth is set (for birth_chart)
                                 │
                                 ▼
-                 invokeOracle reads these and resolves:
-                 ├── getOracleFeature(featureKey) → OracleFeatureDefinition
-                 ├── For birth_chart: getBirthChartDepthInstructions(depth)
-                 │   → instruction block → SYSTEM PROMPT Block 3
-                 ├── For journal_recall: [COSMIC RECALL MODE] block
-                 │   → instruction block → SYSTEM PROMPT Block 3
-                 └── Birth data ALWAYS injected in USER MESSAGE Block 1
-                    (regardless of which feature is active)
+                 Pipeline resolution maps intents to active pipelines:
+                 ├── birth_chart → birthChartPipeline
+                 ├── journal_recall → journalRecallPipeline
+                 ├── binaural_beats → binauralBeatsPipeline
+                 └── generic_chat → genericChatPipeline
+                                │
+                                ▼
+                 Each pipeline declares data requirements + builds prompt blocks:
+                 ├── birthChartPipeline: needs birth data, journal, timespace
+                 │   → System: depth instructions + [CHART DATA UNAVAILABLE] if no data
+                 │   → User: [BIRTH CHART DATA] block
+                 ├── journalRecallPipeline: needs journal (expanded), timespace
+                 │   → System: [COSMIC RECALL MODE] block
+                 ├── binauralBeatsPipeline: needs birth data, timespace
+                 │   → System: binaural protocol, personalization
+                 │   → Post-response: store binaural params on message
+                 └── genericChatPipeline: needs timespace only
+                     → System: soul-driven open conversation
 ```
 
-### Map 4: Context Mixing (The v2 Architecture)
+### Map 4: Intent Routing Architecture (Two-Path)
 
 ```
-Three independent context sources coexist in every prompt:
+User message arrives at invokeOracle
+       │
+       ├── Session already has featureKey?
+       │     YES → manual_selection, confidence 1.0, NO LLM CALL
+       │     NO → run intent router
+       │
+       ▼
+  ┌─────────────────────────────────────────────────────┐
+  │           scoreIntentsWithLLM()                       │
+  │                                                       │
+  │  1. Build prompt: system (intent classifier)          │
+  │     + user (message + available features)             │
+  │                                                       │
+  │  2. Try LLM call (first available provider):          │
+  │     • model: first from model_chain                  │
+  │     • temperature: 0.1 (deterministic)                │
+  │     • max_tokens: 150 (small JSON response)           │
+  │     • stream: false (non-streaming for speed)         │
+  │     • timeout: 3000ms                                │
+  │     • cost: ~150 tokens in, ~50 out ≈ $0.00005       │
+  │                                                       │
+  │  3. Parse JSON response:                              │
+  │     {"intents": [{"pipeline": "birth_chart",         │
+  │                    "confidence": 0.9,                  │
+  │                    "depth": "core"}, ...]}             │
+  │                                                       │
+  │  4. Apply consent gates:                              │
+  │     • Filter journal_recall if no consent             │
+  │     • Filter intents below confidence 0.5             │
+  │                                                       │
+  │  5. Return intents sorted by confidence               │
+  │                                                       │
+  │  ON FAILURE (timeout, error, invalid JSON):            │
+  │  └─→ scoreIntents() — regex fallback                  │
+  │       (exact pattern matching, no semantic awareness) │
+  └─────────────────────────────────────────────────────┘
+                           │
+                           ▼
+               IntentRouterResult:
+               {
+                 intents: [
+                   { pipelineKey: "birth_chart", confidence: 0.9, reason: "llm_intent_router", metadata: { depth: "core" } },
+                   { pipelineKey: "journal_recall", confidence: 0.7, reason: "llm_intent_router" }
+                 ],
+                 hasMatch: true,
+                 primary: { pipelineKey: "birth_chart", ... }
+               }
+                           │
+                           ▼
+               Active pipelines = intents ≥0.5 confidence → pipeline objects
+                           │
+                           ▼
+               Data gathered per pipeline requirements
+               → Birth data, journal context, timespace
+                           │
+                           ▼
+               Prompt blocks composed from all active pipelines
+               → System blocks sorted by priority
+               → User blocks from all pipelines
+```
+
+### Map 5: Context Mixing (The Pipeline Architecture)
+
+```
+Three independent context sources coexist in every prompt, driven by
+pipeline data requirements (not feature selection):
 
   ┌─────────────────────┐  ┌──────────────────────┐  ┌─────────────────────┐
   │   BIRTH DATA         │  │  JOURNAL CONTEXT     │  │  TIMESPACE CONTEXT   │
   │                      │  │                      │  │                      │
   │  Source: user.birthData│  │ Source: journal entries│  │ Source: user timezone │
-  │  Gate: user has       │  │ Gate: consent         │  │ Gate: always on      │
-  │       birthData saved │  │     = oracleCanRead..│  │   (expanded with     │
-  │                      │  │       Journal         │  │    temporal intent)   │
+  │  Gate: pipeline needs   │  │ Gate: pipeline needs   │  │ Gate: pipeline needs   │
+  │       it + has data     │  │     it + consent       │  │     it (always true)   │
+  │                      │  │                      │  │                      │
   │  Injected: USER MSG   │  │ Injected: SYS BLK 4 │  │  Injected: SYS BLK 3.5│
-  │  Block 1              │  │                      │  │                      │
-  │  Always full data    │  │ Budget:               │  │  Always local dt+tz  │
-  │  (not feature-gated) │  │  Normal = 4000 chars  │  │  + cosmic weather    │
+  │  Block (or "ask user │  │                      │  │                      │
+  │  for data" block)     │  │ Budget:               │  │  Always local dt+tz  │
+  │                      │  │  Normal = 4000 chars  │  │  + cosmic weather    │
   │                      │  │  Cosmic Recall = 8000 │  │    when relevant     │
   └──────────┬───────────┘  └──────────┬───────────┘  └──────────┬──────────┘
              │                          │                          │
@@ -210,14 +307,17 @@ Three independent context sources coexist in every prompt:
                                ALL THREE CAN COEXIST
                                in a single prompt
 
-  This means:
-  • A generic chat (no feature) still sees birth data + journal (if consented)
-  • A birth_chart session still sees journal context (if consented)
-  • A journal_recall session still sees full birth data (if saved)
-  • Features add INSTRUCTIONS (what to focus on), not DATA (what to see)
+  Pipelines declare what they need:
+  • birthChartPipeline: needsBirthData=true, needsJournalContext=true, needsTimespace=true
+  • journalRecallPipeline: needsJournalContext=true (expanded), needsTimespace=true
+  • binauralBeatsPipeline: needsBirthData=true, needsTimespace=true
+  • genericChatPipeline: needsTimespace=true only
+
+  The orchestrator merges requirements from ALL active pipelines.
+  If ANY pipeline needs birth data, it's gathered. If ANY needs journal, it's gathered.
 ```
 
-### Map 5: Session Lifecycle
+### Map 6: Session Lifecycle
 
 ```
 CREATE SESSION ─────────────────────────────────────────────────────────────
@@ -236,18 +336,20 @@ CREATE SESSION ─────────────────────�
         │
         ├── [Safety checks: kill switch, crisis, input validation]
         ├── [Load settings, user, session]
-        ├── [Build contexts: birth, feature, journal, timespace]
-        ├── [Intent classification if no feature active]
-        ├── [Assemble prompt]
+        ├── [Intent routing: LLM classify or regex fallback]
+        ├── [Resolve active pipelines based on intents]
+        ├── [Gather data per pipeline requirements]
+        ├── [Compose prompt blocks from all active pipelines]
         ├── [Iterate model chain → stream response]
         ├── [Parse title, parse journal prompt]
-        └── [Persist: message, timing, quota, session metadata]
+        └── [Persist: message, timing, quota, session metadata, pipeline hooks]
 
 FOLLOW-UP MESSAGES ──────────────────────────────────────────────────────────
   │
   ├── addMessage({ sessionId, content }) → INSERT oracle_messages (role="user")
   └── invokeOracle({ sessionId, userQuestion, timezone })
         ↑ Same pipeline, but:
+          • If session.featureKey already set → manual_selection shortcut, no LLM router call
           • isFirstResponse = false → no title directive, no journal prompt directive
           • Full conversation history included in prompt
           • Quota NOT incremented (only first response counts)
@@ -256,14 +358,14 @@ SESSION OPERATIONS ────────────────────�
   │
   ├── getUserSessions → last 50 sessions, ordered by recent
   ├── renameSession → update oracle_sessions.title
-  ├── updateSessionFeature → change featureKey (manual or intent classification)
+  ├── updateSessionFeature → change featureKey (manual or intent routing)
   ├── updateSessionBirthChartDepth → change depth (core/full)
   ├── setSessionStarType → assign "beveled" | "cursed" pin
   ├── updateSessionStatus → mark "active" | "completed"
   └── deleteSession → cascade delete messages then session
 ```
 
-### Map 6: Streaming Data Flow
+### Map 7: Streaming Data Flow
 
 ```
 LLM Provider (SSE stream)
@@ -321,20 +423,22 @@ These are the architectural rules that must not be violated. If you're modifying
 
 | # | Invariant | Why It Matters | Enforced Where |
 |---|-----------|---------------|----------------|
-| 1 | **Safety rules are always Block 1, hardcoded** | Prevents admin from weakening safety; changes require code deploy | `lib/oracle/safetyRules.ts`, `lib/oracle/promptBuilder.ts` |
+| 1 | **Safety rules are always Block 1, hardcoded** | Prevents admin from weakening safety; changes require code deploy | `lib/oracle/safetyRules.ts`, priority 100 in system blocks |
 | 2 | **Kill switch and crisis responses never consume quota** | Users shouldn't be penalized for system-level blocks | `convex/oracle/llm.ts` (incrementQuota only after successful LLM response) |
 | 3 | **Quota checks are server-authoritative** | Client can't bypass quota; client display is just a hint | `convex/oracle/quota.ts` |
 | 4 | **API keys are never in the DB** | DB leak doesn't expose keys; only env var names stored | `convex/oracle/upsertProviders.ts`, `src/lib/oracle/providers.ts` |
-| 5 | **Birth data is always injected when available** | Enables cross-context mixing; no data thrown away by feature selection | `convex/oracle/llm.ts` calls `buildUniversalBirthContext` regardless of feature |
-| 6 | **Journal context is always injected when consented** | Even non-Cosmic-Recall sessions can reference journal patterns | `convex/oracle/llm.ts` assembles journal context whenever `hasJournalConsent === true` |
+| 5 | **Birth data is always injected when available and a pipeline needs it** | Enables cross-context mixing; birth_chart pipeline also injects a "ask for data" block when no data available | `convex/oracle/llm.ts` gathers per-pipeline requirements |
+| 6 | **Journal context is always injected when consented and a pipeline needs it** | Cosmic Recall sessions get expanded budget | `convex/oracle/llm.ts` merged pipeline requirements |
 | 7 | **Journal consent is server-enforced** | Client cannot bypass consent; `requiresJournalConsent` on features is a UX hint | `convex/journal/context.ts` checks `oracleCanReadJournal` server-side |
 | 8 | **Journal context is non-blocking** | Journal failures don't stop Oracle from producing a reading | `convex/oracle/llm.ts` wraps journal assembly in try/catch |
-| 9 | **Intent classification never overrides manual feature selection** | Once a user picks a feature, it stays locked for the session | `classifyOracleToolIntent` returns `null` if `currentFeatureKey` is set |
+| 9 | **Intent routing never overrides manual feature selection** | Once a user picks a feature, it stays locked for the session; no LLM call is made | `scoreIntentsWithLLM` returns `manual_selection` immediately if `currentFeatureKey` is set |
 | 10 | **User input is sanitized** | `[TAG...]` patterns stripped to prevent prompt injection | `lib/oracle/promptBuilder.ts` `sanitizeUserQuestion()` |
 | 11 | **Model chain fallback always terminates** | If all models fail, Tier D returns hardcoded fallback text | `convex/oracle/llm.ts` fallback after chain exhaustion |
 | 12 | **Streaming message finalization always happens** | Even on errors, `finalizeStreamingMessage` is called with partial or recovery content | `convex/oracle/llm.ts` error handling in streaming path |
 | 13 | **Title generation only happens on first response** | Follow-up messages don't overwrite the session title | `isFirstResponse` guard in `invokeOracle` |
 | 14 | **Debug model override doesn't persist to DB** | Override is client-side only (Zustand), per-session; doesn't affect other users | Zustand `debugModelOverride`, not in `oracle_settings` |
+| 15 | **LLM intent router falls back to regex on any failure** | System never breaks — if the LLM router times out, errors, or returns invalid JSON, regex patterns (from `features.ts`) are used instead | `scoreIntentsWithLLM` in `intentRouter.ts` |
+| 16 | **Intent router only runs on the first message per session** | Subsequent messages use the persisted featureKey (manual_selection, confidence 1.0, no LLM call) | `scoreIntentsWithLLM` short-circuits when `currentFeatureKey` is set |
 
 ---
 
@@ -366,17 +470,17 @@ These are the architectural rules that must not be violated. If you're modifying
                                         ┌─────────────────┼─────────────────┐
                                         │                 │                 │
                                    ┌────▼────┐      ┌─────▼────┐     ┌─────▼─────┐
-                                   │ Birth   │      │ Journal  │     │ Intent    │
-                                   │ Context │      │ Context  │     │ Classify  │
-                                   │ Builder │      │ Builder  │     │           │
-                                   └─────────┘      └─────────┘     └───────────┘
+                                   │ Birth   │      │ Journal  │     │ Intent   │
+                                   │ Context │      │ Context  │     │ Router   │
+                                   │ Builder │      │ Builder  │     │ (LLM+reg)│
+                                   └─────────┘      └─────────┘     └─────┬─────┘
                                         │                 │                 │
-                                        │                 │                 │
-                                   ┌────▼─────────────────▼─────────────────▼──┐
-                                   │         Cross-Context Mixing               │
-                                   │  Birth + Journal + Timespace coexist        │
-                                   │  in every prompt when available/consented   │
-                                   └───────────────────────────────────────────┘
+                                        │                 │                 ▼
+                                   ┌────▼─────────────────▼──────────┐ ┌──────────┐
+                                   │     Cross-Context Mixing         │ │ Pipeline │
+                                   │  Birth + Journal + Timespace     │ │ Registry │
+                                   │  coexist when available/consented │ │ (compose)│
+                                   └──────────────────────────────────┘ └──────────┘
 ```
 
 ---
@@ -392,27 +496,30 @@ For any AI agent modifying or debugging the system, this is the exact sequence o
 4.   Load session + messages ────────────────▶ oracle_sessions + oracle_messages
 5.   Load runtime settings ─────────────────▶ soul, temperature, top_p, model_chain, providers, limits
 6.   Load user (birthData, identity) ─────────▶ users table
-7.   Build universal birth context ──────────▶ [BIRTH CHART DATA] block (always if birthData exists)
-8.   Resolve active feature ─────────────────▶ session.featureKey + legacy migration
-9.   Check journal consent ─────────────────▶ hasJournalConsent = consent?.oracleCanReadJournal
-10.  Run intent classification ──────────────▶ [if no feature] classifyOracleToolIntent()
+7.   Resolve active feature ─────────────────▶ session.featureKey + legacy migration
+8.   Check journal consent ─────────────────▶ hasJournalConsent = consent?.oracleCanReadJournal
+9.   Run intent routing ──────────────────────▶ scoreIntentsWithLLM() → LLM classify or regex fallback
+10.  Resolve active pipelines ────────────────▶ map intents to pipeline objects, compose data requirements
 11.  Persist auto-activated feature ──────────▶ updateSessionFeature + updateSessionBirthChartDepth
-12.  Build feature injection ────────────────▶ depth-specific instructions for birth_chart, etc.
-13.  Assemble journal context ──────────────▶ [JOURNAL CONTEXT] block (if consented, expanded for Cosmic Recall)
-14.  Build timespace context ───────────────▶ local datetime + cosmic weather (always, conditionally expanded)
-15.  Build system prompt ───────────────────▶ safety + soul + feature + timespace + journal + title/prompt dir
-16.  Build user message ────────────────────▶ birth data + sanitized question
-17.  Build conversation history ────────────▶ last maxContextMessages, truncated to 16000 chars
-18.  Prepend debug model override ──────────▶ [if admin debug] prepend to model chain as Tier A
-19.  Iterate model chain ───────────────────▶ Tier A → B → C → ... until success
-20.  Stream response ───────────────────────▶ SSE → updateStreamingContent every 100-300ms
-21.  Parse title ───────────────────────────▶ TITLE: line extraction + cleanup
-22.  Parse journal prompt ──────────────────▶ JOURNAL_PROMPT: line extraction
-23.  Finalize message ──────────────────────▶ finalizeStreamingMessage (content, model, tokens, tier, hash)
-24.  Patch timing metrics ─────────────────▶ patchMessageTiming (promptBuild, queue, TTFT, decode, total)
-25.  Increment quota ───────────────────────▶ only on first response, only on success
-26.  Update session metadata ───────────────▶ primaryModelUsed, usedFallback, title
-27.  Return to client ─────────────────────▶ { content, modelUsed, fallbackTier, timingMetrics }
+12.  Gather pipeline data ────────────────────▶ merge data requirements from ALL active pipelines
+13.  Build birth context ────────────────────▶ [BIRTH CHART DATA] if any pipeline needs it
+14.  Assemble journal context ──────────────▶ [JOURNAL CONTEXT] if any pipeline needs it + consent
+15.  Build timespace context ───────────────▶ local datetime + cosmic weather (conditionally expanded)
+16.  Build feature injection ────────────────▶ depth-specific instructions for primary pipeline
+17.  Compose system prompt ─────────────────▶ merge system blocks from ALL active pipelines (sorted by priority)
+18.  Compose user message ──────────────────▶ merge user blocks from ALL active pipelines + sanitized question
+19.  Build conversation history ────────────▶ last maxContextMessages, truncated to 16000 chars
+20.  Prepend debug model override ──────────▶ [if admin debug] prepend to model chain as Tier A
+21.  Iterate model chain ───────────────────▶ Tier A → B → C → ... until success
+22.  Stream response ───────────────────────▶ SSE → updateStreamingContent every 100-300ms
+23.  Parse title ───────────────────────────▶ TITLE: line extraction + cleanup
+24.  Parse journal prompt ──────────────────▶ JOURNAL_PROMPT: line extraction
+25.  Finalize message ──────────────────────▶ finalizeStreamingMessage (content, model, tokens, tier, hash)
+26.  Run pipeline afterResponse hooks ──────▶ e.g., binaural_beats stores binaural params
+27.  Patch timing metrics ─────────────────▶ patchMessageTiming (promptBuild, queue, TTFT, decode, total)
+28.  Increment quota ───────────────────────▶ only on first response, only on success
+29.  Update session metadata ───────────────▶ primaryModelUsed, usedFallback, title
+30.  Return to client ─────────────────────▶ { content, modelUsed, fallbackTier, timingMetrics }
 ```
 
 ---
@@ -423,8 +530,9 @@ For any AI agent modifying or debugging the system, this is the exact sequence o
 1. Start with this Master Wiring Guide for the big picture
 2. Read [01-architecture-overview](./01-architecture-overview.md) for the layer diagram
 3. Read [04-prompt-assembly-pipeline](./04-prompt-assembly-pipeline.md) — this is the heart of the system
-4. Read [15-user-facing-flow](./15-user-facing-flow.md) for end-to-end understanding
-5. consult specific docs as needed for the component you're modifying
+4. Read [13-intent-classification](./13-intent-classification.md) — understanding intent routing is critical
+5. Read [15-user-facing-flow](./15-user-facing-flow.md) for end-to-end understanding
+6. Consult specific docs as needed for the component you're modifying
 
 **For debugging a specific issue:**
 - **No response / error**: Check [05-model-chain-providers](./05-model-chain-providers.md) (fallback chain)
@@ -432,7 +540,9 @@ For any AI agent modifying or debugging the system, this is the exact sequence o
 - **Wrong context**: Check [14-cross-context-mixing](./14-cross-context-mixing.md) (which blocks appear in the prompt)
 - **Quota issues**: Check [09-quota-system](./09-quota-system.md) (increment logic)
 - **Session issues**: Check [08-session-management](./08-session-management.md) (lifecycle)
-- **Feature not activating**: Check [13-intent-classification](./13-intent-classification.md) (pattern matching, consent gates)
+- **Feature not activating**: Check [13-intent-classification](./13-intent-classification.md) (LLM router, regex fallback, consent gates)
+- **Intent misrouted (e.g., typo → generic_chat)**: Check LLM router logs (`[IntentRouter]`) and `[Oracle] Intent:` line; the LLM router should handle typos — if it falls back to regex, the LLM call failed
+- **Intent router latency**: The LLM call adds ~200-500ms on the first message of a new session; subsequent messages use cached feature selection (no LLM call)
 - **Timing/latency**: Check [19-debug-panel](./19-debug-panel.md) (timing metrics)
 - **Streaming issues**: Check [06-streaming-architecture](./06-streaming-architecture.md) (SSE, flush intervals)
 

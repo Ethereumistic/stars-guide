@@ -121,89 +121,114 @@ function UserMenuNotifications() {
     api.notifications.queries.dismissNotification,
   );
   const unreadCount = useQuery(api.notifications.queries.unreadCount) ?? 0;
+  const hasNotifications = notifications && notifications.length > 0;
+  const [open, setOpen] = React.useState(false);
+
+  // Auto-open when notifications exist
+  React.useEffect(() => {
+    if (hasNotifications) setOpen(true);
+  }, [hasNotifications]);
 
   return (
-    <div className="px-1 py-1">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2">
-        <div className="flex items-center gap-2">
-          <Bell className="size-3.5 text-foreground/40" />
-          <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/40">
-            Notifications
-          </span>
-          {unreadCount > 0 && (
-            <span className="flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-galactic text-white text-[9px] font-mono leading-none">
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </span>
-          )}
-        </div>
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className="w-full flex items-center gap-2.5 px-3 py-2 rounded-sm hover:bg-white/[0.03] transition-colors cursor-pointer">
+        <Bell className="size-4 shrink-0 text-primary" />
+        <span className="text-sm font-serif italic text-foreground/80">
+          Notifications
+        </span>
         {unreadCount > 0 && (
-          <button
-            onClick={() => markAllRead()}
-            className="text-[10px] text-primary/70 hover:text-primary font-mono uppercase tracking-wider transition-colors"
-          >
-            Mark all read
-          </button>
+          <span className="flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-galactic text-white text-[9px] font-mono leading-none">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
         )}
-      </div>
+        <svg
+          className={cn(
+            "size-4 shrink-0 text-foreground/40 ml-auto transition-transform duration-200",
+            open && "rotate-180",
+          )}
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="flex flex-col">
+          {/* Mark all read */}
+          {unreadCount > 0 && (
+            <div className="flex justify-start px-3 pb-1">
+              <button
+                onClick={() => markAllRead()}
+                className="text-[10px] text-primary/70 hover:text-primary font-mono uppercase tracking-wider transition-colors"
+              >
+                Mark all read
+              </button>
+            </div>
+          )}
 
-      {/* Notification list */}
-      <ScrollArea className="max-h-[220px]">
-        {!notifications || notifications.length === 0 ? (
-          <div className="py-6 flex flex-col items-center gap-1.5 text-white/25">
-            <Bell className="size-4" />
-            <span className="text-[11px] font-sans">No notifications yet</span>
-          </div>
-        ) : (
-          <div className="flex flex-col">
-            <AnimatePresence>
-              {notifications.map((n: any) => (
-                <motion.button
-                  key={n._id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  onClick={() => {
-                    if (!n.read) markRead({ notificationId: n._id });
-                  }}
-                  className={cn(
-                    "flex items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-white/[0.03] rounded-sm w-full group/notif",
-                    !n.read && "bg-white/[0.02]",
-                  )}
-                >
-                  <div className="mt-0.5 shrink-0">
-                    {notificationTypeIcons[n.type] ?? (
-                      <Bell className="size-3.5 text-white/30" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/30">
-                        {notificationTypeLabels[n.type] ?? n.type}
-                      </span>
-                      {!n.read && (
-                        <span className="size-1.5 rounded-full bg-primary shrink-0" />
+          <ScrollArea className="max-h-[200px]">
+            {!hasNotifications ? (
+              <div className="py-4 flex flex-col items-center gap-1.5 text-white/25">
+                <Bell className="size-4" />
+                <span className="text-[11px] font-sans">No notifications yet</span>
+              </div>
+            ) : (
+              <div className="flex flex-col">
+                <AnimatePresence>
+                  {notifications.map((n: any) => (
+                    <motion.button
+                      key={n._id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      onClick={() => {
+                        if (!n.read) markRead({ notificationId: n._id });
+                      }}
+                      className={cn(
+                        "flex items-start gap-3 px-3 py-2 text-left transition-colors hover:bg-white/[0.03] rounded-sm w-full group/notif",
+                        !n.read && "bg-white/[0.02]",
                       )}
-                    </div>
-                    <p className="text-xs text-white/60 leading-relaxed font-sans">
-                      {n.message}
-                    </p>
-                  </div>
-                  <button
-                    className="h-5 w-5 shrink-0 rounded-sm flex items-center justify-center text-white/0 group-hover/notif:text-white/20 hover:!text-destructive transition-colors mt-0.5"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      dismissNotification({ notificationId: n._id });
-                    }}
-                  >
-                    <XIcon className="size-3" />
-                  </button>
-                </motion.button>
-              ))}
-            </AnimatePresence>
-          </div>
-        )}
-      </ScrollArea>
-    </div>
+                    >
+                      <div className="mt-0.5 shrink-0">
+                        {notificationTypeIcons[n.type] ?? (
+                          <Bell className="size-3.5 text-white/30" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/30">
+                            {notificationTypeLabels[n.type] ?? n.type}
+                          </span>
+                          {!n.read && (
+                            <span className="size-1.5 rounded-full bg-primary shrink-0" />
+                          )}
+                        </div>
+                        <p className="text-xs text-white/60 leading-relaxed font-sans">
+                          {n.message}
+                        </p>
+                      </div>
+                      <button
+                        className="h-5 w-5 shrink-0 rounded-sm flex items-center justify-center text-white/0 group-hover/notif:text-white/20 hover:!text-destructive transition-colors mt-0.5"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          dismissNotification({ notificationId: n._id });
+                        }}
+                      >
+                        <XIcon className="size-3" />
+                      </button>
+                    </motion.button>
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
+          </ScrollArea>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -477,10 +502,16 @@ export function Navbar() {
                   align="end"
                   sideOffset={8}
                 >
-                  {/* User info */}
-                  <DropdownMenuLabel className="font-normal px-3 py-3">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8 ring-1 ring-white/10">
+                  {/* User info — clickable row leading to /settings */}
+                  <DropdownMenuItem
+                    asChild
+                    className="cursor-pointer px-3 py-3"
+                  >
+                    <Link
+                      href="/settings"
+                      className="flex items-center gap-3 w-full"
+                    >
+                      <Avatar className="h-8 w-8 ring-1 ring-white/10 shrink-0">
                         <AvatarImage
                           src={currentUser?.image}
                           alt={currentUser?.username ?? "User"}
@@ -490,7 +521,7 @@ export function Navbar() {
                             "U"}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="flex flex-col min-w-0">
+                      <div className="flex flex-col min-w-0 flex-1">
                         <p className="text-sm font-serif truncate text-foreground">
                           {currentUser?.username}
                         </p>
@@ -498,40 +529,38 @@ export function Navbar() {
                           {currentUser?.email}
                         </p>
                       </div>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-white/10" />
-
-                  {/* Quick links */}
-                  <DropdownMenuItem
-                    asChild
-                    className="gap-2.5 cursor-pointer px-3 py-2"
-                  >
-                    <Link
-                      href="/settings"
-                      className="text-sm text-foreground/80 hover:text-primary transition-colors"
-                    >
-                      <Settings className="size-4 text-primary/60" />
-                      <span className="font-sans italic">Settings</span>
+                      <Settings className="size-4 text-foreground/30 hover:text-primary transition-colors shrink-0" />
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-white/10" />
+
+                  {/* ─── Inline Notifications ─── */}
+                  <UserMenuNotifications />
+
                   <DropdownMenuItem
                     asChild
                     className="gap-2.5 cursor-pointer px-3 py-2"
                   >
                     <Link
                       href="/pricing"
-                      className="text-sm text-galactic hover:text-galactic/80 transition-colors"
+                      className="text-sm text-foreground/80 hover:text-primary transition-colors"
                     >
-                      <Sparkles className="size-4" />
-                      <span className="font-sans italic">Upgrade</span>
+                      <GiStarSwirl className="size-4 text-primary" />
+                      <span className="font-serif italic">Upgrade</span>
                     </Link>
                   </DropdownMenuItem>
-
-                  <DropdownMenuSeparator className="bg-white/10" />
-
-                  {/* ─── Inline Notifications ─── */}
-                  <UserMenuNotifications />
+                  <DropdownMenuItem
+                    asChild
+                    className="gap-2.5 cursor-pointer px-3 py-2"
+                  >
+                    <Link
+                      href="/settings?tab=invite"
+                      className="text-sm text-foreground/80 hover:text-primary transition-colors"
+                    >
+                      <UserPlus className="size-4 text-primary" />
+                      <span className="font-serif italic">Invite</span>
+                    </Link>
+                  </DropdownMenuItem>
 
                   <DropdownMenuSeparator className="bg-white/10" />
 

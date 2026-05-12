@@ -50,12 +50,14 @@
    g. **Build universal birth context** — ALWAYS if `user.birthData` exists (`buildUniversalBirthContext`)
    h. Resolve active feature (with legacy migration for `birth_chart_core`/`birth_chart_full`)
    i. Fetch journal consent status
-   j. Run intent classification (`classifyOracleToolIntent`) if no feature active — auto-activate and persist `featureKey` + `birthChartDepth`
-   k. Build feature injection (depth-specific for `birth_chart`, standard for others)
-   l. **Assemble journal context** — ALWAYS if `hasJournalConsent === true` (expanded budget for Cosmic Recall)
-   m. Build timespace context
-   n. Build prompt (system = safety + soul + feature injection + timespace + journal; user = birth data + question)
-   o. Build conversation history (truncated)
+   j. Run intent routing (`scoreIntentsWithLLM`) — LLM call for semantic classify, regex fallback on failure; auto-activate and persist `featureKey` + `birthChartDepth`
+   k. Resolve active pipelines from intents — map to pipeline objects, compose data requirements
+   l. Gather pipeline data (birth data if any pipeline needs it, journal context if any pipeline needs it + consent, timespace)
+   m. Build feature injection (depth-specific for `birth_chart`, standard for others)
+   n. **Assemble journal context** — if any active pipeline needs it AND `hasJournalConsent === true` (expanded budget for Cosmic Recall)
+   o. Build timespace context
+   p. Compose prompt blocks from ALL active pipelines (system blocks sorted by priority; user blocks merged + sanitized question)
+   q. Build conversation history (truncated)
    p. Iterate model chain:
       - For each entry: find provider, resolve API key from env, build URL/headers/body, fetch
       - If streaming: create message placeholder, read SSE stream, flush every 100-300ms, parse title, finalize
@@ -117,8 +119,8 @@
   ├─ input valid? ── NO  → reject
   └─ valid request ↓
        │
-  Load settings → Build birth context → Resolve feature → Intent classify
-       │         → Assemble journal → Build timespace → Assemble prompt
+  Load settings → Build birth context → Resolve feature → Intent route (LLM)
+       │         → Assemble journal → Build timespace → Compose prompt blocks
        │
        ▼
   Model chain iteration (Tier A → B → C → D)

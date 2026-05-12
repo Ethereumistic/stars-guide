@@ -20,6 +20,7 @@ import {
   DEPTH_SIGNAL_FULL_PATTERNS,
   JOURNAL_RECALL_PATTERNS,
   BINAURAL_INTENT_PATTERNS,
+  SYNASTRY_INTENT_PATTERNS,
 } from "./features";
 import {
   buildIntentRouterPrompt,
@@ -45,9 +46,9 @@ function featureKeyToPipelineKey(featureKey: string): PipelineKey | null {
       return "journal_recall";
     case "binaural_beats":
       return "binaural_beats";
+    case "synastry":
+      return "synastry";
     // Not yet implemented as pipelines — fall through to generic
-    case "synastry_core":
-    case "synastry_full":
     case "sign_card_image":
     case "attach_files":
       return null;
@@ -133,6 +134,16 @@ export function scoreIntents(params: {
       pipelineKey: "binaural_beats",
       confidence: 0.85,
       reason: "binaural_intent",
+    });
+  }
+
+  // Synastry — relationship/compatibility chart intent
+  if (SYNASTRY_INTENT_PATTERNS.some((p) => p.test(question))) {
+    intents.push({
+      pipelineKey: "synastry",
+      confidence: 0.85,
+      reason: "synastry_intent",
+      metadata: { hasBirthData },
     });
   }
 
@@ -297,6 +308,7 @@ async function callIntentRouterLLM(
     birthChart: true, // Always offer — the pipeline handles missing data
     journalRecall: hasJournalConsent,
     binauralBeats: true, // Always available — no stored data needed
+    synastry: hasBirthData, // Available if user has birth data — they need their own chart
   });
 
   // Try each provider in the model chain

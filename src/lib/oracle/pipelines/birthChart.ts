@@ -28,6 +28,7 @@ export const birthChartPipeline: OraclePipeline = {
     needsJournalContext: true, // Journal adds emotional depth to readings
     expandedJournalBudget: false,
     needsTimespace: true,
+    needsSynastryData: false,
   },
 
   modelHint: "smart", // Chart readings benefit from smarter models

@@ -1,155 +1,304 @@
-# Oracle AI System — Intent Classification (Auto-Activation)
+# Oracle AI System — Intent Classification (Intent Router)
 
-> Source: ORACLE_EXPLAINED.md §13
-
-The Oracle can automatically activate features based on the user's natural language question, without requiring the user to click the `[+]` menu. This is handled by `classifyOracleToolIntent()` in `src/lib/oracle/features.ts`.
+> The intent router determines which Oracle pipeline(s) to activate based on the user's message. It uses a fast LLM call for semantic understanding, falling back to regex patterns on failure.
 
 ---
 
-## Interface
+## Architecture: Two-Path Router
 
-```typescript
-export type BirthChartDepth = "core" | "full";
-
-export interface ToolIntentResult {
-  featureKey: OracleFeatureKey | null;  // The tool to auto-activate, or null
-  depth?: BirthChartDepth;              // For birth_chart only: reading depth
-  reason: string;                       // Why this decision was made
-}
+```
+User message arrives
+       │
+       ├── Session already has featureKey?
+       │     YES → manual_selection, confidence 1.0, NO LLM CALL NEEDED
+       │     NO → run intent router
+       │
+       ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │  PRIMARY PATH: scoreIntentsWithLLM()                     │
+  │                                                          │
+  │  Fast LLM call (~200 tokens input, ~50 output)          │
+  │  • Model: first available from model_chain               │
+  │  • Temperature: 0.1 (deterministic classification)      │
+  │  • max_tokens: 150                                       │
+  │  • stream: false                                         │
+  │  • Timeout: 3000ms                                       │
+  │  • Cost: ~$0.00005 per call                              │
+  │                                                          │
+  │  Handles: typos, creative phrasing, multi-intent,        │
+  │           non-English fragments, semantic understanding   │
+  │                                                          │
+  │  ON FAILURE (timeout, error, invalid JSON):              │
+  │  └─→ FALLBACK PATH: scoreIntents()                       │
+  │       Regex patterns from features.ts                    │
+  │       Exact matching only, no semantic awareness          │
+  └─────────────────────────────────────────────────────────┘
+       │
+       ▼
+  IntentRouterResult: all detected intents sorted by confidence
+       │
+       ▼
+  Filter by confidence ≥ 0.5, sort by confidence descending
+       │
+       ▼
+  Resolve to active pipelines
+       │
+       ▼
+  Persist primary intent as session.featureKey
 ```
 
 ---
 
-## Pipeline
+## Why LLM Instead of Regex
 
-When `invokeOracle` runs and no feature is active on the session:
+The regex-based classifier (`classifyOracleToolIntent()` in `features.ts`) had fundamental flaws:
 
-1. Fetch journal consent status
-2. Call `classifyOracleToolIntent(question, currentFeatureKey, hasBirthData, hasJournalConsent)`
-3. If intent matches, persist both `featureKey` and `depth` to the session:
-   ```typescript
-   if (intent.featureKey) {
-       await ctx.runMutation(api.oracle.sessions.updateSessionFeature, {
-           sessionId, featureKey: intent.featureKey,
-       });
-       if (intent.depth) {
-           await ctx.runMutation(internal.oracle.sessions.updateSessionBirthChartDepth, {
-               sessionId, depth: intent.depth,
-           });
-       }
-   }
-   ```
+| Input | Regex Result | LLM Result |
+|-------|-------------|------------|
+| "analize my bierht chart" | `generic_chat` (miss) | `birth_chart` (hit) |
+| "tell me what the stars say about love" | `generic_chat` (miss) | `birth_chart` (hit) |
+| "look through my journal for patterns with my Venus" | `journal_recall` (partial miss) | `journal_recall` + `birth_chart` (both) |
+| "mi carta astral" | `generic_chat` (miss) | `birth_chart` (hit) |
+| "make me a sleep sound" | `binaural_beats` (maybe) | `binaural_beats` (confident) |
+| "hey what's up" | `generic_chat` (correct) | `generic_chat` (correct) |
+
+Regex needs exact matches — a single typo collapses the entire classification. The LLM understands semantic intent regardless of spelling.
 
 ---
 
-## Priority Order
+## Files
 
-Classification follows a strict priority order:
+| File | Role |
+|------|------|
+| `src/lib/oracle/intentRouter.ts` | `scoreIntentsWithLLM()` (LLM primary) + `scoreIntents()` (regex fallback) |
+| `src/lib/oracle/intentRouterPrompt.ts` | System prompt, user message builder, JSON parser for the LLM call |
+| `src/lib/oracle/features.ts` | Regex patterns (still used as fallback) + legacy `classifyOracleToolIntent()` (still used by admin debug page) |
+| `src/lib/oracle/pipelineTypes.ts` | `IntentRouterResult`, `ScoredIntent`, `PipelineKey` types |
 
-1. **If feature already active** → return `{ featureKey: null, reason: "manual" }` — never override explicit user choice
-2. **Journal recall patterns** → if matched AND `hasJournalConsent === true` → `{ featureKey: "journal_recall", reason: "journal_intent" }`
-3. **Birth chart full patterns** → if matched AND `hasBirthData === true` → `{ featureKey: "birth_chart", depth: "full", reason: "deep_chart_intent" }`
-4. **Birth chart core patterns** → if matched AND `hasBirthData === true` → `{ featureKey: "birth_chart", depth: "core", reason: "core_chart_intent" }`
-5. **No match** → `{ featureKey: null, reason: "no_match" }`
+---
 
-**Why journal before birth chart:** Journal intent is explicit ("journal", "entries", "Cosmic Recall"). Birth chart intent is broader ("chart", "placements"). Running journal first prevents a journal question like *"What did I journal about my chart?"* from being misclassified as a birth chart request.
+## The LLM Intent Router Prompt
+
+The system prompt instructs the LLM to classify intent into one or more of four pipelines:
+
+```
+Available features:
+- birth_chart: Chart reading, natal analysis, placement interpretation, transit analysis
+- journal_recall: Journal pattern search, Cosmic Recall, emotional themes
+- binaural_beats: Sound/frequency generation, meditation audio, binaural beats
+- generic_chat: General conversation, casual chat
+```
+
+Key prompt rules:
+- Match **intent**, not spelling — "analize" = analyze, "bierht" = birth
+- Match **semantics**, not keywords — "what do my stars say about love?" = birth_chart
+- Multiple features CAN be active simultaneously
+- Chart depth: "deep"/"detailed"/"full" → depth=full, otherwise → depth=core
+- If uncertain between generic_chat and another feature, prefer generic_chat
+
+The user message includes feature availability (birth_chart always available, journal_recall requires consent) and the raw user message.
+
+Response format: `{"intents":[{"pipeline":"birth_chart","confidence":0.9,"depth":"core"},...]}`
+
+---
+
+## Multi-Intent Scoring
+
+The router returns ALL matched intents, not just one:
+
+```typescript
+interface IntentRouterResult {
+  intents: ScoredIntent[];      // All intents, sorted by confidence (highest first)
+  hasMatch: boolean;             // Whether ANY non-generic intent matched
+  primary: ScoredIntent | null;  // The highest-confidence intent
+}
+
+interface ScoredIntent {
+  pipelineKey: PipelineKey;      // "birth_chart" | "journal_recall" | "binaural_beats" | "generic_chat"
+  confidence: number;            // 0-1
+  reason: string;                // "llm_intent_router" | "manual_selection" | regex reasons
+  metadata?: Record<string, unknown>;  // e.g., { depth: "full", hasBirthData: true }
+}
+```
+
+This enables **pipeline composition**: a message like "search my journal for patterns with my Venus placement" can activate both `journal_recall` and `birth_chart` simultaneously. The orchestrator merges their data requirements and prompt blocks.
 
 ---
 
 ## Consent Gates
 
-Both birth chart and journal recall are consent-gated at the classifier level:
-- **No birth data** → `birth_chart` patterns return `null`, no auto-activation
-- **No journal consent** → `journal_recall` patterns return `null`, no auto-activation
+Consent gates are applied **after** routing, not before:
 
-This means the AI responds generically without the relevant context, which is the correct behavior — the user simply hasn't provided the required data or consent.
+- **journal_recall**: If `hasJournalConsent === false`, the intent is filtered out from results even if the LLM detected it. The LLM doesn't know about consent state.
+- **birth_chart**: Always detected regardless of birth data availability. If the user has no stored birth data, the pipeline injects a `[CHART DATA UNAVAILABLE]` system block instructing the AI to ask for it, rather than responding generically.
+
+This is a critical design decision: **intent detection is never gated on data availability**. The AI should respond in chart-reading format and ask for data, not fall back to generic chat.
 
 ---
 
-## Pattern Sets
+## Manual Selection Override
 
-**`BIRTH_CHART_FULL_PATTERNS`** (10 patterns, checked before core — more specific):
-```
-"deep analysis of my chart", "deep dive into my chart", "all my placements",
-"read my entire chart", "Venus in my chart", "what about my nodes",
-"my houses", "aspects in my chart", "synthesize my full chart",
-"chart ruler", "domicile", "exaltation"
-```
+If `currentFeatureKey` is already set on the session (from a prior message or manual `[+]` menu selection), the router returns immediately:
 
-**`BIRTH_CHART_CORE_PATTERNS`** (9 patterns, broader):
-```
-"analyze my birth chart", "my Sun sign", "what does my chart say",
-"read my chart", "my birth chart", "dive into my chart",
-"what do my placements", "interpret my chart", "full chart analysis"
+```typescript
+// Manual selection — no LLM call needed
+{
+  intents: [{ pipelineKey: "birth_chart", confidence: 1.0, reason: "manual_selection" }],
+  hasMatch: true,
+  primary: { pipelineKey: "birth_chart", confidence: 1.0, reason: "manual_selection" }
+}
 ```
 
-**`JOURNAL_RECALL_PATTERNS`** (12 patterns, explicit journal intent):
-```
-"cosmic recall", "recall my journal", "look through my journal",
-"search my journal", "what did I journal about", "my journal entries",
-"patterns in my journal", "connect my journal to astrology",
-"what was I experiencing based on my journal", "my journal says",
-"what happened on [date]", "dig into my journal"
+This means the LLM call only happens on the **first message** of a new session (when no feature is set yet). Subsequent messages use the persisted feature, adding zero latency.
+
+---
+
+## Regex Fallback Patterns
+
+The regex patterns in `features.ts` serve as the **fallback path**. They are preserved exactly as they were and used when:
+
+1. **LLM call times out** (3-second limit)
+2. **LLM call errors** (network, rate limit, 5xx)
+3. **LLM returns invalid JSON** (malformed response, extra text)
+4. **All providers fail** (no available model)
+
+The regex patterns cover common phrasings with exact matches:
+
+- **BIRTH_CHART_INTENT_PATTERNS**: `"analyze my birth chart"`, `"my natal chart"`, `"what does my chart say"`, etc.
+- **DEPTH_SIGNAL_FULL_PATTERNS**: `"in depth"`, `"detailed"`, `"full chart"`, `"all my placements"`, etc.
+- **JOURNAL_RECALL_PATTERNS**: `"cosmic recall"`, `"search my journal"`, `"patterns in my journal"`, etc.
+- **BINAURAL_INTENT_PATTERNS**: `"binaural beat"`, `"sleep frequency"`, `"meditation sound"`, etc.
+
+### Regex Limitations (Why LLM Is Primary)
+
+| Scenario | Regex | LLM |
+|----------|-------|-----|
+| Exact match: "analyze my birth chart" | ✅ | ✅ |
+| Typo: "analize my bierht chart" | ❌ | ✅ |
+| Creative: "what do my stars say about love?" | ❌ | ✅ |
+| Multi-intent: "journal patterns with my Venus" | partial | ✅ (both) |
+| Non-English: "mi carta astral" | ❌ | ✅ |
+| Abbreviation: "do my chart" | ✅ (pattern match) | ✅ |
+
+---
+
+## Pipeline Resolution
+
+After intent routing, the orchestrator resolves intents to active pipelines:
+
+```typescript
+const activePipelines: OraclePipeline[] = intentResult.intents
+  .filter((i) => i.confidence >= 0.5)
+  .map((intent) => getPipeline(intent.pipelineKey))
+  .filter((p): p is OraclePipeline => p !== undefined);
 ```
 
-User-facing patterns intentionally include `natal\s*chart` as a synonym — users do say "natal chart", and the regexes match it alongside "birth chart".
+Four pipelines are currently registered:
+
+| Pipeline | key | Data Requirements | modelHint |
+|----------|-----|-------------------|-----------|
+| Birth Chart | `birth_chart` | birth data, journal, timespace | `"smart"` |
+| Journal Recall | `journal_recall` | journal (expanded), timespace | `"smart"` |
+| Binaural Beats | `binaural_beats` | birth data, timespace | `"creative"` |
+| Generic Chat | `generic_chat` | timespace only | `"fast"` |
+
+Each pipeline provides:
+- `buildPromptBlocks(ctx)` → system blocks + user blocks
+- `afterResponse?(content, ctx)` → post-processing hooks (e.g., binaural params)
+- `dataRequirements` → what data the orchestrator should gather
+- `modelHint` → preference for provider selection
+
+---
+
+## Wiring — Intent Routing in the invokeOracle Pipeline
+
+```
+invokeOracle entry
+       │
+       ├── ... (kill switch, crisis, input validation, load session/settings/user) ...
+       │
+       ├── Check journal consent (needed before routing)
+       │       └── hasJournalConsent = consent?.oracleCanReadJournal === true
+       │
+       ├── Resolve current feature from session
+       │       └── resolvedFeatureKey = session.featureKey (with legacy migration)
+       │
+       ├── Has birth data? hasBirthData = Boolean(user?.birthData)
+       │
+       ├── Intent routing:
+       │       │
+       │       ├── If currentFeatureKey is set:
+       │       │       └── manual_selection, confidence 1.0 → NO LLM CALL
+       │       │
+       │       ├── Otherwise: scoreIntentsWithLLM()
+       │       │       ├── Try LLM call with providers/modelChain from runtime settings
+       │       │       │   ├── Build prompt: system (classifier) + user (message + features)
+       │       │       │   ├── Call first available provider (timeout: 3s)
+       │       │       │   ├── Parse JSON response → ScoredIntent[]
+       │       │       │   ├── Filter by confidence ≥ 0.5
+       │       │       │   ├── Gate journal_recall by consent
+       │       │       │   └── Return IntentRouterResult
+       │       │       │
+       │       │       └── On LLM failure → scoreIntents() (regex fallback)
+       │       │
+       │       └── Result: IntentRouterResult with sorted intents
+       │
+       ├── Resolve pipelines from intents
+       │       └── activePipelines = intents ≥0.5 confidence → pipeline objects
+       │
+       ├── Persist auto-activated feature
+       │       └── updateSessionFeature(sessionId, primaryIntent.pipelineKey)
+       │       └── updateSessionBirthChartDepth(sessionId, depth) if birth_chart
+       │
+       ├── Gather data per pipeline requirements
+       │       ├── needsBirthData → buildUniversalBirthContext()
+       │       ├── needsJournalContext → assembleJournalContext()
+       │       └── needsTimespace → buildTimespaceContext()
+       │
+       ├── Build pipeline context (PipelineContext)
+       │
+       ├── Compose prompt blocks from ALL active pipelines
+       │       ├── System blocks sorted by priority (safety first)
+       │       └── User blocks from all pipelines + sanitized question
+       │
+       └── Continue to model chain → stream response
+
+Key connections:
+  - Journal consent check MUST happen before routing (gates journal_recall in results)
+  - Routing writes back to oracle_sessions (featureKey + birthChartDepth)
+  - Pipeline resolution reads feature injection from DB or hardcoded fallback
+  - Birth data availability does NOT gate birth_chart detection — the pipeline handles missing data
+  - The intent router LLM call uses the SAME model chain and providers as the main Oracle call
+  - Only runs on the first message per session (subsequent messages use persisted featureKey)
+```
+
+---
+
+## Logging
+
+The intent router produces two log lines per message:
+
+1. **Intent result**: `[Oracle] Intent: ["birth_chart(0.90:llm_intent_router)","journal_recall(0.70:llm_intent_router)"], hasBirthData=true, hasJournalConsent=true`
+2. **Active pipelines**: `[Oracle] Active pipelines: birth_chart[needsBirth=true], journal_recall[needsBirth=false]`
+
+On LLM failure, the router logs:
+- `[IntentRouter] LLM call to {provider}/{model} returned {status}: ...` (on HTTP error)
+- `[IntentRouter] LLM call to {provider}/{model} timed out after 3000ms` (on timeout)
+- `[IntentRouter] Using regex fallback for intent classification` (on all providers failed)
+- `[IntentRouter] LLM routing successful: birth_chart(0.90:llm_intent_router)` (on success)
 
 ---
 
 ## Reclassification
 
-If `session.featureKey` is already set (manually or from prior auto-activation), classification is skipped. This means:
-- Once a tool is set, it stays locked for the session
+If `session.featureKey` is already set (manually or from prior auto-activation), the router short-circuits with `manual_selection` and makes **no LLM call**. This means:
+
+- Once a feature is set, it stays locked for the session
+- Subsequent messages add **zero latency** (no intent router call)
 - Users who want to switch tools start a new session (same behavior as clicking `[+]` → selecting a new feature)
 
----
+When no feature is set, intent routing runs on every message (not just the first). This covers:
+- Message 1: "Hey" → `generic_chat`
+- Message 2: "Analyze my birth chart" → `birth_chart` (auto-activates and persists)
 
-## Relaxed Rule for Generic Sessions
-
-When `featureKey === null` (no feature active), classification re-runs on EVERY message (not just the first). This covers:
-- Message 1: "Hey" → no tool
-- Message 2: "Analyze my birth chart" → auto-activate `birth_chart`
-
-Once a tool is activated, it persists for the session.
-
----
-
-## Wiring — Intent Classification in the invokeOracle Pipeline
-
-```
-invokeOracle entry
-       │
-       ├── ... (kill switch, crisis, input validation) ...
-       │
-       ├── Check journal consent (needed before classification)
-       │       └── hasJournalConsent = consent?.oracleCanReadJournal === true
-       │
-       ├── Resolve current feature from session
-       │       └── currentFeatureKey = session.featureKey
-       │
-       ├── Has birth data? hasBirthData = !!user.birthData
-       │
-       ├── If currentFeatureKey === null:
-       │       │
-       │       ├── classifyOracleToolIntent(question, null, hasBirthData, hasJournalConsent)
-       │       │       │
-       │       │       ├── Check: feature already active? → return null (never override)
-       │       │       ├── Check: journal_recall patterns + hasJournalConsent → activate journal_recall
-       │       │       ├── Check: birth_chart_full patterns + hasBirthData → activate birth_chart/full
-       │       │       ├── Check: birth_chart_core patterns + hasBirthData → activate birth_chart/core
-       │       │       └── No match → return null
-       │       │
-       │       └── If intent.featureKey !== null:
-       │               ├── updateSessionFeature(sessionId, featureKey) ──▶ oracle_sessions
-       │               └── updateSessionBirthChartDepth(sessionId, depth) ──▶ oracle_sessions
-       │
-       │   (After this, the feature injection step picks up the newly set feature)
-       │
-       └── Continue to feature injection → prompt building → LLM call
-
-Key connections:
-  - Journal consent check MUST happen before classification (gates journal_recall auto-activation)
-  - Classification writes back to oracle_sessions (featureKey + birthChartDepth)
-  - Feature injection (see 10-feature-system.md) then reads these values
-  - Birth data availability gates birth_chart auto-activation but NOT data injection
-```
+Once activated, the featureKey persists for the session.

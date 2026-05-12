@@ -42,6 +42,7 @@ import type * as oracle_providerRouter from "../oracle/providerRouter.js";
 import type * as oracle_quota from "../oracle/quota.js";
 import type * as oracle_sessions from "../oracle/sessions.js";
 import type * as oracle_settings from "../oracle/settings.js";
+import type * as oracle_synastry from "../oracle/synastry.js";
 import type * as oracle_timespace from "../oracle/timespace.js";
 import type * as oracle_upsertProviders from "../oracle/upsertProviders.js";
 import type * as referrals from "../referrals.js";
@@ -89,6 +90,7 @@ declare const fullApi: ApiFromModules<{
   "oracle/quota": typeof oracle_quota;
   "oracle/sessions": typeof oracle_sessions;
   "oracle/settings": typeof oracle_settings;
+  "oracle/synastry": typeof oracle_synastry;
   "oracle/timespace": typeof oracle_timespace;
   "oracle/upsertProviders": typeof oracle_upsertProviders;
   referrals: typeof referrals;

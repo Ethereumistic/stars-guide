@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { Id } from "../../convex/_generated/dataModel";
 import type { OracleFeatureKey, BirthChartDepth } from "@/lib/oracle/features";
+import type { StoredBirthData } from "@/lib/birth-chart/types";
 import { detectTimezone } from "@/lib/timezone";
 
 export type OracleState =
@@ -23,6 +24,15 @@ export interface DebugModelOverride {
     model: string;
 }
 
+/** Synastry state — Chart B data + relationship type */
+export interface SynastryState {
+    chartB: StoredBirthData | null;
+    chartBName: string;
+    source: "friend" | "custom" | null;
+    friendUserId?: string;
+    relationship: string | null;
+}
+
 interface OracleStore {
     sessionId: Id<"oracle_sessions"> | null;
     state: OracleState;
@@ -34,6 +44,7 @@ interface OracleStore {
     quotaResetAt: number | null;
     quotaExhausted: boolean;
     timezone: string;
+    synastryData: SynastryState | null;
 
     // ── Debug state ──
     debugOpen: boolean;
@@ -60,6 +71,10 @@ interface OracleStore {
     setQuota: (remaining: number | null, resetAt: number | null) => void;
     setTimezone: (tz: string) => void;
     resetToIdle: () => void;
+    setSynastryChartB: (data: StoredBirthData, name: string, source: "friend" | "custom", friendUserId?: string) => void;
+    setSynastryRelationship: (relationship: string) => void;
+    clearSynastry: () => void;
+    clearSynastryChartB: () => void;
 
     // ── Debug actions ──
     setDebugOpen: (open: boolean) => void;
@@ -86,6 +101,7 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
     quotaResetAt: null,
     quotaExhausted: false,
     timezone: typeof window !== "undefined" ? detectTimezone() : "UTC",
+    synastryData: null,
 
     // ── Debug state defaults ──
     debugOpen: true,
@@ -104,7 +120,7 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
 
     setBirthChartDepth: (depth) => set({ birthChartDepth: depth }),
 
-    clearSelectedFeature: () => set({ selectedFeatureKey: null }),
+    clearSelectedFeature: () => set({ selectedFeatureKey: null, synastryData: null }),
 
     hydrateSessionFeature: (featureKey) => set({ selectedFeatureKey: featureKey, birthChartDepth: "core" }),
 
@@ -135,7 +151,36 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
             birthChartDepth: "core",
             pendingQuestion: "",
             isStreaming: false,
+            synastryData: null,
         }),
+
+    setSynastryChartB: (data, name, source, friendUserId) =>
+        set((state) => ({
+            synastryData: {
+                ...(state.synastryData ?? { chartB: null, chartBName: "", source: null, relationship: null }),
+                chartB: data,
+                chartBName: name,
+                source,
+                ...(friendUserId ? { friendUserId } : {}),
+            },
+        })),
+
+    setSynastryRelationship: (relationship) =>
+        set((state) => ({
+            synastryData: {
+                ...(state.synastryData ?? { chartB: null, chartBName: "", source: null, relationship: null }),
+                relationship,
+            },
+        })),
+
+    clearSynastry: () => set({ synastryData: null }),
+
+    clearSynastryChartB: () =>
+        set((state) => ({
+            synastryData: state.synastryData
+                ? { ...state.synastryData, chartB: null, chartBName: "", source: null, friendUserId: undefined }
+                : null,
+        })),
 
     // ── Debug actions ──
     setDebugOpen: (open) => set({ debugOpen: open }),

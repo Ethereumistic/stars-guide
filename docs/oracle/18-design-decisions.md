@@ -53,8 +53,10 @@ The consent check happens server-side in `assembleJournalContext()`. The `[JOURN
 ### 14. Journal Prompt Suggestions are Optional
 The `JOURNAL_PROMPT_DIRECTIVE` uses the word "MAY" (not "MUST"). Oracle only suggests a journal prompt when it naturally touches on emotional themes. This avoids spammy prompts on every response and maintains the conversational feel.
 
-### 15. Intent Classification Before Feature Injection (v2 change)
-The intent classifier runs BEFORE feature injection in `invokeOracle`. This means the classification decision gates which feature (if any) gets activated. The classifier itself is consent-gated: birth chart patterns require `hasBirthData`, journal recall patterns require `hasJournalConsent`. This prevents auto-activation of features the user can't actually use.
+### 15. Intent Routing Before Feature Injection (v3 change)
+The intent router runs BEFORE feature injection in `invokeOracle`. This means the routing decision determines which pipeline(s) get activated. The router uses a fast LLM call for semantic understanding (handling typos, creative phrasing, multi-intent detection), falling back to regex on failure. **Intent detection is NOT consent-gated** — birth chart intent is always detected regardless of data availability, and journal recall intent is filtered after routing if the user hasn't consented. This ensures users get chart-reading format even without stored data (the AI asks for it), rather than falling back to generic chat.
+
+The LLM router adds ~200-500ms latency on the first message of a new session only. Subsequent messages use the persisted `featureKey` (manual selection shortcut, zero latency). The regex fallback ensures the system never breaks — if the LLM call fails, times out, or returns invalid JSON, the original regex patterns are used instead.
 
 ### 16. Legacy Feature Key Migration (v2 change)
 Sessions created before v2 may have `featureKey: "birth_chart_core"` or `"birth_chart_full"`. Rather than requiring a database migration, the `invokeOracle` action detects these legacy keys on the next call and automatically patches the session to `featureKey: "birth_chart"` with the appropriate `birthChartDepth`. This is transparent to the user and requires no admin action.

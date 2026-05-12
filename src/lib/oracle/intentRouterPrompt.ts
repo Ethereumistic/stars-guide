@@ -17,6 +17,7 @@ interface FeatureAvailability {
   birthChart: boolean;
   journalRecall: boolean;
   binauralBeats: boolean;
+  synastry: boolean;
 }
 
 // ── System prompt ───────────────────────────────────────────────────────────
@@ -27,6 +28,7 @@ Given a user's message, classify which feature(s) they want. Respond with ONLY v
 
 Available features:
 - birth_chart: Chart reading, natal analysis, placement interpretation, transit analysis, anything about the user's astrological chart, signs, planets, houses
+- synastry: Comparing two charts, relationship compatibility, chart overlay, synastry, how two people's charts interact, synastry reading, couple's chart
 - journal_recall: Searching through the user's personal journal entries for patterns, themes, or emotional correlations with astrology
 - binaural_beats: Sound/frequency generation, meditation audio, binaural beats, sleep sounds, focus tones
 - generic_chat: General conversation, casual chat, questions that don't match other features
@@ -35,6 +37,7 @@ Rules:
 - Match INTENT, not spelling. Typos like "analize" = analyze, "bierht" = birth, "brith" = birth, "sjgn" = sign, "placment" = placement
 - Match SEMANTICS, not keywords. "what do my stars say about love?" = birth_chart. "read my sky map" = birth_chart. "mi carta astral" = birth_chart.
 - "look through my journal for patterns with my Venus" = journal_recall AND birth_chart (compose multiple intents)
+- "are me and my partner compatible?" = synastry. "compare our charts" = synastry.
 - If uncertain between generic_chat and another feature, prefer generic_chat
 - Chart depth: mention of "deep", "detailed", "full", "complete", "thorough", "comprehensive", "in depth", "in-depth" → depth "full"; otherwise → depth "core"
 - If a feature is marked as unavailable below, do NOT assign it
@@ -71,6 +74,11 @@ export function buildIntentRouterUserMessage(
 
   // Binaural beats is always "available" — it doesn't need stored data
   available.push("binaural_beats");
+
+  // Synastry is available if user has birth data (they need their own chart first)
+  if (features.synastry) {
+    available.push("synastry");
+  }
 
   const parts = [
     `Available features: ${available.join(", ")}`,
@@ -114,6 +122,7 @@ const VALID_PIPELINES: Set<string> = new Set([
   "birth_chart",
   "journal_recall",
   "binaural_beats",
+  "synastry",
   "generic_chat",
 ]);
 
