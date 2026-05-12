@@ -7,14 +7,12 @@ import { QRCodeSVG } from "qrcode.react";
 import { TbX, TbCopy, TbCheck, TbShare } from "react-icons/tb";
 import { FaInstagram, FaFacebookF, FaRedditAlien, FaDiscord, FaTiktok, FaWhatsapp } from "react-icons/fa";
 import { FaXTwitter, FaVk } from "react-icons/fa6";
-import { RiKakaoTalkFill } from "react-icons/ri";
 import { Button } from "@/components/ui/button";
 import { compositionalSigns } from "@/astrology/signs";
 import { zodiacUIConfig } from "@/config/zodiac-ui";
 import { planetUIConfig } from "@/config/planet-ui";
 import { elementUIConfig } from "@/config/elements-ui";
 import { Doc } from "../../../../../convex/_generated/dataModel";
-import { Separator } from "@/components/ui/separator";
 
 interface InviteCardProps {
     user: Doc<"users">;
