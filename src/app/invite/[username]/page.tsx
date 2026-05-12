@@ -76,7 +76,11 @@ export default function InvitePage() {
 
     // ===== OWN INVITE CARD VIEW =====
     if (isOwnInvite && user) {
-        return <InviteCard user={user} inviteUrl={inviteUrl} />;
+        return (
+            <div className="h-[calc(100dvh-10rem)] flex items-center justify-center">
+                <InviteCard user={user} inviteUrl={inviteUrl} />
+            </div>
+        );
     }
 
     // ===== AUTHENTICATED DIFFERENT USER — REDIRECT TO OWN INVITE =====

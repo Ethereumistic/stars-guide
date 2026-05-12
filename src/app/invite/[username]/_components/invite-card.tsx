@@ -63,58 +63,66 @@ const SOCIAL_PLATFORMS = [
     {
         id: "instagram",
         Icon: FaInstagram,
-        color: "#E4405F",
         label: "Share to Instagram",
         getUrl: () => "https://www.instagram.com/",
+        className: "bg-gradient-to-tr from-yellow-400 via-orange-500 via-red-500 via-pink-500 to-purple-600",
+        iconClassName: "text-white size-8",
     },
     {
         id: "facebook",
         Icon: FaFacebookF,
-        color: "#1877F2",
         label: "Share to Facebook",
         getUrl: (url: string) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+        className: "bg-[#1877F2]",
+        iconClassName: "text-white size-6",
     },
     {
         id: "x",
         Icon: FaXTwitter,
-        color: "#FFFFFF",
         label: "Share to X",
         getUrl: (url: string) => `https://x.com/intent/post?url=${encodeURIComponent(url)}&text=${encodeURIComponent(`Join me on stars.guide ✨ ${url}`)}`,
+        className: "bg-black",
+        iconClassName: "text-white size-6",
     },
     {
         id: "reddit",
         Icon: FaRedditAlien,
-        color: "#FF4500",
         label: "Share to Reddit",
         getUrl: (url: string) => `https://www.reddit.com/submit?url=${encodeURIComponent(url)}&title=${encodeURIComponent(`Join me on stars.guide ✨`)}`,
+        className: "bg-[#FF4500]",
+        iconClassName: "text-white size-6",
     },
     {
         id: "whatsapp",
         Icon: FaWhatsapp,
-        color: "#25D366",
         label: "Share to WhatsApp",
         getUrl: (url: string) => `https://wa.me/?text=${encodeURIComponent(`Join me on stars.guide and discover your cosmic blueprint! ✨ ${url}`)}`,
+        className: "bg-[#25D366]",
+        iconClassName: "text-white size-6",
     },
     {
         id: "discord",
         Icon: FaDiscord,
-        color: "#5865F2",
         label: "Share to Discord",
         getUrl: () => "https://discord.com/channels/@me",
+        className: "bg-[#5865F2]",
+        iconClassName: "text-white size-6",
     },
     {
         id: "tiktok",
         Icon: FaTiktok,
-        color: "#FFFFFF",
         label: "Share to TikTok",
         getUrl: () => "https://www.tiktok.com/",
+        className: "bg-black",
+        iconClassName: "text-white size-6",
     },
     {
         id: "vk",
         Icon: FaVk,
-        color: "#0077FF",
         label: "Share to VK",
         getUrl: (url: string) => `https://vk.com/share.php?url=${encodeURIComponent(url)}`,
+        className: "bg-[#0077FF]",
+        iconClassName: "text-white size-6",
     },
 ] as const;
 
@@ -215,11 +223,224 @@ export function InviteCard({ user, inviteUrl }: InviteCardProps) {
             {/* ═══════════════════════════════════════════ */}
             {/* ═══ THE INVITE CARD ════════════════════════ */}
             {/* ═══════════════════════════════════════════ */}
+            {/* ═══ Art Nouveau border wrapper — sits OUTSIDE the overflow-hidden card ═══ */}
+            <div className="relative">
+
+                {/* ── Art Nouveau SVG Border Overlay ── */}
+                <motion.svg
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 1.4, delay: 0.5, ease: "easeOut" }}
+                    aria-hidden
+                    viewBox="0 0 420 780"
+                    preserveAspectRatio="none"
+                    className="absolute inset-0 w-full h-full pointer-events-none z-50"
+                    style={{ color: "var(--primary)" }}
+                >
+                    <defs>
+                        {/* Shimmer gradient that sweeps diagonally */}
+                        <linearGradient id="art-nouveau-shimmer" x1="0" y1="0" x2="1" y2="1" gradientUnits="objectBoundingBox">
+                            <stop offset="0%" stopColor="currentColor" stopOpacity="0.35" />
+                            <stop offset="40%" stopColor="currentColor" stopOpacity="0.75">
+                                <animate attributeName="offset" values="40%;55%;40%" dur="4s" repeatCount="indefinite" />
+                            </stop>
+                            <stop offset="55%" stopColor="currentColor" stopOpacity="1">
+                                <animate attributeName="offset" values="55%;70%;55%" dur="4s" repeatCount="indefinite" />
+                            </stop>
+                            <stop offset="70%" stopColor="currentColor" stopOpacity="0.75">
+                                <animate attributeName="offset" values="70%;85%;70%" dur="4s" repeatCount="indefinite" />
+                            </stop>
+                            <stop offset="100%" stopColor="currentColor" stopOpacity="0.35" />
+                        </linearGradient>
+                        {/* Glow filter for ornaments */}
+                        <filter id="art-nouveau-glow" x="-30%" y="-30%" width="160%" height="160%">
+                            <feGaussianBlur stdDeviation="1.5" result="blur" />
+                            <feMerge>
+                                <feMergeNode in="blur" />
+                                <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                        </filter>
+                        {/* Softer glow for the vine lines */}
+                        <filter id="vine-glow" x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur stdDeviation="0.8" result="blur" />
+                            <feMerge>
+                                <feMergeNode in="blur" />
+                                <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                        </filter>
+                    </defs>
+
+                    {/* ═══════════════════════════════════════════════ */}
+                    {/*   OUTER ROUNDED-RECT BORDER FRAME              */}
+                    {/* ═══════════════════════════════════════════════ */}
+                    <rect
+                        x="1" y="1" width="418" height="778"
+                        rx="22" ry="22"
+                        fill="none"
+                        stroke="url(#art-nouveau-shimmer)"
+                        strokeWidth="1.2"
+                    />
+                    {/* Inner inset line — thin, dimmer */}
+                    <rect
+                        x="5" y="5" width="410" height="770"
+                        rx="18" ry="18"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="0.5"
+                        strokeOpacity="0.18"
+                        strokeDasharray="4 6"
+                    />
+
+                    {/* ═══════════════════════════════════════════════ */}
+                    {/*   TOP-LEFT CORNER ORNAMENT                     */}
+                    {/* ═══════════════════════════════════════════════ */}
+                    <g filter="url(#art-nouveau-glow)" opacity="0.9">
+                        {/* Corner bracket */}
+                        <path d="M 22 2 L 2 2 L 2 22" fill="none" stroke="url(#art-nouveau-shimmer)" strokeWidth="1.8" strokeLinecap="round" />
+                        {/* Large outer petal — teardrop */}
+                        <path d="M 2 2 C 8 14, 20 20, 32 12 C 22 6, 12 2, 2 2 Z"
+                            fill="currentColor" fillOpacity="0.12" stroke="currentColor" strokeWidth="0.7" strokeOpacity="0.6" />
+                        {/* Inner swirl from corner */}
+                        <path d="M 2 2 C 10 8, 18 6, 22 12 C 26 18, 22 26, 14 28 C 8 30, 4 26, 6 20 C 8 16, 14 16, 16 20"
+                            fill="none" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.7" strokeLinecap="round" />
+                        {/* Diamond jewel at corner */}
+                        <path d="M 2 2 L 5 5 L 2 8 L -1 5 Z" fill="currentColor" fillOpacity="0.6" />
+                        {/* Side vine tendril — going right */}
+                        <path d="M 32 1.5 C 42 1, 52 3, 60 1.5 C 70 0, 80 3, 90 1.5"
+                            fill="none" stroke="currentColor" strokeWidth="0.7" strokeOpacity="0.5" strokeLinecap="round" />
+                        {/* Leaf bud on top vine */}
+                        <ellipse cx="60" cy="1.5" rx="4" ry="2" fill="currentColor" fillOpacity="0.25" transform="rotate(-5,60,1.5)" />
+                        {/* Side vine tendril — going down */}
+                        <path d="M 1.5 32 C 1 42, 3 52, 1.5 60 C 0 70, 3 80, 1.5 90"
+                            fill="none" stroke="currentColor" strokeWidth="0.7" strokeOpacity="0.5" strokeLinecap="round" />
+                        <ellipse cx="1.5" cy="60" rx="2" ry="4" fill="currentColor" fillOpacity="0.25" transform="rotate(-5,1.5,60)" />
+                    </g>
+
+                    {/* ═══════════════════════════════════════════════ */}
+                    {/*   TOP-RIGHT CORNER ORNAMENT (mirrored)         */}
+                    {/* ═══════════════════════════════════════════════ */}
+                    <g filter="url(#art-nouveau-glow)" opacity="0.9" transform="translate(420,0) scale(-1,1)">
+                        <path d="M 22 2 L 2 2 L 2 22" fill="none" stroke="url(#art-nouveau-shimmer)" strokeWidth="1.8" strokeLinecap="round" />
+                        <path d="M 2 2 C 8 14, 20 20, 32 12 C 22 6, 12 2, 2 2 Z"
+                            fill="currentColor" fillOpacity="0.12" stroke="currentColor" strokeWidth="0.7" strokeOpacity="0.6" />
+                        <path d="M 2 2 C 10 8, 18 6, 22 12 C 26 18, 22 26, 14 28 C 8 30, 4 26, 6 20 C 8 16, 14 16, 16 20"
+                            fill="none" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.7" strokeLinecap="round" />
+                        <path d="M 2 2 L 5 5 L 2 8 L -1 5 Z" fill="currentColor" fillOpacity="0.6" />
+                        <path d="M 32 1.5 C 42 1, 52 3, 60 1.5 C 70 0, 80 3, 90 1.5"
+                            fill="none" stroke="currentColor" strokeWidth="0.7" strokeOpacity="0.5" strokeLinecap="round" />
+                        <ellipse cx="60" cy="1.5" rx="4" ry="2" fill="currentColor" fillOpacity="0.25" transform="rotate(-5,60,1.5)" />
+                        <path d="M 1.5 32 C 1 42, 3 52, 1.5 60 C 0 70, 3 80, 1.5 90"
+                            fill="none" stroke="currentColor" strokeWidth="0.7" strokeOpacity="0.5" strokeLinecap="round" />
+                        <ellipse cx="1.5" cy="60" rx="2" ry="4" fill="currentColor" fillOpacity="0.25" transform="rotate(-5,1.5,60)" />
+                    </g>
+
+                    {/* ═══════════════════════════════════════════════ */}
+                    {/*   BOTTOM-LEFT CORNER ORNAMENT (mirrored)       */}
+                    {/* ═══════════════════════════════════════════════ */}
+                    <g filter="url(#art-nouveau-glow)" opacity="0.9" transform="translate(0,780) scale(1,-1)">
+                        <path d="M 22 2 L 2 2 L 2 22" fill="none" stroke="url(#art-nouveau-shimmer)" strokeWidth="1.8" strokeLinecap="round" />
+                        <path d="M 2 2 C 8 14, 20 20, 32 12 C 22 6, 12 2, 2 2 Z"
+                            fill="currentColor" fillOpacity="0.12" stroke="currentColor" strokeWidth="0.7" strokeOpacity="0.6" />
+                        <path d="M 2 2 C 10 8, 18 6, 22 12 C 26 18, 22 26, 14 28 C 8 30, 4 26, 6 20 C 8 16, 14 16, 16 20"
+                            fill="none" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.7" strokeLinecap="round" />
+                        <path d="M 2 2 L 5 5 L 2 8 L -1 5 Z" fill="currentColor" fillOpacity="0.6" />
+                        <path d="M 32 1.5 C 42 1, 52 3, 60 1.5 C 70 0, 80 3, 90 1.5"
+                            fill="none" stroke="currentColor" strokeWidth="0.7" strokeOpacity="0.5" strokeLinecap="round" />
+                        <ellipse cx="60" cy="1.5" rx="4" ry="2" fill="currentColor" fillOpacity="0.25" transform="rotate(-5,60,1.5)" />
+                        <path d="M 1.5 32 C 1 42, 3 52, 1.5 60 C 0 70, 3 80, 1.5 90"
+                            fill="none" stroke="currentColor" strokeWidth="0.7" strokeOpacity="0.5" strokeLinecap="round" />
+                        <ellipse cx="1.5" cy="60" rx="2" ry="4" fill="currentColor" fillOpacity="0.25" transform="rotate(-5,1.5,60)" />
+                    </g>
+
+                    {/* ═══════════════════════════════════════════════ */}
+                    {/*   BOTTOM-RIGHT CORNER (double-mirrored)        */}
+                    {/* ═══════════════════════════════════════════════ */}
+                    <g filter="url(#art-nouveau-glow)" opacity="0.9" transform="translate(420,780) scale(-1,-1)">
+                        <path d="M 22 2 L 2 2 L 2 22" fill="none" stroke="url(#art-nouveau-shimmer)" strokeWidth="1.8" strokeLinecap="round" />
+                        <path d="M 2 2 C 8 14, 20 20, 32 12 C 22 6, 12 2, 2 2 Z"
+                            fill="currentColor" fillOpacity="0.12" stroke="currentColor" strokeWidth="0.7" strokeOpacity="0.6" />
+                        <path d="M 2 2 C 10 8, 18 6, 22 12 C 26 18, 22 26, 14 28 C 8 30, 4 26, 6 20 C 8 16, 14 16, 16 20"
+                            fill="none" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.7" strokeLinecap="round" />
+                        <path d="M 2 2 L 5 5 L 2 8 L -1 5 Z" fill="currentColor" fillOpacity="0.6" />
+                        <path d="M 32 1.5 C 42 1, 52 3, 60 1.5 C 70 0, 80 3, 90 1.5"
+                            fill="none" stroke="currentColor" strokeWidth="0.7" strokeOpacity="0.5" strokeLinecap="round" />
+                        <ellipse cx="60" cy="1.5" rx="4" ry="2" fill="currentColor" fillOpacity="0.25" transform="rotate(-5,60,1.5)" />
+                        <path d="M 1.5 32 C 1 42, 3 52, 1.5 60 C 0 70, 3 80, 1.5 90"
+                            fill="none" stroke="currentColor" strokeWidth="0.7" strokeOpacity="0.5" strokeLinecap="round" />
+                        <ellipse cx="1.5" cy="60" rx="2" ry="4" fill="currentColor" fillOpacity="0.25" transform="rotate(-5,1.5,60)" />
+                    </g>
+
+                    {/* ═══════════════════════════════════════════════ */}
+                    {/*   TOP-CENTRE MEDALLION                         */}
+                    {/* ═══════════════════════════════════════════════ */}
+                    <g filter="url(#art-nouveau-glow)" transform="translate(210,0)">
+                        {/* Left wing tendril */}
+                        <path d="M -80 1.5 C -60 0, -50 4, -36 1.5 C -24 -1, -14 4, -4 2"
+                            fill="none" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.6" strokeLinecap="round" />
+                        <ellipse cx="-40" cy="1.5" rx="3.5" ry="1.8" fill="currentColor" fillOpacity="0.3" transform="rotate(8,-40,1.5)" />
+                        {/* Right wing tendril (mirrored) */}
+                        <path d="M 80 1.5 C 60 0, 50 4, 36 1.5 C 24 -1, 14 4, 4 2"
+                            fill="none" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.6" strokeLinecap="round" />
+                        <ellipse cx="40" cy="1.5" rx="3.5" ry="1.8" fill="currentColor" fillOpacity="0.3" transform="rotate(-8,40,1.5)" />
+                        {/* Central lotus blossom */}
+                        {/* Petals */}
+                        <ellipse cx="0" cy="-2" rx="3" ry="6" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="0.6" strokeOpacity="0.7" />
+                        <ellipse cx="-3.5" cy="0" rx="3" ry="5" fill="currentColor" fillOpacity="0.1" stroke="currentColor" strokeWidth="0.5" strokeOpacity="0.6" transform="rotate(-35,-3.5,0)" />
+                        <ellipse cx="3.5" cy="0" rx="3" ry="5" fill="currentColor" fillOpacity="0.1" stroke="currentColor" strokeWidth="0.5" strokeOpacity="0.6" transform="rotate(35,3.5,0)" />
+                        {/* Stamens */}
+                        <circle cx="0" cy="1" r="2" fill="currentColor" fillOpacity="0.55" />
+                        <circle cx="0" cy="1" r="0.8" fill="currentColor" fillOpacity="0.9" />
+                    </g>
+
+                    {/* ═══════════════════════════════════════════════ */}
+                    {/*   BOTTOM-CENTRE MEDALLION (mirrored vertically) */}
+                    {/* ═══════════════════════════════════════════════ */}
+                    <g filter="url(#art-nouveau-glow)" transform="translate(210,780) scale(1,-1)">
+                        <path d="M -80 1.5 C -60 0, -50 4, -36 1.5 C -24 -1, -14 4, -4 2"
+                            fill="none" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.6" strokeLinecap="round" />
+                        <ellipse cx="-40" cy="1.5" rx="3.5" ry="1.8" fill="currentColor" fillOpacity="0.3" transform="rotate(8,-40,1.5)" />
+                        <path d="M 80 1.5 C 60 0, 50 4, 36 1.5 C 24 -1, 14 4, 4 2"
+                            fill="none" stroke="currentColor" strokeWidth="0.8" strokeOpacity="0.6" strokeLinecap="round" />
+                        <ellipse cx="40" cy="1.5" rx="3.5" ry="1.8" fill="currentColor" fillOpacity="0.3" transform="rotate(-8,40,1.5)" />
+                        <ellipse cx="0" cy="-2" rx="3" ry="6" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="0.6" strokeOpacity="0.7" />
+                        <ellipse cx="-3.5" cy="0" rx="3" ry="5" fill="currentColor" fillOpacity="0.1" stroke="currentColor" strokeWidth="0.5" strokeOpacity="0.6" transform="rotate(-35,-3.5,0)" />
+                        <ellipse cx="3.5" cy="0" rx="3" ry="5" fill="currentColor" fillOpacity="0.1" stroke="currentColor" strokeWidth="0.5" strokeOpacity="0.6" transform="rotate(35,3.5,0)" />
+                        <circle cx="0" cy="1" r="2" fill="currentColor" fillOpacity="0.55" />
+                        <circle cx="0" cy="1" r="0.8" fill="currentColor" fillOpacity="0.9" />
+                    </g>
+
+                    {/* ═══════════════════════════════════════════════ */}
+                    {/*   SIDE VINE ACCENTS — left edge mid            */}
+                    {/* ═══════════════════════════════════════════════ */}
+                    <g filter="url(#vine-glow)" opacity="0.55">
+                        {/* Left mid-section vertical vine */}
+                        <path d="M 1.5 320 C 0 330, 2.5 342, 1.5 355 C 0.5 368, 3 378, 1.5 390"
+                            fill="none" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
+                        <ellipse cx="1.5" cy="355" rx="2.2" ry="4.5" fill="currentColor" fillOpacity="0.22" transform="rotate(-3,1.5,355)" />
+                        {/* Small thorns on left vine */}
+                        <path d="M 1.5 335 L 5 332" fill="none" stroke="currentColor" strokeWidth="0.5" strokeOpacity="0.7" strokeLinecap="round" />
+                        <path d="M 1.5 370 L 5 373" fill="none" stroke="currentColor" strokeWidth="0.5" strokeOpacity="0.7" strokeLinecap="round" />
+                    </g>
+
+                    {/* ═══════════════════════════════════════════════ */}
+                    {/*   SIDE VINE ACCENTS — right edge mid           */}
+                    {/* ═══════════════════════════════════════════════ */}
+                    <g filter="url(#vine-glow)" opacity="0.55" transform="translate(420,0) scale(-1,1)">
+                        <path d="M 1.5 320 C 0 330, 2.5 342, 1.5 355 C 0.5 368, 3 378, 1.5 390"
+                            fill="none" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
+                        <ellipse cx="1.5" cy="355" rx="2.2" ry="4.5" fill="currentColor" fillOpacity="0.22" transform="rotate(3,1.5,355)" />
+                        <path d="M 1.5 335 L 5 332" fill="none" stroke="currentColor" strokeWidth="0.5" strokeOpacity="0.7" strokeLinecap="round" />
+                        <path d="M 1.5 370 L 5 373" fill="none" stroke="currentColor" strokeWidth="0.5" strokeOpacity="0.7" strokeLinecap="round" />
+                    </g>
+
+                </motion.svg>
+
+            {/* ═══ THE INVITE CARD (inside the wrapper) ═══ */}
             <motion.div
                 initial={{ opacity: 0, y: 30, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                className="relative rounded-3xl overflow-hidden border border-border/30 flex flex-col"
+                className="relative rounded-3xl overflow-hidden border border-transparent flex flex-col"
             >
                 {/* ── Background layers ── */}
                 <div
@@ -251,20 +472,6 @@ export function InviteCard({ user, inviteUrl }: InviteCardProps) {
                     className="absolute inset-0 rounded-3xl pointer-events-none"
                     style={{
                         boxShadow: `0 0 40px ${themeColor}06, 0 20px 60px -20px rgba(0,0,0,0.4)`,
-                    }}
-                />
-                {/* Top accent line */}
-                <div
-                    className="absolute top-0 left-[15%] right-[15%] h-px z-20"
-                    style={{
-                        background: `linear-gradient(to right, transparent, ${themeColor}40, transparent)`,
-                    }}
-                />
-                {/* Bottom accent line */}
-                <div
-                    className="absolute bottom-0 left-[15%] right-[15%] h-px z-20"
-                    style={{
-                        background: `linear-gradient(to right, transparent, ${themeColor}20, transparent)`,
                     }}
                 />
 
@@ -526,22 +733,16 @@ export function InviteCard({ user, inviteUrl }: InviteCardProps) {
                             transition={{ delay: 0.65, duration: 0.4 }}
                             className="w-full"
                         >
-                            <div className="grid grid-cols-4 gap-2">
-                                {SOCIAL_PLATFORMS.map(({ id, Icon, color, label, getUrl }) => (
+                            <div className="grid grid-cols-8 gap-2">
+                                {SOCIAL_PLATFORMS.map(({ id, Icon, label, getUrl, className, iconClassName }) => (
                                     <button
                                         key={id}
                                         onClick={() => window.open(getUrl(inviteUrl), "_blank")}
                                         aria-label={label}
-                                        className="flex items-center justify-center h-10 rounded-xl border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] transition-all duration-200 active:scale-95"
-                                        style={
-                                            {
-                                                "--btn-color": color,
-                                            } as React.CSSProperties
-                                        }
+                                        className={`flex items-center justify-center w-10 h-10 rounded-xl ${className} transition-all duration-200 hover:brightness-110 active:scale-95`}
                                     >
                                         <Icon
-                                            className="w-4 h-4 sm:w-[18px] sm:h-[18px] transition-colors duration-200"
-                                            style={{ color }}
+                                            className={` transition-colors duration-200 ${iconClassName}`}
                                         />
                                     </button>
                                 ))}
@@ -563,6 +764,7 @@ export function InviteCard({ user, inviteUrl }: InviteCardProps) {
                     </div>
                 </div>
             </motion.div>
+            </div>  {/* end Art Nouveau border wrapper */}
         </div>
     );
 }
