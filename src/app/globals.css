@@ -374,6 +374,20 @@
 	animation: oracle-blur-reveal 0.35s ease-out both;
 }
 
+/* Oracle response markdown — spacious editorial-style layout */
+.oracle-markdown {
+	line-height: 1.75;
+}
+.oracle-markdown > p:first-child {
+	margin-top: 0;
+}
+.oracle-markdown > *:last-child {
+	margin-bottom: 0;
+}
+.oracle-markdown strong {
+	letter-spacing: 0.01em;
+}
+
 /* Thin, tinted scrollbar for Learn slide panels */
 .custom-scrollbar::-webkit-scrollbar {
 	width: 4px;

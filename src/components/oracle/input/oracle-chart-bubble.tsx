@@ -84,7 +84,7 @@ export function OracleChartBubble({
   return (
     <div className="flex justify-end">
       <div
-        className="relative w-[45%] min-w-[240px] max-w-[320px] rounded-2xl rounded-br-md overflow-hidden border border-galactic/20 bg-galactic/15 backdrop-blur-2xl"
+        className="relative w-[45%] min-w-[240px] max-w-[320px] rounded-2xl rounded-br-md overflow-hidden border border-white/10 bg-white/5 backdrop-blur-xl"
         style={{
           boxShadow: dominantElementUi
             ? `0 0 30px -15px ${dominantElementUi.styles.glow}`

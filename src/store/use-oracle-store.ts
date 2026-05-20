@@ -31,6 +31,7 @@ export interface SynastryState {
     source: "friend" | "custom" | null;
     friendUserId?: string;
     relationship: string | null;
+    relationshipCategory: string | null;
 }
 
 interface OracleStore {
@@ -72,7 +73,7 @@ interface OracleStore {
     setTimezone: (tz: string) => void;
     resetToIdle: () => void;
     setSynastryChartB: (data: StoredBirthData, name: string, source: "friend" | "custom", friendUserId?: string) => void;
-    setSynastryRelationship: (relationship: string) => void;
+    setSynastryRelationship: (relationship: string, category?: string) => void;
     clearSynastry: () => void;
     clearSynastryChartB: () => void;
 
@@ -157,7 +158,7 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
     setSynastryChartB: (data, name, source, friendUserId) =>
         set((state) => ({
             synastryData: {
-                ...(state.synastryData ?? { chartB: null, chartBName: "", source: null, relationship: null }),
+                ...(state.synastryData ?? { chartB: null, chartBName: "", source: null, relationship: null, relationshipCategory: null }),
                 chartB: data,
                 chartBName: name,
                 source,
@@ -165,11 +166,12 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
             },
         })),
 
-    setSynastryRelationship: (relationship) =>
+    setSynastryRelationship: (relationship, category) =>
         set((state) => ({
             synastryData: {
-                ...(state.synastryData ?? { chartB: null, chartBName: "", source: null, relationship: null }),
+                ...(state.synastryData ?? { chartB: null, chartBName: "", source: null, relationship: null, relationshipCategory: null }),
                 relationship,
+                ...(category != null ? { relationshipCategory: category } : {}),
             },
         })),
 

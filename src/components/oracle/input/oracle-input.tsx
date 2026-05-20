@@ -36,7 +36,7 @@ interface OracleInputProps {
   onBirthChartDepthChange?: (depth: BirthChartDepth) => void
   synastryState?: SynastryState | null
   onSetSynastryChartB?: (data: StoredBirthData, name: string, source: "friend" | "custom", friendUserId?: string) => void
-  onSetSynastryRelationship?: (relationship: string) => void
+  onSetSynastryRelationship?: (relationship: string, category?: string) => void
   onClearSynastry?: () => void
   onClearSynastryChartB?: () => void
 }
@@ -109,7 +109,7 @@ export function OracleInput({
           username={username}
           synastryData={synastryState ?? null}
           onSetChartB={onSetSynastryChartB ?? (() => {})}
-          onSetRelationship={onSetSynastryRelationship ?? (() => {})}
+          onSetRelationship={onSetSynastryRelationship ?? ((_r: string, _c?: string) => {}) }
           onDismiss={onFeatureClear}
           onClearChartB={onClearSynastryChartB}
         />

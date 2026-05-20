@@ -51,7 +51,7 @@ export interface PipelineDataRequirements {
   expandedJournalBudget: boolean;
   /** Needs timespace context (timezone + cosmic weather) */
   needsTimespace: boolean;
-  /** Needs synastry data (Chart B + relationship type) */
+  /** Needs synastry data (second chart + relationship context) */
   needsSynastryData: boolean;
 }
 
@@ -85,18 +85,20 @@ export interface UserMessageBlock {
 
 /**
  * Synastry data payload — passed from frontend through session to pipeline.
- * Contains Chart B birth data, relationship type, and source metadata.
+ * Contains the second person's birth data, relationship type, category, and source metadata.
  */
 export interface SynastryPayload {
-  /** Chart B birth data (same format as user's birthData) */
+  /** Second person's birth data (same format as user's birthData) */
   chartB: unknown;
   /** How the chart was sourced */
   source: "friend" | "custom";
   /** If source is "friend", the friend's userId */
   friendUserId?: string;
-  /** The real-life relationship between Chart A and Chart B */
+  /** The real-life relationship between the user and the second person (e.g. "boyfriend", "teacher") */
   relationship: string;
-  /** Display name for Chart B person */
+  /** Macro category for the relationship (e.g. "romantic", "family", "work") — may be undefined on old sessions */
+  relationshipCategory?: string;
+  /** Display name for the second person */
   chartBName: string;
 }
 
@@ -133,7 +135,7 @@ export interface PipelineContext {
   soulDoc: string;
   /** Feature injection text from DB or hardcoded fallback */
   featureInjection: string | null;
-  /** Synastry data: Chart B + relationship type (only if pipeline needs it) */
+  /** Synastry data: second chart + relationship context (only if pipeline needs it) */
   synastryData: SynastryPayload | null;
 }
 

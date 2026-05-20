@@ -410,6 +410,7 @@ export default defineSchema({
           source: v.union(v.literal("friend"), v.literal("custom")),
           friendUserId: v.optional(v.id("users")),
           relationship: v.string(),
+          relationshipCategory: v.optional(v.string()),
           chartBName: v.string(),
         })),
         createdAt: v.number(),
@@ -646,6 +647,8 @@ export default defineSchema({
         audioUrl: v.optional(v.string()), // Playback URL for generated audio (binaural beats, etc.)
         // Deterministic binaural beat params (generated server-side, not by LLM)
         binauralParams: v.optional(v.any()), // BinauralBeatParams & { rationale?: BinauralRationale }
+        // User feedback on assistant messages
+        rating: v.optional(v.union(v.literal("positive"), v.literal("negative"))),
         createdAt: v.number(),
     })
         .index("by_session", ["sessionId"])

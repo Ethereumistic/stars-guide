@@ -197,6 +197,7 @@ export default function OracleNewPage() {
               source: synastryData.source!,
               friendUserId: synastryData.friendUserId as any,
               relationship: synastryData.relationship!,
+              relationshipCategory: synastryData.relationshipCategory ?? "general",
               chartBName: synastryData.chartBName,
             }
           : undefined,

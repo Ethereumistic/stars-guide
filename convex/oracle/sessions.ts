@@ -59,6 +59,7 @@ export const createSession = mutation({
             source: v.union(v.literal("friend"), v.literal("custom")),
             friendUserId: v.optional(v.id("users")),
             relationship: v.string(),
+            relationshipCategory: v.optional(v.string()),
             chartBName: v.string(),
         })),
     },
@@ -431,6 +432,51 @@ export const setSessionStarType = mutation({
                 : { starType: args.starType }),
             updatedAt: Date.now(),
         });
+    },
+});
+
+/** Rate an assistant message (thumbs up/down). */
+export const rateMessage = mutation({
+    args: {
+        messageId: v.id("oracle_messages"),
+        rating: v.union(v.literal("positive"), v.literal("negative")),
+    },
+    handler: async (ctx, { messageId, rating }) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Not authenticated");
+
+        const message = await ctx.db.get(messageId);
+        if (!message) throw new Error("Message not found");
+
+        // Verify ownership via session
+        const session = await ctx.db.get(message.sessionId);
+        if (!session || session.userId !== userId) throw new Error("Unauthorized");
+
+        // Only assistant messages can be rated
+        if (message.role !== "assistant") throw new Error("Only assistant messages can be rated");
+
+        await ctx.db.patch(messageId, { rating });
+    },
+});
+
+/** Remove rating from a message (undo thumbs up/down). */
+export const unrateMessage = mutation({
+    args: {
+        messageId: v.id("oracle_messages"),
+    },
+    handler: async (ctx, { messageId }) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Not authenticated");
+
+        const message = await ctx.db.get(messageId);
+        if (!message) throw new Error("Message not found");
+
+        const session = await ctx.db.get(message.sessionId);
+        if (!session || session.userId !== userId) throw new Error("Unauthorized");
+
+        if (message.role !== "assistant") throw new Error("Only assistant messages can be rated");
+
+        await ctx.db.patch(messageId, { rating: undefined });
     },
 });
 

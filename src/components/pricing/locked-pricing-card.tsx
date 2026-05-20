@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Check, X } from "lucide-react";
-import { StarsBackground } from "@/components/hero/stars-background";
-import { ShootingStars } from "@/components/hero/shooting-stars";
+import { StarsBackground, ShootingStars } from "@/components/hero/stars-canvas";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";

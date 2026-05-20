@@ -10,8 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SettingsSection } from "./settings-section"
 import { plans, IconMap } from "@/components/pricing/pricing-data"
 import type { PricingPlan } from "@/components/pricing/pricing-data"
-import { StarsBackground } from "@/components/hero/stars-background"
-import { ShootingStars } from "@/components/hero/shooting-stars"
+
 import { CreditCard } from "lucide-react"
 import useEmblaCarousel from "embla-carousel-react"
 

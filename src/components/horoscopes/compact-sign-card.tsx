@@ -71,6 +71,7 @@ export function CompactSignCard({ data, ui, isActive = false, href }: CompactSig
 
     return (
         <motion.div variants={cardVariants} className="w-full">
+
             <Link
                 href={linkHref}
                 className="group relative block h-full"

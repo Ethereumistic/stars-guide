@@ -2,8 +2,7 @@
 
 import * as React from "react"
 import { Logo } from "@/components/ui/logo"
-import { ShootingStars } from "@/components/hero/shooting-stars"
-import { StarsBackground } from "@/components/hero/stars-background"
+import { StarsBackground, ShootingStars } from "@/components/hero/stars-canvas"
 import { motion } from "motion/react"
 
 export default function OnboardingLayout({

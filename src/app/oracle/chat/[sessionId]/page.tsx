@@ -14,8 +14,12 @@ import {
     AlertTriangle,
     ArrowUpRight,
     Clock,
+    ThumbsUp,
+    ThumbsDown,
+    RotateCcw,
+    Share2,
 } from "lucide-react";
-import { GiCursedStar } from "react-icons/gi";
+import { GiCursedStar, GiScrollUnfurled } from "react-icons/gi";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { OracleInput } from "@/components/oracle/input/oracle-input";
@@ -27,9 +31,10 @@ import {
   type BinauralBeatParams,
 } from "@/lib/binaural-presets";
 import { Button } from "@/components/ui/button";
-import { getFeatureDefaultPrompt, isBirthChartFeature, isImplementedFeature, type OracleFeatureKey } from "@/lib/oracle/features";
+import { getFeatureDefaultPrompt, isBirthChartFeature, isSynastryFeature, isImplementedFeature, type OracleFeatureKey } from "@/lib/oracle/features";
 import { useOracleStore } from "@/store/use-oracle-store";
 import { OracleChartBubble } from "@/components/oracle/input/oracle-chart-bubble";
+import { SynastryChartBubble } from "@/components/oracle/input/synastry-chart-bubble";
 import { useUserStore } from "@/store/use-user-store";
 import { useLoadingMessage } from "@/hooks/use-loading-message";
 
@@ -85,40 +90,40 @@ function AssistantMessageContent({ content, isStreamingThis }: { content: string
                     remarkPlugins={[remarkGfm]}
                     components={{
                         h2: ({ children }) => (
-                            <h2 className="text-base font-semibold text-white/90 mt-4 mb-2 border-b border-white/10 pb-1">
+                            <h2 className="text-lg md:text-xl font-semibold text-white/95 mt-6 mb-3 border-b border-white/8 pb-2 tracking-tight">
                                 {children}
                             </h2>
                         ),
                         h3: ({ children }) => (
-                            <h3 className="text-sm font-semibold text-white/80 mt-3 mb-1">
+                            <h3 className="text-base md:text-lg font-semibold text-white/85 mt-4 mb-2">
                                 {children}
                             </h3>
                         ),
                         p: ({ children }) => (
-                            <p className="text-sm md:text-base text-white/85 leading-relaxed mb-3">
+                            <p className="text-base md:text-lg text-white/90 leading-relaxed mb-4">
                                 {children}
                             </p>
                         ),
                         strong: ({ children }) => (
-                            <strong className="font-semibold text-white/95">{children}</strong>
+                            <strong className="font-semibold text-white">{children}</strong>
                         ),
                         em: ({ children }) => (
-                            <em className="italic text-galactic/80">{children}</em>
+                            <em className="italic text-galactic/90">{children}</em>
                         ),
                         ul: ({ children }) => (
-                            <ul className="list-disc list-outside ml-4 space-y-1 my-2">{children}</ul>
+                            <ul className="list-disc list-outside ml-5 space-y-1.5 my-3">{children}</ul>
                         ),
                         ol: ({ children }) => (
-                            <ol className="list-decimal list-outside ml-4 space-y-1 my-2">{children}</ol>
+                            <ol className="list-decimal list-outside ml-5 space-y-1.5 my-3">{children}</ol>
                         ),
                         li: ({ children }) => (
-                            <li className="text-sm md:text-base text-white/85 leading-relaxed">{children}</li>
+                            <li className="text-base md:text-lg text-white/90 leading-relaxed">{children}</li>
                         ),
                         hr: () => (
-                            <hr className="border-white/10 my-4" />
+                            <hr className="border-white/8 my-6" />
                         ),
                         table: ({ children }) => (
-                            <div className="overflow-x-auto my-3">
+                            <div className="overflow-x-auto my-4">
                                 <table className="w-full text-sm border-collapse">{children}</table>
                             </div>
                         ),
@@ -132,7 +137,7 @@ function AssistantMessageContent({ content, isStreamingThis }: { content: string
                             <td className="px-3 py-2 text-white/85 border-b border-white/5">{children}</td>
                         ),
                         blockquote: ({ children }) => (
-                            <blockquote className="border-l-2 border-galactic/40 pl-3 my-2 text-white/70 italic">
+                            <blockquote className="border-l-2 border-galactic/40 pl-4 my-3 text-white/70 italic">
                                 {children}
                             </blockquote>
                         ),
@@ -160,40 +165,40 @@ function AssistantMessageContent({ content, isStreamingThis }: { content: string
                 remarkPlugins={[remarkGfm]}
                 components={{
                     h2: ({ children }) => (
-                        <h2 className="text-base font-semibold text-white/90 mt-4 mb-2 border-b border-white/10 pb-1">
+                        <h2 className="text-lg md:text-xl font-semibold text-white/95 mt-6 mb-3 border-b border-white/8 pb-2 tracking-tight">
                             {children}
                         </h2>
                     ),
                     h3: ({ children }) => (
-                        <h3 className="text-sm font-semibold text-white/80 mt-3 mb-1">
+                        <h3 className="text-base md:text-lg font-semibold text-white/85 mt-4 mb-2">
                             {children}
                         </h3>
                     ),
                     p: ({ children }) => (
-                        <p className="text-sm md:text-base text-white/85 leading-relaxed mb-0">
+                        <p className="text-base md:text-lg text-white/90 leading-relaxed mb-0">
                             {children}
                         </p>
                     ),
                     strong: ({ children }) => (
-                        <strong className="font-semibold text-white/95">{children}</strong>
+                        <strong className="font-semibold text-white">{children}</strong>
                     ),
                     em: ({ children }) => (
-                        <em className="italic text-galactic/80">{children}</em>
+                        <em className="italic text-galactic/90">{children}</em>
                     ),
                     ul: ({ children }) => (
-                        <ul className="list-disc list-outside ml-4 space-y-1 my-2">{children}</ul>
+                        <ul className="list-disc list-outside ml-5 space-y-1.5 my-3">{children}</ul>
                     ),
                     ol: ({ children }) => (
-                        <ol className="list-decimal list-outside ml-4 space-y-1 my-2">{children}</ol>
+                        <ol className="list-decimal list-outside ml-5 space-y-1.5 my-3">{children}</ol>
                     ),
                     li: ({ children }) => (
-                        <li className="text-sm md:text-base text-white/85 leading-relaxed">{children}</li>
+                        <li className="text-base md:text-lg text-white/90 leading-relaxed">{children}</li>
                     ),
                     hr: () => (
-                        <hr className="border-white/10 my-4" />
+                        <hr className="border-white/8 my-6" />
                     ),
                     table: ({ children }) => (
-                        <div className="overflow-x-auto my-3">
+                        <div className="overflow-x-auto my-4">
                             <table className="w-full text-sm border-collapse">{children}</table>
                         </div>
                     ),
@@ -207,7 +212,7 @@ function AssistantMessageContent({ content, isStreamingThis }: { content: string
                         <td className="px-3 py-2 text-white/85 border-b border-white/5">{children}</td>
                     ),
                     blockquote: ({ children }) => (
-                        <blockquote className="border-l-2 border-galactic/40 pl-3 my-2 text-white/70 italic">
+                        <blockquote className="border-l-2 border-galactic/40 pl-4 my-3 text-white/70 italic">
                             {children}
                         </blockquote>
                     ),
@@ -240,6 +245,8 @@ export default function OracleChatPage() {
     const inputRef = useRef<HTMLInputElement>(null);
     const [inputValue, setInputValue] = useState("");
     const [copied, setCopied] = useState<string | null>(null);
+    const [shared, setShared] = useState<string | null>(null);
+    const [ratingOverrides, setRatingOverrides] = useState<Record<string, "positive" | "negative" | "none">>({});
     const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null);
     const { user } = useUserStore();
     const hasInvokedRef = useRef(false);
@@ -274,6 +281,8 @@ export default function OracleChatPage() {
     const addMessageMutation = useMutation(api.oracle.sessions.addMessage);
     const updateSessionFeatureMutation = useMutation(api.oracle.sessions.updateSessionFeature);
     const updateBirthChartDepthMutation = useMutation(api.oracle.sessions.setSessionBirthChartDepth);
+    const rateMessageMutation = useMutation(api.oracle.sessions.rateMessage);
+    const unrateMessageMutation = useMutation(api.oracle.sessions.unrateMessage);
     const invokeOracle = useAction(api.oracle.llm.invokeOracle);
 
     useEffect(() => {
@@ -380,6 +389,96 @@ export default function OracleChatPage() {
         setCopied(id);
         setTimeout(() => setCopied(null), 2000);
     }, []);
+
+    const handleRate = useCallback(async (messageId: Id<"oracle_messages">, rating: "positive" | "negative") => {
+        // Find the effective current rating (server-side + optimistic overlay)
+        const serverMessage = sessionData?.messages?.find(m => m._id === messageId);
+        const serverRating = (serverMessage as any)?.rating as "positive" | "negative" | undefined;
+        const currentOverride = ratingOverrides[messageId];
+        const currentRating = currentOverride === "none" ? undefined : (currentOverride ?? serverRating);
+
+        if (currentRating === rating) {
+            // Unrate — toggle off
+            setRatingOverrides(prev => ({ ...prev, [messageId]: "none" }));
+            try {
+                await unrateMessageMutation({ messageId });
+            } catch {
+                setRatingOverrides(prev => {
+                    const next = { ...prev };
+                    delete next[messageId];
+                    return next;
+                });
+            }
+        } else {
+            // Rate or change rating
+            setRatingOverrides(prev => ({ ...prev, [messageId]: rating }));
+            try {
+                await rateMessageMutation({ messageId, rating });
+            } catch {
+                setRatingOverrides(prev => {
+                    const next = { ...prev };
+                    delete next[messageId];
+                    return next;
+                });
+            }
+        }
+    }, [sessionData, ratingOverrides, rateMessageMutation, unrateMessageMutation]);
+
+    const handleShare = useCallback(async (content: string, id: string) => {
+        try {
+            if (typeof navigator !== 'undefined' && navigator.share) {
+                await navigator.share({
+                    title: "Oracle Reading — stars.guide",
+                    text: content,
+                });
+            } else {
+                await navigator.clipboard.writeText(content);
+                setShared(id);
+                setTimeout(() => setShared(null), 2000);
+            }
+        } catch {
+            // Share cancelled or failed — fall back to clipboard
+            try {
+                await navigator.clipboard.writeText(content);
+                setShared(id);
+                setTimeout(() => setShared(null), 2000);
+            } catch {}
+        }
+    }, []);
+
+    const handleTryAgain = useCallback(async () => {
+        if (isStreaming || state === "oracle_responding") return;
+        const messages = sessionData?.messages;
+        if (!messages) return;
+        const userMessages = messages.filter(m => m.role === "user");
+        const lastUserMsg = userMessages[userMessages.length - 1];
+        if (!lastUserMsg) return;
+
+        setIsStreaming(true);
+        const requestStartMs = Date.now();
+        setDebugClientTiming({ requestStartMs, firstContentMs: null, completeMs: null });
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        try {
+            const result = await invokeOracle({
+                sessionId,
+                userQuestion: lastUserMsg.content,
+                timezone,
+                ...(debugModelOverride ? { debugModelOverride } : {}),
+            });
+            if (result) {
+                setDebugLastMetrics(result.timingMetrics ?? null);
+                setDebugDebugModelUsed(result.debugModelUsed ?? null);
+                setDebugPromptTokens(result.promptTokens ?? null);
+                setDebugCompletionTokens(result.completionTokens ?? null);
+            }
+            setDebugClientTiming({ requestStartMs, firstContentMs: useOracleStore.getState().debugClientTiming.firstContentMs, completeMs: Date.now() });
+        } catch (error) {
+            console.error("Try again failed:", error);
+        } finally {
+            setIsStreaming(false);
+        }
+    }, [isStreaming, state, sessionData, sessionId, invokeOracle, timezone, debugModelOverride, setIsStreaming, setDebugClientTiming, setDebugLastMetrics, setDebugDebugModelUsed, setDebugPromptTokens, setDebugCompletionTokens]);
 
     const handleFeatureSelect = useCallback(async (featureKey: OracleFeatureKey) => {
         if (!isImplementedFeature(featureKey)) return;
@@ -494,9 +593,12 @@ export default function OracleChatPage() {
         audioStorageId: (m as any).audioStorageId as string | undefined,
         audioUrl: (m as any).audioUrl as string | undefined,
         binauralParams: (m as any).binauralParams as (BinauralBeatParams & { rationale?: any }) | undefined,
+        _id: m._id as Id<"oracle_messages">,
+        rating: (m as any).rating as "positive" | "negative" | undefined,
+        journalPrompt: (m as any).journalPrompt as string | undefined,
     }));
     const allMessages = pendingUserMessage && !serverMessages.some(m => m.role === "user" && m.content === pendingUserMessage)
-        ? [...serverMessages, { role: "user" as const, content: pendingUserMessage, createdAt: Date.now() }]
+        ? [...serverMessages, { role: "user" as const, content: pendingUserMessage, createdAt: Date.now(), _id: undefined as Id<"oracle_messages"> | undefined, rating: undefined as "positive" | "negative" | undefined, journalPrompt: undefined as string | undefined }]
         : serverMessages;
 
     // Show birth chart bubble in chat when session was created with birth chart feature.
@@ -505,15 +607,34 @@ export default function OracleChatPage() {
     const sessionFeatureKey = (sessionData?.featureKey as OracleFeatureKey | null) ?? null;
     const showChartBubble = isBirthChartFeature(sessionFeatureKey);
 
-    // Insert chart bubble AFTER the first user message
+    // Read synastryPayload from persisted session data (not the store, which may be cleared after submit)
+    const sessionSynastryPayload = (sessionData as any)?.synastryPayload as {
+        chartB: any;
+        chartBName: string;
+    } | null | undefined;
+    const showSynastryBubble = isSynastryFeature(sessionFeatureKey)
+        && sessionSynastryPayload?.chartB
+        && user?.birthData;
+
+    // Insert chart bubble(s) AFTER the first user message
     const firstUserIdx = allMessages.findIndex(m => m.role === "user");
-    const renderedMessages = showChartBubble && firstUserIdx >= 0
-        ? [
+    let renderedMessages;
+    if (showSynastryBubble) {
+        // Show ONLY synastry charts (both user's + partner's) — no separate birth chart bubble
+        renderedMessages = [
+            ...allMessages.slice(0, firstUserIdx + 1).map((m, i) => ({ ...m, _key: `msg-${i}` })),
+            { role: "synastry-bubble" as const, content: "", createdAt: 0, _key: "synastry-bubble" },
+            ...allMessages.slice(firstUserIdx + 1).map((m, i) => ({ ...m, _key: `msg-${firstUserIdx + 2 + i}` })),
+        ];
+    } else if (showChartBubble && firstUserIdx >= 0) {
+        renderedMessages = [
             ...allMessages.slice(0, firstUserIdx + 1).map((m, i) => ({ ...m, _key: `msg-${i}` })),
             { role: "chart-bubble" as const, content: "", createdAt: 0, _key: "chart-bubble" },
             ...allMessages.slice(firstUserIdx + 1).map((m, i) => ({ ...m, _key: `msg-${firstUserIdx + 2 + i}` })),
-        ]
-        : allMessages.map((m, i) => ({ ...m, _key: `msg-${i}` }));
+        ];
+    } else {
+        renderedMessages = allMessages.map((m, i) => ({ ...m, _key: `msg-${i}` }));
+    }
 
     // Determine input bar state
     const isInputDisabled = isStreaming || state === "oracle_responding" || !!quotaExhausted;
@@ -529,6 +650,24 @@ export default function OracleChatPage() {
             <div className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin scrollbar-thumb-white/10">
                 <div className="max-w-3xl mx-auto space-y-6">
                     {renderedMessages.map((msg, i) => {
+                        if ((msg as any).role === "synastry-bubble") {
+                            return (
+                                <motion.div
+                                    key="synastry-bubble"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.4 }}
+                                >
+                                    <SynastryChartBubble
+                                        chartAData={user!.birthData!}
+                                        chartBData={sessionSynastryPayload!.chartB}
+                                        username={user!.username}
+                                        chartBName={sessionSynastryPayload!.chartBName}
+                                    />
+                                </motion.div>
+                            );
+                        }
+
                         if ((msg as any).role === "chart-bubble") {
                             return (
                                 <motion.div
@@ -551,6 +690,7 @@ export default function OracleChatPage() {
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.4, delay: i * 0.05 }}
+                            className={msg.role === "assistant" ? "group" : undefined}
                         >
                             {msg.role === "user" ? (
                                 isBinauralBeatMessage(msg.content) ? (
@@ -567,7 +707,7 @@ export default function OracleChatPage() {
                                 ) : (
                                 /* User message */
                                 <div className="flex justify-end">
-                                    <div className="max-w-[80%] bg-galactic/15 border border-galactic/20 rounded-2xl rounded-br-md px-5 py-3.5">
+                                    <div className="max-w-[80%] bg-primary/15 border border-primary/20 rounded-2xl rounded-br-md px-5 py-3.5">
                                         <p className="text-sm md:text-base text-white/90 leading-relaxed">
                                             {msg.content}
                                         </p>
@@ -586,21 +726,15 @@ export default function OracleChatPage() {
                                 // Empty streaming message → show loading dots
                                 if (isStreamingThis && isEmpty) {
                                     return (
-                                        <div className="flex gap-3">
-                                            <div className="shrink-0 w-8 h-8 rounded-full bg-galactic/15 border border-galactic/25 flex items-center justify-center mt-1">
-                                                <GiCursedStar className="w-4 h-4 text-galactic animate-spin" style={{ animationDuration: "3s" }} />
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="bg-white/4 border border-white/8 rounded-2xl rounded-tl-md px-5 py-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="flex gap-1">
-                                                            <span className="w-2 h-2 rounded-full bg-galactic/50 animate-bounce" style={{ animationDelay: "0ms" }} />
-                                                            <span className="w-2 h-2 rounded-full bg-galactic/50 animate-bounce" style={{ animationDelay: "150ms" }} />
-                                                            <span className="w-2 h-2 rounded-full bg-galactic/50 animate-bounce" style={{ animationDelay: "300ms" }} />
-                                                        </div>
-                                                        <span className="text-sm text-white/40 italic">{loadingMessage}</span>
-                                                    </div>
+                                        <div className="flex items-center gap-3 py-4">
+                                            <GiCursedStar className="w-4 h-4 text-galactic animate-spin shrink-0" style={{ animationDuration: "3s" }} />
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex gap-1">
+                                                    <span className="w-2 h-2 rounded-full bg-galactic/50 animate-bounce" style={{ animationDelay: "0ms" }} />
+                                                    <span className="w-2 h-2 rounded-full bg-galactic/50 animate-bounce" style={{ animationDelay: "150ms" }} />
+                                                    <span className="w-2 h-2 rounded-full bg-galactic/50 animate-bounce" style={{ animationDelay: "300ms" }} />
                                                 </div>
+                                                <span className="text-sm text-white/40 italic">{loadingMessage}</span>
                                             </div>
                                         </div>
                                     );
@@ -611,77 +745,130 @@ export default function OracleChatPage() {
                                     ? msg.content
                                     : msg.content;
 
-                                return (
-                                    <div className="flex gap-3">
-                                        <div className="shrink-0 w-8 h-8 rounded-full bg-galactic/15 border border-galactic/25 flex items-center justify-center mt-1">
-                                            <GiCursedStar className={`w-4 h-4 text-galactic ${isStreamingThis ? 'animate-spin' : ''}`} style={isStreamingThis ? { animationDuration: "3s" } : undefined} />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="bg-white/4 border border-white/8 rounded-2xl rounded-tl-md px-5 py-4">
-                                                <div className="text-sm md:text-base text-white/85 leading-relaxed">
-                                                    <AssistantMessageContent content={displayContent} isStreamingThis={isStreamingThis} />
-                                                </div>
-                                                {(msg as any).audioUrl ? (
-                                                    <div className="mt-3">
-                                                        <audio
-                                                            controls
-                                                            src={(msg as any).audioUrl}
-                                                            className="w-full h-10 opacity-80 hover:opacity-100 transition-opacity"
-                                                        />
-                                                    </div>
-                                                ) : (msg as any).audioStorageId ? (
-                                                    <AudioPlayer storageId={(msg as any).audioStorageId} />
-                                                ) : (msg as any).audioData && !isStreamingThis ? (
-                                                    <div className="mt-3">
-                                                        <audio
-                                                            controls
-                                                            src={`data:audio/wav;base64,${(msg as any).audioData}`}
-                                                            className="w-full h-10 opacity-80 hover:opacity-100 transition-opacity"
-                                                        />
-                                                    </div>
-                                                ) : null}
-                                            </div>
-                                            {/* Actions — only show when not streaming */}
-                                            {!isStreamingThis && (
-                                                <div className="flex items-center gap-2 mt-2 px-2">
-                                                    <button
-                                                        onClick={() => handleCopy(msg.content, `msg-${i}`)}
-                                                        className="text-white/25 hover:text-white/60 transition-colors"
-                                                        aria-label="Copy response"
-                                                    >
-                                                        {copied === `msg-${i}` ? (
-                                                            <Check className="w-3.5 h-3.5 text-green-400" />
-                                                        ) : (
-                                                            <Copy className="w-3.5 h-3.5" />
-                                                        )}
-                                                    </button>
+                                // Compute effective rating for action buttons
+                                const msgId = msg._id;
+                                const override = msgId ? ratingOverrides[msgId] : undefined;
+                                const effectiveRating: "positive" | "negative" | undefined = override === "none" ? undefined : (override ?? msg.rating);
 
-                                                    {/* Journal about this — when Oracle suggests a prompt */}
-                                                    {(msg as any).journalPrompt && (
+                                return (
+                                    <div className="flex-1 min-w-0 py-2">
+                                        <AssistantMessageContent content={displayContent} isStreamingThis={isStreamingThis} />
+                                        {(msg as any).audioUrl ? (
+                                            <div className="mt-4">
+                                                <audio
+                                                    controls
+                                                    src={(msg as any).audioUrl}
+                                                    className="w-full h-10 opacity-80 hover:opacity-100 transition-opacity"
+                                                />
+                                            </div>
+                                        ) : (msg as any).audioStorageId ? (
+                                            <div className="mt-4">
+                                                <AudioPlayer storageId={(msg as any).audioStorageId} />
+                                            </div>
+                                        ) : (msg as any).audioData && !isStreamingThis ? (
+                                            <div className="mt-4">
+                                                <audio
+                                                    controls
+                                                    src={`data:audio/wav;base64,${(msg as any).audioData}`}
+                                                    className="w-full h-10 opacity-80 hover:opacity-100 transition-opacity"
+                                                />
+                                            </div>
+                                        ) : null}
+                                        {/* Actions — visible on last response, hover-visible on earlier ones */}
+                                        {!isStreamingThis && (
+                                            <div className={
+                                                isLastAssistant
+                                                    ? "flex items-center gap-1 mt-3 opacity-100 transition-opacity duration-200"
+                                                    : "flex items-center gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                                            }>
+                                                {/* Copy */}
+                                                <button
+                                                    onClick={() => handleCopy(msg.content, "msg-" + i)}
+                                                    className="text-white/20 hover:text-white/50 transition-colors p-1"
+                                                    aria-label="Copy response"
+                                                >
+                                                    {copied === "msg-" + i ? (
+                                                        <Check className="w-3.5 h-3.5 text-galactic" />
+                                                    ) : (
+                                                        <Copy className="w-3.5 h-3.5" />
+                                                    )}
+                                                </button>
+
+                                                {/* Thumbs up */}
+                                                {msgId && (
+                                                    <button
+                                                        onClick={() => handleRate(msgId, "positive")}
+                                                        className={effectiveRating === "positive" ? "p-1 transition-colors text-galactic" : "p-1 transition-colors text-white/20 hover:text-white/50"}
+                                                        aria-label="Good response"
+                                                    >
+                                                        <ThumbsUp className={effectiveRating === "positive" ? "w-3.5 h-3.5 fill-current" : "w-3.5 h-3.5"} />
+                                                    </button>
+                                                )}
+
+                                                {/* Thumbs down */}
+                                                {msgId && (
+                                                    <button
+                                                        onClick={() => handleRate(msgId, "negative")}
+                                                        className={effectiveRating === "negative" ? "p-1 transition-colors text-galactic" : "p-1 transition-colors text-white/20 hover:text-white/50"}
+                                                        aria-label="Bad response"
+                                                    >
+                                                        <ThumbsDown className={effectiveRating === "negative" ? "w-3.5 h-3.5 fill-current" : "w-3.5 h-3.5"} />
+                                                    </button>
+                                                )}
+
+                                                {/* Share */}
+                                                <button
+                                                    onClick={() => handleShare(msg.content, "msg-" + i)}
+                                                    className="text-white/20 hover:text-white/50 transition-colors p-1"
+                                                    aria-label="Share response"
+                                                >
+                                                    {shared === "msg-" + i ? (
+                                                        <Check className="w-3.5 h-3.5 text-galactic" />
+                                                    ) : (
+                                                        <Share2 className="w-3.5 h-3.5" />
+                                                    )}
+                                                </button>
+
+                                                {/* Try again — only on latest response */}
+                                                {isLastAssistant && (
+                                                    <button
+                                                        onClick={handleTryAgain}
+                                                        className="text-white/20 hover:text-white/50 transition-colors p-1"
+                                                        aria-label="Try again"
+                                                    >
+                                                        <RotateCcw className="w-3.5 h-3.5" />
+                                                    </button>
+                                                )}
+
+                                                {/* Separator + Journal about this */}
+                                                {msg.journalPrompt && (
+                                                    <>
+                                                        <span className="text-white/10 mx-1">| </span>
                                                         <button
-                                                            onClick={() => router.push(`/journal/new?oracleSessionId=${sessionId}&presetPrompt=${encodeURIComponent((msg as any).journalPrompt)}&type=freeform`)}
-                                                            className="flex items-center gap-1.5 rounded-full border border-galactic/20 bg-galactic/10 px-3 py-1 text-xs text-galactic/80 hover:bg-galactic/20 hover:text-galactic transition-all"
+                                                            onClick={() => router.push("/journal/new?oracleSessionId=" + sessionId + "&presetPrompt=" + encodeURIComponent(msg.journalPrompt!) + "&type=freeform")}
+                                                            className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs text-primary/80 hover:bg-primary/20 hover:text-primary transition-all"
                                                         >
-                                                            ✦ Journal about this
+                                                            <GiScrollUnfurled className="w-3 h-3" />
+                                                            Journal about this
                                                         </button>
-                                                    )}
-                                                </div>
-                                            )}
-                                            {/* Binaural beat card — rendered from message metadata */}
-                                            {!isStreamingThis && beatParams && (
-                                                <div className="mt-3 w-full max-w-2xl">
-                                                    {beatParams.rationale && (
-                                                        <p className="text-[10px] text-white/35 italic mb-1.5 pl-1">
-                                                            {beatParams.rationale.beatBand} beat
-                                                            {beatParams.rationale.personalization
-                                                                ? ` — ${beatParams.rationale.personalization}`
-                                                                : ""}
-                                                        </p>
-                                                    )}
-                                                    <BinauralBeatHistoryCard params={beatParams} />
-                                                </div>
-                                            )}
-                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
+                                        {/* Binaural beat card — rendered from message metadata */}
+                                        {!isStreamingThis && beatParams && (
+                                            <div className="mt-4 w-full max-w-2xl">
+                                                {beatParams.rationale && (
+                                                    <p className="text-[10px] text-white/35 italic mb-1.5 pl-1">
+                                                        {beatParams.rationale.beatBand} beat
+                                                        {beatParams.rationale.personalization
+                                                            ? ` — ${beatParams.rationale.personalization}`
+                                                            : ""}
+                                                    </p>
+                                                )}
+                                                <BinauralBeatHistoryCard params={beatParams} />
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })() : null}
@@ -696,23 +883,17 @@ export default function OracleChatPage() {
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0 }}
-                                className="flex gap-3 items-start"
+                                className="flex items-center gap-3 py-4"
                                 aria-label="Oracle is consulting the stars"
                             >
-                                <div className="shrink-0 w-8 h-8 rounded-full bg-galactic/15 border border-galactic/25 flex items-center justify-center">
-                                    <GiCursedStar className="w-4 h-4 text-galactic animate-spin" style={{ animationDuration: "3s" }} />
-                                </div>
-                                <div className="flex-1">
-                                    <div className="bg-white/4 border border-white/8 rounded-2xl rounded-tl-md px-5 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex gap-1">
-                                                <span className="w-2 h-2 rounded-full bg-galactic/50 animate-bounce" style={{ animationDelay: "0ms" }} />
-                                                <span className="w-2 h-2 rounded-full bg-galactic/50 animate-bounce" style={{ animationDelay: "150ms" }} />
-                                                <span className="w-2 h-2 rounded-full bg-galactic/50 animate-bounce" style={{ animationDelay: "300ms" }} />
-                                            </div>
-                                            <span className="text-sm text-white/40 italic">{loadingMessage}</span>
-                                        </div>
+                                <GiCursedStar className="w-4 h-4 text-galactic animate-spin shrink-0" style={{ animationDuration: "3s" }} />
+                                <div className="flex items-center gap-2">
+                                    <div className="flex gap-1">
+                                        <span className="w-2 h-2 rounded-full bg-galactic/50 animate-bounce" style={{ animationDelay: "0ms" }} />
+                                        <span className="w-2 h-2 rounded-full bg-galactic/50 animate-bounce" style={{ animationDelay: "150ms" }} />
+                                        <span className="w-2 h-2 rounded-full bg-galactic/50 animate-bounce" style={{ animationDelay: "300ms" }} />
                                     </div>
+                                    <span className="text-sm text-white/40 italic">{loadingMessage}</span>
                                 </div>
                             </motion.div>
                         )}

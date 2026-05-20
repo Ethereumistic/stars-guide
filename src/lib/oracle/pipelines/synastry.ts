@@ -4,12 +4,15 @@
  * Activated when the user asks about compatibility, relationship chart
  * overlay, or anything that involves comparing TWO birth charts.
  *
- * Chart A (the user) is always present. Chart B (partner/friend) is
- * provided via synastryData on the PipelineContext.
+ * The user's chart is always present. The second person's chart
+ * (partner/friend/etc.) is provided via synastryData on the PipelineContext.
+ *
+ * Key: We use role-based labels throughout. Instead of "Chart A" and
+ * "Chart B", the Oracle addresses "you" and "{relationship} ({name})".
  *
  * Data flow:
  * - System prompt: soul document + synastry instructions + timespace
- * - User message: Chart A data + Chart B data + relationship type + question
+ * - User message: your chart data + their chart data + relationship context + question
  */
 
 import type {
@@ -26,11 +29,11 @@ export const synastryPipeline: OraclePipeline = {
   key: "synastry",
 
   dataRequirements: {
-    needsBirthData: true, // Chart A (user's own chart) is required
+    needsBirthData: true, // User's own chart is required
     needsJournalContext: false, // Synastry doesn't need journal context
     expandedJournalBudget: false,
     needsTimespace: true,
-    needsSynastryData: true, // Chart B + relationship type
+    needsSynastryData: true, // Second chart + relationship type
   },
 
   modelHint: "smart", // Synastry analysis benefits from deeper reasoning
@@ -50,11 +53,24 @@ export const synastryPipeline: OraclePipeline = {
     });
 
     // Synastry-specific instructions (high priority)
-    systemBlocks.push({
-      content: getSynastryInstructions(),
-      priority: 80,
-      label: "synastry_instructions",
-    });
+    // Use role-based labels — pass chart B name and relationship info
+    if (ctx.synastryData) {
+      systemBlocks.push({
+        content: getSynastryInstructions(
+          ctx.synastryData.chartBName || "the other person",
+          ctx.synastryData.relationship,
+          ctx.synastryData.relationshipCategory,
+        ),
+        priority: 80,
+        label: "synastry_instructions",
+      });
+    } else {
+      systemBlocks.push({
+        content: getSynastryInstructions("the other person", "partner"),
+        priority: 80,
+        label: "synastry_instructions",
+      });
+    }
 
     // Timespace context
     if (ctx.timespaceContext) {
@@ -67,28 +83,28 @@ export const synastryPipeline: OraclePipeline = {
 
     // ── User message blocks ────────────────────────────────────────────────
 
-    // Chart A data (user's chart)
+    // User's chart data (addressed as "your chart")
     if (ctx.birthData) {
       userBlocks.push({
-        content: `[CHART A DATA — Primary Person]\n${ctx.birthData}`,
+        content: `[YOUR CHART DATA]\n${ctx.birthData}`,
         label: "chart_a_data",
       });
     } else {
       // User doesn't have chart data — ask for it
       systemBlocks.push({
         content: [
-          "[CHART A DATA UNAVAILABLE]",
+          "[YOUR CHART DATA UNAVAILABLE]",
           "The user has requested a synastry reading but does not have their own birth data on file.",
           "Ask them for their birth date, exact birth time, and birth city/country before proceeding.",
           "Do NOT invent or assume any placements.",
-          "[END CHART A DATA UNAVAILABLE]",
+          "[END YOUR CHART DATA UNAVAILABLE]",
         ].join("\n"),
         priority: 75,
         label: "chart_a_unavailable",
       });
     }
 
-    // Chart B data (partner/friend's chart)
+    // Second person's chart data
     if (ctx.synastryData) {
       const chartBContext = buildSynastryChartBContext(ctx.synastryData);
       userBlocks.push({
@@ -96,14 +112,14 @@ export const synastryPipeline: OraclePipeline = {
         label: "chart_b_data",
       });
     } else {
-      // No Chart B data — shouldn't happen if UI validation works, but handle gracefully
+      // No chart B data — shouldn't happen if UI validation works, but handle gracefully
       systemBlocks.push({
         content: [
-          "[CHART B DATA MISSING]",
+          "[SECOND PERSON'S CHART DATA MISSING]",
           "The user selected a synastry reading but no second chart data was provided.",
           "Ask the user to provide the second person's birth information (date, time, and location) before proceeding.",
           "Do NOT invent or assume any placements.",
-          "[END CHART B DATA MISSING]",
+          "[END SECOND PERSON'S CHART DATA MISSING]",
         ].join("\n"),
         priority: 75,
         label: "chart_b_unavailable",

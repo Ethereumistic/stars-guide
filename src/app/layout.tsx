@@ -25,8 +25,6 @@ import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { ConvexClientProvider } from "@/components/convex-client-provider";
 import { UserSync } from "@/components/providers/user-sync";
 import { ReferralTracker } from "@/components/providers/referral-tracker";
-// import { ShootingStars } from "@/components/hero/shooting-stars";
-// import { StarsBackground } from "@/components/hero /stars-background";
 import { StarsBackground, ShootingStars } from "@/components/hero/stars-canvas";
 import { TooltipProvider } from "@/components/ui/tooltip";
 

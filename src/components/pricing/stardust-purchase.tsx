@@ -2,10 +2,9 @@
 
 import { motion, AnimatePresence, useInView } from "motion/react";
 import { GiStarSwirl } from "react-icons/gi";
-import { Check, Zap } from "lucide-react";
+import { Check } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { StarsBackground } from "@/components/hero/stars-background";
-import { ShootingStars } from "@/components/hero/shooting-stars";
+import { StarsBackground, ShootingStars } from "@/components/hero/stars-canvas";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import Link from "next/link";
