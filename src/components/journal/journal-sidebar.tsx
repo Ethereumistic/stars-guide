@@ -23,18 +23,17 @@ interface JournalSidebarProps {
 }
 
 const NAV_ITEMS = [
-    { key: "timeline", label: "Timeline", href: "/journal", icon: BookOpen },
-    { key: "calendar", label: "Calendar", href: "/journal/calendar", icon: Calendar },
-    { key: "search", label: "Search", href: "/journal/search", icon: Search },
-    { key: "stats", label: "Stats", href: "/journal/stats", icon: BarChart3 },
-    { key: "settings", label: "Settings", href: "/journal/settings", icon: Settings },
+    { key: "stream", label: "Stream", href: "/journal", icon: BookOpen },
+    { key: "calendar", label: "Calendar", href: "/journal?tab=calendar", icon: Calendar },
+    { key: "search", label: "Search", href: "/journal?tab=search", icon: Search },
+    { key: "insights", label: "Insights", href: "/journal?tab=insights", icon: BarChart3 },
+    { key: "settings", label: "Settings", href: "/journal?tab=settings", icon: Settings },
 ];
 
 const QUICK_CREATE = [
-    { key: "freeform", label: "Freeform", href: "/journal/new?type=freeform", icon: PenLine },
-    { key: "checkin", label: "Check-in", href: "/journal/new?type=checkin", icon: Sparkles },
-    { key: "dream", label: "Dream", href: "/journal/new?type=dream", icon: Moon },
-    { key: "gratitude", label: "Gratitude", href: "/journal/new?type=gratitude", icon: Heart },
+    { key: "freeform", label: "Freeform", href: "/journal?compose=true&type=freeform", icon: PenLine },
+    { key: "dream", label: "Dream", href: "/journal?compose=true&type=dream", icon: Moon },
+    { key: "gratitude", label: "Gratitude", href: "/journal?compose=true&type=gratitude", icon: Heart },
 ];
 
 export function JournalSidebarContent({ className }: JournalSidebarProps) {
@@ -108,7 +107,7 @@ export function JournalSidebarContent({ className }: JournalSidebarProps) {
                 <Button
                     variant="galactic"
                     size="sm"
-                    onClick={() => router.push("/journal/new")}
+                    onClick={() => router.push("/journal?compose=true")}
                     className="w-full gap-2"
                 >
                     <Plus className="h-4 w-4" />

@@ -845,7 +845,7 @@ export default function OracleChatPage() {
                                                     <>
                                                         <span className="text-white/10 mx-1">| </span>
                                                         <button
-                                                            onClick={() => router.push("/journal/new?oracleSessionId=" + sessionId + "&presetPrompt=" + encodeURIComponent(msg.journalPrompt!) + "&type=freeform")}
+                                                            onClick={() => router.push("/journal?compose=true&oracleSessionId=" + sessionId + "&prompt=" + encodeURIComponent(msg.journalPrompt!))}
                                                             className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs text-primary/80 hover:bg-primary/20 hover:text-primary transition-all"
                                                         >
                                                             <GiScrollUnfurled className="w-3 h-3" />

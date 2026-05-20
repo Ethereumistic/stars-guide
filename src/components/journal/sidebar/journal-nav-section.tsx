@@ -44,10 +44,10 @@ import { useJournalSidebarEntries, type SidebarEntryItem } from "./use-journal-e
 import { MOOD_ZONES, type MoodZone } from "@/lib/journal/constants";
 
 const NAV_ITEMS = [
-    { key: "timeline", label: "Timeline", href: "/journal", icon: GiScrollUnfurled },
-    { key: "calendar", label: "Calendar", href: "/journal/calendar", icon: Calendar },
-    { key: "stats", label: "Stats", href: "/journal/stats", icon: BarChart3 },
-    { key: "settings", label: "Settings", href: "/journal/settings", icon: Settings },
+    { key: "stream", label: "Stream", href: "/journal", icon: GiScrollUnfurled },
+    { key: "calendar", label: "Calendar", href: "/journal?tab=calendar", icon: Calendar },
+    { key: "insights", label: "Insights", href: "/journal?tab=insights", icon: BarChart3 },
+    { key: "settings", label: "Settings", href: "/journal?tab=settings", icon: Settings },
 ];
 
 // --- Helpers ---

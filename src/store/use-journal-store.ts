@@ -10,19 +10,17 @@ interface JournalSearchFilters {
 }
 
 interface JournalStore {
-    // Entry type for composer
-    entryType: EntryType;
-    setEntryType: (type: EntryType) => void;
+    // ── Tab state (reflects URL, but also controls tab) ──
+    activeTab: "stream" | "calendar" | "search" | "insights" | "settings";
+    setActiveTab: (tab: JournalStore["activeTab"]) => void;
 
-    // Composer transient state
-    isComposing: boolean;
-    setIsComposing: (v: boolean) => void;
+    // ── Detail panel state ──
+    activeEntryId: string | null;
+    setActiveEntryId: (id: string | null) => void;
+    isEditingEntry: boolean;
+    setIsEditingEntry: (v: boolean) => void;
 
-    // Active view
-    activeView: "timeline" | "calendar" | "search" | "stats";
-    setActiveView: (view: JournalStore["activeView"]) => void;
-
-    // Voice
+    // ── Voice input state (still global — recording can continue across views) ──
     isRecording: boolean;
     interimTranscript: string;
     finalTranscript: string;
@@ -30,23 +28,30 @@ interface JournalStore {
     setInterimTranscript: (text: string) => void;
     setFinalTranscript: (text: string) => void;
 
-    // Search
+    // ── Search state (useful to persist across tab switches) ──
     searchQuery: string;
     setSearchQuery: (q: string) => void;
     searchFilters: JournalSearchFilters;
     setSearchFilters: (filters: Partial<JournalSearchFilters>) => void;
     resetSearchFilters: () => void;
+
+    // ── Legacy fields (kept for backward compatibility with EntryComposer) ──
+    // These are used by the old /journal/[entryId]/edit page.
+    // They will be removed once the detail panel (Phase 2) replaces it.
+    entryType: EntryType;
+    setEntryType: (type: EntryType) => void;
+    isComposing: boolean;
+    setIsComposing: (v: boolean) => void;
 }
 
 export const useJournalStore = create<JournalStore>((set, get) => ({
-    entryType: "freeform",
-    setEntryType: (entryType) => set({ entryType }),
+    activeTab: "stream",
+    setActiveTab: (activeTab) => set({ activeTab }),
 
-    isComposing: false,
-    setIsComposing: (isComposing) => set({ isComposing }),
-
-    activeView: "timeline",
-    setActiveView: (activeView) => set({ activeView }),
+    activeEntryId: null,
+    setActiveEntryId: (activeEntryId) => set({ activeEntryId }),
+    isEditingEntry: false,
+    setIsEditingEntry: (isEditingEntry) => set({ isEditingEntry }),
 
     isRecording: false,
     interimTranscript: "",
@@ -62,4 +67,10 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
     setSearchFilters: (filters) =>
         set({ searchFilters: { ...get().searchFilters, ...filters } }),
     resetSearchFilters: () => set({ searchFilters: {} }),
+
+    // Legacy — kept for EntryComposer backward compatibility
+    entryType: "freeform",
+    setEntryType: (entryType) => set({ entryType }),
+    isComposing: false,
+    setIsComposing: (isComposing) => set({ isComposing }),
 }));

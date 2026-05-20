@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-	/* config options here */
 	images: {
 		remotePatterns: [
 			{
@@ -9,7 +8,36 @@ const nextConfig: NextConfig = {
 				protocol: "https",
 			}
 		]
-	}
+	},
+	async redirects() {
+		return [
+			{
+				source: "/journal/new",
+				destination: "/journal?compose=true",
+				permanent: true,
+			},
+			{
+				source: "/journal/calendar",
+				destination: "/journal?tab=calendar",
+				permanent: true,
+			},
+			{
+				source: "/journal/search",
+				destination: "/journal?tab=search",
+				permanent: true,
+			},
+			{
+				source: "/journal/stats",
+				destination: "/journal?tab=insights",
+				permanent: true,
+			},
+			{
+				source: "/journal/settings",
+				destination: "/journal?tab=settings",
+				permanent: true,
+			},
+		];
+	},
 };
 
 export default nextConfig;

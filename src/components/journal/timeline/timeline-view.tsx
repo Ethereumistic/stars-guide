@@ -66,7 +66,7 @@ export function TimelineView({ className }: TimelineViewProps) {
                     <Button
                         variant="galactic"
                         size="sm"
-                        onClick={() => router.push("/journal/new")}
+                        onClick={() => router.push("/journal?compose=true")}
                         className="mt-4 gap-2"
                     >
                         <Plus className="h-4 w-4" />

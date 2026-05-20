@@ -39,7 +39,8 @@ export default function JournalLayout({ children }: { children: React.ReactNode 
     const centerCtaLabel = plan === "free" || plan === "popular" ? "Get Cosmic Flow" : "Journal";
 
     const handleNewEntry = () => {
-        router.push("/journal/new");
+        // Navigate to compose mode on the stream page
+        router.push("/journal?compose=true");
     };
 
     return (
