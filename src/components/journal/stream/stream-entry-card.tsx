@@ -64,7 +64,8 @@ export function StreamEntryCard({
     const typeMeta = ENTRY_TYPE_META[entry.entryType as keyof typeof ENTRY_TYPE_META];
     const moodZone = entry.moodZone as MoodZone | undefined;
     const zoneInfo = moodZone ? MOOD_ZONES.find((z) => z.key === moodZone) : null;
-    const accentColor = zoneInfo?.color ?? "#5a607a";
+    // Fall back to journal amber accent when no mood zone is set
+    const accentColor = zoneInfo?.color ?? "var(--journal-accent, #c8a45c)";
 
     // Content preview — first line truncated
     const contentPreview = entry.content
@@ -103,14 +104,18 @@ export function StreamEntryCard({
             type="button"
             onClick={onClick}
             className={cn(
-                "group relative block w-full text-left rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden transition-all duration-300 hover:border-white/[0.12] hover:bg-white/[0.04]",
+                "group relative block w-full text-left rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden transition-all duration-300 hover:border-white/[0.12] hover:bg-white/[0.04] hover:shadow-[0_0_16px_rgba(200,164,92,0.12)]",
                 className
             )}
         >
-            {/* Left accent bar */}
+            {/* Left accent bar — warm amber with glow on hover */}
             <div
-                className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl transition-opacity duration-300 opacity-60 group-hover:opacity-100"
-                style={{ backgroundColor: accentColor }}
+                className="absolute left-0 top-0 bottom-0 w-[4px] rounded-l-xl transition-all duration-300 group-hover:w-[5px]"
+                style={{
+                    backgroundColor: accentColor,
+                    boxShadow: "0 0 6px rgba(200,164,92,0.4)",
+                    opacity: 0.8,
+                }}
             />
 
             {/* Content area */}

@@ -8,20 +8,30 @@ import { StreamTimeline } from "./stream-timeline";
 import { StreakIndicator } from "./streak-indicator";
 import { DailyPromptInline } from "./daily-prompt-inline";
 import { ModeBar, type JournalTab } from "./mode-bar";
-import { GiScrollUnfurled } from "react-icons/gi";
-
-// Calendar/Search/Stats/Settings components (existing ones, adapted)
+import { DetailPanel } from "@/components/journal/detail/detail-panel";
+import { ConsentBanner } from "@/components/journal/consent/consent-banner";
 import { CalendarTab } from "./calendar-tab";
 import { SearchTab } from "./search-tab";
+import { InsightsTab } from "./insights-tab";
+import { useUserStore } from "@/store/use-user-store";
+import {
+    detectTimezone,
+    getLocalHour,
+    getGreetingForHour,
+} from "@/lib/timezone";
+import { GiScrollUnfurled } from "react-icons/gi";
 
 /**
  * JournalStreamPage — the main unified journal page.
  * Everything lives in one view with tabs: Stream, Calendar, Search, Insights.
  * URL params control initial state: ?compose=true, ?tab=calendar, ?entry=xxx
+ *
+ * Detail panel opens via ?entry= param (slide-over from right).
  */
 export function JournalStreamPage({ className }: { className?: string }) {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { user } = useUserStore();
 
     // Read URL params for initial state
     const paramTab = searchParams.get("tab") as JournalTab | null;
@@ -37,13 +47,51 @@ export function JournalStreamPage({ className }: { className?: string }) {
         paramTab || "stream"
     );
 
+    // Timezone-aware greeting state
+    const [localHour, setLocalHour] = React.useState<number>(() =>
+        typeof window !== "undefined" ? getLocalHour(detectTimezone()) : 12,
+    );
+    const [timezone] = React.useState(detectTimezone);
+
+    React.useEffect(() => {
+        const sync = () => setLocalHour(getLocalHour(timezone));
+        const id = setInterval(sync, 60_000);
+        return () => clearInterval(id);
+    }, [timezone]);
+
+    const firstName = user?.username?.split(/[_\s]/)[0] ?? "Seeker";
+    const greeting = getGreetingForHour(localHour, firstName);
+
+    // Format current date: "Thursday, May 22"
+    const dateStr = React.useMemo(() => {
+        try {
+            return new Intl.DateTimeFormat("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+            }).format(new Date());
+        } catch {
+            return "";
+        }
+    }, []);
+
+    // Detail panel state — driven by ?entry= URL param
+    const [activeEntryId, setActiveEntryId] = React.useState<string | null>(
+        paramEntry || null
+    );
+    const [isEditingEntry, setIsEditingEntry] = React.useState(
+        paramEdit || false
+    );
+
     // QuickCapture ref for scroll/focus
     const captureRef = React.useRef<HTMLDivElement>(null);
+
+    // Prompt text to pre-fill into QuickCapture (set when user clicks a prompt card)
+    const [promptContent, setPromptContent] = React.useState<string | undefined>();
 
     // Handle tab change — update URL params
     function handleTabChange(tab: JournalTab) {
         setActiveTab(tab);
-        // Update URL without full navigation
         const url = new URL(window.location.href);
         url.searchParams.set("tab", tab);
         // Remove transient params when switching tabs
@@ -56,37 +104,88 @@ export function JournalStreamPage({ className }: { className?: string }) {
     // Handle "New Entry" button — scroll to QuickCapture and focus
     function handleNewEntry() {
         setActiveTab("stream");
-        // Scroll to capture area
-        captureRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-        // Focus the textarea
+        setPromptContent(undefined);
+        captureRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
         setTimeout(() => {
             const textarea = captureRef.current?.querySelector("textarea");
             textarea?.focus();
         }, 200);
     }
 
-    // Handle "Use prompt" from DailyPromptInline
+    // Handle "Use prompt" from DailyPromptInline — scroll to QuickCapture and pre-fill content
     function handleUsePrompt(promptText: string) {
-        handleNewEntry();
-        // The QuickCapture will need the prompt — we handle this via URL params or state
+        setActiveTab("stream");
+        setPromptContent(promptText);
+        captureRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => {
+            const textarea = captureRef.current?.querySelector("textarea");
+            textarea?.focus();
+        }, 200);
     }
 
-    // Handle entry click from timeline — open detail panel (Phase 2)
+    // Handle "Ask Oracle about this" — navigate to Oracle with journal context
+    function handleAskOracle(entryId: string, contentPreview: string) {
+        const params = new URLSearchParams();
+        params.set("journalEntryId", entryId);
+        if (contentPreview) {
+            params.set("prompt", contentPreview);
+        }
+        router.push(`/oracle/new?${params.toString()}`);
+    }
+
+    // Handle entry click from timeline — open detail panel
     function handleEntryClick(entryId: string) {
+        setActiveEntryId(entryId);
+        setIsEditingEntry(false);
+        // Update URL to reflect the open entry
         const url = new URL(window.location.href);
         url.searchParams.set("entry", entryId);
+        url.searchParams.delete("edit");
         window.history.pushState({}, "", url.toString());
-        // TODO: Open detail panel (Phase 2)
-        // For now, navigate to the old detail page
-        router.push(`/journal/${entryId}`);
     }
+
+    // Handle closing the detail panel
+    function handleCloseDetailPanel() {
+        setActiveEntryId(null);
+        setIsEditingEntry(false);
+        // Remove entry params from URL
+        const url = new URL(window.location.href);
+        url.searchParams.delete("entry");
+        url.searchParams.delete("edit");
+        window.history.replaceState({}, "", url.toString());
+    }
+
+    // Handle opening edit mode from detail panel
+    function handleEditEntry(entryId: string) {
+        setIsEditingEntry(true);
+        const url = new URL(window.location.href);
+        url.searchParams.set("entry", entryId);
+        url.searchParams.set("edit", "true");
+        window.history.replaceState({}, "", url.toString());
+    }
+
+    // Sync URL params with state on back/forward navigation
+    React.useEffect(() => {
+        const onPopState = () => {
+            const url = new URL(window.location.href);
+            const tab = url.searchParams.get("tab") as JournalTab | null;
+            const entry = url.searchParams.get("entry");
+            const edit = url.searchParams.get("edit") === "true";
+            if (tab) setActiveTab(tab);
+            setActiveEntryId(entry);
+            setIsEditingEntry(edit);
+        };
+        window.addEventListener("popstate", onPopState);
+        return () => window.removeEventListener("popstate", onPopState);
+    }, []);
 
     // Initial compose: if ?compose=true was in URL, auto-focus
     React.useEffect(() => {
         if (paramCompose) {
             handleNewEntry();
         }
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
         <div className={cn("flex flex-col h-full", className)}>
@@ -95,18 +194,18 @@ export function JournalStreamPage({ className }: { className?: string }) {
                 {/* ── Stream Tab ─────────────────────────────── */}
                 {activeTab === "stream" && (
                     <div className="space-y-6">
-                        {/* Header */}
+{/* Header — warm, personalized greeting */}
                         <div className="mb-6">
-                            <div className="flex items-center gap-2 mb-1">
-                                <GiScrollUnfurled className="h-4 w-4 text-galactic/60" />
-                                <span className="text-[10px] font-sans uppercase tracking-[0.2em] text-galactic/50">
-                                    Your Cosmic Diary
-                                </span>
-                            </div>
-                            <h1 className="text-2xl font-serif font-bold text-white/90 tracking-wide">
-                                Journal
-                            </h1>
+                            <p className="text-2xl md:text-3xl font-serif font-bold text-[var(--journal-accent,#c8a45c)] tracking-wide leading-relaxed">
+                                {greeting}
+                            </p>
+                            <p className="text-xs font-sans text-white/30 mt-1 tracking-wide">
+                                {dateStr}
+                            </p>
                         </div>
+
+                        {/* Consent banner — shown only if user hasn't granted Oracle access */}
+                        <ConsentBanner />
 
                         {/* Streak indicator */}
                         <StreakIndicator />
@@ -117,13 +216,22 @@ export function JournalStreamPage({ className }: { className?: string }) {
                         {/* QuickCapture */}
                         <div ref={captureRef}>
                             <QuickCapture
-                                initialContent={paramPrompt || undefined}
-                                oracleSessionId={paramOracleSessionId || undefined}
+                                initialContent={promptContent ?? paramPrompt ?? undefined}
+                                oracleSessionId={
+                                    paramOracleSessionId || undefined
+                                }
                                 oracleInspired={Boolean(paramPrompt)}
-                                initialType={paramType === "dream" ? "dream" : paramType === "gratitude" ? "gratitude" : undefined}
+                                initialType={
+                                    paramType === "dream"
+                                        ? "dream"
+                                        : paramType === "gratitude"
+                                          ? "gratitude"
+                                          : undefined
+                                }
                                 onSave={() => {
-                                    // Optional: could show a success animation
+                                    // Could show success animation
                                 }}
+                                onAskOracle={handleAskOracle}
                             />
                         </div>
 
@@ -160,13 +268,15 @@ export function JournalStreamPage({ className }: { className?: string }) {
                                 Find entries by keyword, mood, or tag
                             </p>
                         </div>
-                        <SearchTab onEntryClick={(entryId) => handleEntryClick(entryId)} />
+                        <SearchTab
+                            onEntryClick={(entryId) => handleEntryClick(entryId)}
+                        />
                     </div>
                 )}
 
                 {/* ── Insights Tab ────────────────────────────── */}
                 {activeTab === "insights" && (
-                    <div>
+                    <div className="space-y-4">
                         <div className="mb-6">
                             <h2 className="text-xl font-serif font-bold text-white/90 tracking-wide">
                                 Insights
@@ -175,19 +285,13 @@ export function JournalStreamPage({ className }: { className?: string }) {
                                 Patterns, streaks, and cosmic correlations
                             </p>
                         </div>
-                        {/* TODO: Integrate stats components */}
-                        <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <GiScrollUnfurled className="h-10 w-10 text-white/10 mb-4" />
-                            <p className="text-sm font-serif text-white/30">
-                                Insights coming soon
-                            </p>
-                        </div>
+                        <InsightsTab />
                     </div>
                 )}
 
                 {/* ── Settings Tab ─────────────────────────────── */}
                 {activeTab === "settings" && (
-                    <div>
+                    <div className="space-y-6">
                         <div className="mb-6">
                             <h2 className="text-xl font-serif font-bold text-white/90 tracking-wide">
                                 Settings
@@ -196,19 +300,83 @@ export function JournalStreamPage({ className }: { className?: string }) {
                                 Manage journal preferences
                             </p>
                         </div>
-                        {/* TODO: Integrate consent settings */}
-                        <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <GiScrollUnfurled className="h-10 w-10 text-white/10 mb-4" />
-                            <p className="text-sm font-serif text-white/30">
-                                Settings coming soon
-                            </p>
-                        </div>
+                        <ConsentSettingsInline />
                     </div>
                 )}
             </div>
 
             {/* Mode bar — bottom tab bar */}
             <ModeBar activeTab={activeTab} onTabChange={handleTabChange} />
+
+            {/* Detail panel — slide-over from right */}
+            <DetailPanel
+                entryId={activeEntryId}
+                open={activeEntryId !== null}
+                onClose={handleCloseDetailPanel}
+                editMode={isEditingEntry}
+            />
+        </div>
+    );
+}
+
+/**
+ * Inline consent settings for the Settings tab.
+ * Reuses the existing ConsentSettings component in a non-modal layout.
+ */
+import { ConsentSettings } from "@/components/journal/consent/consent-settings";
+import { useQuery as useConsentQuery } from "convex/react";
+import { api as consentApi } from "../../../../convex/_generated/api";
+
+function ConsentSettingsInline() {
+    const consent = useConsentQuery(consentApi.journal.consent.getConsent);
+
+    if (consent === undefined) {
+        return (
+            <div className="space-y-6">
+                <div className="animate-pulse space-y-3">
+                    <div className="h-4 bg-white/5 rounded w-48" />
+                    <div className="h-20 bg-white/5 rounded" />
+                </div>
+            </div>
+        );
+    }
+
+    // No consent record — show prompt to enable
+    if (consent === null) {
+        return (
+            <div className="space-y-6">
+                <div>
+                    <h3 className="text-sm font-sans uppercase tracking-[0.15em] text-white/40 mb-3">
+                        Oracle Integration
+                    </h3>
+                    <p className="text-xs text-white/30 font-sans">
+                        Enable Oracle access from the banner at the top of your journal stream.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            <div>
+                <h3 className="text-sm font-sans uppercase tracking-[0.15em] text-white/40 mb-3">
+                    Oracle Integration
+                </h3>
+                <p className="text-xs text-white/30 font-sans mb-4">
+                    Control what journal data Oracle can access for personalized readings.
+                </p>
+                <ConsentSettings consent={consent} />
+            </div>
+
+            <div className="border-t border-white/[0.06] pt-6">
+                <h3 className="text-sm font-sans uppercase tracking-[0.15em] text-white/40 mb-3">
+                    Data
+                </h3>
+                <p className="text-xs text-white/30 font-sans">
+                    Export and manage your journal data coming soon.
+                </p>
+            </div>
         </div>
     );
 }

@@ -320,6 +320,27 @@
 	--shadow-2xl: 0px 4px 12px -2px hsl(0 0% 0% / 1.25);
 }
 
+/* ── Journal QuickCapture: Midnight Desk Warm Aesthetic ── */
+.journal-theme {
+	--journal-bg: #0f1628;
+	--journal-paper: #f5f0e8;
+	--journal-ink: #1a1a2e;
+	--journal-accent: #c8a45c;
+	--journal-accent2: #b87333;
+	--journal-muted: #5a607a;
+	--journal-border: #1e2640;
+	--journal-glow: #c8a45c;
+}
+
+@keyframes journal-tap {
+	0% { transform: scale(0.95); }
+	100% { transform: scale(1); }
+}
+
+.journal-tap-animate {
+	animation: journal-tap 0.15s ease-out;
+}
+
 @layer base {
 	body {
 		letter-spacing: var(--tracking-normal);

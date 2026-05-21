@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 import {
     SidebarMenu,
@@ -26,11 +27,13 @@ export interface SidebarActionLink {
 export interface SidebarQuickActionsProps {
     actions?: SidebarActionButton[];
     links?: SidebarActionLink[];
+    className?: string;
+    iconClassName?: string;
 }
 
-export function SidebarQuickActions({ actions = [], links = [] }: SidebarQuickActionsProps) {
+export function SidebarQuickActions({ actions = [], links = [], className, iconClassName = "text-primary" }: SidebarQuickActionsProps) {
     return (
-        <SidebarMenu className="px-2 pt-2">
+        <SidebarMenu className={cn("px-2 pt-2", className)}>
             {/* Action buttons (with onClick handlers) */}
             {actions.map((action, index) => (
                 <SidebarMenuItem key={`action-${index}`}>
@@ -39,7 +42,7 @@ export function SidebarQuickActions({ actions = [], links = [] }: SidebarQuickAc
                         onClick={action.onClick}
                         className="h-10 gap-3 text-foreground/70 hover:bg-accent/40 hover:text-primary transition-all duration-500 group-data-[collapsible=icon]:justify-center"
                     >
-                        <action.icon className="h-4 w-4 text-primary" />
+                        <action.icon className={cn("h-4 w-4", iconClassName)} />
                         <span className="font-serif text-sm italic lowercase tracking-wide group-data-[collapsible=icon]:hidden">
                             {action.label}
                         </span>
@@ -56,7 +59,7 @@ export function SidebarQuickActions({ actions = [], links = [] }: SidebarQuickAc
                         className="h-10 gap-3 text-foreground/70 hover:bg-accent/40 hover:text-primary transition-all duration-500 group-data-[collapsible=icon]:justify-center"
                     >
                         <Link href={link.href}>
-                            <link.icon className="h-4 w-4 text-primary" />
+                            <link.icon className={cn("h-4 w-4", iconClassName)} />
                             <span className="font-serif text-sm italic lowercase tracking-wide group-data-[collapsible=icon]:hidden">
                                 {link.label}
                             </span>

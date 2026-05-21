@@ -43,10 +43,15 @@ export function EmotionChips({
     className,
 }: EmotionChipsProps) {
     const [showAll, setShowAll] = React.useState(false);
+    const [tappedKey, setTappedKey] = React.useState<string | null>(null);
 
     const selectedKeys = new Set(value.map((e) => e.key));
 
     function handleTap(emotion: EmotionDefinition) {
+        // Trigger haptic-like scale animation
+        setTappedKey(emotion.key);
+        setTimeout(() => setTappedKey(null), 150);
+
         const existing = value.find((e) => e.key === emotion.key);
 
         if (!existing) {
@@ -81,6 +86,7 @@ export function EmotionChips({
     function renderChip(emotion: EmotionDefinition) {
         const intensity = getIntensity(emotion.key);
         const isSelected = intensity > 0;
+        const isTapped = tappedKey === emotion.key;
 
         // Border thickness / fill intensity indicates level
         const borderClass = isSelected
@@ -89,7 +95,7 @@ export function EmotionChips({
                 : emotion.polarity === "negative"
                     ? "border-red-500/40"
                     : "border-gray-400/40"
-            : "border-white/[0.08]";
+            : "border-[var(--journal-border)]";
 
         const bgClass = isSelected
             ? emotion.polarity === "positive"
@@ -105,7 +111,7 @@ export function EmotionChips({
                 : emotion.polarity === "negative"
                     ? "text-red-400"
                     : "text-gray-300"
-            : "text-white/35 hover:text-white/55";
+            : "text-[var(--journal-muted)] hover:text-white/55";
 
         // Intensity dots inside the chip
         const numDots = isSelected ? intensity : 0;
@@ -117,7 +123,10 @@ export function EmotionChips({
                 onClick={() => handleTap(emotion)}
                 disabled={!isSelected && value.length >= maxEmotions}
                 className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-sans transition-all duration-200 border",
+                    "inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-sans transition-all duration-200 border",
+                    "min-h-[44px] min-w-[44px]",
+                    // Scale animation on tap
+                    isTapped && "journal-tap-animate",
                     borderClass,
                     bgClass,
                     textClass,
@@ -144,26 +153,34 @@ export function EmotionChips({
     return (
         <div className={cn("space-y-2", className)}>
             <div className="flex items-center justify-between">
-                <label className="text-xs font-serif text-white/50">
+                <label className="text-xs font-serif text-[var(--journal-muted)]">
                     How are you feeling?
                 </label>
-                <span className="text-[10px] font-sans uppercase tracking-[0.1em] text-white/25">
+                <span className="text-[10px] font-sans uppercase tracking-[0.1em] text-[var(--journal-muted)]">
                     {value.length}/{maxEmotions}
                 </span>
             </div>
 
-            {/* Initial emotions */}
-            <div className="flex flex-wrap gap-1.5">
+            {/* Initial emotions — mobile-friendly gap */}
+            <div className="flex flex-wrap gap-2 md:gap-1.5">
                 {INITIAL_EMOTIONS.map(renderChip)}
 
                 {/* Remaining emotions (shown when expanded) */}
                 {showAll && REMAINING_EMOTIONS.map(renderChip)}
 
-                {/* More/less toggle */}
+                {/* More/less toggle — larger and more accessible */}
                 <button
                     type="button"
                     onClick={() => setShowAll(!showAll)}
-                    className="inline-flex items-center rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-xs font-sans text-white/30 hover:bg-white/[0.06] hover:text-white/50 transition-all duration-200"
+                    className={cn(
+                        "inline-flex items-center justify-center rounded-full",
+                        "border border-[var(--journal-border)]",
+                        "bg-white/[0.02] hover:bg-white/[0.06]",
+                        "text-[var(--journal-muted)] hover:text-white/50",
+                        "text-xs font-sans",
+                        "transition-all duration-200",
+                        "min-h-[44px] min-w-[44px] px-4 py-2"
+                    )}
                 >
                     {showAll ? "less ▴" : "more ▾"}
                 </button>

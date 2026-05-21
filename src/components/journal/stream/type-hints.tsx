@@ -24,7 +24,7 @@ export function TypeHints({
     return (
         <div
             className={cn(
-                "flex items-center gap-2 text-[10px] font-sans",
+                "flex flex-wrap items-center gap-2 md:gap-2 text-[10px] font-sans",
                 className
             )}
         >
@@ -36,10 +36,10 @@ export function TypeHints({
                         type="button"
                         onClick={() => onTypeChange(hint.type)}
                         className={cn(
-                            "transition-all duration-200",
+                            "transition-all duration-200 min-h-[44px] md:min-h-0 inline-flex items-center",
                             isActive
-                                ? "text-white/60"
-                                : "text-white/25 hover:text-white/45"
+                                ? "text-[var(--journal-accent)]"
+                                : "text-[var(--journal-muted)] hover:text-white/45"
                         )}
                     >
                         <span className="mr-1">{hint.icon}</span>

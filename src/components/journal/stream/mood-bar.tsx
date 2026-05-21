@@ -44,9 +44,9 @@ export function MoodBar({
             )}
 
             {/* Valence slider */}
-            <div className="flex items-center gap-2.5">
-                <span className="text-sm shrink-0">😢</span>
-                <div className="relative flex-1 h-7 flex items-center">
+            <div className="flex items-center gap-2.5 md:gap-2">
+                <span className="text-lg md:text-sm shrink-0 select-none">😢</span>
+                <div className="relative flex-1 min-h-[44px] flex items-center">
                     <SliderTrack
                         value={valence}
                         min={-2}
@@ -56,13 +56,13 @@ export function MoodBar({
                         onChange={(v) => onValenceChange(v)}
                     />
                 </div>
-                <span className="text-sm shrink-0">😊</span>
+                <span className="text-lg md:text-sm shrink-0 select-none">😊</span>
             </div>
 
             {/* Energy slider */}
-            <div className="flex items-center gap-2.5">
-                <span className="text-sm shrink-0">☁️</span>
-                <div className="relative flex-1 h-7 flex items-center">
+            <div className="flex items-center gap-2.5 md:gap-2">
+                <span className="text-lg md:text-sm shrink-0 select-none">☁️</span>
+                <div className="relative flex-1 min-h-[44px] flex items-center">
                     <SliderTrack
                         value={energy}
                         min={-2}
@@ -72,7 +72,7 @@ export function MoodBar({
                         onChange={(v) => onEnergyChange(v)}
                     />
                 </div>
-                <span className="text-sm shrink-0">🔥</span>
+                <span className="text-lg md:text-sm shrink-0 select-none">🔥</span>
             </div>
 
             {/* Clear button */}
@@ -83,7 +83,7 @@ export function MoodBar({
                         onValenceChange(null);
                         onEnergyChange(null);
                     }}
-                    className="block mx-auto text-[10px] font-sans uppercase tracking-[0.1em] text-white/25 hover:text-white/45 transition-colors"
+                    className="block mx-auto text-[10px] font-sans uppercase tracking-[0.1em] text-[var(--journal-muted)] hover:text-[var(--journal-accent)] transition-colors"
                 >
                     Clear mood
                 </button>
@@ -92,7 +92,7 @@ export function MoodBar({
     );
 }
 
-/** Internal slider track with draggable thumb */
+/** Internal slider track with draggable thumb — mobile-optimized touch targets */
 function SliderTrack({
     value,
     min,
@@ -110,6 +110,19 @@ function SliderTrack({
 }) {
     const trackRef = React.useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = React.useState(false);
+    const [isAnimating, setIsAnimating] = React.useState(false);
+    const prevValueRef = React.useRef(value);
+
+    // Trigger haptic-like scale animation on value change
+    React.useEffect(() => {
+        if (prevValueRef.current !== value && value !== null) {
+            setIsAnimating(true);
+            const timer = setTimeout(() => setIsAnimating(false), 150);
+            prevValueRef.current = value;
+            return () => clearTimeout(timer);
+        }
+        prevValueRef.current = value;
+    }, [value]);
 
     // Convert value to percentage
     const percent =
@@ -145,49 +158,65 @@ function SliderTrack({
         setIsDragging(false);
     }
 
-    const color = zoneColor ?? "#5a607a";
+    const color = zoneColor ?? "var(--journal-accent)";
     const hasValue = value !== null;
 
     return (
         <div
             ref={trackRef}
-            className="w-full h-7 flex items-center cursor-pointer touch-none select-none"
+            className="w-full min-h-[44px] flex items-center cursor-pointer touch-none select-none"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
         >
-            {/* Track background */}
-            <div className="relative w-full h-1.5 rounded-full bg-white/[0.06]">
-                {/* Active fill */}
+            {/* Track background — wider for mobile touch */}
+            <div className="relative w-full h-2.5 rounded-full bg-white/[0.06]">
+                {/* Gradient fill based on mood zone — transitions from center outward */}
                 {hasValue && percent !== undefined && (
-                    <div
-                        className="absolute top-0 bottom-0 rounded-full transition-colors duration-300"
-                        style={{
-                            left: `${Math.min(50, percent)}%`,
-                            width: `${Math.abs(percent - 50)}%`,
-                            backgroundColor: color,
-                            opacity: 0.7,
-                        }}
-                    />
+                    <>
+                        {/* Positive side (right of center) */}
+                        {percent >= 50 && (
+                            <div
+                                className="absolute top-0 bottom-0 right-1/2 rounded-l-full transition-all duration-300"
+                                style={{
+                                    width: `${percent - 50}%`,
+                                    background: `linear-gradient(to right, ${color}30, ${color}90)`,
+                                }}
+                            />
+                        )}
+                        {/* Negative side (left of center) */}
+                        {percent < 50 && (
+                            <div
+                                className="absolute top-0 bottom-0 left-1/2 rounded-r-full transition-all duration-300"
+                                style={{
+                                    width: `${50 - percent}%`,
+                                    background: `linear-gradient(to left, ${color}30, ${color}90)`,
+                                }}
+                            />
+                        )}
+                    </>
                 )}
 
                 {/* Center marker */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-3 bg-white/10 rounded-full" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-4 bg-white/10 rounded-full" />
 
-                {/* Thumb */}
+                {/* Thumb — 28px for mobile touch friendliness */}
                 {hasValue && percent !== undefined ? (
                     <div
-                        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 transition-all duration-150"
+                        className={cn(
+                            "absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-7 h-7 rounded-full border-2 transition-all duration-150",
+                            isAnimating && "journal-tap-animate"
+                        )}
                         style={{
                             left: `${percent}%`,
                             borderColor: color,
                             backgroundColor: "var(--journal-bg, #0f1628)",
-                            boxShadow: `0 0 8px 2px ${color}40`,
+                            boxShadow: `0 0 10px 3px ${color}50`,
                             transform: `translate(-50%, -50%)${isDragging ? " scale(1.2)" : ""}`,
                         }}
                     />
                 ) : (
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white/15 border border-white/10" />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white/15 border border-white/10" />
                 )}
             </div>
         </div>

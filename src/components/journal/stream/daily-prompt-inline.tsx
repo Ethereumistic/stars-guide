@@ -1,36 +1,31 @@
 "use client";
 
 import * as React from "react";
-import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
 import { cn } from "@/lib/utils";
-import { X } from "lucide-react";
+import { getDailyPrompts, TOPIC_COLORS, type JournalPrompt } from "@/lib/journal/daily-prompts";
 
 interface DailyPromptInlineProps {
-    /** Called when user clicks "Use this" to fill the textarea with the prompt */
+    /** Called when user clicks "Write about this" to fill the textarea */
     onUsePrompt?: (promptText: string) => void;
     className?: string;
 }
 
 /**
- * DailyPromptInline — shows today's journal prompt as a subtle banner
- * above the QuickCapture textarea. Clicking "Use this" fills the textarea.
- * Dismissible per day.
+ * DailyPromptInline — shows 3 rotating daily prompts as cards
+ * above the QuickCapture textarea. Each card is tappable and fills
+ * the textarea with the prompt text.
  */
-export function DailyPromptInline({
-    onUsePrompt,
-    className,
-}: DailyPromptInlineProps) {
-    const prompt = useQuery(api.journal.prompts.getDailyPrompt);
+export function DailyPromptInline({ onUsePrompt, className }: DailyPromptInlineProps) {
     const [dismissed, setDismissed] = React.useState(false);
 
-    // Check localStorage for today's dismissal
+    const prompts = getDailyPrompts(new Date());
+
+    // Dismissal key: changes each day so dismissed state resets daily
     const today = new Date().toISOString().split("T")[0];
-    const DISMISS_KEY = `journal_prompt_dismissed_${today}`;
+    const DISMISS_KEY = `journal_prompts_dismissed_${today}`;
 
     React.useEffect(() => {
-        const stored = localStorage.getItem(DISMISS_KEY);
-        if (stored === "true") {
+        if (localStorage.getItem(DISMISS_KEY) === "true") {
             setDismissed(true);
         }
     }, [DISMISS_KEY]);
@@ -40,47 +35,79 @@ export function DailyPromptInline({
         localStorage.setItem(DISMISS_KEY, "true");
     }
 
-    if (!prompt || dismissed) return null;
+    if (dismissed) return null;
+
+    return (
+        <div className={cn("space-y-2", className)}>
+            {/* Section label */}
+            <div className="flex items-center justify-between">
+                <span className="text-[9px] font-sans uppercase tracking-[0.2em] text-amber-400/30">
+                    Today&apos;s prompts
+                </span>
+                <button
+                    type="button"
+                    onClick={handleDismiss}
+                    className="text-white/20 hover:text-white/40 transition-colors text-[10px] font-sans uppercase tracking-[0.1em]"
+                >
+                    Dismiss
+                </button>
+            </div>
+
+            {/* 3-column grid (desktop) / horizontal scroll (mobile) */}
+            <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 -mx-1 px-1 scrollbar-hide">
+                {prompts.map((prompt, i) => (
+                    <PromptCard
+                        key={`${prompt.topic}-${i}`}
+                        prompt={prompt}
+                        onUsePrompt={onUsePrompt}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+}
+
+/** Single prompt card */
+function PromptCard({
+    prompt,
+    onUsePrompt,
+}: {
+    prompt: JournalPrompt;
+    onUsePrompt?: (text: string) => void;
+}) {
+    const accentColor = TOPIC_COLORS[prompt.topic];
 
     return (
         <div
             className={cn(
-                "relative flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-500/10 bg-amber-500/[0.04]",
-                className
+                // Layout
+                "group relative flex flex-col gap-2 shrink-0 w-48 snap-start rounded-xl border border-white/[0.06] bg-white/[0.025] p-4",
+                // Left accent bar
+                `border-l-2 ${accentColor}`,
+                // Hover state
+                "hover:bg-white/[0.04] hover:border-white/[0.1] transition-all duration-150"
             )}
         >
-            <button
-                type="button"
-                onClick={handleDismiss}
-                className="absolute top-2 right-2 text-white/20 hover:text-white/50 transition-colors"
+            {/* Topic icon */}
+            <span className="text-base leading-none">{prompt.icon}</span>
+
+            {/* Prompt text — max 2 lines, truncate */}
+            <p
+                className="text-[13px] font-serif text-white/65 leading-snug line-clamp-2"
+                title={prompt.text}
             >
-                <X className="h-3 w-3" />
-            </button>
+                {prompt.text}
+            </p>
 
-            <span className="text-sm mt-0.5 shrink-0">✦</span>
-
-            <div className="min-w-0 flex-1">
-                <p className="text-[9px] font-sans uppercase tracking-[0.2em] text-amber-400/40 mb-0.5">
-                    Today&apos;s reflection
-                </p>
-                <p className="text-sm font-serif text-white/55 leading-relaxed">
-                    &ldquo;{prompt.text}&rdquo;
-                </p>
-                {onUsePrompt && (
-                    <button
-                        type="button"
-                        onClick={() => onUsePrompt(prompt.text)}
-                        className="mt-1.5 text-[10px] font-sans uppercase tracking-[0.12em] text-amber-400/50 hover:text-amber-400/80 transition-colors"
-                    >
-                        Write about this ↵
-                    </button>
-                )}
-            </div>
-
-            {prompt.moonPhase && (
-                <span className="text-[10px] text-white/20 shrink-0 mt-0.5">
-                    🌙 {prompt.moonPhase}
-                </span>
+            {/* Write about this button */}
+            {onUsePrompt && (
+                <button
+                    type="button"
+                    onClick={() => onUsePrompt(prompt.text)}
+                    className="mt-auto text-[10px] font-sans uppercase tracking-[0.12em] text-amber-400/40 hover:text-amber-400/80 transition-colors text-left"
+                >
+                    Write about this
+                </button>
             )}
         </div>
     );

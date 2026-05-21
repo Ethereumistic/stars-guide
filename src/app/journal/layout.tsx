@@ -58,7 +58,7 @@ export default function JournalLayout({ children }: { children: React.ReactNode 
 
             <SidebarInset className="relative flex h-full min-h-0! w-full flex-1 flex-col overflow-hidden bg-transparent">
                 <JournalTopBar showLogo={showTopLogo} centerCtaLabel={centerCtaLabel} />
-                <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto pt-2 md:pt-3">
+                <div className="journal-theme relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto pt-2 md:pt-3">
                     <div className="mx-auto w-full max-w-2xl px-4 py-6 md:px-6">
                         {children}
                     </div>

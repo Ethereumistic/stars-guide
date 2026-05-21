@@ -38,6 +38,7 @@ export function JournalSidebar({
 
             <SidebarContent className="flex flex-col overflow-hidden scrollbar-thin scrollbar-thumb-white/10 p-2">
                 <SidebarQuickActions
+                    iconClassName="text-[var(--journal-accent,#c8a45c)]"
                     actions={[
                         { icon: Plus, label: "New entry", tooltip: "New entry", onClick: onNewEntry },
                         { icon: (props: { className?: string }) => (
