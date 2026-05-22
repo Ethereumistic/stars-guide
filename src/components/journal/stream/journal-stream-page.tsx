@@ -188,127 +188,155 @@ export function JournalStreamPage({ className }: { className?: string }) {
     }, []);
 
     return (
-        <div className={cn("flex flex-col h-full", className)}>
+        <div className={cn("flex flex-col h-full min-h-0", className)}>
             {/* Main content area */}
             <div className="flex-1 min-h-0 overflow-y-auto">
-                {/* ── Stream Tab ─────────────────────────────── */}
-                {activeTab === "stream" && (
-                    <div className="space-y-6">
-{/* Header — warm, personalized greeting */}
-                        <div className="mb-6">
-                            <p className="text-2xl md:text-3xl font-serif font-bold text-[var(--journal-accent,#c8a45c)] tracking-wide leading-relaxed">
-                                {greeting}
-                            </p>
-                            <p className="text-xs font-sans text-white/30 mt-1 tracking-wide">
-                                {dateStr}
-                            </p>
+                <div className="mx-auto w-full max-w-xl px-4 py-5 md:px-6">
+
+                    {/* ── Stream Tab ─────────────────────────────── */}
+                    {activeTab === "stream" && (
+                        <div className="space-y-6">
+                            {/* Header — warm, personalized greeting */}
+                            <div className="mb-2">
+                                <p className="text-2xl md:text-3xl font-serif font-bold text-[var(--journal-accent,#c8a45c)] tracking-wide leading-relaxed">
+                                    {greeting}
+                                </p>
+                                <p className="text-xs font-sans text-white/30 mt-1 tracking-wide">
+                                    {dateStr}
+                                </p>
+                            </div>
+
+                            {/* Consent banner */}
+                            <ConsentBanner />
+
+                            {/* Streak indicator */}
+                            <StreakIndicator />
+
+                            {/* Daily prompt (inline banner) */}
+                            <DailyPromptInline onUsePrompt={handleUsePrompt} />
+
+                            {/* QuickCapture — inline quick write */}
+                            <div ref={captureRef}>
+                                <QuickCapture
+                                    initialContent={promptContent ?? paramPrompt ?? undefined}
+                                    oracleSessionId={paramOracleSessionId || undefined}
+                                    oracleInspired={Boolean(paramPrompt)}
+                                    initialType={
+                                        paramType === "dream"
+                                            ? "dream"
+                                            : paramType === "gratitude"
+                                              ? "gratitude"
+                                              : undefined
+                                    }
+                                    onSave={() => {}}
+                                    onAskOracle={handleAskOracle}
+                                    showTopics={true}
+                                />
+                            </div>
+
+                            {/* Timeline */}
+                            <StreamTimeline onEntryClick={handleEntryClick} />
                         </div>
+                    )}
 
-                        {/* Consent banner — shown only if user hasn't granted Oracle access */}
-                        <ConsentBanner />
-
-                        {/* Streak indicator */}
-                        <StreakIndicator />
-
-                        {/* Daily prompt (inline banner) */}
-                        <DailyPromptInline onUsePrompt={handleUsePrompt} />
-
-                        {/* QuickCapture */}
-                        <div ref={captureRef}>
-                            <QuickCapture
-                                initialContent={promptContent ?? paramPrompt ?? undefined}
-                                oracleSessionId={
-                                    paramOracleSessionId || undefined
-                                }
-                                oracleInspired={Boolean(paramPrompt)}
-                                initialType={
-                                    paramType === "dream"
-                                        ? "dream"
-                                        : paramType === "gratitude"
-                                          ? "gratitude"
-                                          : undefined
-                                }
-                                onSave={() => {
-                                    // Could show success animation
-                                }}
-                                onAskOracle={handleAskOracle}
+                    {/* ── Calendar Tab ────────────────────────────── */}
+                    {activeTab === "calendar" && (
+                        <div className="space-y-4">
+                            <div className="mb-4">
+                                <h2 className="text-xl font-serif font-bold text-white/90 tracking-wide">
+                                    Calendar
+                                </h2>
+                                <p className="mt-1 text-sm text-white/35 font-sans">
+                                    View entries by date
+                                </p>
+                            </div>
+                            <CalendarTab
+                                onEntryClick={(entryId) => handleEntryClick(entryId)}
                             />
                         </div>
+                    )}
 
-                        {/* Timeline */}
-                        <StreamTimeline onEntryClick={handleEntryClick} />
-                    </div>
-                )}
-
-                {/* ── Calendar Tab ────────────────────────────── */}
-                {activeTab === "calendar" && (
-                    <div className="space-y-4">
-                        <div className="mb-4">
-                            <h2 className="text-xl font-serif font-bold text-white/90 tracking-wide">
-                                Calendar
-                            </h2>
-                            <p className="mt-1 text-sm text-white/35 font-sans">
-                                View entries by date
-                            </p>
+                    {/* ── Search Tab ─────────────────────────────── */}
+                    {activeTab === "search" && (
+                        <div className="space-y-4">
+                            <div className="mb-4">
+                                <h2 className="text-xl font-serif font-bold text-white/90 tracking-wide">
+                                    Search
+                                </h2>
+                                <p className="mt-1 text-sm text-white/35 font-sans">
+                                    Find entries by keyword, mood, or tag
+                                </p>
+                            </div>
+                            <SearchTab
+                                onEntryClick={(entryId) => handleEntryClick(entryId)}
+                            />
                         </div>
-                        <CalendarTab
-                            onEntryClick={(entryId) => handleEntryClick(entryId)}
-                        />
-                    </div>
-                )}
+                    )}
 
-                {/* ── Search Tab ─────────────────────────────── */}
-                {activeTab === "search" && (
-                    <div className="space-y-4">
-                        <div className="mb-4">
-                            <h2 className="text-xl font-serif font-bold text-white/90 tracking-wide">
-                                Search
-                            </h2>
-                            <p className="mt-1 text-sm text-white/35 font-sans">
-                                Find entries by keyword, mood, or tag
-                            </p>
+                    {/* ── Insights Tab ────────────────────────────── */}
+                    {activeTab === "insights" && (
+                        <div className="space-y-4">
+                            <div className="mb-6">
+                                <h2 className="text-xl font-serif font-bold text-white/90 tracking-wide">
+                                    Insights
+                                </h2>
+                                <p className="mt-1 text-sm text-white/35 font-sans">
+                                    Patterns, streaks, and cosmic correlations
+                                </p>
+                            </div>
+                            <InsightsTab />
                         </div>
-                        <SearchTab
-                            onEntryClick={(entryId) => handleEntryClick(entryId)}
-                        />
-                    </div>
-                )}
+                    )}
 
-                {/* ── Insights Tab ────────────────────────────── */}
-                {activeTab === "insights" && (
-                    <div className="space-y-4">
-                        <div className="mb-6">
-                            <h2 className="text-xl font-serif font-bold text-white/90 tracking-wide">
-                                Insights
-                            </h2>
-                            <p className="mt-1 text-sm text-white/35 font-sans">
-                                Patterns, streaks, and cosmic correlations
-                            </p>
+                    {/* ── Settings Tab ─────────────────────────────── */}
+                    {activeTab === "settings" && (
+                        <div className="space-y-6">
+                            <div className="mb-6">
+                                <h2 className="text-xl font-serif font-bold text-white/90 tracking-wide">
+                                    Settings
+                                </h2>
+                                <p className="mt-1 text-sm text-white/35 font-sans">
+                                    Manage journal preferences
+                                </p>
+                            </div>
+                            <ConsentSettingsInline />
                         </div>
-                        <InsightsTab />
-                    </div>
-                )}
+                    )}
 
-                {/* ── Settings Tab ─────────────────────────────── */}
-                {activeTab === "settings" && (
-                    <div className="space-y-6">
-                        <div className="mb-6">
-                            <h2 className="text-xl font-serif font-bold text-white/90 tracking-wide">
-                                Settings
-                            </h2>
-                            <p className="mt-1 text-sm text-white/35 font-sans">
-                                Manage journal preferences
-                            </p>
-                        </div>
-                        <ConsentSettingsInline />
-                    </div>
-                )}
+                </div>
             </div>
 
-            {/* Mode bar — bottom tab bar */}
+            {/* ── Mode bar — bottom tab bar ─────────────────────────── */}
             <ModeBar activeTab={activeTab} onTabChange={handleTabChange} />
 
-            {/* Detail panel — slide-over from right */}
+            {/* ── FAB — floating new entry button ───────────────────── */}
+            {activeTab === "stream" && (
+                <button
+                    type="button"
+                    onClick={() => router.push("/journal/new")}
+                    title="New entry"
+                    className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-30 flex items-center justify-center w-14 h-14 rounded-full shadow-lg transition-all duration-300 hover:scale-105 active:scale-95"
+                    style={{
+                        background: "linear-gradient(135deg, var(--journal-accent, #c8a45c), var(--journal-accent2, #b87333))",
+                        boxShadow: "0 4px 24px rgba(200,164,92,0.4)",
+                    }}
+                >
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-6 w-6 text-white"
+                    >
+                        <line x1="12" x2="12" y1="5" y2="19" />
+                        <line x1="5" x2="19" y1="12" y2="12" />
+                    </svg>
+                </button>
+            )}
+
+            {/* ── Detail panel — slide-over from right ──────────────── */}
             <DetailPanel
                 entryId={activeEntryId}
                 open={activeEntryId !== null}
