@@ -22,24 +22,7 @@ interface ElementalBalanceCardProps {
 }
 
 export function ElementalBalanceCard({ birthData, delay = 0.3 }: ElementalBalanceCardProps) {
-    const [visualization, setVisualization] = useState<string>("both")
-
-    // On mobile, "both" is not available so default to "table"
-    const [isMobile, setIsMobile] = useState(false);
-    useEffect(() => {
-        const mq = window.matchMedia("(max-width: 767px)");
-        setIsMobile(mq.matches);
-        const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-        mq.addEventListener("change", handler);
-        return () => mq.removeEventListener("change", handler);
-    }, []);
-
-    // Switch to "table" when switching to mobile while in "both" view
-    useEffect(() => {
-        if (isMobile && visualization === "both") {
-            setVisualization("table");
-        }
-    }, [isMobile, visualization]);
+    const [visualization, setVisualization] = useState<string>("table")
 
     const { counts, total, placementsByElement, dominant } = useMemo(() => {
         const counts: Record<ElementType, number> = { Fire: 0, Earth: 0, Air: 0, Water: 0 }
@@ -80,19 +63,9 @@ export function ElementalBalanceCard({ birthData, delay = 0.3 }: ElementalBalanc
                 titleAccent="Elemental Distribution"
                 activeVisualization={visualization}
                 onVisualizationChange={setVisualization}
-                hideBothOnMobile
             />
 
-            {visualization === "both" ? (
-                <div className="grid grid-cols-7 gap-6">
-                    <div className="col-span-3">
-                        <ElementalTableView data={elementalData} delay={delay} />
-                    </div>
-                    <div className="col-span-4">
-                        <ElementalCircleView data={elementalData} delay={delay} />
-                    </div>
-                </div>
-            ) : visualization === "table" ? (
+            {visualization === "table" ? (
                 <ElementalTableView data={elementalData} delay={delay} />
             ) : (
                 <div className="w-full flex justify-center">

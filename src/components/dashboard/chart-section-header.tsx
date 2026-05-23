@@ -14,7 +14,7 @@ import {
     TabsList,
     TabsTrigger,
 } from "@/components/ui/tabs";
-import { Table2, CircleDot, LayoutGrid } from "lucide-react";
+import { Table2, CircleDot } from "lucide-react";
 
 export interface BreadcrumbConfig {
     label: string;
@@ -28,13 +28,11 @@ export interface ChartSectionHeaderProps {
     activeVisualization: string;
     onVisualizationChange: (value: string) => void;
     className?: string;
-    hideBothOnMobile?: boolean;
 }
 
-type FilterItem = { value: string; label: string; icon: typeof Table2; extraClass?: string };
+type FilterItem = { value: string; label: string; icon: typeof Table2 };
 
 const visualizationFilters: FilterItem[] = [
-    { value: "both", label: "Both", icon: LayoutGrid },
     { value: "table", label: "Table", icon: Table2 },
     { value: "circle", label: "Circle", icon: CircleDot },
 ];
@@ -46,16 +44,10 @@ export function ChartSectionHeader({
     activeVisualization,
     onVisualizationChange,
     className,
-    hideBothOnMobile,
 }: ChartSectionHeaderProps) {
     const currentPageLabel = breadcrumbs?.[breadcrumbs.length - 1]?.label;
     const navItems = breadcrumbs ? breadcrumbs.slice(0, -1) : [];
-    const activeFilters = visualizationFilters;
-    const displayFilters: FilterItem[] = hideBothOnMobile
-        ? activeFilters.map((f) =>
-              f.value === "both" ? { ...f, extraClass: "hidden md:flex" } : f
-          )
-        : activeFilters;
+    const displayFilters = visualizationFilters;
 
     return (
         <>
@@ -103,7 +95,7 @@ export function ChartSectionHeader({
                             <TabsTrigger
                                 key={filter.value}
                                 value={filter.value}
-                                className={`relative w-20 md:w-24 text-center px-4 py-2.5 text-sm font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300${filter.extraClass ? " " + filter.extraClass : ""}`}
+                                className={`relative w-20 md:w-24 text-center px-4 py-2.5 text-sm font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300`}
                             >
                                 <filter.icon className="size-5 md:size-4 md:mr-2 text-primary" />
                                 <span className="font-mono text-sm md:text-xs uppercase tracking-wider md:hidden">

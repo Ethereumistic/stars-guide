@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState, useEffect } from "react"
+import React, { useMemo, useState, useEffect, useRef } from "react"
 import { motion } from "motion/react"
 import {
   ElementType,
@@ -66,7 +66,7 @@ const AXIS_ICON_MAP: Record<string, IconType> = {
 
 /**
  * Tooltip CSS transform per axis index.
- * Positions the tooltip on the OUTWARD side so it never overlaps the chart interior.
+ * OUTWARD: positions the tooltip on the OUTER side so it never overlaps the chart interior (desktop).
  */
 const TOOLTIP_TRANSFORM: Record<number, string> = {
   0: "translate(-50%, -100%)",
@@ -81,6 +81,24 @@ const TOOLTIP_TRANSFORM: Record<number, string> = {
   9: "translate(-100%, -50%)",
   10: "translate(-100%, -66%)",
   11: "translate(-100%, -100%)",
+}
+
+/**
+ * INWARD: positions the tooltip toward the chart CENTER so it stays inside on mobile.
+ */
+const TOOLTIP_TRANSFORM_INWARD: Record<number, string> = {
+  0: "translate(-50%, 10px)",
+  1: "translate(-100%, 6px)",
+  2: "translate(-100%, -25%)",
+  3: "translate(-100%, -50%)",
+  4: "translate(-100%, -75%)",
+  5: "translate(-110%, -100%)",
+  6: "translate(-50%, -110%)",
+  7: "translate(10px, -110%)",
+  8: "translate(10px, -75%)",
+  9: "translate(10px, -50%)",
+  10: "translate(10px, -25%)",
+  11: "translate(10px, 6px)",
 }
 
 // ── SVG Geometry ─────────────────────────────────────────────────────────────
@@ -142,9 +160,11 @@ interface TooltipData {
 function ArchetypeTable({
   scores,
   dominant,
+  isMobile,
 }: {
   scores: number[]
   dominant: ElementType
+  isMobile: boolean
 }) {
   const tableRows = useMemo(() => {
     return SPIDER_AXES.map((axis, i) => ({
@@ -167,87 +187,89 @@ function ArchetypeTable({
 
   return (
     <div className="w-full max-w-xl mx-auto bg-black/50 rounded-md border border-white/10 text-white/90">
-      <table className="w-full border-collapse font-serif" style={{ tableLayout: "fixed" }}>
-        <colgroup>
-          <col style={{ width: "auto" }} />
-          <col style={{ width: "0%" }} />
-          <col style={{ width: "4rem" }} />
-        </colgroup>
-        <tbody>
-          {groupedByElement.map((group, groupIndex) => {
-            const color = ELEMENT_COLORS[group.element]
-            const ElIcon = ELEMENT_ICONS[group.element]
-            const isDominant = group.element === dominant
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse font-serif" style={{ tableLayout: "fixed" }}>
+          <colgroup>
+            <col style={{ width: isMobile ? "28%" : "8rem" }} />
+            <col />
+            <col style={{ width: isMobile ? "5rem" : "5rem" }} />
+          </colgroup>
+          <tbody>
+            {groupedByElement.map((group, groupIndex) => {
+              const color = ELEMENT_COLORS[group.element]
+              const ElIcon = ELEMENT_ICONS[group.element]
+              const isDominant = group.element === dominant
 
-            return (
-              <React.Fragment key={group.element}>
-                {group.rows.map((row, rowIndex) => {
-                  const isFirst = rowIndex === 0
-                  const isLastRow =
-                    groupIndex === groupedByElement.length - 1 &&
-                    rowIndex === group.rows.length - 1
+              return (
+                <React.Fragment key={group.element}>
+                  {group.rows.map((row, rowIndex) => {
+                    const isFirst = rowIndex === 0
+                    const isLastRow =
+                      groupIndex === groupedByElement.length - 1 &&
+                      rowIndex === group.rows.length - 1
 
-                  return (
-                    <tr key={row.axisName} className={isLastRow ? "" : "border-b border-white/[0.04]"}>
-                      {/* ── ELEMENT COLUMN ── (rowspan) icon + name, horizontal */}
-                      {isFirst && (
-                        <td
-                          rowSpan={group.rows.length}
-                          className={`py-2 pl-6 pr-2 align-middle border-r border-white/[0.08] ${groupIndex < groupedByElement.length - 1 ? "border-b border-white/[0.08]" : ""}`}
-                        >
-                          <div className="flex items-center gap-1">
-                            <ElIcon
-                              className="size-5 shrink-0"
-                              style={{ color: color.stroke, opacity: isDominant ? 1 : 0.55 }}
+                    return (
+                      <tr key={row.axisName} className={isLastRow ? "" : "border-b border-white/[0.04]"}>
+                        {/* ── ELEMENT COLUMN ── (rowspan) icon + name, horizontal */}
+                        {isFirst && (
+                          <td
+                            rowSpan={group.rows.length}
+                            className={`${isMobile ? "py-2 pl-3 pr-1" : "py-2 pl-6 pr-2"} align-middle border-r border-white/[0.08] ${groupIndex < groupedByElement.length - 1 ? "border-b border-white/[0.08]" : ""}`}
+                          >
+                            <div className="flex items-center gap-1">
+                              <ElIcon
+                                className={`${isMobile ? "size-4" : "size-5"} shrink-0`}
+                                style={{ color: color.stroke, opacity: isDominant ? 1 : 0.55 }}
+                              />
+                              <span
+                                className={`${isMobile ? "text-xs" : "text-sm"} tracking-[0.12em] font-serif text-white`}
+                                style={{ color: color.stroke, opacity: isDominant ? 1 : 0.55 }}
+                              >
+                                {group.element}
+                              </span>
+                            </div>
+                          </td>
+                        )}
+
+                        {/* ── AXIS: Icon + Name ── */}
+                        <td className={`${isMobile ? "py-1.5 pl-2 pr-1" : "py-1.5 pl-2 pr-1"} ${isLastRow ? "" : "border-b border-white/[0.03]"}`}>
+                          <div className="flex items-center gap-1 whitespace-nowrap">
+                            <row.axisIcon
+                              size={isMobile ? 16 : 20}
+                              className="shrink-0"
+                              style={{ color: color.stroke, opacity: 0.7 }}
                             />
-                            <span
-                              className="text-sm tracking-[0.12em] font-serif text-white"
-                              style={{ color: color.stroke, opacity: isDominant ? 1 : 0.55 }}
-                            >
-                              {group.element}
+                            <span className={`${isMobile ? "text-xs" : "text-sm"} tracking-[0.08em] uppercase font-serif text-white`}>
+                              {row.axisName}
                             </span>
                           </div>
                         </td>
-                      )}
 
-                      {/* ── AXIS: Icon + Name ── */}
-                      <td className={`py-1.5 pl-2 pr-1 ${isLastRow ? "" : "border-b border-white/[0.03]"}`}>
-                        <div className="flex items-center gap-1 whitespace-nowrap">
-                          <row.axisIcon
-                            size={20}
-                            className="shrink-0"
-                            style={{ color: color.stroke, opacity: 0.7 }}
-                          />
-                          <span className="text-sm tracking-[0.08em] uppercase font-serif text-white">
-                            {row.axisName}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* ── SCORE BAR ── */}
-                      <td
-                        className={`py-2 pl-2 pr-2 align-middle border-l border-white/[0.08] ${!isLastRow ? "border-b border-white/[0.08]" : ""}`}
-                      >
-                        <div className="flex flex-col items-center gap-1">
-                          <span className="text-base font-serif text-white tabular-nums">
-                            {row.score}
-                          </span>
-                          <div className="w-full h-1.5 bg-white/[0.08] rounded-full overflow-hidden">
-                            <div
-                              className="h-full rounded-full transition-all duration-700"
-                              style={{ width: `${row.score}%`, backgroundColor: color.stroke, opacity: 0.75 }}
-                            />
+                        {/* ── SCORE BAR ── */}
+                        <td
+                          className={`${isMobile ? "py-1.5 pl-1 pr-2" : "py-2 pl-2 pr-2"} align-middle border-l border-white/[0.08] ${!isLastRow ? "border-b border-white/[0.08]" : ""}`}
+                        >
+                          <div className="flex flex-col items-center gap-0.5">
+                            <span className={`${isMobile ? "text-xs" : "text-base"} font-serif text-white tabular-nums`}>
+                              {row.score}
+                            </span>
+                            <div className="w-full h-1.5 bg-white/[0.08] rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all duration-700"
+                                style={{ width: `${row.score}%`, backgroundColor: color.stroke, opacity: 0.75 }}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </React.Fragment>
-            )
-          })}
-        </tbody>
-      </table>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </React.Fragment>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -259,7 +281,6 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
   const [visualization, setVisualization] = useState<string>("table")
 
-  // On mobile, "both" is not available so default to "table"
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
@@ -269,29 +290,45 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
     return () => mq.removeEventListener("change", handler);
   }, []);
 
+  // Track the SVG's actual rendered size so tooltip positions scale correctly
+  const svgRef = useRef<SVGSVGElement>(null)
+  const [svgScale, setSvgScale] = useState(1)
+  useEffect(() => {
+    const updateScale = () => {
+      if (svgRef.current) {
+        const rect = svgRef.current.getBoundingClientRect()
+        setSvgScale(rect.width / SVG_SIZE)
+      }
+    }
+    updateScale()
+    const observer = new ResizeObserver(updateScale)
+    if (svgRef.current) observer.observe(svgRef.current)
+    window.addEventListener("resize", updateScale)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener("resize", updateScale)
+    }
+  }, [])
+
   const { scores, elementScores, dominant, dominantColor } = useMemo(
     () => computeSpiderScores(birthData.placements, birthData.chart),
     [birthData],
   )
 
-  // ── Dimensions ─────────────────────────────────────────────────────────────
-  const baseSvgSize = 666
-  const baseCx = baseSvgSize / 2
-  const baseCy = baseSvgSize / 2
-  const baseMaxRadius = 232
-  const baseIconSize = 48
-  const baseIconOffset = 33
-
-  const svgSize = isMobile ? baseSvgSize * 0.73 : baseSvgSize
-  const cx = isMobile ? baseCx * 0.73 : baseCx
-  const cy = isMobile ? baseCy * 0.73 : baseCy
-  const maxRadius = isMobile ? baseMaxRadius * 0.73 : baseMaxRadius
-  const iconSize = isMobile ? baseIconSize * 0.73 : baseIconSize
-  const iconOffset = isMobile ? baseIconOffset * 0.73 : baseIconOffset
-  const iconCenterRadius = maxRadius + iconOffset
+  // ── Dimensions (all in viewBox coordinate space) ────────────────────────────
+  const SVG_SIZE = 666
+  const CX = SVG_SIZE / 2
+  const CY = SVG_SIZE / 2
+  const MAX_RADIUS = 232
+  const ICON_SIZE = 48
+  const ICON_OFFSET = 33
+  const ICON_CENTER_RADIUS = MAX_RADIUS + ICON_OFFSET
 
   const dominantFrameUrl = elementUIConfig[dominant].frameUrl
   const DominantElIcon = ELEMENT_ICONS[dominant]
+
+  // Inward anchor radius for mobile tooltips (inside the chart polygon)
+  const MOBILE_ANCHOR_RADIUS = MAX_RADIUS * 0.82
 
   // Dominant color (or white if elements are close)
   const elValues = Object.values(elementScores)
@@ -304,8 +341,11 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
   // ── Hover handler ─────────────────────────────────────────────────────────
   const handleHover = (index: number) => {
     const axis = SPIDER_AXES[index]
-    const anchorRadius = iconCenterRadius + iconSize / 2 + 6
-    const anchor = spiderPoint(cx, cy, anchorRadius, index)
+    // Desktop: anchor outside icons; Mobile: anchor inside chart for inward tooltips
+    const anchorRadius = isMobile
+      ? MOBILE_ANCHOR_RADIUS
+      : ICON_CENTER_RADIUS + ICON_SIZE / 2 + 6
+    const anchor = spiderPoint(CX, CY, anchorRadius, index)
     setTooltipPos({ x: anchor.x, y: anchor.y })
     setTooltip({
       axisName: axis.name,
@@ -322,22 +362,22 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
   // ── SVG chart ─────────────────────────────────────────────────────────────
   const chartSvg = (
     <svg
-      width={svgSize}
-      height={svgSize}
-      viewBox={`0 0 ${svgSize} ${svgSize}`}
-      className={`overflow-visible ${isMobile ? "max-w-[420px]" : ""}`}
+      ref={svgRef}
+      viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}
+      className="w-full h-auto overflow-visible"
+      style={{ maxWidth: SVG_SIZE }}
       onMouseLeave={clearHover}
     >
       <defs>
         <filter id="glow-poly" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation={isMobile ? 6 : 8} result="blur" />
+          <feGaussianBlur stdDeviation={8} result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
         <filter id="glow-dot" x="-200%" y="-200%" width="500%" height="500%">
-          <feGaussianBlur stdDeviation={isMobile ? 3 : 4} result="blur" />
+          <feGaussianBlur stdDeviation={4} result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
@@ -347,11 +387,11 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
 
       {/* Concentric rings */}
       {Array.from({ length: 5 }, (_, i) => {
-        const r = maxRadius * ((i + 1) / 5)
+        const r = MAX_RADIUS * ((i + 1) / 5)
         return (
           <polygon
             key={`ring-${i}`}
-            points={buildRegularPolygon(cx, cy, r)}
+            points={buildRegularPolygon(CX, CY, r)}
             fill="none"
             stroke="rgba(255,255,255,0.06)"
             strokeWidth={1}
@@ -361,11 +401,11 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
 
       {/* Axis spokes — dim base */}
       {SPIDER_AXES.map((_, i) => {
-        const edge = spiderPoint(cx, cy, maxRadius, i)
+        const edge = spiderPoint(CX, CY, MAX_RADIUS, i)
         return (
           <line
             key={`spoke-${i}`}
-            x1={cx} y1={cy}
+            x1={CX} y1={CY}
             x2={edge.x} y2={edge.y}
             stroke="rgba(255,255,255,0.06)"
             strokeWidth={1}
@@ -376,9 +416,9 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
       {/* Highlighted line — score dot → icon (only for hovered axis) */}
       {hoveredIndex !== null && (() => {
         const score = scores[hoveredIndex]
-        const r = Math.max(0, (score / 100)) * maxRadius
-        const dotPt = spiderPoint(cx, cy, r, hoveredIndex)
-        const iconPt = spiderPoint(cx, cy, iconCenterRadius, hoveredIndex)
+        const r = Math.max(0, (score / 100)) * MAX_RADIUS
+        const dotPt = spiderPoint(CX, CY, r, hoveredIndex)
+        const iconPt = spiderPoint(CX, CY, ICON_CENTER_RADIUS, hoveredIndex)
         const hoverColor = ELEMENT_COLORS[SPIDER_AXES[hoveredIndex].element].stroke
         return (
           <line
@@ -393,7 +433,7 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
 
       {/* Score polygon — animated */}
       <motion.polygon
-        points={buildPolygonPoints(cx, cy, maxRadius, scores)}
+        points={buildPolygonPoints(CX, CY, MAX_RADIUS, scores)}
         fill={polyFill}
         stroke={polyStroke}
         strokeWidth={1.5}
@@ -402,13 +442,13 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
         initial={{ opacity: 0, scale: 0 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.9, delay: delay + 0.2, ease: [0.22, 1, 0.36, 1] }}
-        style={{ transformOrigin: `${cx}px ${cy}px` }}
+        style={{ transformOrigin: `${CX}px ${CY}px` }}
       />
 
       {/* Data point dots — all in dominant element color */}
       {scores.map((score, i) => {
-        const r = (score / 100) * maxRadius
-        const pt = spiderPoint(cx, cy, Math.max(0, r), i)
+        const r = (score / 100) * MAX_RADIUS
+        const pt = spiderPoint(CX, CY, Math.max(0, r), i)
         const isHighlighted = hoveredIndex === i
         const axisColor = ELEMENT_COLORS[SPIDER_AXES[i].element].stroke
         return (
@@ -432,17 +472,17 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
 
       {/* Axis icons on the outer ring */}
       {SPIDER_AXES.map((axis, i) => {
-        const iconPt = spiderPoint(cx, cy, iconCenterRadius, i)
+        const iconPt = spiderPoint(CX, CY, ICON_CENTER_RADIUS, i)
         const IconComp = AXIS_ICON_MAP[axis.iconName]
         const color = ELEMENT_COLORS[axis.element].stroke
         const isHighlighted = hoveredIndex === i
         return (
           <foreignObject
             key={`axis-icon-${i}`}
-            x={iconPt.x - iconSize / 2}
-            y={iconPt.y - iconSize / 2}
-            width={iconSize}
-            height={iconSize}
+            x={iconPt.x - ICON_SIZE / 2}
+            y={iconPt.y - ICON_SIZE / 2}
+            width={ICON_SIZE}
+            height={ICON_SIZE}
             className="cursor-pointer overflow-visible"
           >
             <motion.div
@@ -457,7 +497,7 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
               onMouseLeave={clearHover}
               style={isHighlighted ? { color } : undefined}
             >
-              <IconComp size={iconSize} />
+              <IconComp size={ICON_SIZE} />
             </motion.div>
           </foreignObject>
         )
@@ -471,21 +511,21 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
       >
         <image
           href={dominantFrameUrl}
-          x={cx - (isMobile ? 34 : 47)}
-          y={cy - (isMobile ? 34 : 47)}
-          width={isMobile ? 68 : 94}
-          height={isMobile ? 68 : 94}
+          x={CX - 47}
+          y={CY - 47}
+          width={94}
+          height={94}
           opacity={0.3}
           style={{ pointerEvents: "none" }}
         />
         <foreignObject
-          x={cx - (isMobile ? 14 : 19)}
-          y={cy - (isMobile ? 14 : 19)}
-          width={isMobile ? 28 : 38}
-          height={isMobile ? 28 : 38}
+          x={CX - 19}
+          y={CY - 19}
+          width={38}
+          height={38}
         >
           <div className="flex items-center justify-center w-full h-full">
-            <DominantElIcon size={isMobile ? 20 : 27} style={{ color: dominantColor.stroke, opacity: 0.9 }} />
+            <DominantElIcon size={27} style={{ color: dominantColor.stroke, opacity: 0.9 }} />
           </div>
         </foreignObject>
       </motion.g>
@@ -496,14 +536,56 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
   const tooltipOverlay = tooltip && (() => {
     const TipIcon = AXIS_ICON_MAP[tooltip.iconName]
     const color = ELEMENT_COLORS[tooltip.element]
+    // Scale tooltip position from viewBox coords to rendered pixels
+    const displayX = tooltipPos.x * svgScale
+    const displayY = tooltipPos.y * svgScale
+    const currentTransform = isMobile
+      ? TOOLTIP_TRANSFORM_INWARD[tooltip.index]
+      : TOOLTIP_TRANSFORM[tooltip.index]
 
+    if (isMobile) {
+      // Compact tooltip for mobile — points inward toward chart center
+      return (
+        <div
+          className="absolute z-50 pointer-events-none"
+          style={{
+            left: displayX,
+            top: displayY,
+            transform: currentTransform,
+          }}
+        >
+          <div
+            className="bg-black/95 border rounded-lg px-3 py-2 shadow-2xl backdrop-blur-md"
+            style={{ borderColor: `${color.stroke}40` }}
+          >
+            <div className="flex items-center gap-2">
+              <TipIcon size={14} style={{ color: color.stroke }} />
+              <span className="text-xs font-serif text-white tracking-wide">
+                {tooltip.axisName}
+              </span>
+              <span className="text-[10px] font-mono text-white/50 tabular-nums">
+                {tooltip.score}
+              </span>
+            </div>
+            <div className="mt-1 h-[3px] bg-white/[0.08] rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${tooltip.score}%`, backgroundColor: color.stroke, opacity: 0.75 }}
+              />
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // Full tooltip for desktop (outward positioning)
     return (
       <div
         className="absolute z-50 pointer-events-none"
         style={{
-          left: tooltipPos.x,
-          top: tooltipPos.y,
-          transform: TOOLTIP_TRANSFORM[tooltip.index],
+          left: displayX,
+          top: displayY,
+          transform: currentTransform,
         }}
       >
         <div
@@ -551,10 +633,10 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
       />
 
       {visualization === "table" ? (
-        <ArchetypeTable scores={scores} dominant={dominant} />
+        <ArchetypeTable scores={scores} dominant={dominant} isMobile={isMobile} />
       ) : (
         <div className="w-full flex justify-center">
-          <div className="relative inline-block">
+          <div className="relative w-full" style={{ maxWidth: SVG_SIZE }}>
             {chartSvg}
             {tooltipOverlay}
           </div>

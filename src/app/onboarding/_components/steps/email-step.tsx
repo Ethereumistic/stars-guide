@@ -11,16 +11,18 @@ import { FcGoogle } from "react-icons/fc"
 import { FaXTwitter } from "react-icons/fa6"
 import { FaFacebook } from "react-icons/fa"
 import { toast } from "sonner"
+import { useGoogleOneTap } from "@/components/providers/google-one-tap-provider"
 
 export function EmailStep() {
     const { email, setEmail, nextStep, prevStep, setAuthMethod, setStep } = useOnboardingStore()
     const { signIn } = useAuthActions()
+    const { triggerGoogleSignIn, isLoading: isGoogleOneTapLoading } = useGoogleOneTap()
     const [localEmail, setLocalEmail] = React.useState(email || "")
     const [isGoogleLoading, setIsGoogleLoading] = React.useState(false)
     const [isTwitterLoading, setIsTwitterLoading] = React.useState(false)
     const [isFacebookLoading, setIsFacebookLoading] = React.useState(false)
 
-    const isAnyOAuthLoading = isGoogleLoading || isTwitterLoading || isFacebookLoading
+    const isAnyOAuthLoading = isGoogleLoading || isGoogleOneTapLoading || isTwitterLoading || isFacebookLoading
 
     const handleNext = () => {
         if (localEmail && localEmail.includes("@")) {
@@ -35,11 +37,18 @@ export function EmailStep() {
         setAuthMethod('oauth')
         setStep(10)
         try {
-            await signIn("google", { redirectTo: "/onboarding" })
+            // Use Google One Tap / FedCM (with OAuth redirect fallback).
+            // The triggerGoogleSignIn hook handles all browser compatibility.
+            await triggerGoogleSignIn()
         } catch (error) {
-            toast.error("Failed to sign in with Google")
-            console.error(error)
-            setIsGoogleLoading(false)
+            if (error instanceof Error && error.message !== "popup_closed") {
+                toast.error("Failed to sign in with Google")
+            }
+        } finally {
+            // Don't immediately clear loading – sign-in may still be
+            // processing. The auth state update + redirect handles itself.
+            // Clear after a generous timeout so the UI doesn't stick.
+            setTimeout(() => setIsGoogleLoading(false), 8000)
         }
     }
 
@@ -96,7 +105,7 @@ export function EmailStep() {
                         onClick={onGoogleSignIn}
                         className="font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300 h-11"
                     >
-                        {isGoogleLoading ? (
+                        {isGoogleLoading || isGoogleOneTapLoading ? (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         ) : (
                             <FcGoogle className="mr-2 h-4 w-4" />
