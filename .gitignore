@@ -10,6 +10,8 @@ swisseph
 node_modules/swisseph
 ephe/
 
+/scripts/dev-https.mjs
+
 # Created by git when using merge tools for conflicts
 *.BACKUP.*
 *.BASE.*
