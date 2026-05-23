@@ -24,6 +24,7 @@ import { FcGoogle } from "react-icons/fc";
 import { FaXTwitter } from "react-icons/fa6";
 import { FaFacebook } from "react-icons/fa";
 import { useUserStore } from "@/store/use-user-store";
+import { useGoogleOneTap } from "@/components/providers/google-one-tap-provider";
 
 interface SignUpFormProps extends Omit<React.ComponentPropsWithoutRef<'div'>, 'title'> {
     bare?: boolean;
@@ -37,6 +38,7 @@ export function SignUpForm({ bare, className, title, subtitle, ...props }: SignU
     const [error, setError] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(false)
     const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+    const { triggerGoogleSignIn, isLoading: isGoogleOneTapLoading } = useGoogleOneTap();
     const [isTwitterLoading, setIsTwitterLoading] = useState(false)
     const [isFacebookLoading, setIsFacebookLoading] = useState(false)
     const router = useRouter()
@@ -68,8 +70,21 @@ export function SignUpForm({ bare, className, title, subtitle, ...props }: SignU
 
     async function onGoogleSignIn() {
         setIsGoogleLoading(true)
-        try { await signIn("google", { redirectTo: "/onboarding" }) }
-        catch (error) { toast.error("Failed to sign in with Google"); setIsGoogleLoading(false) }
+        try {
+            // Use Google One Tap / popup instead of redirect.
+            // The popup keeps the user on the same page (no state loss).
+            // Falls back to OAuth redirect if GIS is unavailable.
+            await triggerGoogleSignIn()
+        } catch (error) {
+            if (error instanceof Error && error.message !== "popup_closed") {
+                toast.error("Failed to sign in with Google");
+            }
+        } finally {
+            // Don't immediately clear loading – the sign-in may still be
+            // processing asynchronously. The auth state updates via
+            // GoogleOneTapProvider, and the redirect happens automatically.
+            setTimeout(() => setIsGoogleLoading(false), 8000);
+        }
     }
 
     async function onTwitterSignIn() {
@@ -83,6 +98,8 @@ export function SignUpForm({ bare, className, title, subtitle, ...props }: SignU
         try { await signIn("facebook", { redirectTo: "/onboarding" }) }
         catch (error) { toast.error("Failed to sign in with Facebook"); setIsFacebookLoading(false) }
     }
+
+    const anySocialLoading = isGoogleLoading || isGoogleOneTapLoading || isTwitterLoading || isFacebookLoading
 
     const headerCn = bare ? "space-y-2 text-center !px-0" : "space-y-2 text-center"
     const contentCn = bare ? "grid gap-6 !px-0" : "grid gap-6"
@@ -98,15 +115,15 @@ export function SignUpForm({ bare, className, title, subtitle, ...props }: SignU
             </CardHeader>
             <CardContent className={contentCn}>
                 <div className="flex flex-row justify-center gap-4 lg:flex-col lg:gap-4">
-                    <Button variant="outline" size="icon" disabled={isGoogleLoading || isTwitterLoading || isFacebookLoading || isLoading} onClick={onGoogleSignIn} className="size-14 lg:h-11 lg:w-full lg:justify-center font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300">
-                        {isGoogleLoading ? <Loader2 className="size-6 animate-spin lg:size-4" /> : <FcGoogle className="size-6 lg:size-4" />}
+                    <Button variant="outline" size="icon" disabled={anySocialLoading || isLoading} onClick={onGoogleSignIn} className="size-14 lg:h-11 lg:w-full lg:justify-center font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300">
+                        {isGoogleLoading || isGoogleOneTapLoading ? <Loader2 className="size-6 animate-spin lg:size-4" /> : <FcGoogle className="size-6 lg:size-4" />}
                         <span className="hidden lg:inline">Continue with Google</span>
                     </Button>
-                    <Button variant="outline" size="icon" disabled={isGoogleLoading || isTwitterLoading || isFacebookLoading || isLoading} onClick={onFacebookSignIn} className="size-14 lg:h-11 lg:w-full lg:justify-center font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300">
+                    <Button variant="outline" size="icon" disabled={anySocialLoading || isLoading} onClick={onFacebookSignIn} className="size-14 lg:h-11 lg:w-full lg:justify-center font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300">
                         {isFacebookLoading ? <Loader2 className="size-6 animate-spin lg:size-4" /> : <FaFacebook className="size-6 text-[#1877F2] lg:size-4" />}
                         <span className="hidden lg:inline">Continue with Facebook</span>
                     </Button>
-                    <Button variant="outline" size="icon" disabled={isGoogleLoading || isTwitterLoading || isFacebookLoading || isLoading} onClick={onTwitterSignIn} className="size-14 lg:h-11 lg:w-full lg:justify-center font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300">
+                    <Button variant="outline" size="icon" disabled={anySocialLoading || isLoading} onClick={onTwitterSignIn} className="size-14 lg:h-11 lg:w-full lg:justify-center font-sans border-primary/20 hover:text-foreground hover:bg-primary/5 hover:border-primary/40 transition-all duration-300">
                         {isTwitterLoading ? <Loader2 className="size-6 animate-spin lg:size-4" /> : <FaXTwitter className="size-6 lg:size-4" />}
                         <span className="hidden lg:inline">Continue with X</span>
                     </Button>
@@ -123,20 +140,20 @@ export function SignUpForm({ bare, className, title, subtitle, ...props }: SignU
                             <Label htmlFor="email" className="font-sans text-sm font-medium ml-1">Email</Label>
                             <div className="relative">
                                 <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input id="email" type="email" placeholder="name@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={isLoading || isGoogleLoading || isTwitterLoading || isFacebookLoading} className="pl-10 border-primary/10 focus-visible:ring-primary/30" />
+                                <Input id="email" type="email" placeholder="name@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={isLoading || anySocialLoading} className="pl-10 border-primary/10 focus-visible:ring-primary/30" />
                             </div>
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="password" className="font-sans text-sm font-medium ml-1">Password</Label>
                             <div className="relative">
                                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading || isGoogleLoading || isTwitterLoading || isFacebookLoading} className="pl-10 border-primary/10 focus-visible:ring-primary/30" />
+                                <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading || anySocialLoading} className="pl-10 border-primary/10 focus-visible:ring-primary/30" />
                             </div>
                         </div>
                         {error && (
                             <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm text-center">{error}</div>
                         )}
-                        <Button type="submit" disabled={isLoading || isGoogleLoading || isTwitterLoading || isFacebookLoading} className="w-full font-serif uppercase tracking-widest mt-2 h-11 shadow-lg shadow-primary/10">
+                        <Button type="submit" disabled={isLoading || anySocialLoading} className="w-full font-serif uppercase tracking-widest mt-2 h-11 shadow-lg shadow-primary/10">
                             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create Account
                         </Button>
                     </div>
