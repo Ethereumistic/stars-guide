@@ -334,6 +334,216 @@ export const getStarsPageUser = query({
  *
  * Run once via: npx convex run users:migrateSettings
  */
+// ═══════════════════════════════════════════════════════════════════════════
+// GDPR / CCPA — Account Deletion
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Delete all user data across every table, log the deletion in
+ * `deletionRequests` (no PII), then delete the user record last.
+ *
+ * Callable from the frontend via `useMutation(api.users.deleteUserAccount)`.
+ * The user must be authenticated and can only delete their own account.
+ *
+ * Deletion order matters: child rows first, user record last.
+ * Auth tables are cleaned via their own indexes.
+ */
+export const deleteUserAccount = mutation({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (userId === null) {
+            throw new Error("Not authenticated");
+        }
+
+        // Verify user still exists
+        const user = await ctx.db.get(userId);
+        if (!user) {
+            throw new Error("User not found");
+        }
+
+        // ── 1. Oracle: sessions → messages (cascade) ──────────────────────
+        const oracleSessions = await ctx.db
+            .query("oracle_sessions")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .collect();
+        for (const session of oracleSessions) {
+            const messages = await ctx.db
+                .query("oracle_messages")
+                .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+                .collect();
+            for (const msg of messages) {
+                await ctx.db.delete(msg._id);
+            }
+            await ctx.db.delete(session._id);
+        }
+
+        // ── 2. Oracle quota usage ─────────────────────────────────────────
+        const quotaUsage = await ctx.db
+            .query("oracle_quota_usage")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .collect();
+        for (const q of quotaUsage) {
+            await ctx.db.delete(q._id);
+        }
+
+        // ── 3. Journal entries ────────────────────────────────────────────
+        const journalEntries = await ctx.db
+            .query("journal_entries")
+            .withIndex("by_user_created", (q) => q.eq("userId", userId))
+            .collect();
+        for (const entry of journalEntries) {
+            // Delete attached photo from Convex storage if present
+            if (entry.photoId) {
+                await ctx.storage.delete(entry.photoId);
+            }
+            await ctx.db.delete(entry._id);
+        }
+
+        // ── 4. Journal streaks ────────────────────────────────────────────
+        const journalStreaks = await ctx.db
+            .query("journal_streaks")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .collect();
+        for (const streak of journalStreaks) {
+            await ctx.db.delete(streak._id);
+        }
+
+        // ── 5. Journal consent ────────────────────────────────────────────
+        const journalConsent = await ctx.db
+            .query("journal_consent")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .collect();
+        for (const consent of journalConsent) {
+            await ctx.db.delete(consent._id);
+        }
+
+        // ── 6. Friendships (user is requester OR addressee) ───────────────
+        const asRequester = await ctx.db
+            .query("friendships")
+            .withIndex("by_requester", (q) => q.eq("requesterId", userId))
+            .collect();
+        for (const f of asRequester) {
+            await ctx.db.delete(f._id);
+        }
+        const asAddressee = await ctx.db
+            .query("friendships")
+            .withIndex("by_addressee", (q) => q.eq("addresseeId", userId))
+            .collect();
+        for (const f of asAddressee) {
+            await ctx.db.delete(f._id);
+        }
+
+        // ── 7. Notifications ──────────────────────────────────────────────
+        const notifications = await ctx.db
+            .query("notifications")
+            .withIndex("by_user_created", (q) => q.eq("userId", userId))
+            .collect();
+        for (const n of notifications) {
+            await ctx.db.delete(n._id);
+        }
+
+        // ── 8. Referrals (user is referrer OR referee) ────────────────────
+        const asReferrer = await ctx.db
+            .query("referrals")
+            .withIndex("by_referrerId", (q) => q.eq("referrerId", userId))
+            .collect();
+        for (const r of asReferrer) {
+            await ctx.db.delete(r._id);
+        }
+        const asReferee = await ctx.db
+            .query("referrals")
+            .withIndex("by_refereeId", (q) => q.eq("refereeId", userId))
+            .collect();
+        for (const r of asReferee) {
+            await ctx.db.delete(r._id);
+        }
+
+        // ── 9. Subscription history ───────────────────────────────────────
+        const subHistory = await ctx.db
+            .query("subscription_history")
+            .withIndex("by_user_id", (q) => q.eq("userId", userId))
+            .collect();
+        for (const s of subHistory) {
+            await ctx.db.delete(s._id);
+        }
+
+        // ── 10. Rate limits ───────────────────────────────────────────────
+        const rateLimits = await ctx.db
+            .query("rateLimits")
+            .withIndex("by_userId_action", (q) => q.eq("userId", userId))
+            .collect();
+        for (const rl of rateLimits) {
+            await ctx.db.delete(rl._id);
+        }
+
+        // ── 11. Auth cascade: sessions → refresh tokens + verifiers ───────
+        const authSessions = await ctx.db
+            .query("authSessions")
+            .withIndex("userId", (q) => q.eq("userId", userId))
+            .collect();
+        for (const session of authSessions) {
+            // Delete refresh tokens linked to this session
+            const refreshTokens = await ctx.db
+                .query("authRefreshTokens")
+                .withIndex("sessionId", (q) =>
+                    q.eq("sessionId", session._id),
+                )
+                .collect();
+            for (const rt of refreshTokens) {
+                await ctx.db.delete(rt._id);
+            }
+
+            // Note: authVerifiers are ephemeral PKCE tokens with no sessionId
+            // index — they expire naturally and don't need manual cleanup.
+
+            await ctx.db.delete(session._id);
+        }
+
+        // ── 12. Auth accounts → verification codes ────────────────────────
+        const authAccounts = await ctx.db
+            .query("authAccounts")
+            .withIndex("userIdAndProvider", (q) =>
+                q.eq("userId", userId),
+            )
+            .collect();
+        for (const account of authAccounts) {
+            // Delete verification codes linked to this account
+            const verifCodes = await ctx.db
+                .query("authVerificationCodes")
+                .withIndex("accountId", (q) =>
+                    q.eq("accountId", account._id),
+                )
+                .collect();
+            for (const vc of verifCodes) {
+                await ctx.db.delete(vc._id);
+            }
+
+            await ctx.db.delete(account._id);
+        }
+
+        // ── 13. Log the deletion (compliance audit trail — NO PII) ────────
+        await ctx.db.insert("deletionRequests", {
+            requestId: crypto.randomUUID(),
+            requestedAt: Date.now(),
+            completedAt: Date.now(),
+            status: "completed",
+        });
+
+        // ── 14. Delete the user record LAST ───────────────────────────────
+        await ctx.db.delete(userId);
+
+        return { success: true };
+    },
+});
+
+/**
+ * One-time migration: moves preferences.notifications → settings.notifications,
+ * creates default settings for users who don't have them, and strips the
+ * legacy featureFlags field from all documents.
+ *
+ * Run once via: npx convex run users:migrateSettings
+ */
 export const migrateSettings = internalMutation({
     args: {},
     handler: async (ctx) => {

@@ -11,7 +11,8 @@ import {
     SupportSection,
     LogoutFooter,
     SettingsSkeleton,
-    FriendsSection
+    FriendsSection,
+    DangerZoneSection
 } from "@/components/settings"
 import {
     TbUser,
@@ -192,6 +193,11 @@ export default function SettingsPage() {
                         {/* Logout on mobile (under content) */}
                         <div className="lg:hidden mt-8">
                             <LogoutFooter delay={0} />
+                        </div>
+
+                        {/* Danger Zone — always visible below content */}
+                        <div className="mt-8">
+                            <DangerZoneSection delay={0} />
                         </div>
                     </div>
                 </div>

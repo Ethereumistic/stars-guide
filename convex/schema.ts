@@ -710,6 +710,21 @@ export default defineSchema({
         updatedAt: v.number(),
     }),
 
+    // 23. DELETION REQUESTS (GDPR/CCPA compliance audit log — NO PII)
+    deletionRequests: defineTable({
+        requestId: v.string(),             // UUID, not linked to user identity
+        requestedAt: v.number(),           // Unix timestamp
+        completedAt: v.optional(v.number()),
+        status: v.union(
+            v.literal("pending"),
+            v.literal("completed"),
+            v.literal("failed"),
+            v.literal("rejected"),         // If legal reasons require refusal
+        ),
+        rejectionReason: v.optional(v.string()), // Only if status = rejected
+        // NO email, name, userId, or any PII in this table
+    }),
+
 });
 
 
