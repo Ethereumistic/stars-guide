@@ -19,27 +19,46 @@ import {
   cancelGoogleOneTap,
   safeMomentCheck,
   type CredentialResponse,
+  type PromptMomentNotification,
 } from "@/lib/google-one-tap";
 
-// ── Shared state between Provider and Hook ──────────────────────────────
-// When the user clicks "Continue with Google", we set this flag so the
-// auto-prompt timer in GoogleOneTapProvider knows to skip its own prompt.
-
-let _manuallyTriggered = false;
-function setManuallyTriggered(v: boolean) {
-  _manuallyTriggered = v;
-}
-function isManuallyTriggered() {
-  return _manuallyTriggered;
-}
+// ---------------------------------------------------------------------------
+// Fallback: redirect to standard Google OAuth
+// ---------------------------------------------------------------------------
 
 /**
- * This component:
- * 1. Loads the Google Identity Services script
- * 2. Initializes One Tap on auth-related pages (sign-in, sign-up)
- * 3. When a Google credential is received (One Tap or popup), calls our
- *    ConvexCredentials "google-onetap" provider — no redirect required
- * 4. Redirects the user to the appropriate page after sign-in
+ * Fall back to the Convex Auth redirect-based Google OAuth flow.
+ * This always works regardless of browser / One Tap support — it just
+ * redirects the entire page to Google's sign-in screen.
+ */
+async function fallbackToOAuthRedirect(
+  signIn: ReturnType<typeof useAuthActions>["signIn"],
+  setIsLoading: (v: boolean) => void,
+) {
+  try {
+    await signIn("google", { redirectTo: "/dashboard" });
+    // If signIn returns without redirecting the page (e.g. already signed in)
+    // clear the loading state.  In the normal case the browser navigates away
+    // before this line executes.
+    setIsLoading(false);
+  } catch (error) {
+    console.error("[GoogleOneTap] OAuth redirect failed:", error);
+    setIsLoading(false);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Provider — loads GIS, initialises One Tap, handles credential callbacks
+// ---------------------------------------------------------------------------
+
+/**
+ * Mount this provider high in the tree (inside <ConvexClientProvider>).
+ *
+ * It:
+ *  1. Loads the Google Identity Services script on auth pages
+ *  2. Calls initialize() with FedCM + ITP support enabled
+ *  3. Shows the One Tap auto-prompt after a short delay
+ *  4. Dispatches the credential to the ConvexCredentials "google-onetap" provider
  */
 export function GoogleOneTapProvider({
   children,
@@ -52,8 +71,6 @@ export function GoogleOneTapProvider({
   const { isAuthenticated, needsOnboarding } = useUserStore();
 
   const initialized = useRef(false);
-  const pathnameRef = useRef(pathname);
-  pathnameRef.current = pathname;
   const autoPromptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isAuthPage =
@@ -61,6 +78,7 @@ export function GoogleOneTapProvider({
     pathname.startsWith("/sign-up") ||
     pathname.startsWith("/forgot-password");
 
+  // ── Credential callback ──────────────────────────────────────────────
   const handleCredential = useCallback(
     async (response: CredentialResponse) => {
       if (!response.credential) return;
@@ -76,7 +94,7 @@ export function GoogleOneTapProvider({
           }
         }, 300);
       } catch (error) {
-        console.error("Google One Tap sign-in failed:", error);
+        console.error("[GoogleOneTap] Sign-in failed:", error);
       }
     },
     [signIn, router, isAuthenticated, needsOnboarding],
@@ -85,6 +103,7 @@ export function GoogleOneTapProvider({
   const handleCredentialRef = useRef(handleCredential);
   handleCredentialRef.current = handleCredential;
 
+  // ── Auto-prompt on auth pages ────────────────────────────────────────
   useEffect(() => {
     if (isAuthenticated()) return;
     if (!isAuthPage) return;
@@ -98,31 +117,29 @@ export function GoogleOneTapProvider({
         if (initialized.current) return;
         initialized.current = true;
 
-        initializeGoogleOneTap(GOOGLE_CLIENT_ID, (response) => {
-          handleCredentialRef.current(response);
-        }, {
-          autoSelect: true,
-          cancelOnTapOutside: false,
-          context: pathnameRef.current.startsWith("/sign-up")
-            ? "signup"
-            : "signin",
-        });
+        initializeGoogleOneTap(
+          GOOGLE_CLIENT_ID,
+          (response) => {
+            handleCredentialRef.current(response);
+          },
+          {
+            autoSelect: true,
+            cancelOnTapOutside: false,
+            context: pathname.startsWith("/sign-up") ? "signup" : "signin",
+            fedcmForPrompt: true,
+          },
+        );
 
-        // Show the One Tap prompt after a short delay to avoid
-        // interfering with the page load
+        // Show the One Tap / FedCM prompt after a short delay so the page
+        // has time to settle.  1000 ms is fast enough for mobile users while
+        // still avoiding competition with the page's own layout paint.
         autoPromptTimerRef.current = setTimeout(() => {
-          if (!cancelled && !isManuallyTriggered()) {
-            promptGoogleOneTap((moment) => {
-              if (safeMomentCheck(moment, "isNotDisplayed")) {
-                console.debug("[GoogleOneTap] Auto-prompt not displayed:", moment.getNotDisplayedReason?.());
-              } else if (safeMomentCheck(moment, "isSkippedMoment")) {
-                console.debug("[GoogleOneTap] Auto-prompt skipped:", moment.getSkippedReason?.());
-              } else if (safeMomentCheck(moment, "isDismissedMoment")) {
-                console.debug("[GoogleOneTap] Auto-prompt dismissed:", moment.getDismissedReason?.());
-              }
-            });
-          }
-        }, 1500);
+          if (cancelled) return;
+
+          promptGoogleOneTap((moment) => {
+            handleAutoPromptMoment(moment);
+          });
+        }, 1000);
       })
       .catch((err) => {
         console.debug("[GoogleOneTap] GIS load failed:", err);
@@ -135,32 +152,71 @@ export function GoogleOneTapProvider({
       }
       cancelGoogleOneTap();
     };
+    // We intentionally only re-run when auth state or page changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthPage, isAuthenticated]);
 
   return <>{children}</>;
 }
 
-/**
- * Fall back to the original Convex Auth redirect-based Google OAuth flow.
- */
-async function fallbackToOAuthRedirect(
-  signIn: ReturnType<typeof useAuthActions>["signIn"],
-  setIsLoading: (v: boolean) => void,
-) {
-  try {
-    await signIn("google", { redirectTo: "/dashboard" });
-    // The redirect happens automatically
-  } catch (error) {
-    console.error("Google OAuth redirect failed:", error);
-    setIsLoading(false);
-  }
-}
+// ---------------------------------------------------------------------------
+// Moment handlers (shared logic for auto-prompt & manual trigger)
+// ---------------------------------------------------------------------------
 
 /**
- * Hook that exposes a function to trigger Google sign-in from a button click.
+ * Handle moment notifications from the auto-prompt.
  *
- * Uses Google Identity Services' prompt() so the user stays on the same page
- * (no redirect). Falls back to OAuth redirect if GIS can't show a prompt.
+ * We do NOT auto-redirect when the prompt can't display — that would be
+ * jarring UX.  Instead we just log the reason so developers can debug.
+ * The user can still click "Continue with Google" which has a proper
+ * fallback to OAuth redirect.
+ */
+function handleAutoPromptMoment(moment: PromptMomentNotification) {
+  if (safeMomentCheck(moment, "isSkippedMoment")) {
+    // In FedCM mode this is the primary "can't show" signal.
+    // Possible reasons (non-FedCM): auto_cancel, user_cancel, tap_outside,
+    // issuing_failed.  In FedCM mode getSkippedReason() returns null.
+    console.debug(
+      "[GoogleOneTap] Auto-prompt skipped.",
+      moment.getSkippedReason?.() ?? "(FedCM — no reason available)",
+    );
+    return;
+  }
+
+  if (safeMomentCheck(moment, "isNotDisplayed")) {
+    // Only fires on non-FedCM browsers (Safari, Firefox with itp_support).
+    // On FedCM browsers this method doesn't exist.
+    console.debug(
+      "[GoogleOneTap] Auto-prompt not displayed:",
+      moment.getNotDisplayedReason?.(),
+    );
+    return;
+  }
+
+  if (safeMomentCheck(moment, "isDismissedMoment")) {
+    console.debug(
+      "[GoogleOneTap] Auto-prompt dismissed:",
+      moment.getDismissedReason?.(),
+    );
+    return;
+  }
+
+  // Unknown moment type — log for debugging
+  console.debug("[GoogleOneTap] Auto-prompt moment:", moment.getMomentType?.());
+}
+
+// ---------------------------------------------------------------------------
+// Hook — used by sign-in / sign-up buttons
+// ---------------------------------------------------------------------------
+
+/**
+ * Hook that exposes `triggerGoogleSignIn` and `isLoading`.
+ *
+ * Priority:
+ *  1. Try Google One Tap / FedCM prompt (stays on the same page)
+ *  2. If the prompt can't display → immediately redirect to Google OAuth
+ *  3. If the prompt callback never fires (some mobile browsers) → redirect
+ *     after a 5 s safety timeout
  */
 export function useGoogleOneTap() {
   const [isLoading, setIsLoading] = useState(false);
@@ -170,47 +226,20 @@ export function useGoogleOneTap() {
 
   const triggerGoogleSignIn = useCallback(async () => {
     setIsLoading(true);
-    // Signal to GoogleOneTapProvider that a manual trigger happened,
-    // so it cancels the auto-prompt timer
-    setManuallyTriggered(true);
 
     try {
-      // If GIS is loaded, trigger the prompt (shows One Tap card or popup)
+      // ── GIS already loaded → try One Tap ────────────────────────────
       if (window.google?.accounts?.id) {
-        promptGoogleOneTap((moment) => {
-          // If One Tap can't be displayed, fall back to OAuth redirect
-          if (safeMomentCheck(moment, "isNotDisplayed")) {
-            console.debug("[GoogleOneTap] Prompt not displayed, falling back to OAuth:", moment.getNotDisplayedReason?.());
-            fallbackToOAuthRedirect(signIn, setIsLoading);
-            return;
-          }
-          if (safeMomentCheck(moment, "isSkippedMoment")) {
-            console.debug("[GoogleOneTap] Prompt skipped:", moment.getSkippedReason?.());
-            setIsLoading(false);
-            return;
-          }
-          if (safeMomentCheck(moment, "isDismissedMoment")) {
-            const reason = moment.getDismissedReason?.();
-            if (reason === "credential_returned") {
-              // The credential callback will handle sign-in
-              // Keep isLoading true until the auth state updates
-            } else {
-              setIsLoading(false);
-            }
-            return;
-          }
-        });
-        // If the prompt was displayed, the credential callback will handle
-        // the rest. Clear loading after a generous timeout.
-        setTimeout(() => setIsLoading(false), 10000);
+        await attemptOneTapOrFallback(signIn, setIsLoading);
         return;
       }
 
-      // GIS not loaded yet — load it and try again, or fall back
+      // ── GIS not yet loaded → try loading it ─────────────────────────
       try {
         await loadGoogleIdentityServices();
 
         if (window.google?.accounts?.id) {
+          // Re-initialise with our callback so the credential is captured
           initializeGoogleOneTap(
             GOOGLE_CLIENT_ID,
             async (response: CredentialResponse) => {
@@ -228,35 +257,148 @@ export function useGoogleOneTap() {
                   }
                 }, 300);
               } catch (error) {
-                console.error("Google sign-in failed:", error);
+                console.error("[GoogleOneTap] Sign-in failed:", error);
               } finally {
                 setIsLoading(false);
               }
             },
-            {
-              autoSelect: true,
-              context: "signin",
-            },
+            { autoSelect: true, context: "signin", fedcmForPrompt: true },
           );
 
-          promptGoogleOneTap((moment) => {
-            if (safeMomentCheck(moment, "isNotDisplayed")) {
-              fallbackToOAuthRedirect(signIn, setIsLoading);
-            } else if (safeMomentCheck(moment, "isSkippedMoment")) {
-              setIsLoading(false);
-            }
-          });
+          await attemptOneTapOrFallback(signIn, setIsLoading);
         } else {
+          // GIS loaded but accounts.id unavailable — fall back to OAuth
           await fallbackToOAuthRedirect(signIn, setIsLoading);
         }
       } catch {
+        // GIS failed to load — fall back to OAuth
         await fallbackToOAuthRedirect(signIn, setIsLoading);
       }
     } catch (error) {
-      console.error("Google sign-in error:", error);
+      console.error("[GoogleOneTap] Sign-in error:", error);
       setIsLoading(false);
     }
   }, [signIn, router, isAuthenticated, needsOnboarding]);
 
   return { triggerGoogleSignIn, isLoading };
+}
+
+// ---------------------------------------------------------------------------
+// Core logic: try One Tap, fall back to OAuth redirect
+// ---------------------------------------------------------------------------
+
+/**
+ * Call google.accounts.id.prompt() and wait for the moment listener.
+ *
+ * Decision tree:
+ *  - isSkippedMoment   → One Tap/FedCM can't show → OAuth redirect NOW
+ *  - isNotDisplayed    → Non-FedCM browser can't show → OAuth redirect NOW
+ *  - isDismissedMoment("credential_returned") → success, keep loading
+ *  - isDismissedMoment(other) → user dismissed → OAuth redirect (user
+ *    may have accidentally dismissed on mobile, so we offer the full flow)
+ *  - callback never fires within SAFETY_TIMEOUT_MS → OAuth redirect
+ */
+const SAFETY_TIMEOUT_MS = 5_000;
+
+async function attemptOneTapOrFallback(
+  signIn: ReturnType<typeof useAuthActions>["signIn"],
+  setIsLoading: (v: boolean) => void,
+): Promise<void> {
+  let resolved = false;
+
+  const clearSafetyTimeout = scheduleSafetyFallback(signIn, setIsLoading, () => resolved);
+
+  try {
+    promptGoogleOneTap((moment) => {
+      if (resolved) return; // Safety timeout already kicked in
+      resolved = true;
+      clearSafetyTimeout();
+
+      handleManualPromptMoment(moment, signIn, setIsLoading);
+    });
+  } catch (error) {
+    // prompt() threw — e.g. called before initialise, or GIS bug
+    console.error("[GoogleOneTap] prompt() threw:", error);
+    resolved = true;
+    clearSafetyTimeout();
+    await fallbackToOAuthRedirect(signIn, setIsLoading);
+  }
+}
+
+/**
+ * If the moment listener never fires (broken mobile browser, etc.),
+ * automatically redirect to Google OAuth after SAFETY_TIMEOUT_MS.
+ */
+function scheduleSafetyFallback(
+  signIn: ReturnType<typeof useAuthActions>["signIn"],
+  setIsLoading: (v: boolean) => void,
+  getResolved: () => boolean,
+): () => void {
+  const timer = setTimeout(() => {
+    if (!getResolved()) {
+      console.debug("[GoogleOneTap] Safety timeout — redirecting to OAuth");
+      fallbackToOAuthRedirect(signIn, setIsLoading);
+    }
+  }, SAFETY_TIMEOUT_MS);
+
+  return () => clearTimeout(timer);
+}
+
+/**
+ * Handle the moment notification from a manually-triggered prompt
+ * (i.e. the user clicked "Continue with Google").
+ *
+ * Unlike the auto-prompt, this ALWAYS falls back to OAuth redirect when
+ * One Tap can't display — the user has explicitly asked to sign in.
+ */
+function handleManualPromptMoment(
+  moment: PromptMomentNotification,
+  signIn: ReturnType<typeof useAuthActions>["signIn"],
+  setIsLoading: (v: boolean) => void,
+) {
+  // ── Skipped moment: prompt couldn't show ───────────────────────────
+  // This is the PRIMARY "can't show" signal on FedCM browsers (Chrome 120+).
+  // On non-FedCM browsers, you'd get isNotDisplayed() instead.
+  if (safeMomentCheck(moment, "isSkippedMoment")) {
+    const reason = moment.getSkippedReason?.();
+    console.debug(
+      "[GoogleOneTap] Prompt skipped, falling back to OAuth.",
+      reason ?? "(FedCM — no reason available)",
+    );
+    fallbackToOAuthRedirect(signIn, setIsLoading);
+    return;
+  }
+
+  // ── Not displayed: non-FedCM browser can't show One Tap ────────────
+  // On FedCM browsers this method doesn't exist; safeMomentCheck returns false.
+  if (safeMomentCheck(moment, "isNotDisplayed")) {
+    console.debug(
+      "[GoogleOneTap] Prompt not displayed, falling back to OAuth:",
+      moment.getNotDisplayedReason?.(),
+    );
+    fallbackToOAuthRedirect(signIn, setIsLoading);
+    return;
+  }
+
+  // ── Dismissed: user interacted (credential OR cancel) ──────────────
+  if (safeMomentCheck(moment, "isDismissedMoment")) {
+    const reason = moment.getDismissedReason?.();
+    if (reason === "credential_returned") {
+      // Great — the credential callback will handle sign-in.
+      // Keep isLoading true until the auth state updates.
+      console.debug("[GoogleOneTap] Credential returned — waiting for auth.");
+    } else {
+      // User dismissed the prompt (clicked X, tapped outside, ESC, etc.)
+      // On mobile, dismissals are often accidental (fat-finger) so we
+      // fall back to the full OAuth flow rather than leaving the user stuck.
+      console.debug("[GoogleOneTap] Prompt dismissed, falling back to OAuth:", reason);
+      fallbackToOAuthRedirect(signIn, setIsLoading);
+    }
+    return;
+  }
+
+  // ── Unknown moment type ────────────────────────────────────────────
+  // Defensive: if nothing matched, redirect to OAuth so the user isn't stuck.
+  console.debug("[GoogleOneTap] Unhandled moment type, falling back to OAuth:", moment.getMomentType?.());
+  fallbackToOAuthRedirect(signIn, setIsLoading);
 }
