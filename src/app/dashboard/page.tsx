@@ -72,7 +72,7 @@ export default function DashboardPage() {
             { label: "Home", href: "/" },
             { label: "Dashboard" },
           ]}
-          title="Your Cosmic"
+          title="Your Cosmicasdasd"
           subtitle="Profile"
           showElementFilter={false}
         />

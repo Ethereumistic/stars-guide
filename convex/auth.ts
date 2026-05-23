@@ -104,7 +104,59 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
             },
         }),
     ],
+
+    // ── Redirect callback ─────────────────────────────────────────────────
+    // Controls where users land after OAuth sign-in and magic links.
+    //
+    // In production, `SITE_URL` (Convex env var) determines the base URL.
+    // When `DEVELOPMENT_URL` is set on the Convex deployment, all
+    // post-OAuth redirects go there instead — this enables HTTPS
+    // debugging via ngrok / tunnels on mobile devices.
+    //
+    // Set DEVELOPMENT_URL:  npx convex env set DEVELOPMENT_URL https://xxx.ngrok-free.app
+    // Remove when done:    npx convex env rm DEVELOPMENT_URL
     callbacks: {
+        async redirect({ redirectTo }) {
+            // DEVELOPMENT_URL takes priority so we can route OAuth
+            // redirects to an ngrok / tunnel URL during local dev.
+            const baseUrl = (
+                process.env.DEVELOPMENT_URL || process.env.SITE_URL || ""
+            ).replace(/\/$/, "");
+
+            if (!baseUrl) {
+                throw new Error(
+                    "Convex Auth: Neither DEVELOPMENT_URL nor SITE_URL is set. " +
+                    "Set SITE_URL (production) or DEVELOPMENT_URL (dev tunnel) on your Convex deployment.",
+                );
+            }
+
+            // Relative paths ("/dashboard") and query-params ("?next=/foo")
+            if (redirectTo.startsWith("/") || redirectTo.startsWith("?")) {
+                return `${baseUrl}${redirectTo}`;
+            }
+
+            // Absolute URL that already starts with the base URL — allow through
+            if (redirectTo.startsWith(baseUrl)) {
+                return redirectTo;
+            }
+
+            // When DEVELOPMENT_URL is active, also accept production SITE_URL
+            // redirects and reroute them to the dev tunnel.
+            const siteUrl = (process.env.SITE_URL || "").replace(/\/$/, "");
+            if (
+                siteUrl &&
+                siteUrl !== baseUrl &&
+                redirectTo.startsWith(siteUrl)
+            ) {
+                return redirectTo.replace(siteUrl, baseUrl);
+            }
+
+            throw new Error(
+                `Invalid \`redirectTo\` ${redirectTo} — must start with ${baseUrl}` +
+                    (siteUrl ? ` or ${siteUrl}` : ""),
+            );
+        },
+
         async createOrUpdateUser(ctx, args) {
             if (args.existingUserId) return args.existingUserId;
 

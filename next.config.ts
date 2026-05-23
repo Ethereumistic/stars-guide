@@ -6,7 +6,20 @@ const nextConfig: NextConfig = {
 			{
 				hostname: "cdn.jsdelivr.net",
 				protocol: "https",
-			}
+			},
+			// Allow images from ngrok dev tunnels
+			{
+				hostname: "*.ngrok-free.app",
+				protocol: "https",
+			},
+			{
+				hostname: "*.ngrok.app",
+				protocol: "https",
+			},
+			{
+				hostname: "*.ngrok.dev",
+				protocol: "https",
+			},
 		]
 	},
 	async redirects() {

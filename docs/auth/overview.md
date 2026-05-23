@@ -69,3 +69,4 @@ have different UX sequences.
 
 - [Google One Tap flow](./google-one-tap-flow.md)
 - [Onboarding auth flow](./onboarding-auth-flow.md)
+- [Local HTTPS development (OAuth on mobile)](./local-https-dev.md)

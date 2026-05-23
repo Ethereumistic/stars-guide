@@ -83,7 +83,7 @@ export function ElementalCircleView({ data, delay = 0.3 }: ElementalCircleViewPr
 
     return (
         <div className="w-full flex justify-center">
-            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="overflow-visible">
+            <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-auto overflow-visible" style={{ maxWidth: size }}>
                 {/* Defs for glow filter */}
                 <defs>
                     {ELEMENT_ORDER.map(el => (
@@ -156,34 +156,47 @@ export function ElementalCircleView({ data, delay = 0.3 }: ElementalCircleViewPr
                 {/* Inner decorative circle */}
                 <circle cx={cx} cy={cy} r={radius - strokeWidth / 2 - 8} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth={1} />
 
-                {/* Center content */}
-                <foreignObject x={cx - 70} y={cy - 70} width={140} height={140}>
-                    <div className="w-full h-full flex flex-col items-center justify-center text-center">
-                        <motion.div
-                            initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ duration: 0.8, delay: delay + 0.6 }}
-                        >
-                            <DominantIcon className="w-8 h-8 mx-auto mb-2" style={{ color: dominantColor.stroke }} />
-                        </motion.div>
-                        <motion.span
-                            className="block text-3xl font-serif text-white leading-none"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ duration: 0.6, delay: delay + 0.8 }}
-                        >
-                            {dominantPct}%
-                        </motion.span>
-                        <motion.span
-                            className="block text-[9px] font-mono uppercase tracking-[0.2em] text-white/40 mt-1"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ duration: 0.6, delay: delay + 1 }}
-                        >
-                            {dominant}
-                        </motion.span>
-                    </div>
-                </foreignObject>
+                {/* Center content — native SVG for correct mobile scaling */}
+                <motion.g
+                    style={{ transformOrigin: `${cx}px ${cy}px` }}
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.8, delay: delay + 0.6 }}
+                >
+                    {/* Dominant element icon */}
+                    <g transform={`translate(${cx - 14}, ${cy - 32})`} style={{ color: dominantColor.stroke }}>
+                        <DominantIcon size={28} />
+                    </g>
+                    {/* Percentage */}
+                    <motion.text
+                        x={cx}
+                        y={cy + 8}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fill="white"
+                        fontSize="26"
+                        fontFamily="ui-serif, serif"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.6, delay: delay + 0.8 }}
+                    >
+                        {dominantPct}%
+                    </motion.text>
+                    {/* Element name */}
+                    <motion.text
+                        x={cx}
+                        y={cy + 24}
+                        textAnchor="middle"
+                        fill="rgba(255,255,255,0.4)"
+                        fontSize="9"
+                        fontFamily="ui-monospace, monospace"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.6, delay: delay + 1 }}
+                    >
+                        {dominant.toUpperCase()}
+                    </motion.text>
+                </motion.g>
 
                 {/* Outer labels */}
                 {arcs.map(({ el, startAngle, arcAngle, count }) => {

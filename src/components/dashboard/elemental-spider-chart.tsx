@@ -470,41 +470,47 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
         )
       })}
 
-      {/* Axis icons on the outer ring */}
+      {/* Axis icons on the outer ring — native SVG for correct mobile scaling */}
       {SPIDER_AXES.map((axis, i) => {
         const iconPt = spiderPoint(CX, CY, ICON_CENTER_RADIUS, i)
         const IconComp = AXIS_ICON_MAP[axis.iconName]
         const color = ELEMENT_COLORS[axis.element].stroke
         const isHighlighted = hoveredIndex === i
         return (
-          <foreignObject
+          <motion.g
             key={`axis-icon-${i}`}
-            x={iconPt.x - ICON_SIZE / 2}
-            y={iconPt.y - ICON_SIZE / 2}
-            width={ICON_SIZE}
-            height={ICON_SIZE}
-            className="cursor-pointer overflow-visible"
+            style={{ transformOrigin: `${iconPt.x}px ${iconPt.y}px` }}
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{
+              opacity: isHighlighted ? 1 : 0.85,
+              scale: isHighlighted ? 1.2 : 1,
+            }}
+            transition={{ duration: 0.25 }}
+            className="cursor-pointer"
+            onMouseEnter={() => handleHover(i)}
+            onMouseLeave={clearHover}
           >
-            <motion.div
-              className="flex items-center justify-center w-full h-full text-primary"
-              initial={{ opacity: 0, scale: 0 }}
-              animate={{
-                opacity: isHighlighted ? 1 : 0.85,
-                scale: isHighlighted ? 1.15 : 1,
-              }}
-              transition={{ duration: 0.25 }}
-              onMouseEnter={() => handleHover(i)}
-              onMouseLeave={clearHover}
-              style={isHighlighted ? { color } : undefined}
+            {/* Hit area for touch/mouse interaction */}
+            <circle
+              cx={iconPt.x}
+              cy={iconPt.y}
+              r={ICON_SIZE / 2 + 6}
+              fill="transparent"
+            />
+            {/* Icon as native SVG — scales correctly on all devices */}
+            <g
+              transform={`translate(${iconPt.x - ICON_SIZE / 2}, ${iconPt.y - ICON_SIZE / 2})`}
+              style={{ color: isHighlighted ? color : 'var(--primary)' }}
             >
               <IconComp size={ICON_SIZE} />
-            </motion.div>
-          </foreignObject>
+            </g>
+          </motion.g>
         )
       })}
 
       {/* Center — element frame image + icon overlay */}
       <motion.g
+        style={{ transformOrigin: `${CX}px ${CY}px` }}
         initial={{ opacity: 0, scale: 0.6 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.8, delay: delay + 0.6, ease: [0.22, 1, 0.36, 1] }}
@@ -518,16 +524,10 @@ export function ElementalSpiderChart({ birthData, delay = 0.3 }: ElementalSpider
           opacity={0.3}
           style={{ pointerEvents: "none" }}
         />
-        <foreignObject
-          x={CX - 19}
-          y={CY - 19}
-          width={38}
-          height={38}
-        >
-          <div className="flex items-center justify-center w-full h-full">
-            <DominantElIcon size={27} style={{ color: dominantColor.stroke, opacity: 0.9 }} />
-          </div>
-        </foreignObject>
+        {/* Center icon as native SVG — scales correctly on all devices */}
+        <g transform={`translate(${CX - 13.5}, ${CY - 13.5})`}>
+          <DominantElIcon size={27} style={{ color: dominantColor.stroke, opacity: 0.9 }} />
+        </g>
       </motion.g>
     </svg>
   )
