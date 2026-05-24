@@ -21,7 +21,6 @@ import {
   LogOut,
   User,
   Settings,
-  Sparkles,
   Plus,
   Bell,
   UserPlus,
@@ -351,11 +350,6 @@ export function Navbar() {
   const [scrolled, setScrolled] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const pathname = usePathname();
-  const isFullscreenApp =
-    pathname.startsWith("/oracle") ||
-    pathname.startsWith("/journal") ||
-    pathname.startsWith("/admin") ||
-    pathname.startsWith("/invite");
 
   // Handle Scroll Effect
   React.useEffect(() => {
@@ -389,8 +383,6 @@ export function Navbar() {
       ? "/dashboard"
       : "/onboarding"
     : "/onboarding";
-
-  if (isFullscreenApp) return null;
 
   return (
     <>
@@ -555,7 +547,7 @@ export function Navbar() {
                     className="gap-2.5 cursor-pointer px-3 py-2"
                   >
                     <Link
-                      href="/settings?tab=invite"
+                      href={`/invite/${currentUser?.username}`}
                       className="text-sm text-foreground/80 hover:text-primary transition-colors"
                     >
                       <UserPlus className="size-4 text-primary" />

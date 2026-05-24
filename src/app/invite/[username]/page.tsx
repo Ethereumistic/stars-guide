@@ -2,12 +2,14 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
-import { SignUpForm } from "@/app/(auth)/sign-up/sign-up-form";
+import Link from "next/link";
+import { SignUpForm } from "@/app/(shell)/(auth)/sign-up/sign-up-form";
 import { PlanetShowcase } from "@/components/auth/planet-showcase";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "motion/react";
 import { planetUIConfig } from "@/config/planet-ui";
 import { useUserStore } from "@/store/use-user-store";
+import { Logo } from "@/components/ui/logo";
 import { InviteCard } from "./_components/invite-card";
 
 function setReferrerCookie(username: string) {
@@ -75,9 +77,10 @@ export default function InvitePage() {
     if (!mounted) return null;
 
     // ===== OWN INVITE CARD VIEW =====
+    // InviteCard has its own fixed-position logo + close button
     if (isOwnInvite && user) {
         return (
-            <div className="h-[calc(100dvh-10rem)] flex items-center justify-center">
+            <div className="h-[100dvh] flex items-center justify-center">
                 <InviteCard user={user} inviteUrl={inviteUrl} />
             </div>
         );
@@ -93,7 +96,13 @@ export default function InvitePage() {
 
     // ===== DEFAULT: SIGN-UP INVITE VIEW (unauthenticated) =====
     return (
-        <div className="w-full max-w-[880px]">
+        <div className="w-full max-w-[880px] flex flex-col items-center gap-4">
+            {/* Logo header for sign-up view */}
+            <Link href="/">
+                <Logo size="sm" variant="logo" layout="horizontal_right" />
+            </Link>
+
+            <div className="w-full">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -172,6 +181,7 @@ export default function InvitePage() {
                     </CardContent>
                 </Card>
             </motion.div>
+            </div>
         </div>
     );
 }

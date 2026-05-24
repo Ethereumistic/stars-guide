@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Cinzel } from "next/font/google"; // Using Inter and Cinzel as per design doc
 import { ThemeProvider } from "@/components/ui/theme-provider"
-import { Navbar } from "@/components/layout/navbar";
-import { Footer } from "@/components/layout/footer";
 import "./globals.css";
 
 const inter = Inter({
@@ -51,9 +49,9 @@ export default function RootLayout({
 								disableTransitionOnChange
 							>
 								<TooltipProvider>
-									<div className="relative min-h-screen flex flex-col">
-										<Navbar />
-										<div className="fixed inset-0 z-0">
+									<div className="relative min-h-screen">
+										{/* Ambient star background — visible on all routes, below everything */}
+										<div className="fixed inset-0 z-0 pointer-events-none">
 											<ShootingStars
 												minSpeed={15}
 												maxSpeed={35}
@@ -70,8 +68,7 @@ export default function RootLayout({
 												maxTwinkleSpeed={1.2}
 											/>
 										</div>
-										<main className="flex-1">{children}</main>
-										<Footer />
+										{children}
 									</div>
 								</TooltipProvider>
 							</ThemeProvider>

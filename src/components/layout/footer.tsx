@@ -13,7 +13,7 @@ import {
   GiCursedStar,
   GiScrollUnfurled,
 } from "react-icons/gi";
-import { Mail, Facebook, Twitter, Instagram, X } from "lucide-react";
+import { Mail, Facebook, Twitter, Instagram } from "lucide-react";
 import { BsTwitterX, BsTiktok } from "react-icons/bs";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
@@ -60,14 +60,6 @@ export function Footer() {
   const { isAuthenticated: isAuthConvex } = useConvexAuth();
   const { user: currentUser } = useUserStore();
   const isAuthenticated = isAuthConvex && !!currentUser;
-
-  if (
-    pathname.startsWith("/oracle") ||
-    pathname.startsWith("/journal") ||
-    pathname.startsWith("/admin")
-  ) {
-    return null;
-  }
 
   return (
     <footer className="w-full border-t border-primary/10 bg-background/50 backdrop-blur-sm">

@@ -4,14 +4,9 @@ import { useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "motion/react";
-import { useMemo, useState } from "react";
 import { useUserStore } from "@/store/use-user-store";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
-import { calculateFullChart } from "@/lib/birth-chart/full-chart";
-import { ChartTableView } from "@/components/dashboard/natal-chart/chart-table-view";
-import { ChartCircleView } from "@/components/dashboard/natal-chart/chart-circle-view";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Empty,
   EmptyMedia,
@@ -20,24 +15,22 @@ import {
   EmptyContent,
 } from "@/components/ui/empty";
 import { GiBlackHoleBolas } from "react-icons/gi";
-import { cn } from "@/lib/utils";
 import {
   Lock,
   Users,
   Globe,
   LogIn,
-  UserX,
-  Table2,
-  CircleDot,
-  LayoutGrid,
 } from "lucide-react";
+import { NatalChart } from "@/components/dashboard/natal-chart/natal-chart";
+import { ElementalSpiderChart } from "@/components/dashboard/elemental-spider-chart";
+import { PlanetsCarousel } from "@/components/dashboard/planets-carousel";
+import { PageHeader } from "@/components/layout/page-header";
 import type { StoredBirthData } from "@/lib/birth-chart/types";
 
 export default function UserProfilePage() {
   const params = useParams<{ username: string }>();
   const router = useRouter();
   const { user: currentUser, isLoading: authLoading } = useUserStore();
-  const [visualization, setVisualization] = useState("both");
 
   const username = params.username;
 
@@ -154,6 +147,20 @@ export default function UserProfilePage() {
   const { user: targetUser, birthData } = starsResult;
   const displayUsername = targetUser.username || "User";
 
+  // Convert birthData to the format expected by dashboard components
+  const formattedBirthData: StoredBirthData | null = birthData ? {
+    date: birthData.date,
+    time: birthData.time,
+    location: {
+      lat: birthData.location.lat,
+      long: birthData.location.long,
+      city: birthData.location.city || "",
+      country: birthData.location.country || "",
+    },
+    placements: birthData.placements || [],
+    chart: birthData.chart,
+  } : null;
+
   return (
     <div className="relative min-h-screen w-full text-foreground overflow-x-hidden">
       {/* Ambient background */}
@@ -173,83 +180,31 @@ export default function UserProfilePage() {
       </div>
 
       <div className="relative z-10 max-w-[1600px] mx-auto px-6 md:px-12 pt-8 pb-32">
-        {/* Breadcrumbs: HOME / USERNAME */}
-        <PageBreadcrumbs
-          items={[{ label: "Home", href: "/" }]}
-          currentPage={displayUsername.toUpperCase()}
-          currentPageColor="rgb(212, 175, 55)"
-          showBorder={false}
+        {/* Page Header */}
+        <PageHeader
+          breadcrumbs={[
+            { label: "Home", href: "/" },
+            { label: displayUsername },
+          ]}
+          title={`${displayUsername}'s Chart`}
+          subtitle="Birth Profile"
+          showElementFilter={false}
         />
 
-        {/* Title + Visualization Filter */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-16">
-          <h1 className="text-5xl md:text-6xl font-serif font-bold text-white tracking-tighter">
-            {displayUsername}
-            <span className="italic text-primary drop-shadow-[0_0_15px_rgba(212,175,55,0.3)]">
-              {" "}
-              Birth Chart
-            </span>
-          </h1>
-
-          {birthData && (
-            <div className="flex flex-col gap-4 md:items-end text-center md:text-left mt-8 md:mt-0">
-              <span className="text-base uppercase font-mono text-primary/60 tracking-[0.3em] font-bold">
-                View
-              </span>
-              <Tabs
-                value={visualization}
-                onValueChange={setVisualization}
-                className="w-fit rounded-md mx-auto md:mx-0"
-              >
-                <TabsList className="bg-white/5 border border-white/10 p-1 h-auto gap-2 justify-center">
-                  <TabsTrigger
-                    value="both"
-                    className="relative w-20 md:w-24 text-center px-4 py-2.5 text-sm font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300"
-                  >
-                    <LayoutGrid className="size-5 md:size-4 md:mr-2 text-primary" />
-                    <span className="font-mono text-sm md:text-xs uppercase tracking-wider md:hidden">
-                      Both
-                    </span>
-                    <span className="font-mono text-xs uppercase tracking-wider hidden md:inline">
-                      Both
-                    </span>
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="table"
-                    className="relative w-20 md:w-24 text-center px-4 py-2.5 text-sm font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300"
-                  >
-                    <Table2 className="size-5 md:size-4 md:mr-2 text-primary" />
-                    <span className="font-mono text-sm md:text-xs uppercase tracking-wider md:hidden">
-                      Table
-                    </span>
-                    <span className="font-mono text-xs uppercase tracking-wider hidden md:inline">
-                      Table
-                    </span>
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="circle"
-                    className="relative w-20 md:w-24 text-center px-4 py-2.5 text-sm font-medium data-[state=active]:text-white text-white/60 hover:text-white data-[state=active]:bg-white/10 data-[state=active]:border data-[state=active]:border-white/10 data-[state=active]:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all duration-300"
-                  >
-                    <CircleDot className="size-5 md:size-4 md:mr-2 text-primary" />
-                    <span className="font-mono text-sm md:text-xs uppercase tracking-wider md:hidden">
-                      Circle
-                    </span>
-                    <span className="font-mono text-xs uppercase tracking-wider hidden md:inline">
-                      Circle
-                    </span>
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-          )}
-        </div>
-
         {/* Birth Chart Content */}
-        {birthData ? (
-          <ChartContent
-            birthData={birthData as StoredBirthData}
-            visualization={visualization}
-          />
+        {formattedBirthData ? (
+          <div className="space-y-8">
+            {/* Natal Chart (Birth Chart) — 1st */}
+            <NatalChart birthData={formattedBirthData} />
+
+            {/* Elemental Spider Chart — 2nd */}
+            <ElementalSpiderChart birthData={formattedBirthData} delay={0.1} />
+
+            {/* Planetary Placements Carousel */}
+            {formattedBirthData.placements && formattedBirthData.placements.length > 0 && (
+              <PlanetsCarousel placements={formattedBirthData.placements} delay={0.35} />
+            )}
+          </div>
         ) : (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -265,86 +220,6 @@ export default function UserProfilePage() {
         )}
       </div>
     </div>
-  );
-}
-
-function ChartContent({
-  birthData,
-  visualization,
-}: {
-  birthData: StoredBirthData;
-  visualization: string;
-}) {
-  const chartData = useMemo(() => {
-    try {
-      const [yearStr, monthStr, dayStr] = birthData.date.split("-");
-      const [hoursStr, minutesStr] = birthData.time.split(":");
-
-      const year = parseInt(yearStr, 10);
-      const month = parseInt(monthStr, 10);
-      const day = parseInt(dayStr, 10);
-      const hours = parseInt(hoursStr, 10);
-      const minutes = parseInt(minutesStr, 10);
-
-      if (
-        isNaN(year) ||
-        isNaN(month) ||
-        isNaN(day) ||
-        isNaN(hours) ||
-        isNaN(minutes) ||
-        typeof birthData.location?.lat !== "number" ||
-        typeof birthData.location?.long !== "number"
-      ) {
-        return null;
-      }
-
-      return calculateFullChart(
-        year,
-        month,
-        day,
-        hours,
-        minutes,
-        birthData.location.lat,
-        birthData.location.long,
-      );
-    } catch (error) {
-      console.error("Error calculating natal chart:", error);
-      return null;
-    }
-  }, [birthData]);
-
-  if (!chartData) {
-    return (
-      <div className="p-8 text-center text-white/50 bg-[#0F0F0F] rounded-md border border-white/10">
-        Incomplete birth data.
-      </div>
-    );
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: 0.15 }}
-      className="w-full"
-    >
-      {visualization === "both" ? (
-        <div className="grid grid-cols-7 gap-6">
-          <div className="col-span-3">
-            <ChartTableView data={chartData} />
-          </div>
-          <div className="col-span-4">
-            <ChartCircleView data={chartData} />
-          </div>
-        </div>
-      ) : visualization === "table" ? (
-        <ChartTableView data={chartData} />
-      ) : (
-        <div className="w-full flex justify-center">
-          <ChartCircleView data={chartData} />
-        </div>
-      )}
-    </motion.div>
   );
 }
 

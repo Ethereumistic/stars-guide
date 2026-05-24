@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { Logo } from "@/components/ui/logo";
 import { StarsBackground, ShootingStars } from "@/components/hero/stars-canvas";
 
 export default function InviteLayout({
@@ -28,11 +27,6 @@ export default function InviteLayout({
                     minTwinkleSpeed={0.5}
                     maxTwinkleSpeed={1.5}
                 />
-            </div>
-
-            {/* Centered Logo Header */}
-            <div className="relative z-20 flex justify-center pt-6 pb-4 shrink-0">
-                <Logo size="sm" variant="logo" layout="horizontal_right" />
             </div>
 
             {/* Content area — scrollable, centred horizontally, top-aligned so card scrolls naturally on short screens */}
