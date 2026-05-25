@@ -19,6 +19,7 @@
     "NEXT_PUBLIC_SITE_URL": "https://stars.guide",
     "NEXT_PUBLIC_CONVEX_URL": "https://convex.stars.guide",
     "NEXT_PUBLIC_CONVEX_SITE_URL": "https://convex-site.stars.guide",
+    "NEXT_PUBLIC_PLAUSIBLE_DOMAIN": "stars.guide"
   },
   "upload_source_maps": true,
 }

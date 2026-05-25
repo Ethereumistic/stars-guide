@@ -14,6 +14,7 @@ import { RevealSignCard } from "@/components/onboarding/reveal-sign-card"
 import { RevealCompactSignCard } from "@/components/onboarding/reveal-compact-sign-card"
 import { compositionalSigns } from "@/astrology/signs"
 import { zodiacUIConfig } from "@/config/zodiac-ui"
+import { trackSignupComplete } from "@/lib/analytics"
 
 function useIsMobile() {
     const [isMobile, setIsMobile] = React.useState(false)
@@ -125,6 +126,7 @@ export function RevealStep() {
     }, [saveProgress])
 
     const handleEnterSanctuary = () => {
+        trackSignupComplete()
         reset()
         router.push("/dashboard")
     }

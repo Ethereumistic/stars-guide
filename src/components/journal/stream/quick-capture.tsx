@@ -21,6 +21,7 @@ import { DreamFields } from "./dream-fields";
 import { GratitudeFields } from "./gratitude-fields";
 import { PostSaveActions, type PostSaveData } from "./post-save-actions";
 import { JournalTopicCards, type JournalTopic } from "./journal-topic-cards";
+import { trackJournalEntry } from "@/lib/analytics";
 import { useQuery } from "convex/react";
 
 interface QuickCaptureProps {
@@ -321,6 +322,7 @@ export function QuickCapture({
             }
 
             if (!isEditing) {
+                trackJournalEntry();
                 setContent("");
                 setTitle("");
                 setMoodZone(null);

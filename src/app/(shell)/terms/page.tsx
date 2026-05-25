@@ -1,11 +1,12 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Metadata } from "next";
+import { buildMetadata } from "@/lib/seo";
 import Link from "next/link";
 
-export const metadata: Metadata = {
-    title: "Terms of Service | stars.guide",
-    description: "Terms of Service for stars.guide users.",
-};
+export const metadata = buildMetadata({
+  title: "Terms of Service | Stars Guide",
+  description: "Terms of Service for stars.guide users.",
+  path: "/terms",
+});
 
 export default function TermsOfServicePage() {
     return (

@@ -314,11 +314,14 @@ export const ShootingStars: React.FC<ShootingStarsProps> = ({
     }, []);
 
     // Animation loop — draws directly to canvas, no React state
+    // CWV optimization: only run rAF when a star is active, idle otherwise
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
+
+        let animating = false;
 
         const animate = () => {
             const star = starRef.current;

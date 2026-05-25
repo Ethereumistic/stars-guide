@@ -24,6 +24,7 @@ import {
   getGreetingForHour,
 } from "@/lib/timezone";
 import { UpgradeModal, useUpgradeModal } from "@/components/pricing/upgrade-modal";
+import { trackOracleChat } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { GiPolarStar, GiBeveledStar, GiCursedStar } from "react-icons/gi";
 
@@ -208,6 +209,7 @@ export default function OracleNewPage() {
 
       setSessionId(sessionId);
       setOracleResponding();
+      trackOracleChat();
       router.push(`/oracle/chat/${sessionId}`);
     } catch (error) {
       console.error("Failed to create Oracle session:", error);

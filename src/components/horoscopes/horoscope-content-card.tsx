@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { LockedPricingCard } from "@/components/pricing/locked-pricing-card";
+import { HoroscopePaywallOverlay } from "@/components/horoscopes/horoscope-paywall-overlay";
 import { HoroscopeCardActions } from "@/components/horoscopes/horoscope-card-actions";
+import { trackHoroscopeRead } from "@/lib/analytics";
 import {
     GiPulse,
     GiSwordBrandish,
@@ -69,6 +70,8 @@ interface HoroscopeContentCardProps {
         primary: string;
         glow: string;
     };
+    /** Callback when user clicks unlock on paywalled content */
+    onUnlock?: () => void;
 }
 
 export function HoroscopeContentCard({
@@ -77,6 +80,7 @@ export function HoroscopeContentCard({
     date,
     sign,
     styles,
+    onUnlock,
 }: HoroscopeContentCardProps) {
     const [showSkeleton, setShowSkeleton] = useState(true);
     const [isHovered, setIsHovered] = useState(false);
@@ -89,6 +93,13 @@ export function HoroscopeContentCard({
     }, []);
 
     const shouldShowSkeleton = (isLoading || horoscopeData === undefined) && showSkeleton;
+
+    // Track horoscope read once when non-paywalled content is displayed
+    useEffect(() => {
+        if (!horoscopeData || shouldShowSkeleton) return;
+        if ("isPaywalled" in (horoscopeData as any) && (horoscopeData as any).isPaywalled) return;
+        if (sign) trackHoroscopeRead(sign);
+    }, [horoscopeData, shouldShowSkeleton, sign]);
 
     // Extract copyable text content from any format
     const copyableText = useMemo(() => {
@@ -150,12 +161,14 @@ export function HoroscopeContentCard({
         );
     }
 
-    // Paywalled
+    // Paywalled — show the sealed-scroll overlay (component owns the card chrome)
     if (horoscopeData && "isPaywalled" in horoscopeData && horoscopeData.isPaywalled) {
         return (
-            <div className="border border-white/10 bg-black/50 rounded-md overflow-hidden min-h-134">
-                <LockedPricingCard requiredTier={horoscopeData.requiredTier as "popular" | "premium"} />
-            </div>
+            <HoroscopePaywallOverlay
+                requiredTier={horoscopeData.requiredTier as "popular" | "premium"}
+                date={(horoscopeData as Record<string, any>).date ?? date}
+                onUnlock={onUnlock ?? (() => {})}
+            />
         );
     }
 

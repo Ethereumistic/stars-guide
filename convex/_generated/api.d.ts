@@ -11,6 +11,7 @@
 import type * as admin from "../admin.js";
 import type * as ai from "../ai.js";
 import type * as aiQueries from "../aiQueries.js";
+import type * as analytics from "../analytics.js";
 import type * as auth from "../auth.js";
 import type * as cosmicWeather from "../cosmicWeather.js";
 import type * as crons from "../crons.js";
@@ -73,6 +74,7 @@ declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   ai: typeof ai;
   aiQueries: typeof aiQueries;
+  analytics: typeof analytics;
   auth: typeof auth;
   cosmicWeather: typeof cosmicWeather;
   crons: typeof crons;

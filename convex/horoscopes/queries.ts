@@ -21,23 +21,44 @@ export const ALL_SIGNS = [
 
 type Tier = "free" | "popular" | "premium";
 
+/** Per-tier access window, in absolute days from today. */
+const TIER_WINDOW_DAYS: Record<Tier, number> = {
+  free: 0,    // today only
+  popular: 1, // ±1 day (yesterday, today, tomorrow)
+  premium: 7, // ±7 days
+};
+
+function daysFromToday(dateStr: string): number {
+  const today = startOfDay(new Date());
+  const target = startOfDay(parseISO(dateStr));
+  return differenceInDays(target, today);
+}
+
 /**
  * Determines whether the given date is accessible to the given tier.
  *
  *   free     → today only
- *   popular  → ±1 day (yesterday, today, tomorrow)
+ *   popular  → ±1 day  (yesterday, today, tomorrow)
  *   premium  → ±7 days
  */
 function isDateAccessible(userTier: Tier, dateStr: string): boolean {
-  const today = startOfDay(new Date());
-  const target = startOfDay(parseISO(dateStr));
-  const diff = differenceInDays(target, today);
+  return Math.abs(daysFromToday(dateStr)) <= TIER_WINDOW_DAYS[userTier];
+}
 
-  switch (userTier) {
-    case "premium": return diff >= -7 && diff <= 7;
-    case "popular": return diff >= -1 && diff <= 1;
-    default:        return diff === 0;
-  }
+/**
+ * Picks the **minimum upgrade tier** that would actually unlock this date.
+ *
+ * Critically, this is driven by the distance from today — NOT by the user's
+ * current tier. A free user looking at "day after tomorrow" needs `premium`
+ * (Oracle), not `popular` (Cosmic Flow), because Cosmic Flow only covers ±1.
+ *
+ * Returns `null` only when no tier could unlock the date (out of ±7 range).
+ */
+function requiredTierForDate(dateStr: string): "popular" | "premium" | null {
+  const distance = Math.abs(daysFromToday(dateStr));
+  if (distance <= TIER_WINDOW_DAYS.popular) return "popular";
+  if (distance <= TIER_WINDOW_DAYS.premium) return "premium";
+  return null;
 }
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
@@ -77,7 +98,7 @@ export const getPublished = query({
     if (!isDateAccessible(userTier, args.date)) {
       return {
         isPaywalled: true,
-        requiredTier: userTier === "free" ? "popular" : "premium",
+        requiredTier: requiredTierForDate(args.date) ?? "premium",
         date: args.date,
         sign: args.sign,
       };
@@ -122,7 +143,7 @@ export const getTodayForSign = query({
     if (!isDateAccessible(userTier, todayStr)) {
       return {
         isPaywalled: true,
-        requiredTier: userTier === "free" ? "popular" : "premium",
+        requiredTier: requiredTierForDate(todayStr) ?? "premium",
         date: todayStr,
         sign: args.sign,
       };
@@ -165,7 +186,7 @@ export const getAllSignsForDate = query({
       if (!isDateAccessible(userTier, args.date)) {
         return {
           isPaywalled: true,
-          requiredTier: userTier === "free" ? "popular" : "premium",
+          requiredTier: requiredTierForDate(args.date) ?? "premium",
           date: h.date,
           sign: h.sign,
           // strip content when paywalled

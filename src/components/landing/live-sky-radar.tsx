@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { getPlanetTelemetry, type PlanetTelemetry } from "@/lib/planets/telemetry";
 import { planetUIConfig } from "@/config/planet-ui";
 import { compositionalSigns } from "@/astrology/signs";
@@ -408,7 +409,7 @@ export function LiveSkyRadar() {
                                             )}
                                             <div className="w-9 h-9 rounded-full flex items-center justify-center border border-white/[0.08] bg-black/70 overflow-hidden">
                                                 {entry.ui.imageUrl ? (
-                                                    <img src={entry.ui.imageUrl} alt={entry.name} className="w-6 h-6 object-contain" />
+                                                    <Image src={entry.ui.imageUrl} alt={entry.name} width={24} height={24} className="w-6 h-6 object-contain" />
                                                 ) : (
                                                     <span className="text-sm font-serif" style={{ color: entry.ui.themeColor }}>{entry.ui.rulerSymbol}</span>
                                                 )}
@@ -445,7 +446,7 @@ export function LiveSkyRadar() {
                                     className="group flex items-center gap-2 px-3 py-1.5 bg-orange-500/10 border border-orange-500/20 rounded-sm hover:bg-orange-500/20 transition-colors"
                                 >
                                     {p.ui.imageUrl ? (
-                                        <img src={p.ui.imageUrl} alt={p.name} className="w-4 h-4 object-contain" />
+                                        <Image src={p.ui.imageUrl} alt={p.name} width={16} height={16} className="w-4 h-4 object-contain" />
                                     ) : (
                                         <span style={{ color: p.ui.themeColor }} className="font-serif text-sm">{p.ui.rulerSymbol}</span>
                                     )}

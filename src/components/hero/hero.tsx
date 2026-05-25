@@ -20,7 +20,6 @@ export function Hero() {
       {/* Content Container */}
       <div className="relative z-10 mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center text-center space-y-8">
-          {/* Eyebrow Badge */}
           {/*<motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={mounted ? { opacity: 1, y: 0 } : {}}
@@ -32,26 +31,21 @@ export function Hero() {
             </div>
           </motion.div>*/}
 
-          {/* Main Headline */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={mounted ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            className="space-y-4"
-          >
+          {/* Main Headline — no animation delay for LCP */}
+          <div className="space-y-4">
             <h1 className="font-serif text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight">
               <span className="block text-foreground">Navigate Your</span>
               <span className="block bg-linear-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(212,175,55,0.3)]">
                 Cosmic Journey
               </span>
             </h1>
-          </motion.div>
+          </div>
 
           {/* Subheadline */}
           <motion.p
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={mounted ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.7, delay: 0.35 }}
+            transition={{ duration: 0.5, delay: 0.05 }}
             className="max-w-2xl text-lg sm:text-xl text-muted-foreground font-sans leading-relaxed"
           >
             Your personal AI astrologer that remembers your story, understands
@@ -66,9 +60,9 @@ export function Hero() {
 
           {/* CTA Buttons */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={mounted ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.7, delay: 0.5 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
             className="flex flex-col sm:flex-row items-center gap-4 pt-4"
           >
             {/* Primary CTA */}
@@ -113,7 +107,7 @@ export function Hero() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={mounted ? { opacity: 1 } : {}}
-            transition={{ duration: 0.8, delay: 0.7 }}
+            transition={{ duration: 0.6, delay: 0.15 }}
             className="pt-8 flex flex-col sm:flex-row items-center gap-6 text-sm text-muted-foreground"
           >
             <div className="flex items-center gap-2">

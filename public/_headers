@@ -1,3 +1,23 @@
 # https://developers.cloudflare.com/workers/static-assets/headers
+
+# Next.js static assets — immutable cache (1 year)
 /_next/static/*
   Cache-Control: public,max-age=31536000,immutable
+
+# PWA manifest — short cache, revalidate often
+/manifest.json
+  Cache-Control: public,max-age=3600,stale-while-revalidate=86400
+
+# PWA icons — medium cache
+/android-chrome-*.png
+  Cache-Control: public,max-age=604800,stale-while-revalidate=2592000
+
+# Favicon and apple-icon — medium cache
+/favicon.ico
+  Cache-Control: public,max-age=604800,stale-while-revalidate=2592000
+/apple-icon.png
+  Cache-Control: public,max-age=604800,stale-while-revalidate=2592000
+
+# OG image — medium cache
+/og-image.png
+  Cache-Control: public,max-age=86400,stale-while-revalidate=604800

@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
+import Image from "next/image";
 import { motion } from "motion/react";
 
 type SignTitleBlockVariant = "learn" | "horoscopes";
@@ -35,7 +36,7 @@ export function SignTitleBlock({
         >
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 border-b border-white/10 pb-6 sm:pb-8">
                 <div className="relative flex items-center justify-center shrink-0">
-                    <img src={elementFrameUrl} className="w-40 h-40 md:w-40 md:h-40 object-cover" alt="" />
+                    <Image src={elementFrameUrl} width={160} height={160} className="w-40 h-40 md:w-40 md:h-40 object-cover" alt="" />
                     {icon}
                 </div>
                 <div className="space-y-2 pt-2 md:pt-4 text-center sm:text-left">

@@ -833,6 +833,71 @@ export default defineSchema({
         .index("by_user_sign_date", ["userId", "sign", "date"])
         .index("by_sign_date", ["sign", "date"]),
 
+    // 20. UTM EVENTS (First-touch attribution for marketing channels)
+    // Captures utm_source/medium/campaign/term/content from inbound URLs.
+    // Also stores referring_domain + landing_page for non-UTM traffic analysis.
+    // Privacy: no PII. sessionId is anonymous.
+    utm_events: defineTable({
+        visitorId: v.string(),              // Anonymous session / device fingerprint
+        utmSource: v.optional(v.string()),
+        utmMedium: v.optional(v.string()),
+        utmCampaign: v.optional(v.string()),
+        utmTerm: v.optional(v.string()),
+        utmContent: v.optional(v.string()),
+        referringDomain: v.optional(v.string()),
+        landingPage: v.string(),             // First page visited
+        userId: v.optional(v.id("users")),  // Filled in on signup
+        createdAt: v.number(),
+    })
+        .index("by_visitor_id", ["visitorId"])
+        .index("by_user_id", ["userId"])
+        .index("by_created_at", ["createdAt"])
+        .index("by_utm_campaign", ["utmCampaign"]),
+
+    // 21. USER ACTIVITY (DAU/MAU computation — daily active user snapshots)
+    // A row is written once per user per day they are active.
+    // Enables DAU/MAU ratio, streak tracking, and churn analysis.
+    // Privacy: no PII beyond userId and date.
+    user_activity: defineTable({
+        userId: v.id("users"),
+        date: v.string(),                   // "YYYY-MM-DD" UTC
+        sessionsCount: v.number(),         // Number of distinct sessions that day
+        totalSessionDurationMs: v.number(), // Sum of all session lengths
+        pageViews: v.number(),             // Total pages visited
+        featuresUsed: v.array(v.string()),  // Distinct feature keys used
+    })
+        .index("by_user_date", ["userId", "date"])
+        .index("by_date", ["date"])
+        .index("by_user", ["userId"]),
+
+    // 22. FEATURE EVENTS (Funnel / conversion tracking for key user actions)
+    // Records every named event (signup, first_oracle, first_journal, upgrade, etc.)
+    // with per-event metadata for funnel analysis.
+    // Privacy: no PII. userId is nullable for anonymous pre-auth events.
+    feature_events: defineTable({
+        userId: v.optional(v.id("users")),
+        eventName: v.string(),              // e.g. "signup_completed", "oracle_first"
+        eventDate: v.string(),             // "YYYY-MM-DD" UTC
+        timestamp: v.number(),             // Unix ms
+        sessionId: v.string(),
+        // Per-event key-value metadata (e.g. { channel: "google", plan: "free" })
+        metadata: v.optional(v.record(v.string(), v.string())),
+        // Attribution chain (first-touch UTM)
+        utmEventId: v.optional(v.id("utm_events")),
+        // Conversion funnel position (signup | activation | engagement | revenue)
+        funnelStage: v.optional(v.union(
+            v.literal("signup"),
+            v.literal("activation"),
+            v.literal("engagement"),
+            v.literal("revenue"),
+        )),
+    })
+        .index("by_user_event", ["userId", "eventName"])
+        .index("by_event_date", ["eventName", "eventDate"])
+        .index("by_date", ["eventDate"])
+        .index("by_timestamp", ["timestamp"])
+        .index("by_utm_event", ["utmEventId"]),
+
     // 23. DELETION REQUESTS (GDPR/CCPA compliance audit log — NO PII)
     deletionRequests: defineTable({
         requestId: v.string(),             // UUID, not linked to user identity
@@ -847,6 +912,133 @@ export default defineSchema({
         rejectionReason: v.optional(v.string()), // Only if status = rejected
         // NO email, name, userId, or any PII in this table
     }),
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EMAIL MARKETING — Resend + React Email Infrastructure
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // 24. EMAIL LEADS — Opt-in subscribers captured via growth widgets
+    emailLeads: defineTable({
+        email: v.string(),
+        status: v.union(
+            v.literal("pending"),    // double-opt-in pending
+            v.literal("active"),    // confirmed subscriber
+            v.literal("unsubscribed"),
+            v.literal("bounced"),
+        ),
+        source: v.union(
+            v.literal("exit_intent_popup"),
+            v.literal("blog_signup"),
+            v.literal("social_cta"),
+            v.literal("onboarding"),
+        ),
+        sign: v.optional(v.string()),
+        userId: v.optional(v.id("users")),
+        optInAt: v.number(),
+        confirmedAt: v.optional(v.number()),
+        unsubscribedAt: v.optional(v.number()),
+    })
+        .index("by_email", ["email"])
+        .index("by_status", ["status"])
+        .index("by_userId", ["userId"]),
+
+    // 25. EMAIL PREFERENCES — Per-user email settings
+    emailPreferences: defineTable({
+        userId: v.id("users"),
+        subscribed: v.boolean(),
+        frequency: v.union(
+            v.literal("daily"),
+            v.literal("weekly"),
+            v.literal("monthly"),
+            v.literal("none"),
+        ),
+        types: v.array(v.union(
+            v.literal("welcome"),
+            v.literal("daily_horoscope"),
+            v.literal("weekly_cosmic"),
+            v.literal("monthly_roundup"),
+            v.literal("reengagement"),
+        )),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_userId", ["userId"]),
+
+    // 26. EMAIL SEGMENTS — Pre-computed audience slices
+    emailSegments: defineTable({
+        name: v.string(),
+        description: v.optional(v.string()),
+        criteria: v.object({
+            tier: v.optional(v.union(v.literal("free"), v.literal("popular"), v.literal("premium"))),
+            engagement: v.optional(v.union(v.literal("active"), v.literal("dormant"))),
+            daysInactive: v.optional(v.number()),
+            sign: v.optional(v.string()),
+            hasEmailPref: v.optional(v.boolean()),
+        }),
+        count: v.number(),
+        updatedAt: v.number(),
+    }),
+
+    // 27. EMAIL CAMPAIGNS — Email campaign definitions
+    emailCampaigns: defineTable({
+        name: v.string(),
+        type: v.union(
+            v.literal("welcome_series"),
+            v.literal("daily_horoscope"),
+            v.literal("weekly_cosmic"),
+            v.literal("monthly_roundup"),
+            v.literal("reengagement"),
+            v.literal("one_off"),
+        ),
+        status: v.union(
+            v.literal("draft"),
+            v.literal("active"),
+            v.literal("paused"),
+            v.literal("completed"),
+        ),
+        subject: v.string(),
+        templateId: v.string(),
+        segment: v.string(),
+        schedule: v.object({
+            offsetDays: v.optional(v.number()),
+            hourUTC: v.optional(v.number()),
+            minuteUTC: v.optional(v.number()),
+            dayOfWeek: v.optional(v.number()),
+        }),
+        createdBy: v.id("users"),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    }),
+
+    // 28. EMAIL DELIVERIES — Per-email delivery tracking
+    emailDeliveries: defineTable({
+        campaignId: v.optional(v.id("emailCampaigns")),
+        leadId: v.optional(v.id("emailLeads")),
+        userId: v.optional(v.id("users")),
+        email: v.string(),
+        resendMessageId: v.optional(v.string()),
+        status: v.union(
+            v.literal("queued"),
+            v.literal("sent"),
+            v.literal("delivered"),
+            v.literal("opened"),
+            v.literal("clicked"),
+            v.literal("bounced"),
+            v.literal("complained"),
+            v.literal("unsubscribed"),
+        ),
+        sentAt: v.optional(v.number()),
+        deliveredAt: v.optional(v.number()),
+        openedAt: v.optional(v.number()),
+        clickedAt: v.optional(v.number()),
+        bouncedAt: v.optional(v.number()),
+        unsubscribedAt: v.optional(v.number()),
+    })
+        .index("by_campaign", ["campaignId"])
+        .index("by_user", ["userId"])
+        .index("by_lead", ["leadId"])
+        .index("by_resendMessageId", ["resendMessageId"])
+        .index("by_status", ["status"]),
 
 });
 

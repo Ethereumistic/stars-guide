@@ -1,12 +1,13 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Metadata } from "next";
+import { buildMetadata } from "@/lib/seo";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-export const metadata: Metadata = {
-    title: "Privacy Policy | stars.guide",
-    description: "Privacy Policy and Data Deletion instructions for stars.guide.",
-};
+export const metadata = buildMetadata({
+  title: "Privacy Policy | Stars Guide",
+  description: "Privacy Policy and Data Deletion instructions for stars.guide.",
+  path: "/privacy",
+});
 
 export default function PrivacyPolicyPage() {
     return (

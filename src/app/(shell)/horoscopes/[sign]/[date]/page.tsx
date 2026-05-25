@@ -18,6 +18,7 @@ import { SignTitleBlock, ConstellationGraphic, SignSpecsGrid } from "@/component
 import { planetUIConfig, PlanetUIConfig } from "@/config/planet-ui";
 import { HoroscopeContentCard } from "@/components/horoscopes/horoscope-content-card";
 import { DomainScoresGrid } from "@/components/horoscopes/domain-scores-grid";
+import { UnlockModal, useUnlockModal } from "@/components/pricing/unlock-modal";
 
 const HOUSE_NAMES = ["1st House", "2nd House", "3rd House", "4th House", "5th House", "6th House", "7th House", "8th House", "9th House", "10th House", "11th House", "12th House"];
 
@@ -74,6 +75,7 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
 
     const data = compositionalSigns.find(s => s.id === sign.toLowerCase());
     const ui = zodiacUIConfig[sign.toLowerCase()];
+    const { isOpen: isUnlockOpen, requiredTier, open: openUnlock, close: closeUnlock } = useUnlockModal();
 
     const horoscopeData = useQuery(api.horoscopes.queries.getPublished, {
         sign: formattedSign,
@@ -160,6 +162,7 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
                                 date={date}
                                 sign={formattedSign}
                                 styles={styles}
+                                onUnlock={openUnlock}
                             />
                         </div>
 
@@ -188,6 +191,13 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
                     </div>
                 </div>
             </div>
+
+            <UnlockModal
+                userTier="free"
+                requiredTier={requiredTier}
+                isOpen={isUnlockOpen}
+                onClose={closeUnlock}
+            />
 
             {/* Pagination - at bottom of content, above footer */}
             <div className="max-w-[1600px] mx-auto px-6 md:px-12 pb-8 ">

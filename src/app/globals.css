@@ -492,3 +492,11 @@
 .group:hover .an-shimmer-hover {
 	animation-play-state: running;
 }
+
+/* ── Core Web Vitals: Content Visibility ───────────────────── */
+/* Skip rendering of off-screen sections until they scroll into view.
+   Reduces initial render work → faster LCP + INP. */
+.cwv-below-fold {
+	content-visibility: auto;
+	contain-intrinsic-size: auto 500px;
+}

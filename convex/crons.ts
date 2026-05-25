@@ -37,6 +37,22 @@ crons.interval(
     internal.notifications.delivery.processScheduledNotifications,
 );
 
+// ─── ANALYTICS: DAU AGGREGATION ────────────────────────────────────────────
+// Aggregate daily activity at 03:00 UTC — fallback for client-side heartbeat gaps
+crons.daily(
+    "aggregate-daily-activity",
+    { hourUTC: 3, minuteUTC: 0 },
+    internal.analytics.aggregateDailyActivity,
+);
+
+// ─── ANALYTICS: ANOMALY DETECTION ─────────────────────────────────────────
+// Check for traffic spikes/drops after aggregation runs
+crons.daily(
+    "detect-analytics-anomalies",
+    { hourUTC: 4, minuteUTC: 0 },
+    internal.analytics.detectAnalyticsAnomalies,
+);
+
 // ─── DAILY HOROSCOPE GENERATION ────────────────────────────────────────
 // Queue all 12 sign generations at 02:00 UTC daily, staggered 30 s apart.
 // The wrapper action calls computeDailyContext first then schedules the jobs.
