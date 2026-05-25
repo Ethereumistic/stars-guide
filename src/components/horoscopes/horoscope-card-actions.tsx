@@ -27,6 +27,7 @@ export function HoroscopeCardActions({
   isHovered,
 }: HoroscopeCardActionsProps) {
   const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState(false);
   const [optimisticRating, setOptimisticRating] = useState<
     "positive" | "negative" | null
   >(null);
@@ -76,33 +77,26 @@ export function HoroscopeCardActions({
   );
 
   // ── Share ────────────────────────────────────────────────────────
+  // Copies the horoscope URL to clipboard so it can be shared anywhere.
   const handleShare = useCallback(async () => {
     const url = `${window.location.origin}/horoscopes/${sign.toLowerCase()}/${date}`;
-    const shareTitle = `${sign} Horoscope — ${date}`;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: shareTitle, url });
-      } catch (err: any) {
-        if (err?.name !== "AbortError") {
-          toast.error("Failed to share");
-        }
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(url);
-        toast.success("Link copied to clipboard");
-      } catch {
-        toast.error("Failed to copy link");
-      }
+    try {
+      await navigator.clipboard.writeText(url);
+      setShared(true);
+      toast.success("Link copied to clipboard");
+      setTimeout(() => setShared(false), 2000);
+    } catch {
+      toast.error("Failed to copy link");
     }
   }, [sign, date]);
 
   return (
     <TooltipProvider delayDuration={300}>
-      {/* Space always reserved; buttons gently fade in on hover */}
+      {/* Space always reserved; buttons gently fade in on hover.
+          Negative bottom margin pulls the bar down so the gap below
+          the icons inside the padded card feels tight, not airy. */}
       <div
-        className="flex items-center gap-0.5 mt-2 transition-opacity duration-300"
+        className="flex items-center gap-0.5 mt-2 -mb-4 md:-mb-6 transition-opacity duration-300"
         style={{ opacity: isHovered ? 0.8 : 0 }}
       >
         {/* Copy */}
@@ -166,17 +160,23 @@ export function HoroscopeCardActions({
           </TooltipContent>
         </Tooltip>
 
-        {/* Share */}
+        {/* Share — copies the link to this horoscope */}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               onClick={handleShare}
               className="flex items-center justify-center w-[34px] h-[34px] rounded-md hover:bg-white/[0.06] text-white/30 hover:text-white/70 transition-colors duration-200"
             >
-              <Share2 className="w-[18px] h-[18px]" />
+              {shared ? (
+                <Check className="w-[18px] h-[18px] text-primary" />
+              ) : (
+                <Share2 className="w-[18px] h-[18px]" />
+              )}
             </button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">Share horoscope</TooltipContent>
+          <TooltipContent side="bottom">
+            {shared ? "Link copied!" : "Copy link to horoscope"}
+          </TooltipContent>
         </Tooltip>
       </div>
     </TooltipProvider>
