@@ -227,9 +227,10 @@ export const adminGetQuotaDetail = query({
       resetType: resetTypeSetting?.value ?? null,
       usage: usage
         ? {
-            dailyCount: usage.dailyCount,
-            dailyWindowStart: usage.dailyWindowStart,
-            lifetimeCount: usage.lifetimeCount,
+            burstCost: usage.burstCost,
+            burstWindowStart: usage.burstWindowStart,
+            weeklyCost: usage.weeklyCost,
+            weeklyWindowStart: usage.weeklyWindowStart,
             lastQuestionAt: usage.lastQuestionAt,
           }
         : null,

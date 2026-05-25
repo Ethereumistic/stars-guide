@@ -380,6 +380,17 @@ export const patchMessageBinauralParams = internalMutation({
     },
 });
 
+/** Patch the cost (in microdollars) onto an oracle message after LLM response. */
+export const patchMessageCost = internalMutation({
+    args: {
+        messageId: v.id("oracle_messages"),
+        costUsdMicro: v.number(),
+    },
+    handler: async (ctx, { messageId, costUsdMicro }) => {
+        await ctx.db.patch(messageId, { costUsdMicro });
+    },
+});
+
 export const updateSessionTitle = internalMutation({
     args: {
         sessionId: v.id("oracle_sessions"),

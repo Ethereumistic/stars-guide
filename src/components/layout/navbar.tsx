@@ -769,6 +769,18 @@ export function Navbar() {
                 <GiMazeCornea className="size-6 shrink-0 text-primary" />
                 {ctaLabel}
               </Link>
+
+              {/* Invite Link */}
+              {isAuthenticated && (
+                <Link
+                  href={`/invite/${currentUser?.username}`}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="text-2xl font-serif italic text-white/80 hover:text-primary transition-all flex items-center gap-2.5 text-nowrap"
+                >
+                  <UserPlus className="size-6 shrink-0 text-primary" />
+                  Invite
+                </Link>
+              )}
             </nav>
           </div>
         </div>

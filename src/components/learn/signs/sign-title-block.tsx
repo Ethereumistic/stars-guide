@@ -52,7 +52,7 @@ export function SignTitleBlock({
                 className="text-base md:text-xl font-mono uppercase tracking-[0.25em] text-white border-l-2 pl-4 py-1"
                 style={{ borderColor }}
             >
-                "{motto}"
+                &ldquo;{motto}&rdquo;
             </p>
 
         </motion.div>

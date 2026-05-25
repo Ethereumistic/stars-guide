@@ -37,4 +37,13 @@ crons.interval(
     internal.notifications.delivery.processScheduledNotifications,
 );
 
+// ─── DAILY HOROSCOPE GENERATION ────────────────────────────────────────
+// Queue all 12 sign generations at 02:00 UTC daily, staggered 30 s apart.
+// The wrapper action calls computeDailyContext first then schedules the jobs.
+crons.daily(
+    "generate-daily-horoscopes",
+    { hourUTC: 2, minuteUTC: 0 },
+    internal.horoscopes.queueDailyGenerations.queueDailyGenerations,
+);
+
 export default crons;

@@ -480,3 +480,15 @@
 	animation: an-shimmer 5s ease-in-out 1.6s infinite;
 	will-change: transform;
 }
+
+/* Hover-triggered shimmer: paused by default, plays when nearest .group ancestor is hovered.
+   Zero lag — the animation is pre-queued, just unpaused on hover. */
+.an-shimmer-hover {
+	animation: an-shimmer 5s ease-in-out infinite;
+	animation-play-state: paused;
+	will-change: transform, opacity;
+}
+
+.group:hover .an-shimmer-hover {
+	animation-play-state: running;
+}

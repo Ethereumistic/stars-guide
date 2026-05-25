@@ -25,6 +25,11 @@ export type ArtNouveauVariant = "primary" | "white" | "galactic";
 
 export interface ArtNouveauBorderProps {
     variant?: ArtNouveauVariant;
+    /** Override the variant colour with a custom CSS colour. */
+    color?: string;
+    /** When true, the border starts invisible and appears on group-hover.
+     *  The parent must carry the Tailwind `group` class. */
+    animateOnHover?: boolean;
     zIndex?: number;
     className?: string;
     children: React.ReactNode;
@@ -38,6 +43,8 @@ const VARIANT_COLORS: Record<ArtNouveauVariant, string> = {
 
 export function ArtNouveauBorder({
     variant = "primary",
+    color: colorProp,
+    animateOnHover = false,
     zIndex = 50,
     className,
     children,
@@ -46,13 +53,23 @@ export function ArtNouveauBorder({
     const uid = useId().replace(/:/g, "");
     const shimId = `s-${uid}`;
     const glowId = `g-${uid}`;
-    const color = VARIANT_COLORS[variant];
+    const color = colorProp ?? VARIANT_COLORS[variant];
+
+    // When animateOnHover the overlay starts hidden and fades in on group-hover.
+    // Otherwise it uses the original mount animation.
+    const overlayClassName = animateOnHover
+        ? "absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+        : "absolute inset-0 pointer-events-none an-border-fade";
+
+    const shimmerClassName = animateOnHover
+        ? "an-shimmer-hover"
+        : "an-shimmer-sweep";
 
     return (
         <div className={cn("relative", className)}>
             {/* CSS fade-in handled purely with animation — no JS */}
             <div
-                className="absolute inset-0 pointer-events-none an-border-fade"
+                className={overlayClassName}
                 style={{ zIndex }}
             >
                 <svg
@@ -139,7 +156,7 @@ export function ArtNouveauBorder({
                         x="0" y="0" width="420" height="780"
                         fill={`url(#${shimId})`}
                         fillOpacity="0"
-                        className="an-shimmer-sweep"
+                        className={shimmerClassName}
                         clipPath={`url(#c-${uid})`}
                     />
                 </svg>

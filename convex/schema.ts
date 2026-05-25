@@ -252,6 +252,112 @@ export default defineSchema({
         .index("by_status", ["status"])
         .index("by_date", ["targetDate"]),
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DAILY HOROSCOPE ENGINE REBUILD — v2 (astronomy-engine powered)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // 7b. DAILY ASTROLOGY CONTEXT (computed daily from astronomy-engine)
+    daily_astrology_context: defineTable({
+        date: v.string(),                             // "YYYY-MM-DD" UTC primary key
+
+        // Moon
+        moonPhase: v.object({
+            name: v.string(),                        // e.g. "Waxing Gibbous"
+            illumination: v.number(),                 // 0–100
+            emoji: v.string(),                        // e.g. "🌒"
+        }),
+
+        // Planet positions
+        planetPositions: v.array(v.object({
+            planet: v.string(),                      // e.g. "Mars"
+            sign: v.string(),                        // e.g. "Gemini"
+            degree: v.number(),                      // 0–29.99
+            retrograde: v.boolean(),
+        })),
+
+        // Active aspects
+        activeAspects: v.array(v.object({
+            planetA: v.string(),                     // e.g. "Mars"
+            planetB: v.string(),                     // e.g. "Pluto"
+            aspectType: v.string(),                  // "conjunction" | "opposition" | "trine" | "square" | "sextile"
+            orb: v.number(),                         // degrees, how tight
+            influence: v.string(),                   // e.g. "challenging" | "harmonious" | "dynamic"
+        })),
+
+        // Retrograde context
+        retrogradeContext: v.object({
+            current: v.array(v.string()),             // planets currently retrograde, e.g. ["Mercury"]
+            upcoming: v.array(v.string()),            // planets about to turn retrograde (next 120d)
+            recentDirect: v.array(v.string()),        // planets that recently turned direct (last 14d)
+        }),
+
+        // Rich per-planet retrograde detail (progress position, phase, window dates)
+        retrogradePlanets: v.optional(v.array(v.object({
+            planet: v.string(),
+            status: v.union(v.literal("active"), v.literal("upcoming"), v.literal("recently_direct"), v.literal("clear")),
+            startDate: v.string(),                    // ISO date
+            endDate: v.string(),                      // ISO date
+            totalDays: v.number(),
+            daysElapsed: v.number(),
+            daysRemaining: v.number(),
+            progressPercent: v.number(),              // 0–100
+            phase: v.union(v.literal("entering"), v.literal("deepening"), v.literal("peak"), v.literal("exiting"), v.literal("approaching"), v.literal("aftermath"), v.literal("clear")),
+        }))),
+
+        // Computed themes
+        dominantThemes: v.array(v.string()),          // e.g. ["transformation", "communication", "restructuring"]
+        energySignature: v.string(),                  // e.g. "intense, clarifying, grounding"
+
+        // Optional enrichment fields (populated by computeDailyContext)
+        voidOfCourseMoon: v.optional(v.object({
+            isVoid: v.boolean(),
+            windowStart: v.optional(v.string()),
+            windowEnd: v.optional(v.string()),
+            inSign: v.optional(v.string()),
+            untilSign: v.optional(v.string()),
+        })),
+        moonNextIngress: v.optional(v.object({
+            timestamp: v.string(),
+            fromSign: v.string(),
+            toSign: v.string(),
+        })),
+        dominantElement: v.optional(v.string()),      // "fire" | "earth" | "air" | "water"
+        stelliumSign: v.optional(v.string()),         // sign with 3+ planets, if any
+        aspectSummary: v.optional(v.array(v.string())), // e.g. ["dynamic_tension", "harmonic_flow"]
+
+        generatedAt: v.number(),                      // Date.now() audit timestamp
+    }).index("by_date", ["date"]),
+
+    // 7c. DAILY HOROSCOPES (sign-specific AI-generated daily text)
+    daily_horoscopes: defineTable({
+        date: v.string(),                             // "YYYY-MM-DD" UTC
+        sign: v.string(),                             // e.g. "Aries" — one of the 12 canonical signs
+        status: v.union(
+            v.literal("pending"),
+            v.literal("generated"),
+            v.literal("failed"),
+            v.literal("overridden"),                  // admin manually replaced the content
+        ),
+
+        // Generation metadata
+        generatedAt: v.optional(v.number()),          // Date.now() when content was successfully generated
+        generationDurationMs: v.optional(v.number()), // How long the generation took
+
+        // Content fields (v2.0: hook + bodyText + mantra + dailyPillars)
+        // Stored as v.any() to support both v1 and v2 format during transition
+        // v2.0 structure: { hook, bodyText, mantra, dailyPillars: { vibe, powerMove, blindSpot, luckySpark } }
+        // v1 structure (legacy): { insight, energy, navigate, mantra?, cosmicDetails }
+        content: v.any(),
+
+        // Provenance
+        contextSnapshotId: v.optional(v.id("daily_astrology_context")),
+        modelUsed: v.optional(v.string()),             // e.g. "x-ai/grok-4.1-fast"
+        promptVersion: v.optional(v.string()),        // e.g. "1.0" — tracks which prompt template was used
+        errors: v.optional(v.array(v.string())),      // error messages if generation failed
+    })
+        .index("by_date_sign", ["date", "sign"])
+        .index("by_date", ["date"]),
+
     // 8. GENERATION JOBS (Audit Trail + Progress Tracking)
     generationJobs: defineTable({
         adminUserId: v.id("users"),
@@ -374,17 +480,17 @@ export default defineSchema({
         .index("by_key", ["key"])
         .index("by_group", ["group"]),
 
-    // 13. ORACLE QUOTA USAGE (Server-authoritative question tracking)
+    // 13. ORACLE QUOTA USAGE (Cost-based quota tracking — microdollars)
     oracle_quota_usage: defineTable({
         userId: v.id("users"),
-        // For roles with rolling 24h reset:
-        dailyCount: v.number(),              // Questions used in current 24h window
-        dailyWindowStart: v.number(),        // Timestamp when current window started (ms)
-        // For free tier (lifetime cap):
-        lifetimeCount: v.number(),           // Total questions ever asked (never decremented)
         // Metadata
         lastQuestionAt: v.number(),
         updatedAt: v.number(),
+        // V2 cost-based fields
+        burstCost: v.optional(v.float64()),
+        burstWindowStart: v.optional(v.float64()),
+        weeklyCost: v.optional(v.float64()),
+        weeklyWindowStart: v.optional(v.float64()),
     })
         .index("by_user", ["userId"]),
 
@@ -649,6 +755,8 @@ export default defineSchema({
         binauralParams: v.optional(v.any()), // BinauralBeatParams & { rationale?: BinauralRationale }
         // User feedback on assistant messages
         rating: v.optional(v.union(v.literal("positive"), v.literal("negative"))),
+        // V2: Cost tracking (micro USD)
+        costUsdMicro: v.optional(v.number()),
         createdAt: v.number(),
     })
         .index("by_session", ["sessionId"])
@@ -709,6 +817,21 @@ export default defineSchema({
         createdAt: v.number(),
         updatedAt: v.number(),
     }),
+
+    // 23b. HOROSCOPE RATINGS (User thumbs-up/down feedback)
+    horoscope_ratings: defineTable({
+        userId: v.id("users"),
+        sign: v.string(),              // e.g. "Aries"
+        date: v.string(),              // "YYYY-MM-DD"
+        rating: v.union(
+            v.literal("positive"),
+            v.literal("negative"),
+        ),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+    })
+        .index("by_user_sign_date", ["userId", "sign", "date"])
+        .index("by_sign_date", ["sign", "date"]),
 
     // 23. DELETION REQUESTS (GDPR/CCPA compliance audit log — NO PII)
     deletionRequests: defineTable({

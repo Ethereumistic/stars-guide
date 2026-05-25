@@ -9,3 +9,4 @@ export { NatalChart } from "./natal-chart/natal-chart";
 export { PlanetSignCard } from "./planet-sign-card";
 export { PlanetsCarousel } from "./planets-carousel";
 export { ChartSectionHeader } from "./chart-section-header";
+export { TodayHoroscope } from "./today-horoscope";

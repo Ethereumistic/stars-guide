@@ -56,7 +56,7 @@ export const plans: PricingPlan[] = [
         features: [
             { text: "Daily Horoscope & 1 Birth Chart", included: true },
             { text: "Accurate Astronomical Charting", included: true },
-            { text: "5 Oracle Questions", included: true },
+            { text: "$0.10/week Oracle AI access", included: true },
             { text: "Synastry", included: false },
             { text: "Journal Memory", included: false },
             { text: "Generative Astral Cards", included: false },
@@ -88,7 +88,7 @@ export const plans: PricingPlan[] = [
             { text: "Everything in Free", included: true },
             { text: "Journal Memory", included: true },
             { text: "3 Birth Charts & 2 Synastry", included: true },
-            { text: "5 Oracle Questions per day", included: true },
+            { text: "$0.50/week Oracle AI access", included: true },
             { text: "Tomorrow & Yesterday Horoscopes", included: true },
             { text: "Generative Astral Cards", included: false },
             { text: "Deep Synastry", included: false },
@@ -119,7 +119,7 @@ export const plans: PricingPlan[] = [
         features: [
             { text: "Everything in Cosmic Flow", included: true },
             { text: "Infinite Birth Charts & Synastry", included: true },
-            { text: "10 Oracle Questions per day", included: true },
+            { text: "$1.50/week Oracle AI access", included: true },
             { text: "Journal Memory", included: true },
             { text: "Generative Astral Cards", included: true },
             { text: "Deep Synastry (Relationship) Analysis", included: true },

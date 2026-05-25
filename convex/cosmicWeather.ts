@@ -158,14 +158,14 @@ export const generateFeltLanguage = internalAction({
         // Build the translation prompt
         const moonFrame = getMoonPhaseFrame(snapshot.moonPhase.name);
 
-        const retrogrades = snapshot.planetPositions.filter((p) => p.isRetrograde);
+        const retrogrades = snapshot.planetPositions.filter((p: any) => p.isRetrograde);
         const retroLine = retrogrades.length > 0
-            ? retrogrades.map((p) => p.planet).join(", ")
+            ? retrogrades.map((p: any) => p.planet).join(", ")
             : "none";
 
         const aspectsLine = snapshot.activeAspects.length > 0
             ? snapshot.activeAspects
-                .map((a) => `${a.planet1} ${a.aspect} ${a.planet2} (orb: ${a.orbDegrees}°)`)
+                .map((a: any) => `${a.planet1} ${a.aspect} ${a.planet2} (orb: ${a.orbDegrees}\u00b0)`)
                 .join("; ")
             : "No exact aspects today.";
 

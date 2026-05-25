@@ -10,6 +10,7 @@ import { SignUIConfig } from "@/config/zodiac-ui"
 import { elementUIConfig } from "@/config/elements-ui"
 import { generateSynthesis } from "@/astrology/interpretationEngine"
 import { ChevronLeft } from "lucide-react"
+import { ArtNouveauBorder } from "@/components/ui/art-nouveau-border"
 
 interface PlanetSignCardProps {
     planetName: string
@@ -82,6 +83,11 @@ export const PlanetSignCard = memo(function PlanetSignCard({
                                 onClick={() => setIsFlipped(true)}
                                 className="group relative block w-full h-full cursor-pointer"
                             >
+                                <ArtNouveauBorder
+                                    color={styles.secondary}
+                                    animateOnHover
+                                    className="h-full overflow-hidden rounded-2xl"
+                                >
                                 <Card className="relative h-full overflow-hidden rounded-2xl border-0 shadow-none select-none bg-white/[0.02]">
                                     {/* Element tint on hover */}
                                     <div
@@ -93,7 +99,7 @@ export const PlanetSignCard = memo(function PlanetSignCard({
                                         <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 gap-y-3">
 
                                             {/* ── TOP: Sign icon + title ── */}
-                                            <div className="flex flex-col items-center transition-transform duration-500 ease-out group-hover:-translate-y-2">
+                                            <div className="flex flex-col items-center">
                                                 <div className="relative flex items-center justify-center w-[11rem] h-[11rem] mb-1">
                                                     {/* Element frame */}
                                                     <img
@@ -112,7 +118,7 @@ export const PlanetSignCard = memo(function PlanetSignCard({
                                                 </div>
 
                                                 <h2
-                                                    className="text-4xl font-serif tracking-wide transition-colors duration-500 group-hover:text-white"
+                                                    className="text-4xl font-serif tracking-wide transition-all duration-500 group-hover:-translate-y-2 group-hover:text-white"
                                                     style={{ color: styles.secondary }}
                                                 >
                                                     {data.name}
@@ -135,9 +141,9 @@ export const PlanetSignCard = memo(function PlanetSignCard({
                                             </div>
 
                                             {/* ── BOTTOM: Planet name + image ── */}
-                                            <div className="flex flex-col items-center transition-transform duration-500 ease-out group-hover:translate-y-2">
+                                            <div className="flex flex-col items-center">
                                                 <h2
-                                                    className="text-4xl font-serif tracking-wide transition-colors duration-500 group-hover:text-white"
+                                                    className="text-4xl font-serif tracking-wide transition-all duration-500 group-hover:translate-y-2 group-hover:text-white"
                                                     style={{ color: planetColor }}
                                                 >
                                                     {planetName}
@@ -164,6 +170,7 @@ export const PlanetSignCard = memo(function PlanetSignCard({
                                         </div>
                                     </CardContent>
                                 </Card>
+                                </ArtNouveauBorder>
                             </div>
                         </div>
 

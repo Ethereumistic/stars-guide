@@ -13,10 +13,11 @@ import { ElementType } from "@/astrology/elements";
 import { motion } from "motion/react";
 import { PageBreadcrumbs } from "@/components/layout/page-breadcrumbs";
 import { elementUIConfig } from "@/config/elements-ui";
-import { TbTriangleSquareCircle, TbCompass, TbBrandTether, TbSparkles } from "react-icons/tb";
+import { TbTriangleSquareCircle, TbCompass, TbSparkles } from "react-icons/tb";
 import { SignTitleBlock, ConstellationGraphic, SignSpecsGrid } from "@/components/learn/signs";
 import { planetUIConfig, PlanetUIConfig } from "@/config/planet-ui";
 import { HoroscopeContentCard } from "@/components/horoscopes/horoscope-content-card";
+import { DomainScoresGrid } from "@/components/horoscopes/domain-scores-grid";
 
 const HOUSE_NAMES = ["1st House", "2nd House", "3rd House", "4th House", "5th House", "6th House", "7th House", "8th House", "9th House", "10th House", "11th House", "12th House"];
 
@@ -74,7 +75,7 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
     const data = compositionalSigns.find(s => s.id === sign.toLowerCase());
     const ui = zodiacUIConfig[sign.toLowerCase()];
 
-    const horoscopeData = useQuery(api.horoscopes.getPublished, {
+    const horoscopeData = useQuery(api.horoscopes.queries.getPublished, {
         sign: formattedSign,
         date: date,
     });
@@ -91,6 +92,29 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
     const styles = elementUi.styles;
     const ElementIcon = elementUi.icon;
     const Icon = ui.icon;
+
+    // ── Extract AI-powered daily data from horoscope ──────────────────────
+    // When v2 horoscope content is available, use the AI-generated mantra
+    // and daily pillars. Fall back to static sign data otherwise.
+    const horoscopeContent = horoscopeData && !horoscopeData.isPaywalled
+        ? (horoscopeData as Record<string, any>)?.content
+        : undefined;
+
+    const isV2Content = horoscopeContent && typeof horoscopeContent.hook === "string" && typeof horoscopeContent.bodyText === "string";
+
+    // Mantra: AI-generated replaces static motto when available
+    const displayMotto = isV2Content && horoscopeContent.mantra
+        ? horoscopeContent.mantra
+        : data.motto;
+
+    // Specs: AI domain scores replace static Element/Modality/Ruler/House when available
+    // Static specs (fallback)
+    const staticSpecs = [
+        { label: "Element", value: data.element, icon: ElementIcon, subValue: "" },
+        { label: "Modality", value: data.modality, icon: TbTriangleSquareCircle, subValue: "" },
+        { label: "Ruler", value: data.ruler.charAt(0).toUpperCase() + data.ruler.slice(1), icon: TbSparkles, subValue: planetUi?.rulerSymbol || "" },
+        { label: "House", value: HOUSE_NAMES[houseIndex] || "", icon: TbCompass, subValue: "" },
+    ];
 
     return (
         <div className="relative min-h-[91vh] w-full text-foreground overflow-x-hidden flex flex-col">
@@ -122,7 +146,7 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
                             variant="horoscopes"
                             signName={data.name}
                             subtitle={displayDate}
-                            motto={data.motto}
+                            motto={displayMotto}
                             icon={<Icon className="absolute w-12 h-12 md:w-16 md:h-16 stroke-1" />}
                             elementFrameUrl={elementUi.frameUrl}
                             borderColor={styles.primary}
@@ -134,19 +158,22 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
                                 horoscopeData={horoscopeData}
                                 isLoading={isLoading}
                                 date={date}
+                                sign={formattedSign}
                                 styles={styles}
                             />
                         </div>
 
-                        {/* Specs Grid */}
-                        <SignSpecsGrid
-                            specs={[
-                                { label: "Element", value: data.element, icon: ElementIcon, subValue: "" },
-                                { label: "Modality", value: data.modality, icon: TbTriangleSquareCircle, subValue: "" },
-                                { label: "Ruler", value: data.ruler.charAt(0).toUpperCase() + data.ruler.slice(1), icon: TbSparkles, subValue: planetUi?.rulerSymbol || "" },
-                                { label: "House", value: HOUSE_NAMES[houseIndex] || "", icon: TbCompass, subValue: "" },
-                            ]}
-                        />
+                        {/* Domain Scores or Static Specs Grid */}
+                        {isV2Content && horoscopeContent.domainScores && Array.isArray(horoscopeContent.domainScores) && horoscopeContent.domainScores.length >= 4 ? (
+                            <DomainScoresGrid
+                                scores={horoscopeContent.domainScores.map((d: any) => ({ name: d.name, score: d.score }))}
+                                accentColor={styles.primary}
+                            />
+                        ) : (
+                            <SignSpecsGrid
+                                specs={staticSpecs}
+                            />
+                        )}
                     </div>
 
                     {/* Right Column: Horoscope Content Card - desktop only */}
@@ -155,6 +182,7 @@ export default function HoroscopeDatePage({ params }: { params: Promise<{ sign: 
                             horoscopeData={horoscopeData}
                             isLoading={isLoading}
                             date={date}
+                            sign={formattedSign}
                             styles={styles}
                         />
                     </div>

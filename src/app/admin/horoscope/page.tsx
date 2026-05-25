@@ -1,283 +1,579 @@
 "use client";
 
-import { useQuery } from "convex/react";
-import { useAction } from "convex/react";
+import { useState } from "react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
-    Sparkles, Globe, FileText, ClipboardCheck, Clock, CheckCircle,
-    XCircle, AlertTriangle, Sun, Moon, Orbit, RefreshCw, Telescope
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from "@/components/ui/dialog";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
+    Loader2,
+    RefreshCw,
+    CheckCircle,
+    XCircle,
+    Clock,
+    AlertTriangle,
+    Edit3,
+    Sparkles,
+    CalendarDays,
+    RotateCcw,
 } from "lucide-react";
-import Link from "next/link";
-import { useState } from "react";
+import { toast } from "sonner";
+import { zodiacUIConfig } from "@/config/zodiac-ui";
+import { compositionalSigns } from "@/astrology/signs";
 
-const statusConfig = {
-    running: { label: "Running", variant: "default" as const, icon: Clock, color: "text-blue-400" },
-    completed: { label: "Completed", variant: "secondary" as const, icon: CheckCircle, color: "text-emerald-400" },
-    partial: { label: "Partial", variant: "outline" as const, icon: AlertTriangle, color: "text-amber-400" },
-    failed: { label: "Failed", variant: "destructive" as const, icon: XCircle, color: "text-red-400" },
-    cancelled: { label: "Cancelled", variant: "outline" as const, icon: XCircle, color: "text-gray-400" },
+const SIGNS = [
+    "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
+    "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces",
+] as const;
+
+// ── Element color map (hex values from CSS vars) ──────────────────────────
+const ELEMENT_COLORS: Record<string, string> = {
+    Fire: "#FF6B35",
+    Earth: "#2D5016",
+    Air: "#87CEEB",
+    Water: "#1E90FF",
 };
 
-// Get today's date in UTC (YYYY-MM-DD)
+// ── Sign → Element lookup ────────────────────────────────────────────────
+const SIGN_ELEMENT: Record<string, string> = {};
+for (const s of compositionalSigns) {
+    SIGN_ELEMENT[s.name] = s.element;
+}
+
 function getTodayUTC(): string {
     return new Date().toISOString().split("T")[0];
 }
 
-export default function HoroscopeOverviewPage() {
-    const recentJobs = useQuery(api.admin.getRecentJobs);
-    const todayUTC = getTodayUTC();
-    const cosmicWeather = useQuery(api.cosmicWeather.getCosmicWeatherForAdmin, { date: todayUTC });
-    const recomputeAction = useAction(api.cosmicWeather.recomputeCosmicWeather);
-    const [isRecomputing, setIsRecomputing] = useState(false);
+export default function HoroscopeAdminPage() {
+    // ── Data ──────────────────────────────────────────────────────────────
+    const [selectedDate, setSelectedDate] = useState(getTodayUTC());
+    const [selectedSign, setSelectedSign] = useState<string | null>(null);
+    const [selectedSigns, setSelectedSigns] = useState<Set<string>>(new Set());
 
+    const horoscopes = useQuery(api.horoscopes.admin.listHoroscopesForDate, { date: selectedDate });
+    const failedGens = useQuery(api.horoscopes.admin.getFailedGenerations, {});
+
+    // Mutations & actions
+    const retryMutation = useAction(api.horoscopes.admin.retryFailedGeneration);
+    const overrideMutation = useMutation(api.horoscopes.admin.overrideHoroscope);
+    const recomputeMutation = useAction(api.horoscopes.admin.recomputeAstrologyContext);
+    const generateAllMutation = useAction(api.horoscopes.admin.triggerDailyGeneration);
+    const generateSelectedMutation = useAction(api.horoscopes.admin.triggerGenerationForSigns);
+
+    // UI state
+    const [retryingSign, setRetryingSign] = useState<string | null>(null);
+    const [isRecomputing, setIsRecomputing] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
+    const [overrideForm, setOverrideForm] = useState({
+        date: getTodayUTC(),
+        sign: "Aries",
+        hook: "",
+        bodyText: "",
+        mantra: "",
+        vibe: "",
+        powerMove: "",
+        blindSpot: "",
+        luckySpark: "",
+        domainScores: "",
+    });
+
+    // ── Build maps ────────────────────────────────────────────────────────
+    const signMap = new Map<string, any>();
+    if (horoscopes) {
+        for (const h of horoscopes) {
+            signMap.set(h.sign, h);
+        }
+    }
+
+    const selectedHoroscope = selectedSign ? signMap.get(selectedSign) : null;
+
+    const counts = { generated: 0, pending: 0, failed: 0, overridden: 0, missing: 0 };
+    for (const sign of SIGNS) {
+        const h = signMap.get(sign);
+        if (h) {
+            counts[h.status as keyof typeof counts]++;
+        } else {
+            counts.missing++;
+        }
+    }
+
+    // ── Sign selection helpers ─────────────────────────────────────────────
+    const toggleSign = (sign: string) => {
+        setSelectedSigns(prev => {
+            const next = new Set(prev);
+            if (next.has(sign)) next.delete(sign);
+            else next.add(sign);
+            return next;
+        });
+    };
+
+    const selectAll = () => setSelectedSigns(new Set(SIGNS));
+    const selectNone = () => setSelectedSigns(new Set());
+    const isAllSelected = selectedSigns.size === SIGNS.length;
+
+    // ── Handlers ──────────────────────────────────────────────────────────
     const handleRecompute = async () => {
         setIsRecomputing(true);
         try {
-            await recomputeAction({ date: todayUTC });
+            await recomputeMutation({ date: selectedDate });
+            toast.success("Context recomputation scheduled.");
         } catch (err) {
-            console.error("Failed to recompute cosmic weather:", err);
+            toast.error(err instanceof Error ? err.message : "Failed to recompute context.");
         } finally {
             setIsRecomputing(false);
         }
     };
 
+    const handleGenerate = async () => {
+        setIsGenerating(true);
+        try {
+            if (selectedSigns.size > 0 && selectedSigns.size < 12) {
+                const signsArray = Array.from(selectedSigns);
+                await generateSelectedMutation({ date: selectedDate, signs: signsArray });
+                toast.success(`Generation started for ${signsArray.length} selected sign${signsArray.length > 1 ? "s" : ""} on ${selectedDate}.`);
+            } else {
+                await generateAllMutation({ date: selectedDate });
+                toast.success(`Generation started for all 12 signs on ${selectedDate}.`);
+            }
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Failed to trigger generation.");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const handleRetry = async (date: string, sign: string) => {
+        setRetryingSign(sign);
+        try {
+            await retryMutation({ date, sign });
+            toast.success(`Retry scheduled for ${sign}.`);
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Failed to retry.");
+        } finally {
+            setRetryingSign(null);
+        }
+    };
+
+    const handleOverride = async () => {
+        try {
+            await overrideMutation({
+                date: overrideForm.date,
+                sign: overrideForm.sign,
+                content: {
+                    hook: overrideForm.hook,
+                    bodyText: overrideForm.bodyText,
+                    mantra: overrideForm.mantra || undefined,
+                    dailyPillars: {
+                        vibe: overrideForm.vibe || "shifting",
+                        powerMove: overrideForm.powerMove || "Take the next step",
+                        blindSpot: overrideForm.blindSpot || "The obvious path",
+                        luckySpark: overrideForm.luckySpark || "An unexpected opening",
+                    },
+                    domainScores: overrideForm.domainScores
+                        ? JSON.parse(overrideForm.domainScores)
+                        : [
+                            { name: "Love", score: 50 },
+                            { name: "Career", score: 50 },
+                            { name: "Health", score: 50 },
+                            { name: "Social", score: 50 },
+                        ],
+                },
+            });
+            toast.success(`Override saved for ${overrideForm.sign} on ${overrideForm.date}.`);
+            setOverrideDialogOpen(false);
+            setOverrideForm({
+                date: getTodayUTC(), sign: "Aries", hook: "", bodyText: "",
+                mantra: "", vibe: "", powerMove: "", blindSpot: "", luckySpark: "", domainScores: "",
+            });
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Failed to override.");
+        }
+    };
+
+    // ── Status icon renderer ─────────────────────────────────────────────
+    const renderStatusIcon = (status: string | undefined) => {
+        switch (status) {
+            case "generated":
+                return <CheckCircle className="h-4 w-4 text-primary" />;
+            case "failed":
+                return <XCircle className="h-4 w-4 text-destructive" />;
+            case "pending":
+                return <Clock className="h-4 w-4 text-muted-foreground animate-pulse" />;
+            case "overridden":
+                return <Edit3 className="h-4 w-4 text-amber-500" />;
+            default:
+                return <AlertTriangle className="h-4 w-4 text-muted-foreground/40" />;
+        }
+    };
+
+    // ── Generate button label ────────────────────────────────────────────
+    const generateLabel = selectedSigns.size > 0 && selectedSigns.size < 12
+        ? `Generate ${selectedSigns.size}`
+        : "Generate All 12";
+
+    // ── Render ─────────────────────────────────────────────────────────────
     return (
-        <div className="space-y-8">
+        <div className="space-y-6">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-serif font-bold tracking-tight">
-                    Horoscope Engine
-                </h1>
-                <p className="text-muted-foreground mt-1">
-                    Generate, review, and publish daily horoscopes across all 12 signs.
-                </p>
+                <h1 className="text-3xl font-serif font-bold tracking-tight">Horoscopes</h1>
+                <p className="text-muted-foreground mt-1">Generate, monitor, and override daily horoscopes for all 12 signs.</p>
             </div>
 
-            {/* Quick Actions */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Link href="/admin/horoscope/context">
-                    <Card className="group cursor-pointer border-border/50 bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all duration-300">
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-medium">Context Editor</CardTitle>
-                            <FileText className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                        </CardHeader>
-                        <CardContent>
-                            <CardDescription>Edit the master astrology prompt</CardDescription>
-                        </CardContent>
-                    </Card>
-                </Link>
-
-                <Link href="/admin/horoscope/zeitgeist">
-                    <Card className="group cursor-pointer border-border/50 bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all duration-300">
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-medium">Zeitgeist Engine</CardTitle>
-                            <Globe className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                        </CardHeader>
-                        <CardContent>
-                            <CardDescription>Define the current world vibe</CardDescription>
-                        </CardContent>
-                    </Card>
-                </Link>
-
-                <Link href="/admin/horoscope/generator">
-                    <Card className="group cursor-pointer border-border/50 bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all duration-300">
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-medium">Generation Desk</CardTitle>
-                            <Sparkles className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                        </CardHeader>
-                        <CardContent>
-                            <CardDescription>Run AI horoscope generation</CardDescription>
-                        </CardContent>
-                    </Card>
-                </Link>
-
-                <Link href="/admin/horoscope/review">
-                    <Card className="group cursor-pointer border-border/50 bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all duration-300">
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-medium">Review & Publish</CardTitle>
-                            <ClipboardCheck className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                        </CardHeader>
-                        <CardContent>
-                            <CardDescription>Approve and publish horoscopes</CardDescription>
-                        </CardContent>
-                    </Card>
-                </Link>
-            </div>
-
-            {/* Cosmic Weather Card */}
-            <div>
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-semibold flex items-center gap-2">
-                        <Telescope className="h-5 w-5 text-indigo-400" />
-                        Today&apos;s Cosmic Weather
-                        <span className="text-sm font-normal text-muted-foreground">({todayUTC})</span>
-                    </h2>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRecompute}
-                        disabled={isRecomputing}
-                        className="gap-2"
-                    >
-                        <RefreshCw className={`h-3.5 w-3.5 ${isRecomputing ? "animate-spin" : ""}`} />
-                        {isRecomputing ? "Computing..." : "Recompute"}
-                    </Button>
+            {/* Controls Bar */}
+            <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2">
+                    <CalendarDays className="h-4 w-4 text-primary" />
+                    <Input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="w-[140px] h-8 text-sm bg-transparent border-0 p-0 focus:ring-0"
+                    />
                 </div>
+                <Button
+                    size="sm"
+                    onClick={handleGenerate}
+                    disabled={isGenerating || !selectedDate}
+                    className="gap-2"
+                >
+                    {isGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                    {isGenerating ? "Starting..." : generateLabel}
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRecompute}
+                    disabled={isRecomputing}
+                    className="gap-2"
+                >
+                    <RefreshCw className={`h-3.5 w-3.5 ${isRecomputing ? "animate-spin" : ""}`} />
+                    {isRecomputing ? "Scheduling..." : "Recompute Context"}
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setOverrideDialogOpen(true)}
+                    className="gap-2"
+                >
+                    <Edit3 className="h-3.5 w-3.5" />
+                    Override
+                </Button>
 
-                {cosmicWeather === undefined ? (
-                    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-                        <CardContent className="flex items-center gap-2 py-6 text-muted-foreground">
-                            <Clock className="h-4 w-4 animate-spin" />
-                            <span className="text-sm">Loading cosmic weather...</span>
-                        </CardContent>
-                    </Card>
-                ) : cosmicWeather === null ? (
-                    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-                        <CardContent className="flex flex-col items-center justify-center py-8">
-                            <Orbit className="h-8 w-8 text-muted-foreground mb-3" />
-                            <p className="text-muted-foreground text-sm">No cosmic weather computed yet for today.</p>
-                            <p className="text-muted-foreground text-xs mt-1">
-                                Click &quot;Recompute&quot; to generate, or it will be computed automatically at 00:05 UTC.
-                            </p>
-                        </CardContent>
-                    </Card>
-                ) : (
-                    <div className="grid gap-4 md:grid-cols-3">
-                        {/* Planet Positions */}
-                        <Card className="border-border/50 bg-card/50 backdrop-blur-sm md:col-span-2">
-                            <CardHeader className="pb-3">
-                                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                    <Sun className="h-4 w-4 text-amber-400" />
-                                    Planet Positions
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {cosmicWeather.planetPositions.map((p) => (
-                                        <div
-                                            key={p.planet}
-                                            className="flex items-center gap-1.5 text-xs"
-                                        >
-                                            <span className="font-medium text-foreground">{p.planet}</span>
-                                            <span className="text-muted-foreground">
-                                                in {p.sign} ({p.degreeInSign}°)
-                                            </span>
-                                            {p.isRetrograde && (
-                                                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-red-400 border-red-400/30">
-                                                    ℞
+                {selectedSigns.size > 0 && (
+                    <div className="flex items-center gap-2 ml-auto">
+                        <span className="text-xs text-muted-foreground">{selectedSigns.size} selected</span>
+                        <Button variant="ghost" size="sm" onClick={selectAll} className="text-xs h-7">
+                            All
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={selectNone} className="text-xs h-7">
+                            None
+                        </Button>
+                    </div>
+                )}
+                {selectedSigns.size === 0 && (
+                    <div className="flex items-center gap-2 ml-auto">
+                        <Button variant="ghost" size="sm" onClick={selectAll} className="text-xs h-7">
+                            Select All
+                        </Button>
+                    </div>
+                )}
+            </div>
+
+            {/* Summary */}
+            <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    {renderStatusIcon("generated")}
+                    <span>{counts.generated}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    {renderStatusIcon("pending")}
+                    <span>{counts.pending}</span>
+                </div>
+                {counts.failed > 0 && (
+                    <div className="flex items-center gap-1.5 text-xs text-destructive">
+                        {renderStatusIcon("failed")}
+                        <span>{counts.failed}</span>
+                    </div>
+                )}
+                {counts.overridden > 0 && (
+                    <div className="flex items-center gap-1.5 text-xs text-amber-500">
+                        {renderStatusIcon("overridden")}
+                        <span>{counts.overridden}</span>
+                    </div>
+                )}
+                {counts.missing > 0 && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground/50">
+                        {renderStatusIcon(undefined)}
+                        <span>{counts.missing} not queued</span>
+                    </div>
+                )}
+            </div>
+
+            {/* Failed Generations */}
+            {failedGens && failedGens.length > 0 && (
+                <div className="space-y-2">
+                    <h2 className="text-sm font-semibold flex items-center gap-2 text-red-400">
+                        <XCircle className="h-4 w-4" /> Failed
+                    </h2>
+                    <div className="space-y-2">
+                        {failedGens.map((h: any) => (
+                            <div key={h._id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
+                                <div className="flex items-center gap-2">
+                                    <XCircle className="h-4 w-4 text-red-400" />
+                                    <span className="text-sm font-medium">{h.sign} — {h.date}</span>
+                                    {h.errors?.length > 0 && <span className="text-xs text-red-300/80 truncate max-w-[300px]">{h.errors.join("; ")}</span>}
+                                </div>
+                                <Button variant="outline" size="sm" onClick={() => handleRetry(h.date, h.sign)} disabled={retryingSign === h.sign} className="gap-1 h-7 text-xs">
+                                    {retryingSign === h.sign ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                                    Retry
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Sign Grid */}
+            {horoscopes === undefined ? (
+                <div className="flex items-center gap-2 text-muted-foreground py-10">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>Loading horoscopes...</span>
+                </div>
+            ) : (
+                <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                    {SIGNS.map((sign) => {
+                        const h = signMap.get(sign);
+                        const isSelected = selectedSigns.has(sign);
+                        const element = SIGN_ELEMENT[sign] ?? "Fire";
+                        const elementColor = ELEMENT_COLORS[element] ?? "#888";
+                        const signUi = zodiacUIConfig[sign.toLowerCase()];
+                        const ZodiacIcon = signUi?.icon;
+
+                        return (
+                            <div
+                                key={sign}
+                                className={`
+                                    group relative cursor-pointer rounded-lg border bg-card/50 backdrop-blur-sm
+                                    transition-all duration-200 overflow-hidden
+                                    ${isSelected
+                                        ? "border-primary/60 ring-1 ring-primary/30"
+                                        : "border-border/50 hover:border-border"
+                                    }
+                                `}
+                                onClick={() => setSelectedSign(sign)}
+                            >
+                                {/* Element color accent line */}
+                                <div
+                                    className="absolute top-0 left-0 right-0 h-0.5"
+                                    style={{ backgroundColor: elementColor }}
+                                />
+
+                                <div className="p-3 flex flex-col gap-3">
+                                    {/* Row 1: checkbox, zodiac icon, status icon */}
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onClick={(e) => { e.stopPropagation(); toggleSign(sign); }}
+                                                onChange={() => {}}
+                                                className="h-3.5 w-3.5 rounded border-border accent-primary"
+                                            />
+                                            {ZodiacIcon && (
+                                                <ZodiacIcon
+                                                    className="w-5 h-5"
+                                                    style={{ color: elementColor }}
+                                                    strokeWidth={1.5}
+                                                />
+                                            )}
+                                            <span className="text-sm font-semibold leading-none">{sign}</span>
+                                        </div>
+                                        {renderStatusIcon(h?.status)}
+                                    </div>
+
+                                    {/* Row 2: Meta info — badges for time, duration, model */}
+                                    {h ? (
+                                        <div className="flex flex-wrap gap-1">
+                                            {h.generatedAt && (
+                                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-mono">
+                                                    {new Date(h.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                                </Badge>
+                                            )}
+                                            {h.generationDurationMs != null && (
+                                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-mono">
+                                                    {(h.generationDurationMs / 1000).toFixed(1)}s
+                                                </Badge>
+                                            )}
+                                            {h.modelUsed && (
+                                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 truncate max-w-[90px]">
+                                                    {h.modelUsed}
                                                 </Badge>
                                             )}
                                         </div>
-                                    ))}
+                                    ) : (
+                                        <span className="text-[10px] text-muted-foreground/50">Not queued</span>
+                                    )}
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
 
-                        {/* Moon Phase */}
-                        <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-                            <CardHeader className="pb-3">
-                                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                    <Moon className="h-4 w-4 text-blue-300" />
-                                    Moon Phase
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="flex flex-col items-center justify-center py-2">
-                                <p className="text-lg font-medium">{cosmicWeather.moonPhase.name}</p>
-                                <p className="text-sm text-muted-foreground">
-                                    {cosmicWeather.moonPhase.illuminationPercent}% illuminated
+            {/* ── Detail Dialog ────────────────────────────────────────────── */}
+            <Dialog open={!!selectedSign} onOpenChange={(open) => !open && setSelectedSign(null)}>
+                <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>{selectedSign} — {selectedDate}</DialogTitle>
+                    </DialogHeader>
+                    {selectedHoroscope ? (
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2">
+                                <Badge variant={selectedHoroscope.status === "generated" ? "default" : selectedHoroscope.status === "failed" ? "destructive" : selectedHoroscope.status === "overridden" ? "secondary" : "outline"}>
+                                    {selectedHoroscope.status}
+                                </Badge>
+                                {selectedHoroscope.modelUsed && (
+                                    <span className="text-xs text-muted-foreground">Model: {selectedHoroscope.modelUsed}</span>
+                                )}
+                            </div>
+                            {selectedHoroscope.generatedAt && (
+                                <p className="text-xs text-muted-foreground">
+                                    Generated: {new Date(selectedHoroscope.generatedAt).toLocaleString()}
+                                    {selectedHoroscope.generationDurationMs != null && ` (${(selectedHoroscope.generationDurationMs / 1000).toFixed(1)}s)`}
                                 </p>
-                            </CardContent>
-                        </Card>
-
-                        {/* Active Aspects */}
-                        {cosmicWeather.activeAspects.length > 0 && (
-                            <Card className="border-border/50 bg-card/50 backdrop-blur-sm md:col-span-3">
-                                <CardHeader className="pb-3">
-                                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                        <Orbit className="h-4 w-4 text-purple-400" />
-                                        Active Aspects ({cosmicWeather.activeAspects.length})
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="flex flex-wrap gap-2">
-                                        {cosmicWeather.activeAspects.map((a, idx) => (
-                                            <Badge
-                                                key={idx}
-                                                variant="secondary"
-                                                className="text-xs"
-                                            >
-                                                {a.planet1} {a.aspect} {a.planet2}
-                                                <span className="text-muted-foreground ml-1">(orb: {a.orbDegrees}°)</span>
-                                            </Badge>
-                                        ))}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            {/* Recent Jobs */}
-            <div>
-                <h2 className="text-xl font-semibold mb-4">Recent Generation Jobs</h2>
-                {recentJobs === undefined ? (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                        <Clock className="h-4 w-4 animate-spin" />
-                        <span className="text-sm">Loading...</span>
-                    </div>
-                ) : recentJobs.length === 0 ? (
-                    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-                        <CardContent className="flex flex-col items-center justify-center py-12">
-                            <Sparkles className="h-8 w-8 text-muted-foreground mb-3" />
-                            <p className="text-muted-foreground text-sm">No generation jobs yet.</p>
-                            <p className="text-muted-foreground text-xs mt-1">
-                                Head to the <Link href="/admin/horoscope/generator" className="text-primary underline">Generation Desk</Link> to start.
-                            </p>
-                        </CardContent>
-                    </Card>
-                ) : (
-                    <div className="space-y-3">
-                        {recentJobs.map((job) => {
-                            const config = statusConfig[job.status];
-                            const StatusIcon = config.icon;
-                            return (
-                                <Card key={job._id} className="border-border/50 bg-card/50 backdrop-blur-sm">
-                                    <CardContent className="flex items-center justify-between py-4">
-                                        <div className="flex items-center gap-3">
-                                            <StatusIcon className={`h-5 w-5 ${config.color}`} />
-                                            <div>
-                                                <p className="text-sm font-medium">
-                                                    {job.targetSigns.length} signs × {job.targetDates.length} days
-                                                </p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {job.modelId} · {new Date(job.startedAt).toLocaleString()}
-                                                </p>
+                            )}
+                            {selectedHoroscope.content && (
+                                <div className="space-y-3">
+                                    {selectedHoroscope.content.hook && (
+                                        <div><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Hook</p><p className="text-sm font-medium">{selectedHoroscope.content.hook}</p></div>
+                                    )}
+                                    {selectedHoroscope.content.bodyText && (
+                                        <div><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Body</p><p className="text-sm">{selectedHoroscope.content.bodyText}</p></div>
+                                    )}
+                                    {!selectedHoroscope.content.hook && selectedHoroscope.content.insight && (
+                                        <div><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Insight</p><p className="text-sm">{selectedHoroscope.content.insight}</p></div>
+                                    )}
+                                    {!selectedHoroscope.content.bodyText && selectedHoroscope.content.energy && (
+                                        <div><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Energy</p><p className="text-sm">{selectedHoroscope.content.energy}</p></div>
+                                    )}
+                                    {!selectedHoroscope.content.bodyText && selectedHoroscope.content.navigate && (
+                                        <div><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Navigate</p><p className="text-sm">{selectedHoroscope.content.navigate}</p></div>
+                                    )}
+                                    {selectedHoroscope.content.mantra && (
+                                        <div><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Mantra</p><p className="text-sm italic">{selectedHoroscope.content.mantra}</p></div>
+                                    )}
+                                    {selectedHoroscope.content.dailyPillars && (
+                                        <div className="grid grid-cols-2 gap-2 mt-2">
+                                            <div className="p-2 rounded bg-muted/50"><p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Vibe</p><p className="text-sm">{selectedHoroscope.content.dailyPillars.vibe}</p></div>
+                                            <div className="p-2 rounded bg-muted/50"><p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Power Move</p><p className="text-sm">{selectedHoroscope.content.dailyPillars.powerMove}</p></div>
+                                            <div className="p-2 rounded bg-muted/50"><p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Blind Spot</p><p className="text-sm">{selectedHoroscope.content.dailyPillars.blindSpot}</p></div>
+                                            <div className="p-2 rounded bg-muted/50"><p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Lucky Spark</p><p className="text-sm">{selectedHoroscope.content.dailyPillars.luckySpark}</p></div>
+                                        </div>
+                                    )}
+                                    {selectedHoroscope.content.domainScores && Array.isArray(selectedHoroscope.content.domainScores) && (
+                                        <div className="space-y-1 mt-2">
+                                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Domain Scores</p>
+                                            <div className="grid grid-cols-2 gap-1">
+                                                {selectedHoroscope.content.domainScores.map((d: any, i: number) => (
+                                                    <div key={i} className="flex items-center justify-between px-2 py-1 rounded bg-muted/50"><span className="text-xs">{d.name}</span><span className="text-xs font-mono">{d.score}</span></div>
+                                                ))}
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className="text-right text-xs text-muted-foreground">
-                                                <span className="text-emerald-400">{job.progress.completed}</span>
-                                                {" / "}
-                                                <span>{job.progress.total}</span>
-                                                {job.progress.failed > 0 && (
-                                                    <span className="text-red-400 ml-2">
-                                                        ({job.progress.failed} failed)
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <Badge variant={config.variant}>{config.label}</Badge>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            );
-                        })}
+                                    )}
+                                    {selectedHoroscope.content.cosmicDetails && !selectedHoroscope.content.dailyPillars && (
+                                        <div className="space-y-1 mt-2"><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cosmic Details</p><p className="text-sm text-muted-foreground">{JSON.stringify(selectedHoroscope.content.cosmicDetails)}</p></div>
+                                    )}
+                                </div>
+                            )}
+                            {selectedHoroscope.errors && selectedHoroscope.errors.length > 0 && (
+                                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                                    <p className="text-xs font-medium text-red-400 mb-1">Errors</p>
+                                    {selectedHoroscope.errors.map((err: string, i: number) => <p key={i} className="text-xs text-red-300/80">{err}</p>)}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-8">
+                            <AlertTriangle className="h-8 w-8 text-muted-foreground mb-3" />
+                            <p className="text-muted-foreground text-sm">No horoscope record for {selectedSign} on {selectedDate}.</p>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* ── Override Dialog ──────────────────────────────────────────── */}
+            <Dialog open={overrideDialogOpen} onOpenChange={setOverrideDialogOpen}>
+                <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Override Horoscope</DialogTitle>
+                        <DialogDescription>Manually set content for a specific sign and date. Marks the record as &quot;overridden&quot;.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-xs">Date</Label>
+                                <Input type="date" value={overrideForm.date} onChange={(e) => setOverrideForm({ ...overrideForm, date: e.target.value })} className="bg-background/50" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs">Sign</Label>
+                                <Select value={overrideForm.sign} onValueChange={(v) => setOverrideForm({ ...overrideForm, sign: v })}>
+                                    <SelectTrigger className="bg-background/50"><SelectValue /></SelectTrigger>
+                                    <SelectContent>{SIGNS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs">Hook <span className="text-muted-foreground">(15-60 chars)</span></Label>
+                            <Textarea value={overrideForm.hook} onChange={(e) => setOverrideForm({ ...overrideForm, hook: e.target.value })} placeholder="The thing you've been avoiding is the thing that needs doing." className="min-h-[60px] bg-background/50" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs">Body Text <span className="text-muted-foreground">(2-3 sentences, 100-390 chars)</span></Label>
+                            <Textarea value={overrideForm.bodyText} onChange={(e) => setOverrideForm({ ...overrideForm, bodyText: e.target.value })} placeholder="The friction you're feeling isn't resistance — it's the sound of something shifting." className="min-h-[100px] bg-background/50" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs">Mantra <span className="text-muted-foreground">(≤12 words, first-person)</span></Label>
+                            <Input value={overrideForm.mantra} onChange={(e) => setOverrideForm({ ...overrideForm, mantra: e.target.value })} placeholder="I trust the timing of my life." className="bg-background/50" />
+                        </div>
+                        <div className="border-t pt-4 mt-4">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Daily Pillars</p>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-2"><Label className="text-xs">Vibe</Label><Input value={overrideForm.vibe} onChange={(e) => setOverrideForm({ ...overrideForm, vibe: e.target.value })} placeholder="quiet momentum" className="bg-background/50" /></div>
+                                <div className="space-y-2"><Label className="text-xs">Power Move</Label><Input value={overrideForm.powerMove} onChange={(e) => setOverrideForm({ ...overrideForm, powerMove: e.target.value })} placeholder="Send that message" className="bg-background/50" /></div>
+                                <div className="space-y-2"><Label className="text-xs">Blind Spot</Label><Input value={overrideForm.blindSpot} onChange={(e) => setOverrideForm({ ...overrideForm, blindSpot: e.target.value })} placeholder="Your own limits" className="bg-background/50" /></div>
+                                <div className="space-y-2"><Label className="text-xs">Lucky Spark</Label><Input value={overrideForm.luckySpark} onChange={(e) => setOverrideForm({ ...overrideForm, luckySpark: e.target.value })} placeholder="A side conversation" className="bg-background/50" /></div>
+                            </div>
+                        </div>
+                        <div className="border-t pt-4 mt-4">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Domain Scores</p>
+                            <p className="text-xs text-muted-foreground mb-2">JSON array of 4–6 objects with name and score (0–100). Leave empty for defaults.</p>
+                            <Textarea value={overrideForm.domainScores} onChange={(e) => setOverrideForm({ ...overrideForm, domainScores: e.target.value })} placeholder='[{"name":"Love","score":78},{"name":"Career","score":62}]' className="min-h-[80px] font-mono text-xs bg-background/50" />
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2">
+                            <Button variant="outline" onClick={() => setOverrideDialogOpen(false)}>Cancel</Button>
+                            <Button onClick={handleOverride} disabled={!overrideForm.hook || !overrideForm.bodyText} className="gap-2"><Edit3 className="h-3.5 w-3.5" /> Save Override</Button>
+                        </div>
                     </div>
-                )}
-            </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

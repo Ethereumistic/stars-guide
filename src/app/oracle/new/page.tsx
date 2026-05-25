@@ -120,7 +120,7 @@ export default function OracleNewPage() {
 
   useEffect(() => {
     if (quota) {
-      setQuota(quota.remaining ?? null, quota.resetsAt ?? null);
+      setQuota(quota.burstRemaining ?? null, quota.burstResetsAt ?? null);
     }
   }, [quota, setQuota]);
 
@@ -324,20 +324,22 @@ export default function OracleNewPage() {
                 onClearSynastryChartB={clearSynastryChartB}
               />
 
-              {quota && quota.remaining !== undefined && (
+              {quota && (
                 <div className="flex justify-end mt-2 px-2">
                   <span
                     className={`text-[10px] tracking-wide ${
-                      quota.remaining <= 1 ? "text-amber-400" : "text-white/25"
+                      quota.burstRemaining <= 0 || quota.weeklyRemaining <= 0 ? "text-amber-400" : "text-white/25"
                     }`}
                   >
-                    {quota.remaining} question{quota.remaining !== 1 ? "s" : ""} remaining
-                    {quota.resetsAt
-                      ? ` — resets ${new Date(quota.resetsAt).toLocaleTimeString("en-US", {
+                    Burst: ${(quota.burstRemaining / 1_000_000).toFixed(4)} / ${(quota.burstTotal / 1_000_000).toFixed(2)}
+                    {quota.burstResetsAt
+                      ? ` — resets ${new Date(quota.burstResetsAt).toLocaleTimeString("en-US", {
                           hour: "numeric",
                           minute: "2-digit",
                         })}`
-                      : " (lifetime)"}
+                      : ""}
+                    {" · "}
+                    Week: ${(quota.weeklyRemaining / 1_000_000).toFixed(4)} / ${(quota.weeklyTotal / 1_000_000).toFixed(2)}
                   </span>
                 </div>
               )}

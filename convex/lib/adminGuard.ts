@@ -2,12 +2,10 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { QueryCtx, MutationCtx } from "../_generated/server";
 
 /**
- * Shared admin authorization guard.
- * Every admin-facing query/mutation MUST call this first.
- * 
- * Security: This is the REAL enforcement layer (Layer 2).
- * A motivated attacker can call Convex functions directly, bypassing
- * the Next.js UI entirely. This guard is the law.
+ * Shared admin authorization guard for queries and mutations.
+ * Checks auth and verifies the user has admin role.
+ * NOTE: Only works in query/mutation context (has ctx.db).
+ * For action context, use requireAdminAction instead.
  */
 export async function requireAdmin(ctx: QueryCtx | MutationCtx) {
     const userId = await getAuthUserId(ctx);

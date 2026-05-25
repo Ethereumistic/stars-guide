@@ -121,6 +121,14 @@ function formatMs(ms: number): string {
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
+function formatCostMicro(costMicro: number | null | undefined): string {
+  if (costMicro == null) return "—";
+  const dollars = costMicro / 1_000_000;
+  if (dollars < 0.001) return `$${(dollars * 1000).toFixed(3)}µ`;
+  if (dollars < 0.01) return `$${dollars.toFixed(5)}`;
+  return `$${dollars.toFixed(4)}`;
+}
+
 function countApproxTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
@@ -488,6 +496,14 @@ function MessageRow({ message }: { message: any; index: number }) {
                     {message.promptTokens}+{message.completionTokens ?? 0}
                   </Badge>
                 )}
+                {message.costUsdMicro != null && (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] px-1 py-0 border-amber-500/30 text-amber-400"
+                  >
+                    {formatCostMicro(message.costUsdMicro)}
+                  </Badge>
+                )}
                 {/* Show timing badge if timing data exists */}
                 {message.timingTotalMs != null && (
                   <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-500/30 text-amber-400">
@@ -539,6 +555,14 @@ function MessageRow({ message }: { message: any; index: number }) {
                     {message.completionTokens != null ? message.completionTokens : "—"}
                   </p>
                 </div>
+                {message.costUsdMicro != null && (
+                  <div>
+                    <span className="text-muted-foreground">Cost</span>
+                    <p className="font-mono text-amber-400">
+                      {formatCostMicro(message.costUsdMicro)}
+                    </p>
+                  </div>
+                )}
                 {message.systemPromptHash && (
                   <div>
                     <span className="text-muted-foreground">Prompt Hash</span>
@@ -678,22 +702,25 @@ export default function OracleDebugPage() {
       : sessions;
   }, [sessions, sessionFilter]);
 
-  // Compute total tokens across messages
+  // Compute total tokens and cost across messages
   const messageTokenSummary = React.useMemo(() => {
     if (!sessionDetail?.messages) return null;
     let totalPrompt = 0;
     let totalCompletion = 0;
     let messagesWithTokens = 0;
+    let totalCostMicro = 0;
     for (const m of sessionDetail.messages) {
       if (m.promptTokens != null) totalPrompt += m.promptTokens;
       if (m.completionTokens != null) totalCompletion += m.completionTokens;
       if (m.promptTokens != null || m.completionTokens != null) messagesWithTokens++;
+      if (m.costUsdMicro != null) totalCostMicro += m.costUsdMicro;
     }
     return {
       totalPrompt,
       totalCompletion,
       total: totalPrompt + totalCompletion,
       messagesWithTokens,
+      totalCostMicro,
     };
   }, [sessionDetail]);
 
@@ -1030,9 +1057,13 @@ export default function OracleDebugPage() {
                           </p>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Est. cost</span>
+                          <span className="text-muted-foreground">
+                            {messageTokenSummary.totalCostMicro > 0 ? "Actual cost" : "Est. cost"}
+                          </span>
                           <p className="font-mono text-lg text-amber-400">
-                            ~${((messageTokenSummary.total * 0.00003)).toFixed(4)}
+                            {messageTokenSummary.totalCostMicro > 0
+                              ? formatCostMicro(messageTokenSummary.totalCostMicro)
+                              : `~$${((messageTokenSummary.total * 0.00003)).toFixed(4)}`}
                           </p>
                         </div>
                       </div>
@@ -1844,21 +1875,25 @@ export default function OracleDebugPage() {
                   <CardContent>
                     {d.quotaUsage ? (
                       <div className="space-y-4">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-xs">
                           <div>
-                            <span className="text-muted-foreground">Daily Count</span>
+                            <span className="text-muted-foreground">Burst Cost</span>
                             <p className="font-mono text-lg text-amber-400">
-                              {d.quotaUsage.dailyCount}
+                              {formatCostMicro(d.quotaUsage.burstCost)}
                             </p>
                             <p className="text-[10px] text-muted-foreground">
-                              Window started:{" "}
-                              {formatTimestamp(d.quotaUsage.dailyWindowStart)}
+                              5h window ·{" "}
+                              {formatRelativeTime(d.quotaUsage.burstWindowStart ?? 0)}
                             </p>
                           </div>
                           <div>
-                            <span className="text-muted-foreground">Lifetime Count</span>
-                            <p className="font-mono text-lg">
-                              {d.quotaUsage.lifetimeCount}
+                            <span className="text-muted-foreground">Weekly Cost</span>
+                            <p className="font-mono text-lg text-amber-400">
+                              {formatCostMicro(d.quotaUsage.weeklyCost)}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              7d window ·{" "}
+                              {formatRelativeTime(d.quotaUsage.weeklyWindowStart ?? 0)}
                             </p>
                           </div>
                           <div>
@@ -1878,40 +1913,38 @@ export default function OracleDebugPage() {
                                 : u?.tier ?? "free"}
                             </p>
                           </div>
+
                         </div>
 
                         {/* Quota limit */}
                         <div>
                           <span className="text-xs text-muted-foreground">
-                            Plan Limit
+                            Burst Budget
                           </span>
                           {(() => {
                             const plan =
                               u?.role === "admin" || u?.role === "moderator"
                                 ? u.role
                                 : u?.tier ?? "free";
-                            const limitKey = `quota_limit_${plan}`;
-                            const limitStr = settingsMap[limitKey];
-                            const limit = limitStr
-                              ? parseInt(limitStr, 10)
+                            const burstBudgetKey = `quota_burst_budget_${plan}`;
+                            const burstBudgetStr = settingsMap[burstBudgetKey];
+                            const burstTotal = burstBudgetStr
+                              ? parseInt(burstBudgetStr, 10)
                               : plan === "free"
-                                ? 5
+                                ? 50_000
                                 : plan === "admin"
-                                  ? 999
-                                  : 10;
-                            const used =
-                              plan === "free"
-                                ? d.quotaUsage.lifetimeCount
-                                : d.quotaUsage.dailyCount;
+                                  ? 100_000_000
+                                  : 500_000;
+                            const used = d.quotaUsage.burstCost ?? 0;
                             const pct = Math.min(
                               100,
-                              (used / limit) * 100,
+                              (used / burstTotal) * 100,
                             );
                             return (
                               <div className="mt-1">
                                 <div className="flex items-center gap-2 text-xs mb-1">
                                   <span className="font-mono">
-                                    {used} / {limit}
+                                    {formatCostMicro(used)} / {formatCostMicro(burstTotal)}
                                   </span>
                                   {pct >= 100 && (
                                     <Badge className="text-[9px] px-1 py-0 bg-red-500/20 text-red-400 border-red-500/30">

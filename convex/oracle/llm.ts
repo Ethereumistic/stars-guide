@@ -27,6 +27,7 @@ import {
 import { selectProvider, releaseProvider } from "./providerRouter";
 import { scoreIntentsWithLLM } from "../../lib/oracle/intentRouter";
 import { getPipeline } from "../../lib/oracle/pipelines/index";
+import { calculateCostMicro, PRICING_TABLE_SETTINGS_KEY } from "./pricing";
 import type {
   OraclePipeline,
   PipelineContext,
@@ -428,7 +429,57 @@ export const invokeOracle = action({
     const systemPromptHash = simpleHash(systemPrompt);
 
     // ════════════════════════════════════════════════════════════════════════
-    // PHASE 5: PROVIDER SELECTION + LLM CALL
+    // PHASE 5: QUOTA PRE-CHECK (server-side gate before spending compute)
+    // ════════════════════════════════════════════════════════════════════════
+
+    // Read pricing table from DB (defaults to built-in if not set)
+    let pricingTable: Record<string, { promptPer1M: number; completionPer1M: number }> = {};
+    try {
+      const pricingSetting = await ctx.runQuery(
+        internal.oracle.settings.getSettingInternal,
+        { key: PRICING_TABLE_SETTINGS_KEY },
+      );
+      if (pricingSetting?.value) {
+        try {
+          pricingTable = JSON.parse(pricingSetting.value);
+        } catch {
+          // Use default table if parsing fails
+        }
+      }
+    } catch (e) {
+      // Use default table on error
+    }
+
+    // Server-side quota gate — reject before making any LLM API calls
+    if (user?._id) {
+      try {
+        const quota = await ctx.runQuery(api.oracle.quota.checkQuota, {});
+        if (!quota.allowed) {
+          // Return a quota-exceeded message instead of calling the LLM
+          const exceededText = "You've reached your quota limit. Please try again later. ->";
+          await ctx.runMutation(api.oracle.sessions.addMessage, {
+            sessionId: args.sessionId,
+            role: "assistant",
+            content: exceededText,
+            fallbackTierUsed: "D",
+          });
+          await ctx.runMutation(api.oracle.sessions.updateSessionStatus, {
+            sessionId: args.sessionId,
+            status: "active",
+          });
+          return {
+            content: exceededText,
+            modelUsed: "quota_gate",
+            fallbackTier: "D",
+          };
+        }
+      } catch (e) {
+        console.error("Quota pre-check failed (non-blocking):", e);
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // PHASE 6: PROVIDER SELECTION + LLM CALL
     // ════════════════════════════════════════════════════════════════════════
 
     // ── Conversation history ───────────────────────────────────────────────
@@ -601,9 +652,34 @@ export const invokeOracle = action({
     // POST-PROCESS: Quota, Title, Timing, Pipeline Hooks
     // ════════════════════════════════════════════════════════════════════════
 
-    // ── Quota increment ────────────────────────────────────────────────────
+    // ── Quota increment (first response only) ──────────────────────────────
     if (isFirstResponse) {
-      await ctx.runMutation(api.oracle.quota.incrementQuota, {});
+      // Compute the model string — use debug override if active, otherwise the actual provider/model
+      const costModelUsed =
+        debugModelUsed && usedProviderId === args.debugModelOverride?.providerId
+          ? debugModelUsed
+          : `${usedProviderId ?? "unknown"}/${usedModel ?? "unknown"}`;
+
+      // Compute cost in microdollars after successful LLM response
+      const costMicro = calculateCostMicro(
+        costModelUsed,
+        result.promptTokens,
+        result.completionTokens,
+        Object.keys(pricingTable).length > 0 ? pricingTable : undefined,
+      );
+
+      // Store cost on the message record
+      if (result.messageId) {
+        await ctx.runMutation(internal.oracle.sessions.patchMessageCost, {
+          messageId: result.messageId,
+          costUsdMicro: costMicro,
+        });
+      }
+
+      // Increment quota with the computed cost
+      await ctx.runMutation(api.oracle.quota.incrementQuota, {
+        costMicro,
+      });
     }
 
     // ── Title generation (first response only) ────────────────────────────

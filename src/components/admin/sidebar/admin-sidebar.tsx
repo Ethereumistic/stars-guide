@@ -18,12 +18,9 @@ import {
 import { Separator } from "@/components/ui/separator";
 import {
     FileText,
-    Globe,
     Sparkles,
-    ClipboardCheck,
     LayoutDashboard,
     Shield,
-    Anchor,
     Settings,
     Bell,
     Bug,
@@ -44,12 +41,8 @@ const aiNavItems = [
 ];
 
 const horoscopeNavItems = [
-    { title: "Overview", href: "/admin/horoscope", icon: LayoutDashboard },
-    { title: "Context Editor", href: "/admin/horoscope/context", icon: FileText },
-    { title: "Zeitgeist Engine", href: "/admin/horoscope/zeitgeist", icon: Globe },
-    { title: "Generation Desk", href: "/admin/horoscope/generator", icon: Sparkles },
-    { title: "Hook Manager", href: "/admin/horoscope/hooks", icon: Anchor },
-    { title: "Review & Publish", href: "/admin/horoscope/review", icon: ClipboardCheck },
+    { title: "Horoscopes", href: "/admin/horoscope", icon: LayoutDashboard },
+    { title: "Context Viewer", href: "/admin/horoscope/context", icon: FileText },
 ];
 
 const oracleNavItems = [

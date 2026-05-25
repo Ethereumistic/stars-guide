@@ -566,10 +566,12 @@ export default function OracleChatPage() {
         }
     }, [inputValue, selectedFeatureKey, isStreaming, sessionId, addMessageMutation, invokeOracle, setIsStreaming, debugModelOverride, setDebugLastMetrics, setDebugDebugModelUsed, setDebugClientTiming, clearSelectedFeature]);
 
-    // Compute countdown for daily cap
+    // Compute countdown for quota cap (burst or weekly)
     const quotaCountdown = React.useMemo(() => {
-        if (!quota || quota.reason !== "daily_cap" || !quota.resetsAt) return null;
-        const diff = quota.resetsAt - Date.now();
+        if (!quota || quota.allowed || !quota.reason) return null;
+        const resetsAt = quota.reason === "burst_cap" ? quota.burstResetsAt : quota.weeklyResetsAt;
+        if (!resetsAt) return null;
+        const diff = resetsAt - Date.now();
         if (diff <= 0) return null;
         const hours = Math.floor(diff / 3_600_000);
         const minutes = Math.floor((diff % 3_600_000) / 60_000);
@@ -919,41 +921,40 @@ export default function OracleChatPage() {
                                     <AlertTriangle className="w-5 h-5 text-amber-400" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    {quota?.reason === "lifetime_cap" ? (
+                                    {quota?.reason === "burst_cap" || quota?.reason === "weekly_cap" ? (
                                         <>
                                             <p className="text-sm font-medium text-amber-200/90 mb-1">
-                                                You&apos;ve used all free Oracle sessions
-                                            </p>
-                                            <p className="text-xs text-amber-200/50 mb-3 leading-relaxed">
-                                                Upgrade to Cosmic Flow or Oracle tier to continue consulting the stars — or purchase more with StarDust.
-                                            </p>
-                                            <div className="flex gap-2">
-                                                <Button
-                                                    size="sm"
-                                                    className="bg-galactic hover:bg-galactic/80 text-white text-xs gap-1.5 rounded-xl"
-                                                    onClick={() => router.push("/pricing")}
-                                                >
-                                                    <ArrowUpRight className="w-3.5 h-3.5" />
-                                                    Upgrade
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="border-amber-500/20 text-amber-200/70 hover:bg-amber-500/10 text-xs rounded-xl"
-                                                    onClick={() => router.push("/stardust")}
-                                                >
-                                                    Buy StarDust
-                                                </Button>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <p className="text-sm font-medium text-amber-200/90 mb-1">
-                                                You&apos;ve reached today&apos;s limit
+                                                {quota.reason === "weekly_cap"
+                                                    ? "You've reached your weekly Oracle limit"
+                                                    : "You've reached your burst limit"}
                                             </p>
                                             <p className="text-xs text-amber-200/50 leading-relaxed flex items-center gap-1.5">
                                                 <Clock className="w-3.5 h-3.5" />
                                                 Oracle returns in {quotaCountdown ?? "a few hours"}.
+                                                {quota.reason === "weekly_cap" && (
+                                                                    <span className="ml-1">Upgrade for more.</span>
+                                                )}
+                                            </p>
+                                            {quota.reason === "weekly_cap" && (
+                                                <div className="flex gap-2 mt-3">
+                                                    <Button
+                                                        size="sm"
+                                                        className="bg-galactic hover:bg-galactic/80 text-white text-xs gap-1.5 rounded-xl"
+                                                        onClick={() => router.push("/pricing")}
+                                                    >
+                                                        <ArrowUpRight className="w-3.5 h-3.5" />
+                                                        Upgrade
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p className="text-sm font-medium text-amber-200/90 mb-1">
+                                                Quota reached
+                                            </p>
+                                            <p className="text-xs text-amber-200/50 leading-relaxed">
+                                                Try again later or upgrade your plan.
                                             </p>
                                         </>
                                     )}
@@ -982,14 +983,15 @@ export default function OracleChatPage() {
                             />
 
                             {/* Quota indicator */}
-                            {quota && quota.remaining !== undefined && state === "conversation_active" && (
+                            {quota && state === "conversation_active" && (
                                 <div className="flex justify-end mt-2 px-2">
-                                    <span className={`text-[10px] tracking-wide ${quota.remaining <= 1 ? "text-amber-400" : "text-white/25"
-                                        }`}>
-                                        {quota.remaining} question{quota.remaining !== 1 ? "s" : ""} remaining
-                                        {quota.resetsAt
-                                            ? ` — resets ${new Date(quota.resetsAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
-                                            : " (lifetime)"}
+                                    <span className={`text-[10px] tracking-wide ${quota.burstRemaining <= 0 || quota.weeklyRemaining <= 0 ? "text-amber-400" : "text-white/25"}`}>
+                                        Burst: ${(quota.burstRemaining / 1_000_000).toFixed(4)} / ${(quota.burstTotal / 1_000_000).toFixed(2)}
+                                        {quota.burstResetsAt
+                                            ? ` — resets ${new Date(quota.burstResetsAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`
+                                            : ""}
+                                        {" · "}
+                                        Week: ${(quota.weeklyRemaining / 1_000_000).toFixed(4)} / ${(quota.weeklyTotal / 1_000_000).toFixed(2)}
                                     </span>
                                 </div>
                             )}

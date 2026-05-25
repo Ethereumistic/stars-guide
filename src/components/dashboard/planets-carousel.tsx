@@ -37,7 +37,7 @@ const PLANET_ORDER: Record<string, number> = {
     Chiron: 11,
     "North Node": 12,
     "South Node": 13,
-    "Part Of Fortune": 14,
+    "Fortune": 14,
 }
 
 export function PlanetsCarousel({ placements, delay = 0 }: PlanetsCarouselProps) {
@@ -107,7 +107,8 @@ export function PlanetsCarousel({ placements, delay = 0 }: PlanetsCarouselProps)
             cardData.map((d) => (
                 <div
                     key={d.key}
-                    className="flex-none min-w-0 w-[80%] sm:w-[48%] md:w-[25%]"
+                    className="flex-none min-w-[160px] w-[80%] sm:w-[48%] md:w-[25%]"
+                    style={{ contain: "layout style" }}
                 >
                     <PlanetSignCard
                         planetName={d.planetName}
@@ -160,10 +161,9 @@ export function PlanetsCarousel({ placements, delay = 0 }: PlanetsCarouselProps)
                     disabled={!canScrollPrev}
                     className={`
                         flex items-center justify-center size-8 rounded-full border transition-all duration-200
-                        ${
-                            canScrollPrev
-                                ? "border-white/20 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white hover:border-white/30"
-                                : "border-white/5 bg-white/2 text-white/15 cursor-not-allowed"
+                        ${canScrollPrev
+                            ? "border-white/20 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white hover:border-white/30"
+                            : "border-white/5 bg-white/2 text-white/15 cursor-not-allowed"
                         }
                     `}
                     aria-label="Previous placement"
@@ -175,10 +175,9 @@ export function PlanetsCarousel({ placements, delay = 0 }: PlanetsCarouselProps)
                     disabled={!canScrollNext}
                     className={`
                         flex items-center justify-center size-8 rounded-full border transition-all duration-200
-                        ${
-                            canScrollNext
-                                ? "border-white/20 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white hover:border-white/30"
-                                : "border-white/5 bg-white/2 text-white/15 cursor-not-allowed"
+                        ${canScrollNext
+                            ? "border-white/20 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white hover:border-white/30"
+                            : "border-white/5 bg-white/2 text-white/15 cursor-not-allowed"
                         }
                     `}
                     aria-label="Next placement"

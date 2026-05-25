@@ -11,6 +11,7 @@ import {
   DashboardSkeleton,
   NatalChart,
   PlanetsCarousel,
+  TodayHoroscope,
 } from "@/components/dashboard";
 import { PageHeader } from "@/components/layout/page-header";
 
@@ -72,15 +73,20 @@ export default function DashboardPage() {
             { label: "Home", href: "/" },
             { label: "Dashboard" },
           ]}
-          title="Your Cosmicasdasd"
-          subtitle="Profile"
+          title="Your"
+          subtitle="Stars"
           showElementFilter={false}
         />
 
-        {/* Natal Chart (Birth Chart) — 1st */}
+        {/* Today's Horoscope — First thing users see */}
+        <div className="pb-16 mb-8">
+          <TodayHoroscope />
+        </div>
+
+        {/* Natal Chart (Birth Chart) — 3rd */}
         <NatalChart birthData={birthData} />
 
-        {/* Elemental Spider Chart — 2nd */}
+        {/* Elemental Spider Chart — 4th */}
         <ElementalSpiderChart birthData={birthData} delay={0.1} />
 
         {/* Main Signs Cards */}

@@ -335,7 +335,7 @@ export const compositionalPlanets: PlanetData[] = [
     },
     {
         id: "part_of_fortune",
-        name: "Part of Fortune",
+        name: "Fortune",
         domain: "innate potential for prosperity",
         psychologicalFunction: "The Part of Fortune is the intersection of the Sun, Moon, and Ascendant. It represents where the individual finds the most natural flow of success and material/spiritual well-being.",
         coreDrives: ["Attaining natural success", "Finding harmonic equilibrium", "Radiating inner prosperity"],

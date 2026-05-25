@@ -195,10 +195,12 @@ export default function SettingsPage() {
                             <LogoutFooter delay={0} />
                         </div>
 
-                        {/* Danger Zone — always visible below content */}
-                        <div className="mt-8">
-                            <DangerZoneSection delay={0} />
-                        </div>
+                        {/* Danger Zone — only on "You" tab */}
+                        {activeTab === "you" && (
+                            <div className="mt-8">
+                                <DangerZoneSection delay={0} />
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

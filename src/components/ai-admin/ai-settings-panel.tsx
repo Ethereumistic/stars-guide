@@ -28,6 +28,19 @@ export function AISettingsPanel() {
   const [maxTokensOracle, setMaxTokensOracle] = React.useState("2048");
   const [saving, setSaving] = React.useState(false);
 
+  // ── Quota V2 state ──
+  const TIERS = [
+    { key: "free", label: "Free", burst: "0.05", weekly: "0.20" },
+    { key: "popular", label: "Popular", burst: "0.50", weekly: "2.00" },
+    { key: "premium", label: "Premium", burst: "2.00", weekly: "8.00" },
+    { key: "moderator", label: "Moderator", burst: "100", weekly: "500" },
+    { key: "admin", label: "Admin", burst: "100", weekly: "500" },
+  ];
+  const [tierBudgets, setTierBudgets] = React.useState(TIERS);
+  const [burstWindowHours, setBurstWindowHours] = React.useState("5");
+  const [weeklyWindowDays, setWeeklyWindowDays] = React.useState("7");
+  const [modelPricingJson, setModelPricingJson] = React.useState("{}");
+
   React.useEffect(() => {
     if (!settings) return;
     const get = (key: string) =>
@@ -37,6 +50,36 @@ export function AISettingsPanel() {
     setLlmTimeoutSeconds(get("ai_llm_timeout_seconds") ?? "120");
     setMaxTokensGeneration(get("ai_max_tokens_generation") ?? "4096");
     setMaxTokensOracle(get("ai_max_tokens_oracle") ?? "2048");
+
+    // Load quota V2 budgets from oracle_settings
+    const defaultBudgets: Record<string, { burst: string; weekly: string }> = {
+      free: { burst: "0.05", weekly: "0.20" },
+      popular: { burst: "0.50", weekly: "2.00" },
+      premium: { burst: "2.00", weekly: "8.00" },
+      moderator: { burst: "100", weekly: "500" },
+      admin: { burst: "100", weekly: "500" },
+    };
+    setTierBudgets(
+      ["free", "popular", "premium", "moderator", "admin"].map((key) => {
+        const burstRaw = get(`quota_burst_budget_${key}`);
+        const weeklyRaw = get(`quota_weekly_budget_${key}`);
+        const defaults = defaultBudgets[key];
+        // Convert from microdollars to USD for display
+        const burstUsd = burstRaw ? (parseInt(burstRaw, 10) / 1_000_000).toFixed(2) : defaults.burst;
+        const weeklyUsd = weeklyRaw ? (parseInt(weeklyRaw, 10) / 1_000_000).toFixed(2) : defaults.weekly;
+        return { key, label: key.charAt(0).toUpperCase() + key.slice(1), burst: burstUsd, weekly: weeklyUsd };
+      })
+    );
+
+    // Load window sizes
+    const burstMs = get("quota_burst_window_ms");
+    const weeklyMs = get("quota_weekly_window_ms");
+    setBurstWindowHours(burstMs ? String(Math.round(parseInt(burstMs, 10) / 3_600_000)) : "5");
+    setWeeklyWindowDays(weeklyMs ? String(Math.round(parseInt(weeklyMs, 10) / 86_400_000)) : "7");
+
+    // Load model pricing JSON
+    const pricingJson = get("model_pricing") ?? "{}";
+    setModelPricingJson(typeof pricingJson === "string" ? pricingJson : JSON.stringify(pricingJson, null, 2));
   }, [settings]);
 
   if (!settings) {
@@ -60,7 +103,7 @@ export function AISettingsPanel() {
             value: item.value,
             valueType: "string" as const,
             label: item.label,
-            group: "ai_settings",
+            group: item.group,
             description: item.description,
           })
         )
@@ -68,6 +111,78 @@ export function AISettingsPanel() {
       toast.success("AI settings saved");
     } catch (error: any) {
       toast.error(error?.message ?? "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveQuotaBudgets() {
+    setSaving(true);
+    try {
+      const items: Array<{ key: string; value: string; label: string; group: string; description: string }> = [];
+
+      // Per-tier budgets (convert USD → microdollars)
+      for (const tier of tierBudgets) {
+        const burstMicro = Math.round(parseFloat(tier.burst) * 1_000_000);
+        const weeklyMicro = Math.round(parseFloat(tier.weekly) * 1_000_000);
+        items.push({
+          key: `quota_burst_budget_${tier.key}`,
+          value: String(burstMicro),
+          label: `Burst budget — ${tier.key}`,
+          group: "quota",
+          description: `Max spend in burst window for ${tier.key} tier (microdollars).`,
+        });
+        items.push({
+          key: `quota_weekly_budget_${tier.key}`,
+          value: String(weeklyMicro),
+          label: `Weekly budget — ${tier.key}`,
+          group: "quota",
+          description: `Max spend in weekly window for ${tier.key} tier (microdollars).`,
+        });
+      }
+
+      // Window sizes (convert to ms)
+      const burstMs = String(parseInt(burstWindowHours, 10) * 3_600_000);
+      const weeklyMs = String(parseInt(weeklyWindowDays, 10) * 86_400_000);
+      items.push({
+        key: "quota_burst_window_ms",
+        value: burstMs,
+        label: "Burst window (ms)",
+        group: "quota",
+        description: `Duration of burst window: ${burstMs} ms = ${burstWindowHours}h.`,
+      });
+      items.push({
+        key: "quota_weekly_window_ms",
+        value: weeklyMs,
+        label: "Weekly window (ms)",
+        group: "quota",
+        description: `Duration of weekly window: ${weeklyMs} ms = ${weeklyWindowDays}d.`,
+      });
+
+      // Model pricing JSON
+      items.push({
+        key: "model_pricing",
+        value: modelPricingJson,
+        label: "Model pricing table",
+        group: "quota",
+        description: "USD price per 1M tokens per model. JSON format.",
+      });
+
+      await Promise.all(
+        items.map(item =>
+          upsertSetting({
+            key: item.key,
+            value: item.value,
+            valueType: item.key === "model_pricing" ? ("json" as const) : ("number" as const),
+            label: item.label,
+            group: item.group,
+            description: item.description,
+          })
+        )
+      );
+      toast.success("Quota budgets saved");
+    } catch (error: any) {
+      toast.error(error?.message ?? "Failed to save quota budgets");
     } finally {
       setSaving(false);
     }
@@ -205,6 +320,152 @@ export function AISettingsPanel() {
             >
               <Save className="h-4 w-4" />
               {saving ? "Saving..." : "Save Token Settings"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quota Budgets (V2 Cost-Based) */}
+      <Card className="border-amber-500/20 bg-amber-500/5">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            💰 Oracle Quota Budgets (Cost-Based)
+          </CardTitle>
+          <CardDescription>
+            Tier-based rate limits using real token cost in microdollars (1 USD = 1,000,000 µ$).
+            Each Oracle call consumes budget proportional to input + output token pricing.
+            Windows auto-reset when elapsed.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Window sizes */}
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Burst Window (hours)</Label>
+              <p className="text-xs text-muted-foreground">
+                Short-term rate limit window. Default 5h.
+              </p>
+              <Input
+                type="number"
+                min={1}
+                max={48}
+                step={1}
+                value={burstWindowHours}
+                onChange={(e) => setBurstWindowHours(e.target.value)}
+                className="border-white/10 bg-black/20 w-32"
+              />
+            </div>
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Weekly Window (days)</Label>
+              <p className="text-xs text-muted-foreground">
+                Long-term rate limit window. Default 7d.
+              </p>
+              <Input
+                type="number"
+                min={1}
+                max={30}
+                step={1}
+                value={weeklyWindowDays}
+                onChange={(e) => setWeeklyWindowDays(e.target.value)}
+                className="border-white/10 bg-black/20 w-32"
+              />
+            </div>
+          </div>
+
+          {/* Per-tier budgets */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium">Per-Tier Budgets (USD)</h4>
+            <p className="text-xs text-muted-foreground">
+              Burst = max spend per burst window. Weekly = max spend per weekly window.
+              Admin/Mod budgets are generous by default.
+            </p>
+            <div className="rounded-xl border border-white/10 bg-black/20 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/10 text-xs text-muted-foreground">
+                    <th className="p-3 text-left">Tier</th>
+                    <th className="p-3 text-right">Burst $</th>
+                    <th className="p-3 text-right">Weekly $</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {TIERS.map((tier) => (
+                    <tr key={tier.key} className="border-b border-white/5">
+                      <td className="p-3 font-medium capitalize">{tier.label}</td>
+                      <td className="p-3 text-right">
+                        <Input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={tier.burst}
+                          onChange={(e) =>
+                            setTierBudgets((prev) =>
+                              prev.map((t) =>
+                                t.key === tier.key ? { ...t, burst: e.target.value } : t
+                              )
+                            )
+                          }
+                          className="border-white/10 bg-black/20 w-24 text-right inline-block"
+                        />
+                      </td>
+                      <td className="p-3 text-right">
+                        <Input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={tier.weekly}
+                          onChange={(e) =>
+                            setTierBudgets((prev) =>
+                              prev.map((t) =>
+                                t.key === tier.key ? { ...t, weekly: e.target.value } : t
+                              )
+                            )
+                          }
+                          className="border-white/10 bg-black/20 w-24 text-right inline-block"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Model pricing */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium">Model Pricing (USD per 1M tokens)</h4>
+            <p className="text-xs text-muted-foreground">
+              Token costs per model. Input = cost per 1M prompt tokens. Output = cost per 1M completion tokens.
+              These determine how much each Oracle call consumes from the budgets above.
+              Edit as JSON in the text area below.
+            </p>
+            <textarea
+              className="w-full h-48 rounded-lg border border-white/10 bg-black/20 p-3 font-mono text-xs text-muted-foreground resize-y"
+              value={modelPricingJson}
+              onChange={(e) => setModelPricingJson(e.target.value)}
+              spellCheck={false}
+            />
+          </div>
+
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/20 text-xs text-muted-foreground">
+            <Info className="h-4 w-4 shrink-0 mt-0.5" />
+            <div>
+              <p>Budgets are stored in <code className="bg-muted px-0.5 rounded">oracle_settings</code> keyed as
+                <code className="bg-muted px-0.5 rounded">quota_burst_budget_{"{tier}"}</code> and
+                <code className="bg-muted px-0.5 rounded">quota_weekly_budget_{"{tier}"}</code> in microdollars.
+                Changes take effect immediately — in-flight sessions re-check quota before each call.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              onClick={saveQuotaBudgets}
+              disabled={saving}
+              className="gap-2"
+            >
+              <Save className="h-4 w-4" />
+              {saving ? "Saving..." : "Save Quota Budgets"}
             </Button>
           </div>
         </CardContent>
