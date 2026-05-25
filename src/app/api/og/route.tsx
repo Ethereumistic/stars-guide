@@ -1,30 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import satori from "satori";
 import { Resvg, initWasm } from "@resvg/resvg-wasm";
-import {
-  OgType,
-  resolveOgColors,
-  SIGN_COLORS,
-  ELEMENT_COLORS,
-} from "@/lib/seo/og";
+import { OgType, resolveOgColors, SIGN_COLORS } from "@/lib/seo/og";
 
 // ── Font loading ─────────────────────────────────────────────────────────
-// We load Inter (the project's body font) as an ArrayBuffer for satori.
-// The font file is committed to public/fonts/ for edge-runtime access.
-
 let fontCache: ArrayBuffer | null = null;
 
 async function getFont(): Promise<ArrayBuffer> {
   if (fontCache) return fontCache;
-  // Fetch the font from the public directory at runtime.
-  // In edge/CF Workers we can't use `fs`, so we fetch from the deployed URL.
-  // For local dev, Next.js serves public/ at localhost:3000.
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
   const res = await fetch(`${baseUrl}/fonts/Inter-Bold.woff2`);
-  if (!res.ok) {
-    // Fallback: try the static import approach
-    throw new Error(`Failed to load font: ${res.status}`);
-  }
+  if (!res.ok) throw new Error(`Failed to load font: ${res.status}`);
   fontCache = await res.arrayBuffer();
   return fontCache;
 }
@@ -34,7 +20,6 @@ let wasmInitialized = false;
 
 async function ensureResvgInit() {
   if (wasmInitialized) return;
-  // On CF Workers the wasm module must be fetched from the deployed URL
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
   const wasmRes = await fetch(`${baseUrl}/fonts/resvg_wasm.wasm`);
   const wasmBuffer = await wasmRes.arrayBuffer();
@@ -42,18 +27,28 @@ async function ensureResvgInit() {
   wasmInitialized = true;
 }
 
-// ── Star field SVG for background ────────────────────────────────────────
+// ── Deterministic star positions (pre-computed) ───────────────────────────
+// Using a seeded pseudo-random to get consistent images across requests
+function seededRandom(seed: number): () => number {
+  let s = seed;
+  return () => {
+    s = (s * 16807 + 0) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
 
-function generateStars(count: number, width: number, height: number): string {
-  let svg = "";
-  for (let i = 0; i < count; i++) {
-    const x = Math.random() * width;
-    const y = Math.random() * height;
-    const r = Math.random() * 1.5 + 0.5;
-    const opacity = Math.random() * 0.6 + 0.3;
-    svg += `<circle cx="${x}" cy="${y}" r="${r}" fill="white" opacity="${opacity}" />`;
+function generateStars(width: number, height: number): Array<{ x: number; y: number; r: number; o: number }> {
+  const rand = seededRandom(42);
+  const stars: Array<{ x: number; y: number; r: number; o: number }> = [];
+  for (let i = 0; i < 60; i++) {
+    stars.push({
+      x: rand() * width,
+      y: rand() * height,
+      r: rand() * 1.5 + 0.5,
+      o: rand() * 0.5 + 0.25,
+    });
   }
-  return svg;
+  return stars;
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────
@@ -67,13 +62,101 @@ export async function GET(request: NextRequest) {
     const subtitle = searchParams.get("subtitle") || "";
     const type = (searchParams.get("type") as OgType) || undefined;
     const typeId = searchParams.get("typeId") || undefined;
+    const date = searchParams.get("date") || undefined;
+    const sign1 = searchParams.get("sign1") || undefined;
+    const sign2 = searchParams.get("sign2") || undefined;
+    const score = searchParams.get("score") || undefined;
+    const label = searchParams.get("label") || undefined;
 
     const colors = resolveOgColors(type, typeId);
     const width = 1200;
     const height = 630;
 
-    // Pre-generate star positions (seeded-ish for consistency)
-    const starsSvg = generateStars(80, width, height);
+    const stars = generateStars(width, height);
+
+    // Build the main content block based on type
+    const renderContent = () => {
+      if (type === "compatibility" && sign1 && sign2) {
+        const scoreNum = parseInt(score || "50", 10);
+        const scoreColor = scoreNum >= 75 ? "#4ADE80" : scoreNum >= 50 ? "#FBBF24" : "#F87171";
+        return (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                <div style={{ fontSize: 48, fontWeight: 700, color: SIGN_COLORS[sign1]?.primary || colors.primary }}>
+                  {sign1.charAt(0).toUpperCase() + sign1.slice(1)}
+                </div>
+                <div style={{ fontSize: 18, color: "#888888" }}>You</div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                <div style={{ fontSize: 48 }}>💕</div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                <div style={{ fontSize: 48, fontWeight: 700, color: SIGN_COLORS[sign2]?.primary || colors.secondary }}>
+                  {sign2.charAt(0).toUpperCase() + sign2.slice(1)}
+                </div>
+                <div style={{ fontSize: 18, color: "#888888" }}>Partner</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ fontSize: 64, fontWeight: 700, color: scoreColor }}>{scoreNum}%</div>
+              {label && <div style={{ fontSize: 24, color: "#AAAAAA", fontWeight: 400 }}>{label}</div>}
+            </div>
+          </div>
+        );
+      }
+      return (
+        <>
+          {/* Title */}
+          <div
+            style={{
+              fontSize: title.length > 30 ? 44 : 56,
+              fontWeight: 700,
+              color: "#FFFFFF",
+              lineHeight: 1.2,
+              letterSpacing: "-0.02em",
+              maxWidth: 900,
+            }}
+          >
+            {title}
+          </div>
+          {/* Subtitle */}
+          {subtitle && (
+            <div
+              style={{
+                fontSize: 24,
+                fontWeight: 400,
+                color: colors.secondary,
+                marginTop: 16,
+                lineHeight: 1.4,
+                letterSpacing: "0.01em",
+              }}
+            >
+              {subtitle}
+            </div>
+          )}
+          {date && type === "horoscope" && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginTop: 20,
+                padding: "8px 20px",
+                borderRadius: 999,
+                border: `1px solid ${colors.primary}44`,
+                backgroundColor: `${colors.primary}11`,
+              }}
+            >
+              <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: colors.primary }} />
+              <div style={{ fontSize: 16, fontWeight: 600, color: colors.primary, letterSpacing: "0.05em" }}>
+                {date.toUpperCase()}
+              </div>
+            </div>
+          )}
+        </>
+      );
+    };
 
     const jsx = (
       <div
@@ -87,26 +170,6 @@ export async function GET(request: NextRequest) {
           overflow: "hidden",
         }}
       >
-        {/* Background gradient */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: `radial-gradient(ellipse at 50% 30%, ${colors.primary}22 0%, transparent 70%)`,
-          }}
-        />
-
-        {/* Stars overlay (rendered as inline SVG) */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-          }}
-          dangerouslySetInnerHTML={{
-            __html: `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">${starsSvg}</svg>`,
-          }}
-        />
-
         {/* Top accent bar */}
         <div
           style={{
@@ -115,11 +178,42 @@ export async function GET(request: NextRequest) {
             left: 0,
             right: 0,
             height: 4,
-            background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary}, ${colors.primary})`,
+            background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})`,
           }}
         />
 
-        {/* Content */}
+        {/* Background radial glow */}
+        <div
+          style={{
+            position: "absolute",
+            top: -80,
+            left: "25%",
+            width: "50%",
+            height: 400,
+            background: colors.primary,
+            opacity: 0.08,
+            borderRadius: "50%",
+          }}
+        />
+
+        {/* Star dots */}
+        {stars.map((star, i) => (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              left: star.x,
+              top: star.y,
+              width: star.r * 2,
+              height: star.r * 2,
+              borderRadius: "50%",
+              backgroundColor: "white",
+              opacity: star.o,
+            }}
+          />
+        ))}
+
+        {/* Content area */}
         <div
           style={{
             position: "relative",
@@ -132,69 +226,7 @@ export async function GET(request: NextRequest) {
             textAlign: "center",
           }}
         >
-          {/* Decorative element symbol area */}
-          {type && typeId && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: 20,
-                width: 64,
-                height: 64,
-                borderRadius: "50%",
-                border: `2px solid ${colors.primary}44`,
-                backgroundColor: `${colors.primary}15`,
-              }}
-            >
-              <svg
-                width="28"
-                height="28"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke={colors.primary}
-                strokeWidth="2"
-              >
-                {/* Star icon as generic zodiac/element symbol */}
-                <polygon
-                  points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
-                  fill={`${colors.primary}33`}
-                  stroke={colors.primary}
-                />
-              </svg>
-            </div>
-          )}
-
-          {/* Title */}
-          <div
-            style={{
-              fontSize: 56,
-              fontWeight: 700,
-              color: "#FFFFFF",
-              lineHeight: 1.2,
-              letterSpacing: "-0.02em",
-              maxWidth: 900,
-              textShadow: `0 0 40px ${colors.primary}44`,
-            }}
-          >
-            {title}
-          </div>
-
-          {/* Subtitle */}
-          {subtitle && (
-            <div
-              style={{
-                fontSize: 26,
-                fontWeight: 400,
-                color: `${colors.secondary}`,
-                marginTop: 16,
-                lineHeight: 1.4,
-                letterSpacing: "0.01em",
-              }}
-            >
-              {subtitle}
-            </div>
-          )}
+          {renderContent()}
         </div>
 
         {/* Bottom bar with branding */}
@@ -204,24 +236,24 @@ export async function GET(request: NextRequest) {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            padding: "20px 80px",
-            borderTop: `1px solid ${colors.primary}22`,
+            padding: "16px 80px",
+            borderTop: `1px solid ${colors.primary}33`,
           }}
         >
           <div
             style={{
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: 600,
               color: colors.primary,
               letterSpacing: "0.08em",
             }}
           >
-            ★ STARS.GUIDE
+            STARS.GUIDE
           </div>
           <div
             style={{
               fontSize: 14,
-              color: "#888888",
+              color: "#666666",
             }}
           >
             Navigate your fate
@@ -253,7 +285,7 @@ export async function GET(request: NextRequest) {
     const pngData = resvg.render();
     const pngBuffer = pngData.asPng();
 
-    return new NextResponse(new Uint8Array(pngBuffer), {
+    return new NextResponse(Buffer.from(pngBuffer), {
       headers: {
         "Content-Type": "image/png",
         "Cache-Control": "public, max-age=3600, s-maxage=3600",
@@ -261,7 +293,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("OG image generation failed:", error);
-    // Return a simple error response — never block the page from loading
     return new NextResponse("OG image generation failed", { status: 500 });
   }
 }

@@ -39,20 +39,29 @@ export const ELEMENT_COLORS: Record<string, { primary: string; secondary: string
  *
  * @param opts.title     - Main heading text (e.g. "Aries Daily Horoscope")
  * @param opts.subtitle  - Secondary text (e.g. "March 21 – April 19")
- * @param opts.type      - Image variant: sign | element | default
+ * @param opts.type      - Image variant: sign | element | default | horoscope | compatibility
  * @param opts.typeId    - Slug identifier for the type (e.g. "aries", "fire")
+ * @param opts.extras    - Additional query params per type:
+ *                          horoscope: { date }
+ *                          compatibility: { sign1, sign2, score }
  */
 export function buildOgImageUrl(opts: {
   title: string;
   subtitle?: string;
   type?: OgType;
   typeId?: string;
+  extras?: Record<string, string>;
 }): string {
   const params = new URLSearchParams();
   params.set("title", opts.title);
   if (opts.subtitle) params.set("subtitle", opts.subtitle);
   if (opts.type) params.set("type", opts.type);
   if (opts.typeId) params.set("typeId", opts.typeId);
+  if (opts.extras) {
+    for (const [k, v] of Object.entries(opts.extras)) {
+      params.set(k, v);
+    }
+  }
   return `${SITE_URL}/api/og?${params.toString()}`;
 }
 

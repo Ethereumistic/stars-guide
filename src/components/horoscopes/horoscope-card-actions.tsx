@@ -77,7 +77,6 @@ export function HoroscopeCardActions({
   );
 
   // ── Share ────────────────────────────────────────────────────────
-  // Copies the horoscope URL to clipboard so it can be shared anywhere.
   const handleShare = useCallback(async () => {
     const url = `${window.location.origin}/horoscopes/${sign.toLowerCase()}/${date}`;
     try {
@@ -89,6 +88,22 @@ export function HoroscopeCardActions({
       toast.error("Failed to copy link");
     }
   }, [sign, date]);
+
+  const handleNativeShare = useCallback(async () => {
+    if (!navigator.share) {
+      handleShare();
+      return;
+    }
+    try {
+      await navigator.share({
+        title: `${sign} Horoscope ✨`,
+        text: `Today's astrological guidance for ${sign}. Discover how the stars are impacting your day.`,
+        url: `${window.location.origin}/horoscopes/${sign.toLowerCase()}/${date}`,
+      });
+    } catch {
+      // user cancelled
+    }
+  }, [sign, date, handleShare]);
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -160,11 +175,11 @@ export function HoroscopeCardActions({
           </TooltipContent>
         </Tooltip>
 
-        {/* Share — copies the link to this horoscope */}
+        {/* Share — opens native share sheet or copies the link */}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
-              onClick={handleShare}
+              onClick={handleNativeShare}
               className="flex items-center justify-center w-[34px] h-[34px] rounded-md hover:bg-white/[0.06] text-white/30 hover:text-white/70 transition-colors duration-200"
             >
               {shared ? (
@@ -175,7 +190,7 @@ export function HoroscopeCardActions({
             </button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            {shared ? "Link copied!" : "Copy link to horoscope"}
+            {shared ? "Link copied!" : "Share horoscope"}
           </TooltipContent>
         </Tooltip>
       </div>
