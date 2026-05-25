@@ -197,12 +197,20 @@ export default defineSchema({
         referrerId: v.id("users"), // The user who sent the invite
         refereeId: v.id("users"),  // The new user who clicked the link
         status: v.union(
-            v.literal("pending"),   // Clicked link, signed up, but hasn't finished birth data
-            v.literal("completed")  // Finished birth data, Stardust awarded
+            v.literal("pending"),            // Clicked link, signed up, but hasn't finished birth data
+            v.literal("completed"),          // Finished birth data, Stardust awarded
+            v.literal("milestone_rewarded")   // Hit a milestone tier bonus
         ),
         rewardAmount: v.number(),    // e.g. 1
+        milestoneTier: v.optional(v.number()), // 5, 10, 25 — which milestone tier was hit
+        utmSource: v.optional(v.string()),
+        utmMedium: v.optional(v.string()),
+        createdAt: v.number(),
+        completedAt: v.optional(v.number()),
     }).index("by_refereeId", ["refereeId"])
-        .index("by_referrerId", ["referrerId"]),
+        .index("by_referrerId", ["referrerId"])
+        .index("by_referrerId_status", ["referrerId", "status"])
+        .index("by_referrerId_created", ["referrerId", "createdAt"]),
 
     // 4. RATE LIMITS (Preventing endpoint exhaustion)
     rateLimits: defineTable({

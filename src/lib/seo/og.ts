@@ -8,7 +8,7 @@
 const SITE_URL = "https://stars.guide";
 
 /** OG image types that map to color schemes */
-export type OgType = "sign" | "element" | "default";
+export type OgType = "sign" | "element" | "default" | "horoscope" | "compatibility";
 
 /** Color map for zodiac signs — hex values for OG image rendering */
 export const SIGN_COLORS: Record<string, { primary: string; secondary: string }> = {
@@ -64,11 +64,19 @@ export function resolveOgColors(type?: OgType, typeId?: string): {
   primary: string;
   secondary: string;
 } {
-  if (type === "sign" && typeId && SIGN_COLORS[typeId]) {
+  if ((type === "sign" || type === "horoscope") && typeId && SIGN_COLORS[typeId]) {
     return SIGN_COLORS[typeId];
   }
   if (type === "element" && typeId && ELEMENT_COLORS[typeId.toLowerCase()]) {
     return ELEMENT_COLORS[typeId.toLowerCase()];
+  }
+  if (type === "compatibility" && typeId) {
+    const signs = typeId.split("-");
+    if (signs.length === 2 && SIGN_COLORS[signs[0]] && SIGN_COLORS[signs[1]]) {
+      const primary = SIGN_COLORS[signs[0]].primary;
+      const secondary = SIGN_COLORS[signs[1]].primary;
+      return { primary, secondary };
+    }
   }
   // Brand default
   return { primary: "#D4AF37", secondary: "#8B7355" };
