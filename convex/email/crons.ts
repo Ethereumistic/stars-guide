@@ -4,12 +4,14 @@
  * Pattern: internalQuery/internalMutation for DB access, called from internalAction
  * via ctx.runQuery/ctx.runMutation using `internal.email.crons.<fn>` references.
  *
+ * The actual SMTP send crosses into the Node.js runtime via:
+ *   ctx.runAction(internal.email.sender.sendEmail, { ... })
+ *
  * Registered as Convex cron jobs via convex/crons.ts.
  */
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import { sendEmail } from "./resend";
 import { render } from "@react-email/render";
 import React from "react";
 import { WelcomeEmail } from "../../emails/WelcomeEmail";
@@ -110,6 +112,17 @@ export const getAllSegments = internalQuery({
     },
 });
 
+/** Get users by subscription tier */
+export const getUsersByTier = internalQuery({
+    args: { tier: v.union(v.literal("free"), v.literal("popular"), v.literal("premium")) },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("users")
+            .filter((q) => q.eq(q.field("tier"), args.tier))
+            .collect();
+    },
+});
+
 // ─── Internal Mutations ───────────────────────────────────────────────────────
 
 /** Record an email delivery in emailDeliveries table */
@@ -119,8 +132,8 @@ export const recordDelivery = internalMutation({
         leadId: v.optional(v.id("emailLeads")),
         userId: v.optional(v.id("users")),
         email: v.string(),
-        resendMessageId: v.optional(v.string()),
-        status: v.union(v.literal("sent"), v.literal("queued"), v.literal("bounced"), v.literal("complained")),
+        messageId: v.optional(v.string()),
+        status: v.union(v.literal("sent"), v.literal("queued"), v.literal("bounced"), v.literal("complained"), v.literal("failed")),
         sentAt: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
@@ -129,7 +142,7 @@ export const recordDelivery = internalMutation({
             leadId: args.leadId,
             userId: args.userId,
             email: args.email,
-            resendMessageId: args.resendMessageId,
+            messageId: args.messageId,
             status: args.status,
             sentAt: args.sentAt,
         });
@@ -151,6 +164,29 @@ export const updateSegmentCount = internalMutation({
 
 function getSunSign(placements: { body: string; sign: string }[]): string {
     return placements.find((p) => p.body === "Sun")?.sign ?? "Aries";
+}
+
+/**
+ * Helper: send email via the Node.js runtime action.
+ * Wraps ctx.runAction(internal.email.sender.sendEmail, ...) with error handling.
+ * Returns the messageId or undefined on failure.
+ */
+async function sendViaSmtp(
+    ctx: any,
+    opts: { to: string; subject: string; html: string; channel: "transactional" | "marketing" },
+): Promise<string | undefined> {
+    try {
+        const result = await ctx.runAction(internal.email.sender.sendEmail, {
+            to: opts.to,
+            subject: opts.subject,
+            html: opts.html,
+            channel: opts.channel,
+        });
+        return result.messageId;
+    } catch (err) {
+        console.error(`[SMTP] Failed to send to ${opts.to}:`, err);
+        return undefined;
+    }
 }
 
 // ─── Cron Actions ─────────────────────────────────────────────────────────────
@@ -184,7 +220,7 @@ export const sendDailyHoroscopeEmails = internalAction({
                 continue;
             }
 
-            const html = render(
+            const html = await render(
                 React.createElement(DailyHoroscopeEmail, {
                     sign,
                     horoscope: horoscope.content ?? "",
@@ -195,22 +231,17 @@ export const sendDailyHoroscopeEmails = internalAction({
                 }),
             );
 
-            let messageId: string | undefined;
-            try {
-                const result = await sendEmail({
-                    to: user.email,
-                    subject: `✨ Your daily horoscope for ${sign}`,
-                    html,
-                });
-                messageId = result?.id;
-            } catch (err) {
-                console.error(`[sendDailyHoroscopeEmails] Failed to send to ${user.email}:`, err);
-            }
+            const messageId = await sendViaSmtp(ctx, {
+                to: user.email,
+                subject: `✨ Your daily horoscope for ${sign}`,
+                html,
+                channel: "marketing",
+            });
 
             await ctx.runMutation(internal.email.crons.recordDelivery, {
                 userId: user._id,
                 email: user.email,
-                resendMessageId: messageId,
+                messageId: messageId,
                 status: messageId ? "sent" : "failed",
                 sentAt: messageId ? Date.now() : undefined,
             });
@@ -258,25 +289,22 @@ export const sendWelcomeEmails = internalAction({
             if (deliveryCount >= sequenceEntry.emailNum) continue;
 
             const sign = (lead as any).sign ?? "Aries";
-            const html = render(React.createElement(WelcomeEmail, { sign }));
+            const html = await render(
+                React.createElement(WelcomeEmail, { sign }),
+            );
 
-            let messageId: string | undefined;
-            try {
-                const result = await sendEmail({
-                    to: leadEmail,
-                    subject: `Welcome to stars.guide — ${sign}`,
-                    html,
-                });
-                messageId = result?.id;
-            } catch (err) {
-                console.error(`[sendWelcomeEmails] Failed to send to ${leadEmail}:`, err);
-            }
+            const messageId = await sendViaSmtp(ctx, {
+                to: leadEmail,
+                subject: `Welcome to stars.guide — ${sign}`,
+                html,
+                channel: "transactional",
+            });
 
             if (messageId) {
                 await ctx.runMutation(internal.email.crons.recordDelivery, {
                     leadId: lead._id,
                     email: leadEmail,
-                    resendMessageId: messageId,
+                    messageId: messageId,
                     status: "sent",
                     sentAt: Date.now(),
                 });
@@ -324,7 +352,7 @@ export const sendWeeklyCosmicEmails = internalAction({
                 ? getSunSign(user.birthData.placements)
                 : "Aries";
 
-            const html = render(
+            const html = await render(
                 React.createElement(WeeklyCosmicEmail, {
                     weekOf,
                     highlights,
@@ -333,15 +361,12 @@ export const sendWeeklyCosmicEmails = internalAction({
                 }),
             );
 
-            try {
-                await sendEmail({
-                    to: user.email,
-                    subject: "🌌 Your weekly cosmic weather",
-                    html,
-                });
-            } catch (err) {
-                console.error(`[sendWeeklyCosmicEmails] Failed to send to ${user.email}:`, err);
-            }
+            await sendViaSmtp(ctx, {
+                to: user.email,
+                subject: "🌌 Your weekly cosmic weather",
+                html,
+                channel: "marketing",
+            });
         }
 
         console.log(`[sendWeeklyCosmicEmails] Done`);
@@ -359,7 +384,7 @@ export const sendReengagementEmails = internalAction({
 
         // Dormant = created over 7 days ago (simple proxy for inactive)
         const dormantUsers = allUsers.filter(
-            (u) => u.email && u.createdAt && u.createdAt < sevenDaysAgo,
+            (u) => u.email && u._creationTime && u._creationTime < sevenDaysAgo,
         );
 
         console.log(`[sendReengagementEmails] Processing ${dormantUsers.length} dormant users`);
@@ -371,24 +396,21 @@ export const sendReengagementEmails = internalAction({
                 ? getSunSign(user.birthData.placements)
                 : "Aries";
 
-            const html = render(
+            const html = await render(
                 React.createElement(ReengagementEmail, {
                     sign,
                     daysAway: Math.floor(
-                        (Date.now() - (user.createdAt ?? Date.now())) / (1000 * 60 * 60 * 24),
+                        (Date.now() - user._creationTime) / (1000 * 60 * 60 * 24),
                     ),
                 }),
             );
 
-            try {
-                await sendEmail({
-                    to: user.email,
-                    subject: "✨ The stars are calling you back",
-                    html,
-                });
-            } catch (err) {
-                console.error(`[sendReengagementEmails] Failed to send to ${user.email}:`, err);
-            }
+            await sendViaSmtp(ctx, {
+                to: user.email,
+                subject: "✨ The stars are calling you back",
+                html,
+                channel: "marketing",
+            });
         }
 
         console.log(`[sendReengagementEmails] Done`);
@@ -410,10 +432,10 @@ export const refreshEmailSegments = internalAction({
             let count = 0;
 
             if ((criteria as any).tier) {
-                const users = await ctx.db
-                    .query("users")
-                    .filter((q) => q.eq(q.field("tier"), (criteria as any).tier))
-                    .collect();
+                const users = await ctx.runQuery(
+                    internal.email.crons.getUsersByTier,
+                    { tier: (criteria as any).tier },
+                );
                 count = users.length;
             } else {
                 const users = await ctx.runQuery(internal.email.crons.getAllUsersWithEmail, {});

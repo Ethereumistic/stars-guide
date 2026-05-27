@@ -389,10 +389,10 @@ export const trackShare = mutation({
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     await ctx.db.insert("share_events", {
-      userId: userId ?? null,
+      userId: userId ?? undefined,
       shareType: args.shareType,
       platform: args.platform,
-      utmSource: args.utmSource ?? null,
+      utmSource: args.utmSource ?? undefined,
       createdAt: Date.now(),
     });
   },

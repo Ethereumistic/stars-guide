@@ -11,7 +11,7 @@ export const getPreferencesByFrequency = internalQuery({
     handler: async (ctx, args) => {
         return await ctx.db
             .query("emailPreferences")
-            .filter((q) => q.eq(q.field("subscribed"), true).eq(q.field("frequency"), args.frequency))
+            .filter((q) => q.and(q.eq(q.field("subscribed"), true), q.eq(q.field("frequency"), args.frequency)))
             .collect();
     },
 });
@@ -45,7 +45,7 @@ export const getDailyHoroscope = internalQuery({
     handler: async (ctx, args) => {
         return await ctx.db
             .query("daily_horoscopes")
-            .filter((q) => q.eq(q.field("sign"), args.sign).eq(q.field("date"), args.date))
+            .filter((q) => q.and(q.eq(q.field("sign"), args.sign), q.eq(q.field("date"), args.date)))
             .first();
     },
 });

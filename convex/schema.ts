@@ -933,7 +933,7 @@ export default defineSchema({
     }),
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // EMAIL MARKETING — Resend + React Email Infrastructure
+    // EMAIL MARKETING — MailCow SMTP + React Email Infrastructure
     // ═══════════════════════════════════════════════════════════════════════════
 
     // 24. EMAIL LEADS — Opt-in subscribers captured via growth widgets
@@ -1035,7 +1035,7 @@ export default defineSchema({
         leadId: v.optional(v.id("emailLeads")),
         userId: v.optional(v.id("users")),
         email: v.string(),
-        resendMessageId: v.optional(v.string()),
+        messageId: v.optional(v.string()),
         status: v.union(
             v.literal("queued"),
             v.literal("sent"),
@@ -1045,6 +1045,7 @@ export default defineSchema({
             v.literal("bounced"),
             v.literal("complained"),
             v.literal("unsubscribed"),
+            v.literal("failed"),
         ),
         sentAt: v.optional(v.number()),
         deliveredAt: v.optional(v.number()),
@@ -1056,7 +1057,7 @@ export default defineSchema({
         .index("by_campaign", ["campaignId"])
         .index("by_user", ["userId"])
         .index("by_lead", ["leadId"])
-        .index("by_resendMessageId", ["resendMessageId"])
+        .index("by_messageId", ["messageId"])
         .index("by_status", ["status"]),
 
 });

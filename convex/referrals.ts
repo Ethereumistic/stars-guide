@@ -52,8 +52,8 @@ export const recordReferral = mutation({
       refereeId: refereeId,
       status: "pending",
       rewardAmount: 1,
-      utmSource: args.utmSource ?? null,
-      utmMedium: args.utmMedium ?? null,
+      utmSource: args.utmSource ?? undefined,
+      utmMedium: args.utmMedium ?? undefined,
       createdAt: Date.now(),
     });
 
@@ -75,6 +75,7 @@ export const completeReferral = mutation({
     });
 
     const referrer = await ctx.db.get(referral.referrerId);
+    let milestoneKey: number | undefined;
     if (referrer) {
       await ctx.db.patch(referrer._id, {
         stardust: (referrer.stardust ?? 0) + referral.rewardAmount,
@@ -89,9 +90,9 @@ export const completeReferral = mutation({
         (r) => r.status === "completed" || r.status === "milestone_rewarded"
       ).length;
 
-      const milestoneKey = ([25, 10, 5] as const).find((t) => completed >= t);
+      milestoneKey = ([25, 10, 5] as const).find((t) => completed >= t);
       if (milestoneKey) {
-        const bonus = MILESTONE_TIERS[milestoneKey];
+        const bonus = MILESTONE_TIERS[milestoneKey as keyof typeof MILESTONE_TIERS];
         await ctx.db.patch(referrer._id, {
           stardust: (referrer.stardust ?? 0) + bonus,
         });

@@ -42,7 +42,7 @@ crons.interval(
 crons.daily(
     "aggregate-daily-activity",
     { hourUTC: 3, minuteUTC: 0 },
-    internal.analytics.aggregateDailyActivity,
+    internal.analyticsInternal.aggregateDailyActivity,
 );
 
 // ─── ANALYTICS: ANOMALY DETECTION ─────────────────────────────────────────
@@ -50,7 +50,7 @@ crons.daily(
 crons.daily(
     "detect-analytics-anomalies",
     { hourUTC: 4, minuteUTC: 0 },
-    internal.analytics.detectAnalyticsAnomalies,
+    internal.analyticsInternal.detectAnalyticsAnomalies,
 );
 
 // ─── DAILY HOROSCOPE GENERATION ────────────────────────────────────────
@@ -60,6 +60,42 @@ crons.daily(
     "generate-daily-horoscopes",
     { hourUTC: 2, minuteUTC: 0 },
     internal.horoscopes.queueDailyGenerations.queueDailyGenerations,
+);
+
+// ─── EMAIL MARKETING ────────────────────────────────────────────────────
+// Refresh user segments at 00:30 UTC (after cosmic weather + horoscopes)
+crons.daily(
+    "refresh-email-segments",
+    { hourUTC: 0, minuteUTC: 30 },
+    internal.email.crons.refreshEmailSegments,
+);
+
+// Send daily horoscope emails at 06:00 UTC
+crons.daily(
+    "send-daily-horoscope-emails",
+    { hourUTC: 6, minuteUTC: 0 },
+    internal.email.crons.sendDailyHoroscopeEmails,
+);
+
+// Send welcome emails at 07:00 UTC
+crons.daily(
+    "send-welcome-emails",
+    { hourUTC: 7, minuteUTC: 0 },
+    internal.email.crons.sendWelcomeEmails,
+);
+
+// Send weekly cosmic digest Saturdays at 09:00 UTC
+crons.weekly(
+    "send-weekly-cosmic-emails",
+    { dayOfWeek: "saturday", hourUTC: 9, minuteUTC: 0 },
+    internal.email.crons.sendWeeklyCosmicEmails,
+);
+
+// Send re-engagement emails at 10:00 UTC
+crons.daily(
+    "send-reengagement-emails",
+    { hourUTC: 10, minuteUTC: 0 },
+    internal.email.crons.sendReengagementEmails,
 );
 
 export default crons;

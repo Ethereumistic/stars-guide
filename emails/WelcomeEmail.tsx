@@ -13,7 +13,7 @@ import {
     Link,
     Img,
 } from "@react-email/components";
-import { theme } from "./theme";
+import { theme, baseStyles } from "./theme";
 
 interface WelcomeEmailProps {
     userName?: string;
@@ -24,7 +24,7 @@ export function WelcomeEmail({ userName, sign }: WelcomeEmailProps) {
     return (
         <Html>
             <Head />
-            <Body style={theme.baseStyles}>
+            <Body style={baseStyles}>
                 <Container style={{ maxWidth: "600px", margin: "0 auto", padding: "40px 20px" }}>
 
                     {/* Logo / Header */}

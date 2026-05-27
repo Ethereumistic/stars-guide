@@ -1,7 +1,7 @@
 /**
  * leads.ts — Capture and manage email leads from growth widgets.
  */
-import { mutation } from "../_generated/server";
+import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 

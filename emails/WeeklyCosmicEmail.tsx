@@ -12,7 +12,7 @@ import {
     Button,
     Link,
 } from "@react-email/components";
-import { theme } from "./theme";
+import { theme, baseStyles } from "./theme";
 
 interface Transit {
     planet: string;
@@ -37,7 +37,7 @@ export function WeeklyCosmicEmail({
     return (
         <Html>
             <Head />
-            <Body style={theme.baseStyles}>
+            <Body style={baseStyles}>
                 <Container style={{ maxWidth: "600px", margin: "0 auto", padding: "40px 20px" }}>
 
                     {/* Header */}
