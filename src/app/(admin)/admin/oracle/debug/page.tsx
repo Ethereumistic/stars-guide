@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/../convex/_generated/api";
-import { Id } from "../../../../../convex/_generated/dataModel";
+import { Id } from "@/../convex/_generated/dataModel";
 import {
   Loader2,
   Bug,
@@ -463,11 +463,10 @@ function MessageRow({ message }: { message: any; index: number }) {
             <div className="flex items-center gap-2 w-full">
               <Badge
                 variant={isUser ? "default" : "secondary"}
-                className={`text-[10px] px-1.5 py-0 ${
-                  isUser
+                className={`text-[10px] px-1.5 py-0 ${isUser
                     ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
                     : "bg-blue-500/20 text-blue-400 border-blue-500/30"
-                }`}
+                  }`}
               >
                 {message.role}
               </Badge>
@@ -692,13 +691,13 @@ export default function OracleDebugPage() {
     const f = sessionFilter.toLowerCase();
     return f
       ? sessions.filter(
-          (s) =>
-            s.title?.toLowerCase().includes(f) ||
-            s.userEmail?.toLowerCase().includes(f) ||
-            s.username?.toLowerCase().includes(f) ||
-            s.primaryModelUsed?.toLowerCase().includes(f) ||
-            s.featureKey?.toLowerCase().includes(f),
-        )
+        (s) =>
+          s.title?.toLowerCase().includes(f) ||
+          s.userEmail?.toLowerCase().includes(f) ||
+          s.username?.toLowerCase().includes(f) ||
+          s.primaryModelUsed?.toLowerCase().includes(f) ||
+          s.featureKey?.toLowerCase().includes(f),
+      )
       : sessions;
   }, [sessions, sessionFilter]);
 
@@ -803,11 +802,10 @@ export default function OracleDebugPage() {
                         <div className="flex items-center gap-2 text-xs">
                           <Badge
                             variant="outline"
-                            className={`text-[9px] px-1 py-0 ${
-                              session.status === "active"
+                            className={`text-[9px] px-1 py-0 ${session.status === "active"
                                 ? "border-emerald-500/30 text-emerald-400"
                                 : "border-muted text-muted-foreground"
-                            }`}
+                              }`}
                           >
                             {session.status}
                           </Badge>
@@ -872,11 +870,10 @@ export default function OracleDebugPage() {
                           <TableCell>
                             <Badge
                               variant="outline"
-                              className={`text-[9px] px-1 py-0 ${
-                                session.status === "active"
+                              className={`text-[9px] px-1 py-0 ${session.status === "active"
                                   ? "border-emerald-500/30 text-emerald-400"
                                   : "border-muted text-muted-foreground"
-                              }`}
+                                }`}
                             >
                               {session.status}
                             </Badge>
@@ -1715,11 +1712,10 @@ export default function OracleDebugPage() {
                                 Key Env: {p.apiKeyEnvVar}{" "}
                                 <Badge
                                   variant="outline"
-                                  className={`text-[9px] px-1 py-0 ml-1 ${
-                                    p.type !== "ollama"
+                                  className={`text-[9px] px-1 py-0 ml-1 ${p.type !== "ollama"
                                       ? "border-amber-500/30 text-amber-400"
                                       : "border-muted text-muted-foreground"
-                                  }`}
+                                    }`}
                                 >
                                   {p.type !== "ollama" ? "Required" : "Optional"}
                                 </Badge>
