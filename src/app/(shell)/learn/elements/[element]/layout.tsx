@@ -1,37 +1,47 @@
 import type { Metadata } from "next";
-import { buildMetadata, capitalize, articleSchema } from "@/lib/seo";
+import { buildMetadata } from "@/lib/seo";
+import { buildOgImageUrl } from "@/lib/seo/og";
 
 interface Props {
   params: Promise<{ element: string }>;
 }
 
+const ELEMENT_NAMES: Record<string, string> = {
+  fire: "Fire",
+  earth: "Earth",
+  air: "Air",
+  water: "Water",
+};
+
+const ELEMENT_DESC: Record<string, string> = {
+  fire: "Passionate, inspiring, and driven. Aries, Leo, and Sagittarius channel the primal force of Fire.",
+  earth: "Practical, reliable, and grounded. Taurus, Virgo, and Capricorn embody Earth's stability.",
+  air: "Intellectual, communicative, and objective. Gemini, Libra, and Aquarius carry Air's clarity.",
+  water: "Intuitive, emotional, and empathetic. Cancer, Scorpio, and Pisces flow with Water's depth.",
+};
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { element } = await params;
-  const elementName = capitalize(element);
-
-  const descriptions: Record<string, string> = {
-    fire: "Fire signs (Aries, Leo, Sagittarius) — passion, action, and inspiration. Learn about the Fire element's temperament and influence on stars.guide.",
-    earth: "Earth signs (Taurus, Virgo, Capricorn) — stability, pragmatism, and material mastery. Learn about the Earth element's temperament on stars.guide.",
-    air: "Air signs (Gemini, Libra, Aquarius) — intellect, communication, and social connection. Learn about the Air element's temperament on stars.guide.",
-    water: "Water signs (Cancer, Scorpio, Pisces) — emotion, intuition, and depth. Learn about the Water element's temperament on stars.guide.",
-  };
+  const name = ELEMENT_NAMES[element] || element;
+  const desc = ELEMENT_DESC[element] || `Explore the ${name} element in astrology.`;
 
   return buildMetadata({
-    title: `${elementName} Element in Astrology | Stars Guide`,
-    description: descriptions[element.toLowerCase()] || `${elementName} element — explore its zodiac signs, traits, and influence on stars.guide.`,
+    title: `${name} Element — Traits, Signs & Meaning`,
+    description: desc,
     path: `/learn/elements/${element}`,
+    ogImage: buildOgImageUrl({
+      title: `${name} Element`,
+      subtitle: `${ELEMENT_NAMES[element === "fire" ? "fire" : element] === name ? "" : ""}${name === "Fire" ? "Aries · Leo · Sagittarius" : name === "Earth" ? "Taurus · Virgo · Capricorn" : name === "Air" ? "Gemini · Libra · Aquarius" : "Cancer · Scorpio · Pisces"}`,
+      type: "element",
+      typeId: element,
+    }),
   });
 }
 
-export function generateStaticParams() {
-  return [
-    { element: "fire" },
-    { element: "earth" },
-    { element: "air" },
-    { element: "water" },
-  ];
-}
-
-export default function ElementDetailLayout({ children }: { children: React.ReactNode }) {
+export default function ElementDetailLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return children;
 }

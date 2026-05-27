@@ -462,13 +462,13 @@ export function StardustPurchase() {
                                 const isSelected = selectedPackage === idx;
 
                                 return (
-                                    <motion.div
+                                    // CWV: replaced motion.div whileHover/whileTap with CSS transitions for lower INP
+                                    <div
                                         key={idx}
-                                        whileHover={{ scale: 1.05, y: -4 }}
-                                        whileTap={{ scale: 0.97 }}
                                         onClick={() => handleSelectPackage(idx)}
                                         className={cn(
-                                            "relative cursor-pointer rounded-xl transition-all duration-500 flex flex-col items-center text-center",
+                                            "relative cursor-pointer rounded-xl flex flex-col items-center text-center",
+                                            "transition-transform duration-200 hover:scale-[1.05] hover:-translate-y-1 active:scale-[0.97]",
                                             isSelected ? "z-10" : "z-0"
                                         )}
                                     >
@@ -542,7 +542,7 @@ export function StardustPurchase() {
                                                 </div>
                                             )}
                                         </div>
-                                    </motion.div>
+                                    </div>
                                 );
                             })}
                         </div>

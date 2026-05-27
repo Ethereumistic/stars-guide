@@ -10,32 +10,19 @@ import { ReferralTracker } from "@/components/providers/referral-tracker";
 import { AnalyticsProvider } from "@/components/providers/analytics-provider";
 import { GoogleOneTapProvider } from "@/components/providers/google-one-tap-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import dynamic from "next/dynamic";
-
-// Heavy animation components — lazy loaded (no SSR) to reduce initial JS & INP
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const DeferredShootingStars = dynamic(
-  () =>
-    import("@/components/hero/stars-canvas").then((mod) => mod.ShootingStars),
-  { ssr: false },
-) as any;
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const DeferredStarsBackground = dynamic(
-  () =>
-    import("@/components/hero/stars-canvas").then((mod) => mod.StarsBackground),
-  { ssr: false },
-) as any;
+import { DeferredStarField } from "@/components/hero/deferred-stars";
 import { PlausibleAnalytics } from "@/components/analytics/plausible";
 
 const inter = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
+  display: "optional", // CWV: avoid FOIT→FOUT layout shifts
 });
 
 const cinzel = Cinzel({
   variable: "--font-serif",
   subsets: ["latin"],
+  display: "optional", // CWV: avoid FOIT→FOUT layout shifts
 });
 
 export const metadata: Metadata = {
@@ -57,7 +44,7 @@ export const metadata: Metadata = {
     siteName: "stars.guide",
     images: [
       {
-        url: "/og-image.png",
+        url: buildOgImageUrl({ title: "stars.guide", subtitle: "Navigate your fate" }),
         width: 1200,
         height: 630,
         alt: "stars.guide - Navigate your fate",
@@ -115,23 +102,7 @@ export default function RootLayout({
                 <TooltipProvider>
                   <div className="relative min-h-screen">
                     {/* Ambient star background — deferred (no SSR) to reduce initial JS & main-thread work */}
-                    <div className="fixed inset-0 z-0 pointer-events-none">
-                      <DeferredShootingStars
-                        minSpeed={15}
-                        maxSpeed={35}
-                        minDelay={800}
-                        maxDelay={3000}
-                        starColor="#d4af37"
-                        trailColor="#8b7355"
-                      />
-                      <DeferredStarsBackground
-                        starDensity={0.0002}
-                        allStarsTwinkle={true}
-                        twinkleProbability={0.8}
-                        minTwinkleSpeed={0.3}
-                        maxTwinkleSpeed={1.2}
-                      />
-                    </div>
+                    <DeferredStarField />
                     {children}
                   </div>
                 </TooltipProvider>

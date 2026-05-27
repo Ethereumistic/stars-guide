@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
-import { buildMetadata, websiteSchema, organizationSchema } from "@/lib/seo";
-import { JsonLd } from "@/components/seo/json-ld";
+import { websiteSchema, organizationSchema } from "@/lib/seo";
+import { buildMetadata } from "@/lib/seo";
+import { buildOgImageUrl } from "@/lib/seo/og";
 
 export const metadata: Metadata = buildMetadata({
-  title: "stars.guide | Navigate your fate",
+  title: "Navigate your fate",
   description:
-    "Celestial horoscopes and birth charts. Discover your destiny with stars.guide.",
+    "Celestial horoscopes, birth chart analysis, and astrology guides. Discover your destiny with AI-powered cosmic insights on stars.guide.",
   path: "/",
+  ogImage: buildOgImageUrl({
+    title: "stars.guide",
+    subtitle: "Navigate your fate",
+  }),
 });
 
 export default function ShellLayout({

@@ -1,13 +1,23 @@
 import type { Metadata } from "next";
-import { buildMetadata } from "@/lib/seo";
+import { staticMetadata } from "@/lib/seo";
+import { buildOgImageUrl } from "@/lib/seo/og";
 
-export const metadata: Metadata = buildMetadata({
-  title: "Pricing | Stars Guide",
-  description:
-    "Choose your orbit — Free, Cosmic Flow, or Oracle. Explore stars.guide plans and start your celestial journey today.",
-  path: "/pricing",
-});
+export const metadata = staticMetadata(
+  "Pricing — Choose Your Orbit",
+  "Explore stars.guide pricing plans. Free horoscopes, Popular insights, and Premium cosmic guidance — find the tier that fits your journey.",
+  "/pricing",
+  {
+    ogImage: buildOgImageUrl({
+      title: "Choose Your Orbit",
+      subtitle: "stars.guide Pricing",
+    }),
+  },
+);
 
-export default function PricingLayout({ children }: { children: React.ReactNode }) {
+export default function PricingLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return children;
 }

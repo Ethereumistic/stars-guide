@@ -43,5 +43,5 @@ export async function sendEmail(options: SendEmailOptions) {
         throw new Error(`Resend error: ${result.error.message}`);
     }
 
-    return result.data;
+    return result.data as { id: string };
 }

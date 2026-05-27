@@ -1,46 +1,40 @@
 #!/usr/bin/env node
 /**
- * dev-https.mjs — Start a HTTPS development tunnel for mobile debugging.
+ * dev-https.mjs — Start an HTTPS development tunnel for mobile debugging.
  *
- * This script creates an ngrok tunnel to your local Next.js dev server
- * and sets the DEVELOPMENT_URL env var on your Convex deployment so
- * OAuth redirects work correctly when testing on real devices (iPhone, etc).
+ * Uses Cloudflare Tunnel (cloudflared) to create a public HTTPS URL pointing
+ * at your local Next.js dev server. Sets DEVELOPMENT_URL on your Convex
+ * deployment so OAuth redirects work on real devices (iPhone, etc).
  *
  * Usage:
  *   pnpm dev:https              # Start tunnel + dev server + auto-configure Convex
  *   pnpm dev:https:tunnel       # Start just the tunnel (no dev server)
  *
  * Prerequisites:
- *   1. Install ngrok:  https://ngrok.com/download
- *      Or via brew:     brew install ngrok
- *      Or via snap:     snap install ngrok
+ *   pnpm add -D cloudflared
  *
- *   2. Sign up / configure ngrok (free tier works):
- *      ngrok config add-authtoken <YOUR_TOKEN>
- *
- *   3. (Optional) Reserve a free static domain at https://dashboard.ngrok.com/domains
- *      and set NGROK_DOMAIN in your .env.local for a persistent URL.
+ *   That's it. No account, no auth token, no sign-up required for quick tunnels.
  *
  * OAuth provider configuration:
  *   The OAuth redirect URIs go through your Convex backend, so they DON'T
- *   need to change. But Google One Tap requires the ngrok URL to be in the
+ *   need to change. But Google One Tap requires the tunnel URL to be in the
  *   "Authorized JavaScript origins" list:
  *
  *   Google Cloud Console → APIs & Services → Credentials → Your OAuth client
- *     → Authorized JavaScript origins: add https://<your-ngrok-url>
+ *     → Authorized JavaScript origins: add https://<your-tunnel-url>
  */
 
 import { execSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createInterface } from "node:readline";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 
 // ── Configuration ────────────────────────────────────────────────────────
-const PORT = parseInt(process.env.PORT || "3000", 10);
-const NGROK_DOMAIN = process.env.NGROK_DOMAIN || ""; // e.g. "my-dev.ngrok-free.app"
+const PORT = parseInt(process.env.PORT || "3001", 10);
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -51,9 +45,9 @@ function log(level, msg) {
   console.log(`${c}${msg}${reset}`);
 }
 
-function checkNgrok() {
+function checkCloudflared() {
   try {
-    execSync("ngrok version", { stdio: "pipe" });
+    execSync("npx cloudflared version", { stdio: "pipe", cwd: ROOT });
     return true;
   } catch {
     return false;
@@ -97,7 +91,6 @@ function getConvexFlags() {
       path.join(ROOT, ".env.convex.commands"),
       "utf-8",
     );
-    // Extract --url and --admin-key from the file
     const urlMatch = cmdFile.match(/--url\s+(\S+)/);
     const keyMatch = cmdFile.match(/--admin-key\s+("([^"]+)"|(\S+))/);
     if (urlMatch && keyMatch) {
@@ -117,18 +110,14 @@ function getConvexFlags() {
 function convexEnvCmd(subcmd) {
   const flags = getConvexFlags();
   if (flags) {
-    // Self-hosted Convex — use --url and --admin-key
     return `npx convex env ${subcmd} --url "${flags.url}" --admin-key "${flags.adminKey}"`;
   }
-  // Cloud Convex — try --prod or --deployment flags
   const isProd = isProdDeployment();
   return `npx convex env ${subcmd}${isProd ? " --prod" : ""}`;
 }
 
 /**
  * Detect whether the project uses a production Convex deployment.
- * If NEXT_PUBLIC_CONVEX_URL points to a localhost address, it's local;
- * otherwise it's production (or a preview/self-hosted deployment).
  */
 function isProdDeployment() {
   try {
@@ -149,22 +138,36 @@ function isProdDeployment() {
 }
 
 /**
- * Wait for ngrok's API to return a tunnel URL.
- * Retries every 500ms for up to 15 seconds.
+ * Wait for cloudflared to print the tunnel URL to stderr.
+ * cloudflared logs the URL in a line like:
+ *   |  https://some-words.trycloudflare.com  |
+ * Listens on stderr for up to 30 seconds.
  */
-async function getTunnelUrl() {
-  for (let i = 0; i < 30; i++) {
-    try {
-      const res = await fetch("http://127.0.0.1:4040/api/tunnels");
-      const data = await res.json();
-      const tunnel = data.tunnels?.find((t) => t.proto === "https");
-      if (tunnel?.public_url) return tunnel.public_url;
-    } catch {
-      // ngrok API not ready yet
-    }
-    await new Promise((r) => setTimeout(r, 500));
-  }
-  return null;
+async function getTunnelUrl(cloudflared) {
+  return new Promise((resolve) => {
+    const urlPattern = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/;
+    let buffer = "";
+
+    const rl = createInterface({ input: cloudflared.stderr });
+
+    const timeout = setTimeout(() => {
+      resolve(null);
+    }, 30_000);
+
+    rl.on("line", (line) => {
+      buffer += line + "\n";
+      const match = line.match(urlPattern);
+      if (match) {
+        clearTimeout(timeout);
+        resolve(match[0]);
+      }
+    });
+
+    rl.on("close", () => {
+      clearTimeout(timeout);
+      resolve(null);
+    });
+  });
 }
 
 /**
@@ -212,57 +215,47 @@ async function main() {
   log("info", "╚══════════════════════════════════════════════════════════╝");
   console.log();
 
-  // ── Step 1: Check ngrok ──────────────────────────────────────────────────
-  if (!checkNgrok()) {
-    log("err", "✗ ngrok is not installed!");
+  // ── Step 1: Check cloudflared ───────────────────────────────────────────
+  if (!checkCloudflared()) {
+    log("err", "✗ cloudflared is not installed!");
     console.log();
-    log("info", "Install ngrok to create an HTTPS tunnel:");
+    log("info", "Install it as a dev dependency:");
     console.log();
-    console.log("  macOS:  brew install ngrok");
-    console.log("  Linux:  snap install ngrok");
-    console.log("  Or download from: https://ngrok.com/download");
+    console.log("  pnpm add -D cloudflared");
     console.log();
-    console.log("Then configure your auth token:");
-    console.log("  ngrok config add-authtoken <YOUR_TOKEN>");
-    console.log();
-    log("info", "Free accounts get 1 static domain — perfect for dev!");
     process.exit(1);
   }
 
-  log("ok", "✓ ngrok found");
+  log("ok", "✓ cloudflared found");
 
-  // ── Step 2: Start ngrok tunnel ──────────────────────────────────────────
-  const ngrokArgs = ["http", PORT.toString()];
-  if (NGROK_DOMAIN) {
-    ngrokArgs.push(`--domain=${NGROK_DOMAIN}`);
-  }
+  // ── Step 2: Start cloudflared tunnel ────────────────────────────────────
+  const tunnelArgs = ["cloudflared", "tunnel", "--url", `http://localhost:${PORT}`];
 
-  log("info", `Starting ngrok tunnel on port ${PORT}...`);
-  const ngrok = spawn("ngrok", ngrokArgs, {
-    stdio: "pipe",
+  log("info", `Starting Cloudflare Tunnel on port ${PORT}...`);
+  const cloudflared = spawn("npx", tunnelArgs, {
+    stdio: ["pipe", "pipe", "pipe"],
+    cwd: ROOT,
     detached: false,
   });
 
-  // Handle ngrok exit
-  ngrok.on("error", (err) => {
-    log("err", `ngrok error: ${err.message}`);
+  cloudflared.on("error", (err) => {
+    log("err", `cloudflared error: ${err.message}`);
     process.exit(1);
   });
 
-  ngrok.on("close", (code) => {
+  cloudflared.on("close", (code) => {
     if (code && code !== 0) {
-      log("err", `ngrok exited with code ${code}`);
+      log("err", `cloudflared exited with code ${code}`);
     }
   });
 
   // ── Step 3: Get tunnel URL ──────────────────────────────────────────────
   log("info", "Waiting for tunnel URL...");
-  const tunnelUrl = await getTunnelUrl();
+  const tunnelUrl = await getTunnelUrl(cloudflared);
 
   if (!tunnelUrl) {
-    log("err", "✗ Could not get ngrok tunnel URL after 15 seconds.");
-    log("info", "  Make sure ngrok is configured: ngrok config add-authtoken <TOKEN>");
-    ngrok.kill();
+    log("err", "✗ Could not get tunnel URL after 30 seconds.");
+    cloudflared.kill();
     process.exit(1);
   }
 
@@ -346,7 +339,7 @@ async function main() {
       }
     }
 
-    ngrok.kill();
+    cloudflared.kill();
     log("ok", "✓ Tunnel closed.");
     process.exit(0);
   };

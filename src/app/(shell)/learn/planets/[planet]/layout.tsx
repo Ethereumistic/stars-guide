@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!planetData) return {};
 
   return buildMetadata({
-    title: `${planetName} in Astrology — Meaning & Influence | Stars Guide`,
+    title: `${planetName} in Astrology — Meaning & Influence`,
     description: `${planetName}: ${planetData.domain}. Discover ${planetName}'s psychological function, core drives, and shadow expression on stars.guide.`,
     path: `/learn/planets/${planet}`,
   });

@@ -6,12 +6,13 @@
  */
 
 import type { Metadata } from "next";
+import { buildOgImageUrl } from "@/lib/seo/og";
 
 const SITE_NAME = "Stars Guide";
 const SITE_URL = "https://stars.guide";
 const SITE_DESCRIPTION =
   "Celestial horoscopes and birth charts. Discover your destiny with stars.guide.";
-const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.png`;
+const DEFAULT_OG_IMAGE = `${SITE_URL}/api/og?title=Stars+Guide&subtitle=Navigate+your+fate`;
 
 // ── Metadata builders ────────────────────────────────────────────────
 
@@ -20,36 +21,48 @@ interface PageMetaOptions {
   description: string;
   path: string; // e.g. "/horoscopes/aries"
   ogImage?: string;
+  /** OG image API params — overrides ogImage if provided */
+  ogImageOpts?: { title: string; subtitle?: string; type?: import("@/lib/seo/og").OgType; typeId?: string };
   noIndex?: boolean;
 }
 
-/** Build a full Metadata object for a page. Title is auto-suffixed with site name. */
+/**
+ * Build a full Metadata object for a page.
+ *
+ * The `title` is passed as-is to `metadata.title` so the root layout's
+ * template ("%s | stars.guide") applies it. For openGraph/twitter we
+ * append the site name explicitly since those fields don't use templates.
+ */
 export function buildMetadata({
   title,
   description,
   path,
   ogImage,
+  ogImageOpts,
   noIndex = false,
 }: PageMetaOptions): Metadata {
   const url = `${SITE_URL}${path}`;
-  const image = ogImage || DEFAULT_OG_IMAGE;
+  const image = ogImageOpts
+    ? buildOgImageUrl(ogImageOpts)
+    : ogImage || DEFAULT_OG_IMAGE;
+  const fullTitle = `${title} | ${SITE_NAME}`;
 
   return {
     title,
     description,
     alternates: { canonical: url },
     openGraph: {
-      title,
+      title: fullTitle,
       description,
       url,
       siteName: SITE_NAME,
-      images: [{ url: image, width: 1200, height: 630, alt: title }],
+      images: [{ url: image, width: 1200, height: 630, alt: fullTitle }],
       type: "website",
       locale: "en_US",
     },
     twitter: {
       card: "summary_large_image",
-      title,
+      title: fullTitle,
       description,
       images: [image],
     },

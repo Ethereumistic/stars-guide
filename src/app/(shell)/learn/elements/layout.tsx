@@ -1,13 +1,23 @@
 import type { Metadata } from "next";
-import { buildMetadata } from "@/lib/seo";
+import { staticMetadata } from "@/lib/seo";
+import { buildOgImageUrl } from "@/lib/seo/og";
 
-export const metadata: Metadata = buildMetadata({
-  title: "Elements, Modes & Polarity | Stars Guide",
-  description:
-    "Explore the four elements (Fire, Earth, Air, Water), three modalities, and polarity that shape every zodiac sign's temperament on stars.guide.",
-  path: "/learn/elements",
-});
+export const metadata = staticMetadata(
+  "Elements, Modes & Polarity",
+  "Fire, Earth, Air, Water — the primal forces shaping every sign. Explore the four elements, three modalities, and Yang-Yin polarity.",
+  "/learn/elements",
+  {
+    ogImage: buildOgImageUrl({
+      title: "Elements & Modes",
+      subtitle: "The Primal Forces",
+    }),
+  },
+);
 
-export default function ElementsLayout({ children }: { children: React.ReactNode }) {
+export default function ElementsLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return children;
 }

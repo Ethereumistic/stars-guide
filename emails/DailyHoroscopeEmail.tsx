@@ -12,7 +12,7 @@ import {
     Button,
     Link,
 } from "@react-email/components";
-import { theme } from "./theme";
+import { theme, baseStyles } from "./theme";
 
 interface DailyHoroscopeEmailProps {
     sign: string;

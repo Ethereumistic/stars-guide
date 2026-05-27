@@ -1,13 +1,23 @@
 import type { Metadata } from "next";
-import { buildMetadata } from "@/lib/seo";
+import { staticMetadata } from "@/lib/seo";
+import { buildOgImageUrl } from "@/lib/seo/og";
 
-export const metadata: Metadata = buildMetadata({
-  title: "Learn Astrology | Stars Guide",
-  description:
-    "Explore the celestial archive — zodiac signs, planets, houses, aspects, and elements. Learn the foundations of astrology on stars.guide.",
-  path: "/learn",
-});
+export const metadata = staticMetadata(
+  "Celestial Archive — Learn Astrology",
+  "Explore zodiac signs, planets, houses, aspects, and elements. Your complete guide to astrology 101 on stars.guide.",
+  "/learn",
+  {
+    ogImage: buildOgImageUrl({
+      title: "Celestial Archive",
+      subtitle: "Learn Astrology on stars.guide",
+    }),
+  },
+);
 
-export default function LearnLayout({ children }: { children: React.ReactNode }) {
+export default function LearnLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return children;
 }

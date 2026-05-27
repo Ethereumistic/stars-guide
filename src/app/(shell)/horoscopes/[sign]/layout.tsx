@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!signData) return {};
 
   return buildMetadata({
-    title: `${signName} Daily Horoscope | Stars Guide`,
+    title: `${signName} Daily Horoscope`,
     description: `Today's ${signName} horoscope — ${signData.traits}. Free daily astrological insights for ${signName} (${signData.dates}) on stars.guide.`,
     path: `/horoscopes/${sign}`,
   });

@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!houseData) return {};
 
   return buildMetadata({
-    title: `${houseData.name} — ${houseData.archetypeName} | Stars Guide`,
+    title: `${houseData.name} — ${houseData.archetypeName}`,
     description: `${houseData.name}: ${houseData.developmentalTheme}. Explore the ${houseData.name} meaning, natural sign (${houseData.naturalSign}), and life arena on stars.guide.`,
     path: `/learn/houses/${house}`,
   });

@@ -377,3 +377,23 @@ export const recordSessionStart = mutation({
 // Note: Cron jobs are registered in crons.ts:
 //   - aggregate-daily-activity (03:00 UTC)
 //   - detect-analytics-anomalies (04:00 UTC)
+
+// ─── SHARE TRACKING ─────────────────────────────────────────────────────────
+
+export const trackShare = mutation({
+  args: {
+    shareType: v.string(),
+    platform: v.string(),
+    utmSource: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    await ctx.db.insert("share_events", {
+      userId: userId ?? null,
+      shareType: args.shareType,
+      platform: args.platform,
+      utmSource: args.utmSource ?? null,
+      createdAt: Date.now(),
+    });
+  },
+});

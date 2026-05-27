@@ -9,7 +9,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { username } = await params;
 
   return buildMetadata({
-    title: `@${username} — Birth Chart & Profile | Stars Guide`,
+    title: `@${username} — Birth Chart & Profile`,
     description: `View @${username}'s birth chart, planetary placements, and astrological profile on stars.guide.`,
     path: `/${username}`,
   });

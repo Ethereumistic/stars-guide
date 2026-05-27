@@ -285,6 +285,10 @@ export const ShootingStars: React.FC<ShootingStarsProps> = ({
             distance: 0,
             maxDistance: rand(200, 600),
         };
+
+        // CWV: kick off the rAF loop now that a star exists
+        const startFn = (canvas as any).__cwv_startAnimation as (() => void) | undefined;
+        startFn?.();
     }, [minSpeed, maxSpeed]);
 
     // Canvas resize handler
@@ -373,13 +377,29 @@ export const ShootingStars: React.FC<ShootingStarsProps> = ({
                 ) {
                     starRef.current = null;
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    // CWV: stop animation loop when idle
+                    animating = false;
+                    return;
                 }
+            } else {
+                // No active star — stop the animation loop to save CPU
+                animating = false;
+                return;
             }
 
             rafRef.current = requestAnimationFrame(animate);
         };
 
-        rafRef.current = requestAnimationFrame(animate);
+        // Start animation when a star spawns
+        const startAnimation = () => {
+            if (!animating) {
+                animating = true;
+                rafRef.current = requestAnimationFrame(animate);
+            }
+        };
+
+        // Expose startAnimation so the spawn timer can trigger it
+        (canvasRef.current as any).__cwv_startAnimation = startAnimation;
 
         return () => {
             cancelAnimationFrame(rafRef.current);

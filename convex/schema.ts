@@ -212,6 +212,17 @@ export default defineSchema({
         .index("by_referrerId_status", ["referrerId", "status"])
         .index("by_referrerId_created", ["referrerId", "createdAt"]),
 
+    // SHARE EVENTS (Tracking social shares for funnel analysis)
+    share_events: defineTable({
+        userId: v.optional(v.id("users")),
+        shareType: v.string(),     // "birth_chart" | "horoscope" | "compatibility" | "journal"
+        platform: v.string(),       // "twitter" | "whatsapp" | "instagram" | "imessage" | "copy"
+        utmSource: v.optional(v.string()),
+        createdAt: v.number(),
+    }).index("by_createdAt", ["createdAt"])
+        .index("by_shareType", ["shareType"])
+        .index("by_platform", ["platform"]),
+
     // 4. RATE LIMITS (Preventing endpoint exhaustion)
     rateLimits: defineTable({
         userId: v.id("users"),
