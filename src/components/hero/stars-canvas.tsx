@@ -2,17 +2,6 @@
 import { cn } from "@/lib/utils";
 import React, { useEffect, useRef, useCallback } from "react";
 
-// ---------------------------------------------------------------------------
-// Option 2: Static Canvas + CSS Twinkle Overlay
-//
-// Stars are drawn ONCE onto a canvas (no animation loop).
-// Twinkle is handled by a small set of CSS-animated <div> dots overlaid.
-// Shooting stars use requestAnimationFrame with direct canvas drawing
-// (no React state) — only 1 shooting star active at a time, drawn directly.
-// ---------------------------------------------------------------------------
-
-/* ---------- Shared types (identical to original components) ---------- */
-
 interface ShootingStarsProps {
     minSpeed?: number;
     maxSpeed?: number;

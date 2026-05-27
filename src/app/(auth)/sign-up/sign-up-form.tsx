@@ -44,6 +44,11 @@ export function SignUpForm({ bare, className, title, subtitle, ...props }: SignU
     const router = useRouter()
     const { signIn } = useAuthActions()
 
+    // Email verification flow state
+    const [verificationStep, setVerificationStep] = useState<false | { email: string }>(false)
+    const [otpCode, setOtpCode] = useState("")
+    const [isVerifying, setIsVerifying] = useState(false)
+
     const { isAuthenticated, isLoading: isAuthLoading, needsOnboarding } = useUserStore()
 
     useEffect(() => {
@@ -58,13 +63,39 @@ export function SignUpForm({ bare, className, title, subtitle, ...props }: SignU
         setError(null)
 
         try {
-            await signIn("password", { email, password, flow: "signUp" })
-            router.push("/onboarding")
+            const result = await signIn("password", { email, password, flow: "signUp" })
+            // If verify is enabled and email not yet verified, signingIn is false
+            if (!result.signingIn) {
+                setVerificationStep({ email })
+            } else {
+                router.push("/onboarding")
+            }
         } catch (error: unknown) {
             console.error("Sign up error:", error)
             setError(mapAuthError(error, "signUp"))
         } finally {
             setIsLoading(false)
+        }
+    }
+
+    const handleVerifyOtp = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!verificationStep) return
+        setIsVerifying(true)
+        setError(null)
+
+        try {
+            await signIn("password", {
+                email: verificationStep.email,
+                flow: "email-verification",
+                code: otpCode,
+            })
+            router.push("/onboarding")
+        } catch (error: unknown) {
+            console.error("Verification error:", error)
+            setError(mapAuthError(error, "signUp"))
+        } finally {
+            setIsVerifying(false)
         }
     }
 
@@ -134,30 +165,71 @@ export function SignUpForm({ bare, className, title, subtitle, ...props }: SignU
                     <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground font-sans">Or register with</span></div>
                 </div>
 
-                <form onSubmit={handleSignUp}>
-                    <div className="flex flex-col gap-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="email" className="font-sans text-sm font-medium ml-1">Email</Label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input id="email" type="email" placeholder="name@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={isLoading || anySocialLoading} className="pl-10 border-primary/10 focus-visible:ring-primary/30" />
+                {error && (
+                    <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm text-center">{error}</div>
+                )}
+                {verificationStep ? (
+                    <form onSubmit={handleVerifyOtp}>
+                        <div className="flex flex-col gap-4">
+                            <div className="text-center space-y-2">
+                                <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                                    <Mail className="h-6 w-6 text-primary" />
+                                </div>
+                                <p className="font-sans text-sm text-muted-foreground">
+                                    We sent a verification code to <span className="text-foreground font-medium">{verificationStep.email}</span>
+                                </p>
                             </div>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="password" className="font-sans text-sm font-medium ml-1">Password</Label>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading || anySocialLoading} className="pl-10 border-primary/10 focus-visible:ring-primary/30" />
+                            <div className="grid gap-2">
+                                <Label htmlFor="otp" className="font-sans text-sm font-medium ml-1">Verification code</Label>
+                                <Input
+                                    id="otp"
+                                    type="text"
+                                    inputMode="numeric"
+                                    placeholder="000000"
+                                    required
+                                    value={otpCode}
+                                    onChange={(e) => setOtpCode(e.target.value)}
+                                    disabled={isVerifying}
+                                    className="text-center text-2xl tracking-[0.5em] font-mono h-14 border-primary/10 focus-visible:ring-primary/30"
+                                    maxLength={6}
+                                    autoFocus
+                                />
                             </div>
+                            <Button type="submit" disabled={isVerifying || otpCode.length < 6} className="w-full font-serif uppercase tracking-widest mt-2 h-11 shadow-lg shadow-primary/10">
+                                {isVerifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Verify Email
+                            </Button>
+                            <button
+                                type="button"
+                                className="text-xs text-muted-foreground hover:text-primary transition-colors font-sans"
+                                onClick={() => { setVerificationStep(false); setOtpCode(""); setError(null) }}
+                            >
+                                ← Back to sign up
+                            </button>
                         </div>
-                        {error && (
-                            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm text-center">{error}</div>
-                        )}
-                        <Button type="submit" disabled={isLoading || anySocialLoading} className="w-full font-serif uppercase tracking-widest mt-2 h-11 shadow-lg shadow-primary/10">
-                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create Account
-                        </Button>
-                    </div>
-                </form>
+                    </form>
+                ) : (
+                    <form onSubmit={handleSignUp}>
+                        <div className="flex flex-col gap-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="email" className="font-sans text-sm font-medium ml-1">Email</Label>
+                                <div className="relative">
+                                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                    <Input id="email" type="email" placeholder="name@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={isLoading || anySocialLoading} className="pl-10 border-primary/10 focus-visible:ring-primary/30" />
+                                </div>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="password" className="font-sans text-sm font-medium ml-1">Password</Label>
+                                <div className="relative">
+                                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                    <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading || anySocialLoading} className="pl-10 border-primary/10 focus-visible:ring-primary/30" />
+                                </div>
+                            </div>
+                            <Button type="submit" disabled={isLoading || anySocialLoading} className="w-full font-serif uppercase tracking-widest mt-2 h-11 shadow-lg shadow-primary/10">
+                                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create Account
+                            </Button>
+                        </div>
+                    </form>
+                )}
             </CardContent>
             <CardFooter className={footerCn}>
                 <span className="font-sans">Already have an account?</span>

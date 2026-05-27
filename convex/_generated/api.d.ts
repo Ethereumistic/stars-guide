@@ -14,6 +14,7 @@ import type * as aiQueries from "../aiQueries.js";
 import type * as analytics from "../analytics.js";
 import type * as analyticsInternal from "../analyticsInternal.js";
 import type * as auth from "../auth.js";
+import type * as auth_emailProviders from "../auth/emailProviders.js";
 import type * as cosmicWeather from "../cosmicWeather.js";
 import type * as crons from "../crons.js";
 import type * as email_crons from "../email/crons.js";
@@ -84,6 +85,7 @@ declare const fullApi: ApiFromModules<{
   analytics: typeof analytics;
   analyticsInternal: typeof analyticsInternal;
   auth: typeof auth;
+  "auth/emailProviders": typeof auth_emailProviders;
   cosmicWeather: typeof cosmicWeather;
   crons: typeof crons;
   "email/crons": typeof email_crons;

@@ -7,6 +7,7 @@ import { Password } from "@convex-dev/auth/providers/Password";
 import { ConvexCredentials } from "@convex-dev/auth/providers/ConvexCredentials";
 import { convexAuth, createAccount, retrieveAccount } from "@convex-dev/auth/server";
 import { verifyGoogleIdToken } from "./lib/googleIdToken";
+import { verifyEmailProvider, resetEmailProvider } from "./auth/emailProviders";
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     providers: [
@@ -95,6 +96,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
             },
         }),
         Password({
+            verify: verifyEmailProvider,
+            reset: resetEmailProvider,
             profile(params: any) {
                 return {
                     email: params.email as string,
