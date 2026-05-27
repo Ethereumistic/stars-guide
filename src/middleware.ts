@@ -20,6 +20,8 @@ const isPublicPage = createRouteMatcher([
   "/learn/(.*)",
   "/horoscopes",
   "/horoscopes/(.*)",
+  "/blog",
+  "/blog/(.*)",
   "/logo",
 ]);
 

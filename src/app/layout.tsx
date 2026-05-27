@@ -10,7 +10,6 @@ import { ReferralTracker } from "@/components/providers/referral-tracker";
 import { AnalyticsProvider } from "@/components/providers/analytics-provider";
 import { GoogleOneTapProvider } from "@/components/providers/google-one-tap-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { DeferredStarField } from "@/components/hero/deferred-stars";
 import { PlausibleAnalytics } from "@/components/analytics/plausible";
 
 const inter = Inter({
@@ -100,11 +99,7 @@ export default function RootLayout({
                 disableTransitionOnChange
               >
                 <TooltipProvider>
-                  <div className="relative min-h-screen">
-                    {/* Ambient star background — deferred (no SSR) to reduce initial JS & main-thread work */}
-                    <DeferredStarField />
-                    {children}
-                  </div>
+                  {children}
                 </TooltipProvider>
               </ThemeProvider>
             </GoogleOneTapProvider>
