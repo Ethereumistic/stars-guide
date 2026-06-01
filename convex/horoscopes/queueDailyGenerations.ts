@@ -85,7 +85,9 @@ export const markQueued = internalMutation({
                     domainScores: [
                         { name: "Love", score: 50 },
                         { name: "Career", score: 50 },
+                        { name: "Family", score: 50 },
                         { name: "Health", score: 50 },
+                        { name: "Finance", score: 50 },
                         { name: "Social", score: 50 },
                     ],
                 },
@@ -106,12 +108,20 @@ export const queueDailyGenerations = internalAction({
 
         console.log(`[queueDailyGenerations] Starting daily generation for ${date}`);
 
-        // ── 2. Ensure fresh astronomical context ───────────────────────────────
-        console.log(`[queueDailyGenerations] Computing daily context...`);
-        await ctx.runAction(
-            internal.horoscopes.computeDailyContext.computeDailyContext,
+        // ── 2. Verify astronomical context exists (pre-computed at 01:30) ─────
+        const ctxRecord = await ctx.runQuery(
+            internal.horoscopes.computeDailyContext.getDailyAstrologyContext,
             { date },
         );
+        if (!ctxRecord) {
+            console.warn(`[queueDailyGenerations] No context for ${date}, computing as fallback...`);
+            await ctx.runAction(
+                internal.horoscopes.computeDailyContext.computeDailyContext,
+                { date },
+            );
+        } else {
+            console.log(`[queueDailyGenerations] Context pre-computed for ${date}, skipping computation.`);
+        }
 
         // ── 3. Resolve stagger from oracle_settings via internal query ──────────
         const settings = await ctx.runQuery(

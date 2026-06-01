@@ -49,7 +49,7 @@ convex/                     # Convex backend (ALL server logic)
   journal/                  # Journal entries, prompts, search, stats
   cosmicWeather.ts          # Daily planetary positions + felt language
   users.ts, friends.ts, referrals.ts, notifications/
-  lib/                      # Shared: astronomyEngine, astrology/contextBuilder, signTraits, retrogradeCalc
+  lib/                      # Shared: astronomyEngine, astrology/contextBuilder, signTraits
 
 lib/oracle/                 # Client-side Oracle logic
   features.ts               # Feature flags & gating

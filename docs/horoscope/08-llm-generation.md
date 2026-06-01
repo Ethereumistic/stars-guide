@@ -53,6 +53,12 @@ On LLM call failure:
 There is no retry for parsing failures or validation failures — those go
 directly to recovery or failure.
 
+## Known Bug: `errorMessage` vs `errors` Field Mismatch
+
+The `upsertHoroscope` mutation originally defined an `errorMessage` field (string), but the Convex schema expects an `errors` field (array of strings). This mismatch meant that when a horoscope generation failed, the error message was written to a field that didn't exist in the schema, so error messages were never persisted on failed horoscope records.
+
+This has been fixed — the mutation now uses `errors: v.optional(v.array(v.string()))` to match the schema. The `markQueued` mutation was unaffected, as it never writes error data.
+
 ## JSON Sanitization
 
 `sanitizeLLMJson(raw)` strips potential markdown fences:
@@ -135,6 +141,8 @@ await ctx.runMutation(internal.horoscopes.generateForSign.upsertHoroscope, {
     generationDurationMs,
 });
 ```
+
+> **Note:** The `contextSnapshotId` field exists in the schema but is never populated by the current code. It is reserved for a future improvement.
 
 ## Logging
 

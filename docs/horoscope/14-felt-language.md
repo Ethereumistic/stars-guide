@@ -1,5 +1,7 @@
 # Felt Language — Emotional Translation of Cosmic Weather
 
+> ⚠️ **STATUS: Currently unused in the horoscope generation pipeline.** Felt language is generated and stored daily but is NOT injected into the horoscope prompt. The prompt uses structured astronomical context from `daily_astrology_context` instead. See "How Felt Language Is Used" below for potential future integration paths.
+
 Source: `convex/cosmicWeather.ts` (functions `generateFeltLanguage`,
 `dailyFeltLanguageJob`, `storeFeltLanguage`)
 

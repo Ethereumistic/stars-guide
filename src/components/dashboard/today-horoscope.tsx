@@ -131,7 +131,7 @@ export function TodayHoroscope({ className = "" }: TodayHoroscopeProps) {
             {isV2Content && 
               horoscopeContent.domainScores && 
               Array.isArray(horoscopeContent.domainScores) && 
-              horoscopeContent.domainScores.length >= 4 ? (
+              horoscopeContent.domainScores.length >= 6 ? (
                 <DomainScoresGrid
                   scores={horoscopeContent.domainScores.map((d: any) => ({ 
                     name: d.name, 

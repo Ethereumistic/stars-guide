@@ -17,10 +17,14 @@ export {
   PROVIDER_TYPES,
   PROVIDER_TYPE_INFO,
   DEFAULT_PROVIDERS,
+  DEFAULT_FALLBACK_MODELS,
 
   // Parsing & Validation
   parseProvidersConfig,
   validateProvidersConfig,
+
+  // Lookup helpers
+  getDefaultFallbackModel,
 
   // Request helpers
   buildProviderHeaders,

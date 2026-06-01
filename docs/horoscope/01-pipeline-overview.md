@@ -26,6 +26,15 @@ human experience.
                              │
                              ▼
 ┌──────────────────────────────────────────────────────────────────────┐
+│  Stage 1b — Felt Language (optional emotional layer)               │
+│  Source: convex/cosmicWeather.ts (generateFeltLanguage)             │
+│  Reads cosmicWeather → translates to 4-6 sentences felt prose      │
+│  Written to: cosmicWeather.feltLanguage field                      │
+│  Note: Currently stored but not injected into horoscope prompts     │
+└──────────────────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────────────────┐
 │  Stage 2 — Daily Context Enrichment                                 │
 │  Source: convex/horoscopes/computeDailyContext.ts                    │
 │  Reads cosmicWeather → adds retrograde context, VoC moon, stellium  │
@@ -59,7 +68,6 @@ human experience.
 | `convex/cosmicWeather.ts` | Cosmic weather compute/store/serve |
 | `convex/lib/astronomyEngine.ts` | Pure astronomy computation layer |
 | `convex/lib/astrology/contextBuilder.ts` | Rule-based context enrichment |
-| `convex/lib/astrology/retrogradeCalc.ts` | Retrograde window detection |
 | `convex/lib/astrology/signTraits.ts` | Per-sign character sketches |
 | `convex/horoscopes/computeDailyContext.ts` | Daily context assembly + enrichment |
 | `convex/horoscopes/queueDailyGenerations.ts` | Cron entrypoint, 12-sign stagger |
@@ -68,6 +76,7 @@ human experience.
 | `convex/horoscopes/queries.ts` | Public-facing horoscope queries |
 | `convex/horoscopes/admin.ts` | Admin override/retry/trigger actions |
 | `convex/horoscopes/helpers.ts` | Admin auth check + status reset |
+| `convex/horoscopes/ratings.ts` | User thumbs-up/down feedback on horoscopes |
 
 ## Database Tables
 

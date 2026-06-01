@@ -41,7 +41,7 @@ Aggregated counts across all 12 signs:
 #### Failed Generations Panel
 
 If any horoscopes have `status: "failed"`, a red-highlighted section lists them
-with the sign, date, error message (truncated), and a "Retry" button.
+with the sign, date, error message (truncated) — note: may be empty if the `errors` field was never persisted due to the `errorMessage`/`errors` schema mismatch bug — and a "Retry" button.
 
 **Retry action:** Calls `retryFailedGeneration` which:
 1. Verifies admin auth
@@ -99,7 +99,7 @@ Inspects the enriched `daily_astrology_context` for a given date.
 | Moon Phase | Phase name + emoji, illumination %, VoC window, next ingress | Open |
 | Planet Positions | Grid of planet → sign (degree) with retrograde ℞ badge | Open |
 | Active Aspects | Badges showing planetA aspect planetB (orb), color-coded by influence | Closed |
-| Retrograde Context | 3 sub-sections: current/upcoming/recentDirect | Closed |
+| Retrograde Context | 3 sub-sections: current/upcoming/recentDirect + per-planet detail cards (progress bar, phase label, days remaining) | Closed |
 | Dominant Themes | Badge list of theme keywords | Closed |
 | Aspect Summary | Badge list of pattern descriptors | Closed |
 

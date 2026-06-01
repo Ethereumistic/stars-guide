@@ -13,6 +13,12 @@ Defined in `convex/crons.ts`:
 | `generate-felt-language` | 00:10 UTC | `daily` | `cosmicWeather.dailyFeltLanguageJob` | Translate snapshot to felt language (LLM) |
 | `generate-daily-horoscopes` | 02:00 UTC | `daily` | `horoscopes.queueDailyGenerations.queueDailyGenerations` | Queue 12 sign generation jobs |
 | `deliver-scheduled-notifications` | Every 60s | `interval` | `notifications.delivery.processScheduledNotifications` | Push notification delivery (unrelated) |
+| `aggregate-daily-activity` | 03:00 UTC | `daily` | `analyticsInternal.aggregateDailyActivity` | DAU/MAU aggregation |
+| `detect-analytics-anomalies` | 04:00 UTC | `daily` | `analyticsInternal.detectAnalyticsAnomalies` | Traffic spike/drop detection |
+| `refresh-email-segments` | 00:30 UTC | `daily` | `email.crons.refreshEmailSegments` | Refresh email audience segments |
+| `send-daily-horoscope-emails` | 06:00 UTC | `daily` | `email.crons.sendDailyHoroscopeEmails` | Daily horoscope email push |
+| `send-welcome-emails` | 07:00 UTC | `daily` | `email.crons.sendWelcomeEmails` | Welcome series emails |
+| `send-reengagement-emails` | 10:00 UTC | `daily` | `email.crons.sendReengagementEmails` | Re-engagement emails |
 
 ## Why These Times
 
@@ -82,3 +88,9 @@ Each sign generation is an independent Convex action invocation. If one sign
 fails (LLM error, malformed JSON, validation failure), it does **not** block
 the other 11 signs. Failed signs get `status: "failed"` and can be retried
 individually from the admin panel.
+
+## Weekly Cron Jobs
+
+| Job Name | UTC Time | Convex Cron Type | Internal Action | Purpose |
+|----------|----------|------------------|-----------------|---------|
+| `send-weekly-cosmic-emails` | Saturday 09:00 UTC | `weekly` | `email.crons.sendWeeklyCosmicEmails` | Weekly cosmic digest email |

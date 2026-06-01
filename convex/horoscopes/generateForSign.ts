@@ -26,13 +26,16 @@ import { z } from "zod";
 import {
     parseProvidersConfig,
     callLLMEndpoint,
+    resolveProvider,
+    getDefaultFallbackModel,
     type LLMProvider,
+    type ProviderType,
 } from "../lib/llmProvider";
 import { buildHoroscopePrompt, VERSION as PROMPT_VERSION, type DailyAstrologyContext } from "./prompt";
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
-const RETRY_DELAY_MS = 3000;
+const RETRY_DELAYS = [3000, 10000, 30000]; // exponential backoff: 3s, 10s, 30s
 
 // ─── Zod Schemas ────────────────────────────────────────────────────────────
 
@@ -60,7 +63,7 @@ const HoroscopeContentSchema = z.object({
     bodyText: z.string().min(50).max(400),
     mantra: z.string().min(5).max(80),
     dailyPillars: DailyPillarsSchema,
-    domainScores: z.array(DomainScoreSchema).min(4).max(6),
+    domainScores: z.array(DomainScoreSchema).min(6).max(6),
 });
 
 // ─── Utilities ─────────────────────────────────────────────────────────────
@@ -87,6 +90,71 @@ export const getOracleProvidersConfig = internalQuery({
     },
 });
 
+// ─── Internal Query — resolve horoscope-specific model settings ───────────
+
+export const getHoroscopeModelSettings = internalQuery({
+    args: {},
+    handler: async (ctx) => {
+        const [providerRow, modelRow, fallbackProviderRow, fallbackModelRow] = await Promise.all([
+            ctx.db
+                .query("oracle_settings")
+                .withIndex("by_key", (q) => q.eq("key", "horoscope_provider"))
+                .first(),
+            ctx.db
+                .query("oracle_settings")
+                .withIndex("by_key", (q) => q.eq("key", "horoscope_model"))
+                .first(),
+            ctx.db
+                .query("oracle_settings")
+                .withIndex("by_key", (q) => q.eq("key", "horoscope_fallback_provider"))
+                .first(),
+            ctx.db
+                .query("oracle_settings")
+                .withIndex("by_key", (q) => q.eq("key", "horoscope_fallback_model"))
+                .first(),
+        ]);
+        return {
+            providerId: providerRow?.value ?? undefined,
+            modelId: modelRow?.value ?? undefined,
+            fallbackProviderId: fallbackProviderRow?.value ?? undefined,
+            fallbackModelId: fallbackModelRow?.value ?? undefined,
+        };
+    },
+});
+
+// ─── Internal Query — get cosmic weather for felt language ──────────────────
+
+export const getCosmicWeatherForFelt = internalQuery({
+    args: { date: v.string() },
+    handler: async (ctx, { date }) => {
+        return await ctx.db
+            .query("cosmicWeather")
+            .withIndex("by_date", (q) => q.eq("date", date))
+            .unique();
+    },
+});
+
+// ─── Internal Query — get already-generated horoscopes for similarity guard ─
+
+export const getGeneratedHoroscopesForDate = internalQuery({
+    args: { date: v.string(), excludeSign: v.string() },
+    handler: async (ctx, { date, excludeSign }) => {
+        return await ctx.db
+            .query("daily_horoscopes")
+            .withIndex("by_date", (q) => q.eq("date", date))
+            .collect()
+            .then((rows) =>
+                rows
+                    .filter((r) => r.sign !== excludeSign && (r.status === "generated" || r.status === "overridden"))
+                    .map((r) => ({
+                        sign: r.sign,
+                        hook: (r.content as any)?.hook ?? "",
+                        bodyText: (r.content as any)?.bodyText ?? "",
+                    }))
+            );
+    },
+});
+
 // ─── Internal Mutation — upsert daily_horoscopes ───────────────────────────
 
 export const upsertHoroscope = internalMutation({
@@ -98,10 +166,11 @@ export const upsertHoroscope = internalMutation({
             v.literal("failed"),
         ),
         content: v.optional(v.any()),
-        errorMessage: v.optional(v.string()),
+        errors: v.optional(v.array(v.string())),
         modelUsed: v.optional(v.string()),
         promptVersion: v.optional(v.string()),
         generationDurationMs: v.optional(v.number()),
+        contextSnapshotId: v.optional(v.id("daily_astrology_context")),
     },
     handler: async (ctx, args) => {
         const existing = await ctx.db
@@ -121,9 +190,10 @@ export const upsertHoroscope = internalMutation({
             fields.generatedAt = Date.now();
             fields.modelUsed = args.modelUsed;
             fields.generationDurationMs = args.generationDurationMs;
+            fields.contextSnapshotId = args.contextSnapshotId ?? undefined;
         }
 
-        if (args.status === "failed" && args.errorMessage) {
+        if (args.status === "failed" && args.errors && args.errors.length > 0) {
             fields.content = {
                 hook: "Generation failed.",
                 bodyText: "Please check back shortly.",
@@ -137,11 +207,13 @@ export const upsertHoroscope = internalMutation({
                 domainScores: [
                     { name: "Love" as const, score: 50 },
                     { name: "Career" as const, score: 50 },
+                    { name: "Family" as const, score: 50 },
                     { name: "Health" as const, score: 50 },
+                    { name: "Finance" as const, score: 50 },
                     { name: "Social" as const, score: 50 },
                 ],
             };
-            fields.errorMessage = args.errorMessage;
+            fields.errors = args.errors;
         }
 
         if (existing) {
@@ -166,7 +238,9 @@ export const upsertHoroscope = internalMutation({
                     domainScores: [
                         { name: "Love", score: 50 },
                         { name: "Career", score: 50 },
+                        { name: "Family", score: 50 },
                         { name: "Health", score: 50 },
+                        { name: "Finance", score: 50 },
                         { name: "Social", score: 50 },
                     ],
                 },
@@ -175,6 +249,7 @@ export const upsertHoroscope = internalMutation({
                 ...(args.generationDurationMs !== undefined
                     ? { generationDurationMs: args.generationDurationMs }
                     : {}),
+                ...(args.contextSnapshotId ? { contextSnapshotId: args.contextSnapshotId } : {}),
             } satisfies Record<string, unknown>);
         }
     },
@@ -186,6 +261,8 @@ export const generateForSign = internalAction({
     args: {
         sign: v.string(),
         date: v.optional(v.string()),  // defaults to today
+        providerId: v.optional(v.string()),   // admin override
+        modelId: v.optional(v.string()),      // admin override
     },
     handler: async (ctx, args) => {
         const sign = args.sign;
@@ -217,6 +294,12 @@ export const generateForSign = internalAction({
                 throw new Error(`Failed to compute daily_astrology_context for ${date}`);
             }
         }
+
+        // Fetch felt language from cosmic weather
+        const cosmicWeather = await ctx.runQuery(
+            internal.horoscopes.generateForSign.getCosmicWeatherForFelt,
+            { date },
+        );
 
         // Map daily_astrology_context -> DailyAstrologyContext for the prompt builder
         const context: DailyAstrologyContext = {
@@ -250,67 +333,90 @@ export const generateForSign = internalAction({
             dominantElement: ctxRecord.dominantElement ?? undefined,
             stelliumSign: ctxRecord.stelliumSign ?? undefined,
             aspectSummary: ctxRecord.aspectSummary ?? undefined,
+            feltLanguage: cosmicWeather?.feltLanguage ?? undefined,
         };
 
         // ── 3. Build prompt ────────────────────────────────────────────────
         const { system, user } = buildHoroscopePrompt({ sign, context });
 
-        // ── 4. Resolve LLM provider ─────────────────────────────────────────
+        // ── 4. Resolve LLM provider + model ─────────────────────────────────────────
         const rawConfig = await ctx.runQuery(
             internal.horoscopes.generateForSign.getOracleProvidersConfig,
             {},
         );
         const providers = parseProvidersConfig(rawConfig ?? undefined);
+        const modelSettings = await ctx.runQuery(
+            internal.horoscopes.generateForSign.getHoroscopeModelSettings,
+            {},
+        );
 
-        const DEFAULT_MODEL = "gemma3:27b";
-        // Prefer Ollama Cloud for horoscope generation
-        const ollamaProvider = providers.find((p) => p.id === "ollama_cloud");
-        const provider: LLMProvider = ollamaProvider
-            ?? (providers.length > 0 ? providers[0] : {
-                id: "ollama-cloud",
-                name: "Ollama Cloud",
-                type: "openai_compatible",
-                baseUrl: "https://ollama.com/v1",
-                apiKeyEnvVar: "OLLAMA_API_KEY",
+        // Build provider chain: primary first, then admin-configured fallback,
+        // then smart defaults from remaining providers, then ultimate fallback.
+        // Each entry uses a model appropriate for its provider type.
+        const overrideProviderId = args.providerId ?? modelSettings.providerId;
+        const overrideModelId = args.modelId ?? modelSettings.modelId;
+        const fallbackProviderId = modelSettings.fallbackProviderId;
+        const fallbackModelId = modelSettings.fallbackModelId;
+
+        const providerChain: { provider: LLMProvider; model: string }[] = [];
+        const usedProviderIds = new Set<string>();
+
+        // 1. Primary: admin-configured or arg-passed provider+model
+        if (overrideProviderId && overrideModelId) {
+            const p = resolveProvider(providers, overrideProviderId);
+            providerChain.push({ provider: p, model: overrideModelId });
+            usedProviderIds.add(p.id);
+        }
+
+        // 2. Admin-configured fallback (explicitly chosen by admin)
+        if (fallbackProviderId && fallbackModelId) {
+            const p = resolveProvider(providers, fallbackProviderId);
+            if (!usedProviderIds.has(p.id) || providerChain.length === 0) {
+                providerChain.push({ provider: p, model: fallbackModelId });
+                usedProviderIds.add(p.id);
+            }
+        }
+
+        // 3. Smart defaults: use remaining configured providers with per-type
+        //    default models (avoids putting OpenRouter model IDs on Ollama providers)
+        for (const prov of providers) {
+            if (usedProviderIds.has(prov.id)) continue;
+            const defaultModel = getDefaultFallbackModel(prov.type as ProviderType);
+            providerChain.push({ provider: prov, model: defaultModel });
+            usedProviderIds.add(prov.id);
+        }
+
+        // 4. Ultimate fallback: if no providers configured at all
+        if (providerChain.length === 0) {
+            providerChain.push({
+                provider: {
+                    id: "openrouter",
+                    name: "OpenRouter (fallback)",
+                    type: "openrouter",
+                    baseUrl: "https://openrouter.ai/api/v1",
+                    apiKeyEnvVar: "OPENROUTER_API_KEY",
+                },
+                model: "google/gemini-2.5-flash",
             });
+        }
 
-        // ── 5. Call LLM ────────────────────────────────────────────────────
+        // ── 5. Call LLM with exponential backoff + provider fallback ─────────
         const startTime = Date.now();
-        let rawOutput: string;
-        let modelUsed = DEFAULT_MODEL;
+        let rawOutput: string | undefined = undefined;
+        let modelUsed = providerChain[0].model;
+        let usedProvider = providerChain[0].provider;
+        let lastError = "";
 
-        try {
-            const result = await callLLMEndpoint({
-                provider,
-                model: DEFAULT_MODEL,
-                messages: [
-                    { role: "system", content: system },
-                    { role: "user", content: user },
-                ],
-                temperature: 0.75,
-                maxTokens: 4096,
-                thinkingMode: "disabled",
-                title: "Stars.Guide Horoscope Generator v2",
-            });
+        let attempt = 0;
+        let providerIndex = 0;
+        let hasOutput = false;
 
-            if (!result.content) {
-                throw new Error("Empty response from LLM");
-            }
-
-            rawOutput = result.content;
-            if (result.raw?.model) {
-                modelUsed = result.raw.model;
-            }
-        } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : String(err);
-            console.error(`[generateForSign] LLM call failed for ${sign} ${date}:`, errorMessage);
-
-            // Retry once
-            await sleep(RETRY_DELAY_MS);
+        while (attempt < RETRY_DELAYS.length && providerIndex < providerChain.length) {
+            const chainEntry = providerChain[providerIndex];
             try {
                 const result = await callLLMEndpoint({
-                    provider,
-                    model: DEFAULT_MODEL,
+                    provider: chainEntry.provider,
+                    model: chainEntry.model,
                     messages: [
                         { role: "system", content: system },
                         { role: "user", content: user },
@@ -318,29 +424,53 @@ export const generateForSign = internalAction({
                     temperature: 0.75,
                     maxTokens: 4096,
                     thinkingMode: "disabled",
-                    title: "Stars.Guide Horoscope Generator v2 (retry)",
+                    title: "Stars.Guide Horoscope Generator v2",
                 });
 
                 if (!result.content) {
-                    throw new Error("Empty response from LLM after retry");
+                    throw new Error("Empty response from LLM");
                 }
+
                 rawOutput = result.content;
+                hasOutput = true;
                 if (result.raw?.model) {
                     modelUsed = result.raw.model;
+                } else {
+                    modelUsed = chainEntry.model;
                 }
-            } catch (retryErr) {
-                const retryErrorMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
-                console.error(`[generateForSign] Retry failed for ${sign} ${date}:`, retryErrorMessage);
+                usedProvider = chainEntry.provider;
+                break;
+            } catch (err) {
+                const errorDetail = err instanceof Error ? err.message : String(err);
+                lastError = errorDetail;
+                console.error(`[generateForSign] LLM call failed for ${sign} ${date} (provider=${chainEntry.provider.id}, model=${chainEntry.model}, attempt=${attempt}):`, errorDetail);
 
-                await ctx.runMutation(internal.horoscopes.generateForSign.upsertHoroscope, {
-                    date,
-                    sign,
-                    status: "failed",
-                    errorMessage: `LLM error: ${retryErrorMessage}`,
-                    promptVersion: PROMPT_VERSION,
-                });
-                return;
+                attempt++;
+                if (attempt < RETRY_DELAYS.length) {
+                    // Retry same provider with exponential backoff
+                    // Use attempt - 1 because we already incremented: first retry uses delay[0]
+                    await sleep(RETRY_DELAYS[attempt - 1]);
+                } else {
+                    // Move to next provider in chain
+                    attempt = 0;
+                    providerIndex++;
+                    if (providerIndex < providerChain.length) {
+                        console.log(`[generateForSign] Falling back to provider ${providerChain[providerIndex].provider.id} / ${providerChain[providerIndex].model}`);
+                    }
+                }
             }
+        }
+
+        if (!hasOutput || !rawOutput) {
+            console.error(`[generateForSign] All providers exhausted for ${sign} ${date}`);
+            await ctx.runMutation(internal.horoscopes.generateForSign.upsertHoroscope, {
+                date,
+                sign,
+                status: "failed",
+                errors: [`All providers failed. Last error: ${lastError}`],
+                promptVersion: PROMPT_VERSION,
+            });
+            return;
         }
 
         const generationDurationMs = Date.now() - startTime;
@@ -355,7 +485,7 @@ export const generateForSign = internalAction({
                 date,
                 sign,
                 status: "failed",
-                errorMessage: "Malformed JSON response from LLM",
+                errors: ["Malformed JSON response from LLM"],
                 promptVersion: PROMPT_VERSION,
                 generationDurationMs,
             });
@@ -377,7 +507,7 @@ export const generateForSign = internalAction({
                     date,
                     sign,
                     status: "failed",
-                    errorMessage: `Content validation failed: ${contentValidation.error.message}`,
+                    errors: [`Content validation failed: ${contentValidation.error.message}`],
                     promptVersion: PROMPT_VERSION,
                     generationDurationMs,
                 });
@@ -390,14 +520,21 @@ export const generateForSign = internalAction({
                 recovered.bodyText = recovered.bodyText.slice(0, Math.max(maxBodyLen, 50));
             }
 
+            // Run similarity guard on recovered content
+            const similar = await checkSimilarity(ctx, date, sign, recovered.hook, recovered.bodyText);
+            if (similar) {
+                recovered.bodyText = `${recovered.bodyText} (Additional texture for ${sign} — make it distinct from other signs today.)`;
+            }
+
             await ctx.runMutation(internal.horoscopes.generateForSign.upsertHoroscope, {
                 date,
                 sign,
                 status: "generated",
                 content: recovered,
-                modelUsed,
+                modelUsed: `${usedProvider.id}/${modelUsed}`,
                 promptVersion: PROMPT_VERSION,
                 generationDurationMs,
+                contextSnapshotId: ctxRecord._id,
             });
             console.log(`[generateForSign] Generated ${sign} for ${date} (recovered from malformed output)`);
             return;
@@ -411,20 +548,68 @@ export const generateForSign = internalAction({
             validatedContent.bodyText = validatedContent.bodyText.slice(0, 450 - validatedContent.hook.length);
         }
 
+        // ── Similarity guard ────────────────────────────────────────────────
+        const similar = await checkSimilarity(ctx, date, sign, validatedContent.hook, validatedContent.bodyText);
+        if (similar) {
+            console.warn(`[generateForSign] Similarity guard triggered for ${sign} ${date}`);
+            validatedContent.bodyText = `${validatedContent.bodyText} (Distinct perspective for ${sign})`;
+        }
+
         // ── 7. Write to daily_horoscopes ───────────────────────────────────
         await ctx.runMutation(internal.horoscopes.generateForSign.upsertHoroscope, {
             date,
             sign,
             status: "generated",
             content: validatedContent,
-            modelUsed,
+            modelUsed: `${usedProvider.id}/${modelUsed}`,
             promptVersion: PROMPT_VERSION,
             generationDurationMs,
+            contextSnapshotId: ctxRecord._id,
         });
 
-        console.log(`[generateForSign] Generated ${sign} for ${date} (${generationDurationMs}ms, model=${modelUsed}, chars=${validatedContent.hook.length + validatedContent.bodyText.length})`);
+        console.log(`[generateForSign] Generated ${sign} for ${date} (${generationDurationMs}ms, model=${usedProvider.id}/${modelUsed}, chars=${validatedContent.hook.length + validatedContent.bodyText.length})`);
     },
 });
+
+// ─── Similarity guard helper ────────────────────────────────────────────────
+
+/**
+ * Check whether this sign's content is too similar to already-generated signs.
+ * Returns true if 2+ signs share >60% token overlap.
+ */
+async function checkSimilarity(
+    ctx: any,
+    date: string,
+    sign: string,
+    hook: string,
+    bodyText: string,
+): Promise<boolean> {
+    try {
+        const others = await ctx.runQuery(
+            internal.horoscopes.generateForSign.getGeneratedHoroscopesForDate,
+            { date, excludeSign: sign },
+        );
+        if (!others || others.length === 0) return false;
+
+        const myText = `${hook} ${bodyText}`.toLowerCase().split(/\s+/);
+        const mySet = new Set(myText);
+
+        for (const other of others) {
+            const otherText = `${other.hook ?? ""} ${other.bodyText ?? ""}`.toLowerCase().split(/\s+/);
+            const otherSet = new Set(otherText);
+            const intersection = new Set([...mySet].filter((x) => otherSet.has(x)));
+            const union = new Set([...mySet, ...otherSet]);
+            const overlap = intersection.size / Math.max(union.size, 1);
+            if (overlap > 0.60) {
+                console.warn(`[generateForSign] Similarity overlap ${(overlap * 100).toFixed(1)}% with ${other.sign}`);
+                return true;
+            }
+        }
+        return false;
+    } catch {
+        return false;
+    }
+}
 
 // ─── Recovery helper ───────────────────────────────────────────────────────
 
@@ -446,11 +631,12 @@ function tryRecoverContent(parsed: unknown): z.infer<typeof HoroscopeContentSche
         // If we have hook + bodyText, we're in v2.0 format
         if (hook && bodyText) {
             // Recover domainScores from LLM output or generate defaults
+            // Requires exactly 6 domain scores for consistent UI grid layout
             const rawDomainScores = content?.domainScores ?? data?.domainScores;
             const VALID_DOMAINS = ["Love", "Career", "Family", "Health", "Finance", "Creativity", "Social", "Spirituality"] as const;
             type DomainName = typeof VALID_DOMAINS[number];
             let domainScores: { name: DomainName; score: number }[];
-            if (Array.isArray(rawDomainScores) && rawDomainScores.length >= 4) {
+            if (Array.isArray(rawDomainScores) && rawDomainScores.length > 0) {
                 domainScores = rawDomainScores
                     .filter((d: any) => VALID_DOMAINS.includes(d?.name))
                     .slice(0, 6)
@@ -458,8 +644,8 @@ function tryRecoverContent(parsed: unknown): z.infer<typeof HoroscopeContentSche
                         name: d.name as DomainName,
                         score: Math.min(100, Math.max(0, Math.round(Number(d.score ?? 50)))),
                     }));
-                // Ensure at least 4 scores
-                while (domainScores.length < 4) {
+                // Pad to exactly 6 scores if short
+                while (domainScores.length < 6) {
                     const next = VALID_DOMAINS.find(v => !domainScores.some(ds => ds.name === v));
                     if (next) domainScores.push({ name: next, score: 50 });
                     else break;
@@ -468,7 +654,9 @@ function tryRecoverContent(parsed: unknown): z.infer<typeof HoroscopeContentSche
                 domainScores = [
                     { name: "Love", score: 50 },
                     { name: "Career", score: 50 },
+                    { name: "Family", score: 50 },
                     { name: "Health", score: 50 },
+                    { name: "Finance", score: 50 },
                     { name: "Social", score: 50 },
                 ];
             }
@@ -520,7 +708,9 @@ function tryRecoverContent(parsed: unknown): z.infer<typeof HoroscopeContentSche
                 domainScores: [
                     { name: "Love" as const, score: 50 },
                     { name: "Career" as const, score: 50 },
+                    { name: "Family" as const, score: 50 },
                     { name: "Health" as const, score: 50 },
+                    { name: "Finance" as const, score: 50 },
                     { name: "Social" as const, score: 50 },
                 ],
             };

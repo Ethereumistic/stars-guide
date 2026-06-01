@@ -22,7 +22,10 @@ Element mapping per sign:
 - Water: Cancer, Scorpio, Pisces
 
 Count all planets (including Sun and Moon) in each element. The element with
-the highest count wins. Ties go to "earth" (default).
+the highest count wins. Ties are broken by which element's planet appears
+first in the `planetPositions` array. If no planets exist, defaults to
+"earth". In practice, because the Sun is always first and is frequently in
+Fire or Water, ties rarely result in a predictable default.
 
 **Output:** `"fire"` | `"earth"` | `"air"` | `"water"`
 
@@ -49,6 +52,7 @@ Counts planets currently retrograde:
 
 Additionally, if 2+ retrogrades and Mercury is among them → `"revisiting"`
 If 2+ retrogrades and Mars is among them → `"delayed_action"`
+If 2+ retrogrades and Pluto is among them → `deep_transformation`
 
 **Output:** `"internal"` or `"reflective"` (optional), plus `"revisiting"` / `"delayed_action"`
 
@@ -76,7 +80,7 @@ If any sign has 3+ planets (stellium), adds `"concentrated"`.
 |-----|-----------|
 | Many fire planets, New Moon, 3 retrogrades including Mercury, more hard aspects, stellium in Leo | `"fire, inward, internal, revisiting, intense, concentrated"` |
 | Earth dominant, Full Moon, 1 retrograde, more soft aspects, no stellium | `"earth, outward, reflective, harmonious"` |
-| Air + water tied, Waxing Crescent, 0 retrogrades, balanced aspects, no stellium | `"earth, outward, balanced"` |
+| Air + water tied, Waxing Crescent, 0 retrogrades, balanced aspects, no stellium | Tie result depends on iteration order (see Axis 1 rule) |
 
 ## How the Signature Is Used
 
@@ -104,6 +108,7 @@ const PLANET_THEMES = {
     Saturn:  ["structure", "discipline", "boundary"],
     Uranus:  ["breakthrough", "originality", "disruption"],
     Neptune: ["transcendence", "intuition", "dissolution"],
+    Pluto:   ["transformation", "power", "rebirth"],
 };
 ```
 
@@ -124,3 +129,12 @@ union (deduplicated) of all theme keywords. Example output:
 | Polarity axis | ≥ 2 oppositions | `"polarity_axis"` |
 
 Multiple tokens can be emitted. Example: `["focal_point", "dynamic_tension", "polarity_axis"]`
+
+### Unused: ASPECT_THEME_MODIFIERS
+
+`contextBuilder.ts` defines an `ASPECT_THEME_MODIFIERS` map that can push
+additional theme tokens based on active aspect types (e.g., "fusion",
+"intensity" for conjunctions). This modifier is **currently not used** in
+`buildContext()` — it exists as a future expansion point. The energy
+signature and aspect summary are derived purely from the 5 axes documented
+above.

@@ -97,14 +97,24 @@ function dominantElement(
     positions: CosmicWeatherSnapshot["planetPositions"],
 ): string {
     const byEl = countByElement(positions);
+    // Priority order for deterministic tie-breaking: fire > earth > air > water
+    const ELEMENT_PRIORITY = ["fire", "earth", "air", "water"];
     let dominant = "earth";
-    let max = 0;
-    for (const [el, count] of Object.entries(byEl)) {
-        if (count > max) {
-            max = count;
+    let max = -1;
+
+    // First pass: find the maximum count
+    for (const count of Object.values(byEl)) {
+        if (count > max) max = count;
+    }
+
+    // Second pass: pick the highest-priority element that has the max count
+    for (const el of ELEMENT_PRIORITY) {
+        if ((byEl[el] ?? 0) === max) {
             dominant = el;
+            break;
         }
     }
+
     return ELEMENT_LABELS[dominant] ?? "earth";
 }
 
@@ -132,19 +142,31 @@ function derivePlanetThemes(
 function summariseAspects(
     aspects: CosmicWeatherSnapshot["activeAspects"],
 ): string[] {
-    const summary: string[] = [];
+    const themes = new Map<string, number>();
+    for (const a of aspects) {
+        const modifier = ASPECT_THEME_MODIFIERS[a.aspect];
+        if (modifier) {
+            for (const push of modifier.push) {
+                themes.set(push, (themes.get(push) ?? 0) + modifier.weight);
+            }
+        }
+    }
+
+    // Also include the old hardcoded counts as a baseline
     const counts = { square: 0, opposition: 0, trine: 0, sextile: 0, conjunction: 0 };
     for (const a of aspects) {
         if (a.aspect in counts) counts[a.aspect as keyof typeof counts]++;
     }
+    if (counts.conjunction >= 2) themes.set("focal_point", (themes.get("focal_point") ?? 0) + 1);
+    if (counts.square + counts.opposition >= 3) themes.set("dynamic_tension", (themes.get("dynamic_tension") ?? 0) + 1);
+    if (counts.trine >= 2) themes.set("harmonic_flow", (themes.get("harmonic_flow") ?? 0) + 1);
+    if (counts.sextile >= 2) themes.set("opportunistic", (themes.get("opportunistic") ?? 0) + 1);
+    if (counts.opposition >= 2) themes.set("polarity_axis", (themes.get("polarity_axis") ?? 0) + 1);
 
-    if (counts.conjunction >= 2) summary.push("focal_point");
-    if (counts.square + counts.opposition >= 3) summary.push("dynamic_tension");
-    if (counts.trine >= 2) summary.push("harmonic_flow");
-    if (counts.sextile >= 2) summary.push("opportunistic");
-    if (counts.opposition >= 2) summary.push("polarity_axis");
-
-    return summary;
+    return Array.from(themes.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([theme]) => theme);
 }
 
 function computeRetrogradeIntensity(

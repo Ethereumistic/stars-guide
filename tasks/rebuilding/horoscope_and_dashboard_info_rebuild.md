@@ -332,7 +332,7 @@ convex/
 lib/
   astrology/
     contextBuilder.ts          ← derives dominant_themes, energy_signature, house activations
-    retrogradeCalc.ts          ← retrograde window calculations via astronomy-engine
+    retrogradeCalc.ts          ← retrograde window calculations via astronomy-engine (DELETED 2025-07-24 — logic moved to astronomyEngine.ts)
     signTraits.ts              ← hardcoded per-sign character sketches (used in prompt B)
 ```
 

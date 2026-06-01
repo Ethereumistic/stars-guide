@@ -109,10 +109,13 @@ export function AIModelPicker({
     return providers[0].id;
   }, [providers, providerId]);
 
-  // Auto-select first provider on mount if current one is invalid
+  // Auto-select first provider on mount if current one is invalid.
+  // Only fires once when providers first become available, not on every re-render.
+  const hasAutoSelected = React.useRef(false);
   React.useEffect(() => {
-    if (providers.length > 0 && !providers.find((p) => p.id === providerId)) {
+    if (providers.length > 0 && !providers.find((p) => p.id === providerId) && !hasAutoSelected.current) {
       onProviderChange(providers[0].id);
+      hasAutoSelected.current = true;
     }
   }, [providers]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -136,11 +139,15 @@ export function AIModelPicker({
 
   const modelHasVariants = !!baseMeta?.variants && baseMeta.variants.length > 0;
 
-  // Auto-select first variant when a model with variants is chosen without one
+  // Auto-select first variant when a model with variants is chosen without one.
+  // Only fires when baseId changes to a new valid value (not when cleared to empty).
+  const prevBaseIdRef = React.useRef(baseId);
   React.useEffect(() => {
-    if (baseMeta?.variants && baseMeta.variants.length > 0 && !variant) {
+    // Only auto-select if baseId changed to a new non-empty value with variants
+    if (baseId && baseId !== prevBaseIdRef.current && baseMeta?.variants && baseMeta.variants.length > 0 && !variant) {
       onModelChange(`${baseId}:${baseMeta.variants[0].id}`);
     }
+    prevBaseIdRef.current = baseId;
   }, [baseId, baseMeta, variant]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Handlers ──

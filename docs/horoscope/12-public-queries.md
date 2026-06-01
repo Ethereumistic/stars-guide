@@ -11,6 +11,15 @@ Only horoscopes with `status === "generated"` or `status === "overridden"`
 are exposed to the public. Records that are `"pending"` or `"failed"`
 return `null`. This ensures readers never see placeholder content.
 
+## Content Stripping (Paywall Enforcement)
+
+When a user's tier does not grant access to a horoscope's content, the public queries strip the `content` field from the response rather than omitting the record entirely:
+
+- **`getPublished`** and **`getTodayForSign`** return partial objects with `content: undefined` when the date-based paywall blocks access. The record's metadata (sign, date, status, etc.) is still returned so the frontend can render a paywall prompt with the correct sign and date context.
+- **`getAllSignsForDate`** explicitly sets `content: undefined` for each paywalled entry in the returned array, allowing the frontend to show all 12 sign cards with upgrade prompts rather than hiding unavailable signs.
+
+This ensures the frontend always has enough information to render the paywall UI (sign name, date, required tier) without exposing the actual horoscope text.
+
 ## Date-Based Paywall
 
 Access to past/future horoscopes is gated by user tier:

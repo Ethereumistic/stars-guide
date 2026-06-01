@@ -25,7 +25,7 @@ export async function generateMetadata({
 function parseContentToSections(content: string) {
   // Strip the leading/trailing whitespace and split by section tags
   const sections: { id: string; title: string; content: string }[] = [];
-  const regex = /<section id="([^"]+)">\s*<h2>([^<]+)<\/h2>\s*(.*?)<\/section>/gs;
+  const regex = /<section id="([^"]+)">\s*<h2>([^<]+)<\/h2>\s*([\s\S]*?)<\/section>/g;
   let match;
   while ((match = regex.exec(content)) !== null) {
     sections.push({

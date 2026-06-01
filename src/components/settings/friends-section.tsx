@@ -359,7 +359,7 @@ function ReferralsTab({ referrals, referralLink }: {
     referrals: {
         referrals: Array<{
             referralId: string;
-            status: "pending" | "completed";
+            status: "pending" | "completed" | "milestone_rewarded";
             rewardAmount: number;
             createdAt: number;
             referee: { _id: string; username?: string; image?: string } | null;

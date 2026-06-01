@@ -26,6 +26,19 @@ table's `content` field. The current production format is **v2.0**.
 }
 ```
 
+## Record-Level Metadata (not part of `content`)
+
+These fields live on the `daily_horoscopes` table record itself, not inside the `content` JSON object:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `contextSnapshotId` | optional id | Reference to `daily_astrology_context`. **Reserved/never populated** by current code. |
+| `modelUsed` | optional string | LLM model identifier, e.g. `"gemma3:27b"` |
+| `promptVersion` | optional string | Prompt template version, e.g. `"v2.0"` |
+| `errors` | optional string[] | Error messages if generation failed. **Bug:** previously written as `errorMessage` (string) instead of `errors` (string[]), so this field was never populated. Fixed — see [08-llm-generation.md](./08-llm-generation.md). |
+| `generatedAt` | optional number | `Date.now()` timestamp of successful generation |
+| `generationDurationMs` | optional number | Wall-clock duration of the LLM call in milliseconds |
+
 ## Field Specifications
 
 | Field | Type | Constraints | Description |

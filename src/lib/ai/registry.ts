@@ -513,6 +513,25 @@ export const DEFAULT_PROVIDERS: ProviderConfig[] = [
   },
 ];
 
+/**
+ * Sensible default fallback models per provider type.
+ * Used when no admin-configured fallback exists.
+ * These should be widely available on each provider type and suitable
+ * for structured JSON output tasks (like horoscope generation).
+ */
+export const DEFAULT_FALLBACK_MODELS: Record<ProviderType, string> = {
+  openrouter: "google/gemini-2.5-flash",
+  ollama: "granite4.1:8b",
+  openai_compatible: "google/gemini-2.5-flash",
+};
+
+/**
+ * Get the default fallback model ID for a given provider type.
+ */
+export function getDefaultFallbackModel(providerType: ProviderType): string {
+  return DEFAULT_FALLBACK_MODELS[providerType] ?? "google/gemini-2.5-flash";
+}
+
 // ─── LOOKUP HELPERS ─────────────────────────────────────────────────────────
 
 /**

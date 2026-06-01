@@ -41,6 +41,13 @@ RETROGRADE CONTEXT
   Currently retrograde: Mercury, Saturn
   Recently turned direct: Venus
 
+    RETROGRADE CYCLE POSITIONS (translate into felt experience):
+      Mercury: deepening phase — 35% through retrograde (8d elapsed, 15d remaining of 24d window)
+      Saturn: entering phase — 12% through retrograde (5d elapsed, 35d remaining of 42d window)
+      Venus: aftermath — turned direct 3d ago (shadow period may linger)
+
+    (Clear planets are omitted from cycle positions since they have no retrograde story to tell.)
+
 DOMINANT THEMES
   Themes: identity, vitality, communication, thought, action, expansion, structure
   Dominant element: fire

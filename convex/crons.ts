@@ -21,12 +21,20 @@ crons.daily(
 );
 
 // ─── FELT LANGUAGE ───────────────────────────────────────────────────────
-// Generate felt language from cosmic weather at 00:10 UTC daily
-// (5-minute buffer for the snapshot to be written first).
+// NOTE: Felt language generation from 00:10 UTC is REMOVED as of v2.1.
+// The felt language is now generated on-demand inside computeDailyContext
+// when cosmic weather is missing, and is consumed directly from the
+// cosmicWeather record by generateForSign. The dedicated cron was burning
+// tokens daily with no consumer — deleting it stops wasted LLM calls.
+// (Previously: generate-felt-language at 00:10 UTC)
+
+// ─── DAILY ASTROLOGY CONTEXT PRE-COMPUTE ─────────────────────────────
+// Pre-compute daily_astrology_context at 01:30 UTC so the 02:00
+// horoscope generation window does not cascade on context failures.
 crons.daily(
-    "generate-felt-language",
-    { hourUTC: 0, minuteUTC: 10 },
-    internal.cosmicWeather.dailyFeltLanguageJob,
+    "precompute-daily-context",
+    { hourUTC: 1, minuteUTC: 30 },
+    internal.horoscopes.computeDailyContext.computeDailyContextJob,
 );
 
 // ─── SCHEDULED NOTIFICATIONS ─────────────────────────────────────────────
@@ -55,7 +63,8 @@ crons.daily(
 
 // ─── DAILY HOROSCOPE GENERATION ────────────────────────────────────────
 // Queue all 12 sign generations at 02:00 UTC daily, staggered 30 s apart.
-// The wrapper action calls computeDailyContext first then schedules the jobs.
+// The wrapper action now ASSUMES daily_astrology_context already exists
+// (pre-computed at 01:30). It will still compute on-demand if missing.
 crons.daily(
     "generate-daily-horoscopes",
     { hourUTC: 2, minuteUTC: 0 },

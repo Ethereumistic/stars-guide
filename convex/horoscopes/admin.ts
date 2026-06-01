@@ -153,6 +153,8 @@ export const retryFailedGeneration = action({
     args: {
         date: v.string(),
         sign: v.string(),
+        providerId: v.optional(v.string()),
+        modelId: v.optional(v.string()),
     },
     handler: async (ctx, args): Promise<string> => {
         // Admin check via internal query (actions don't have ctx.db)
@@ -177,10 +179,12 @@ export const retryFailedGeneration = action({
             horoscopeId: record._id,
         });
 
-        // Trigger re-generation via internal action
+        // Trigger re-generation via internal action (passing optional provider/model override)
         await ctx.scheduler.runAfter(0, internal.horoscopes.generateForSign.generateForSign, {
             date: args.date,
             sign: args.sign,
+            providerId: args.providerId ?? undefined,
+            modelId: args.modelId ?? undefined,
         });
 
         return record._id;
@@ -210,14 +214,19 @@ export const recomputeAstrologyContext = action({
  * triggerDailyGeneration — Admin trigger to generate all 12 signs for a date.
  * Computes the astrology context first, then enqueues all 12 sign jobs
  * staggered 30s apart (matching the cron pipeline).
+ * Accepts optional provider/model override.
  */
 export const triggerDailyGeneration = action({
-    args: { date: v.string() },
+    args: {
+        date: v.string(),
+        providerId: v.optional(v.string()),
+        modelId: v.optional(v.string()),
+    },
     handler: async (ctx, args): Promise<void> => {
         // Admin check
         await ctx.runQuery(internal.horoscopes.helpers._checkAdmin, {});
 
-        const { date } = args;
+        const { date, providerId, modelId } = args;
 
         // 1. Ensure fresh astronomical context
         await ctx.runAction(internal.horoscopes.computeDailyContext.computeDailyContext, { date });
@@ -242,7 +251,7 @@ export const triggerDailyGeneration = action({
             await ctx.scheduler.runAt(
                 scheduledAt,
                 internal.horoscopes.generateForSign.generateForSign,
-                { sign, date },
+                { sign, date, providerId: providerId ?? undefined, modelId: modelId ?? undefined },
             );
             await ctx.runMutation(internal.horoscopes.queueDailyGenerations.markQueued, {
                 date,
@@ -256,17 +265,20 @@ export const triggerDailyGeneration = action({
  * triggerGenerationForSigns — Admin trigger to generate horoscopes for
  * specific signs only. If a sign already has a record (even generated),
  * it resets it to pending and re-triggers, effectively overwriting.
+ * Accepts optional provider/model override.
  */
 export const triggerGenerationForSigns = action({
     args: {
         date: v.string(),
         signs: v.array(v.string()),
+        providerId: v.optional(v.string()),
+        modelId: v.optional(v.string()),
     },
     handler: async (ctx, args): Promise<void> => {
         // Admin check
         await ctx.runQuery(internal.horoscopes.helpers._checkAdmin, {});
 
-        const { date, signs } = args;
+        const { date, signs, providerId, modelId } = args;
 
         // Validate signs
         for (const sign of signs) {
@@ -300,7 +312,7 @@ export const triggerGenerationForSigns = action({
             await ctx.scheduler.runAt(
                 scheduledAt,
                 internal.horoscopes.generateForSign.generateForSign,
-                { sign, date },
+                { sign, date, providerId: providerId ?? undefined, modelId: modelId ?? undefined },
             );
         }
     },

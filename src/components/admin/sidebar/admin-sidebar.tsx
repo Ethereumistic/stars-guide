@@ -26,6 +26,7 @@ import {
     Bug,
     Cpu,
     ChevronRight,
+    Camera,
 } from "lucide-react";
 import { GiCursedStar, GiScrollUnfurled, GiStarSwirl } from "react-icons/gi";
 import { SidebarHeaderLayout, SidebarUserFooter } from "@/components/layout/sidebar";
@@ -62,6 +63,10 @@ const moderationNavItems = [
 
 const notificationNavItems = [
     { title: "Notifications", href: "/admin/notifications", icon: Bell },
+];
+
+const mediaNavItems = [
+    { title: "Instagram", href: "/admin/media/instagram", icon: Camera },
 ];
 
 function NavItem({
@@ -225,6 +230,18 @@ export function AdminSidebar({ userEmail, user, onSignOut }: AdminSidebarProps) 
                                 isItemActive={(item) =>
                                     pathname === item.href ||
                                     (item.href !== "/admin/journal" && pathname?.startsWith(item.href))
+                                }
+                            />
+
+                            {/* Media */}
+                            <NavSection
+                                title="Media"
+                                icon={<Camera className="h-4 w-4 text-galactic shrink-0" />}
+                                items={mediaNavItems}
+                                defaultOpen={false}
+                                isItemActive={(item) =>
+                                    pathname === item.href ||
+                                    pathname?.startsWith(item.href)
                                 }
                             />
                         </SidebarMenu>

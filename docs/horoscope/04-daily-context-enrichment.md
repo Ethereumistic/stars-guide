@@ -46,6 +46,7 @@ enrichment layer always works from fresh, identical data.
 - `current`: planets retrograde right now
 - `upcoming`: planets turning retrograde within 30 days
 - `recentDirect`: planets that turned direct within 14 days
+- `planets`: `RetrogradePlanetDetail[]` — rich per-planet data with progress/phase/window info
 
 See [06-retrograde-context.md](./06-retrograde-context.md) for full details.
 
@@ -57,13 +58,12 @@ See [06-retrograde-context.md](./06-retrograde-context.md) for full details.
 1. Start from today at noon UTC
 2. Step forward in 6-hour increments
 3. At each step, check if Moon makes a major aspect (60°/90°/120°/180°) with
-   any tracked planet (Mercury–Neptune, excluding Sun)
+   any tracked planet (Mercury–Pluto, excluding Sun)
 4. Orb threshold: 3°
 5. If the Moon changes signs **before** making any aspect → void-of-course
 6. Returns `{ start, end, inSign, untilSign }` or null
 
-Note: The Sun is excluded because `EclipticLongitude()` throws for it, and
-Sun-Moon aspects (New Moon/Full Moon) are not considered for VoC detection.
+Note: The Sun is excluded because Sun-Moon aspects (New Moon/Full Moon conjunction/opposition) are not considered for VoC detection in traditional astrology. The geocentric method can now compute Sun longitude (`SunPosition(date).elon`), so `EclipticLongitude()` throwing is no longer the reason. Pluto is included with the other planets.
 
 ### Step 5 — Moon Next Ingress
 

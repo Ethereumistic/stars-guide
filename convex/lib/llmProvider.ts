@@ -8,6 +8,11 @@
  * which sends provider-specific parameters to disable or control chain-of-thought.
  */
 
+// Re-export the default fallback model helper from the shared registry
+// so server-side code can import it from llmProvider
+export { getDefaultFallbackModel, DEFAULT_FALLBACK_MODELS } from "../../src/lib/ai/registry";
+export type { ProviderType } from "../../src/lib/ai/registry";
+
 export interface LLMProvider {
   id: string;
   name: string;

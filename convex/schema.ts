@@ -407,6 +407,24 @@ export default defineSchema({
     }).index("by_status", ["status"])
         .index("by_admin", ["adminUserId"]),
 
+    // 8b. RETROGRADE WINDOWS (Cached retrograde window data)
+    retrogradeWindows: defineTable({
+        planet: v.string(),                     // e.g. "Mercury"
+        windowType: v.union(
+            v.literal("current"),                // Active retrograde window
+            v.literal("next"),                   // Next upcoming window
+        ),
+        startDate: v.string(),                  // ISO date string
+        endDate: v.string(),                    // ISO date string
+        totalDays: v.number(),
+        computedForDate: v.string(),            // The date this cache was computed for (YYYY-MM-DD)
+        expiresAt: v.number(),                  // Timestamp when cache should be refreshed
+        generatedAt: v.number(),
+    })
+        .index("by_planet_computedForDate", ["planet", "computedForDate"])
+        .index("by_computedForDate", ["computedForDate"])
+        .index("by_expiresAt", ["expiresAt"]),
+
     // 9. COSMIC WEATHER (Astronomical Data computed daily)
     cosmicWeather: defineTable({
         date: v.string(),                  // "YYYY-MM-DD" UTC primary lookup key

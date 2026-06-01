@@ -229,7 +229,7 @@ function classifyPhase(progressPercent: number, status: RetrogradePlanetDetail["
 
 /**
  * buildRetrogradeContext — Returns the retrograde context for a given UTC
- * date, using day-by-day geocentric scanning.
+ * date. Accepts optional cached window data to avoid day-by-day scanning.
  *
  * Produces rich per-planet detail including:
  *   - Window boundaries (exact start/end dates)
@@ -238,7 +238,16 @@ function classifyPhase(progressPercent: number, status: RetrogradePlanetDetail["
  *   - Upcoming retrogrades within 120 days
  *   - Recently-direct planets within 14 days
  */
-export function buildRetrogradeContext(today: Date): RetrogradeContext {
+export function buildRetrogradeContext(
+    today: Date,
+    cachedWindows?: Array<{
+        planet: string;
+        windowType: "current" | "next";
+        startDate: string;
+        endDate: string;
+        totalDays: number;
+    }>
+): RetrogradeContext {
     const current: string[] = [];
     const upcoming: string[] = [];
     const recentDirect: string[] = [];
@@ -251,6 +260,96 @@ export function buildRetrogradeContext(today: Date): RetrogradeContext {
         const name = PLANET_NAMES[body] || body.toString();
         const currentlyRetro = isRetrograde(body, today);
 
+        // Try cached windows first
+        if (cachedWindows) {
+            const currentWindow = cachedWindows.find(
+                (w) => w.planet === name && w.windowType === "current"
+            );
+            const nextWindow = cachedWindows.find(
+                (w) => w.planet === name && w.windowType === "next"
+            );
+
+            if (currentlyRetro && currentWindow) {
+                current.push(name);
+                const startMs = Date.parse(currentWindow.startDate);
+                const endMs = Date.parse(currentWindow.endDate);
+                const totalDays = currentWindow.totalDays;
+                const daysElapsed = Math.round((today.getTime() - startMs) / 86400000);
+                const daysRemaining = Math.max(0, Math.round((endMs - today.getTime()) / 86400000));
+                const progressPercent = Math.min(100, Math.max(0, Math.round((daysElapsed / totalDays) * 100)));
+                const status: RetrogradePlanetDetail["status"] = "active";
+                const phase = classifyPhase(progressPercent, status);
+
+                planets.push({
+                    planet: name,
+                    status,
+                    startDate: currentWindow.startDate,
+                    endDate: currentWindow.endDate,
+                    totalDays,
+                    daysElapsed,
+                    daysRemaining,
+                    progressPercent,
+                    phase,
+                });
+                continue;
+            }
+
+            if (!currentlyRetro && nextWindow) {
+                const daysUntil = Math.round((Date.parse(nextWindow.startDate) - today.getTime()) / 86400000);
+                const totalDays = nextWindow.totalDays;
+
+                if (daysUntil <= 120) {
+                    upcoming.push(name);
+                    planets.push({
+                        planet: name,
+                        status: "upcoming",
+                        startDate: nextWindow.startDate,
+                        endDate: nextWindow.endDate,
+                        totalDays,
+                        daysElapsed: 0,
+                        daysRemaining: daysUntil,
+                        progressPercent: 0,
+                        phase: "approaching",
+                    });
+                    continue;
+                }
+
+                // Next retrograde is far away; check if recently direct
+                const checkPast = new Date(today.getTime() - recentThresholdMs);
+                const wasRecentlyRetro = isRetrograde(body, checkPast);
+                if (wasRecentlyRetro) {
+                    recentDirect.push(name);
+                    planets.push({
+                        planet: name,
+                        status: "recently_direct",
+                        startDate: nextWindow.startDate,
+                        endDate: nextWindow.endDate,
+                        totalDays,
+                        daysElapsed: totalDays,
+                        daysRemaining: daysUntil,
+                        progressPercent: 100,
+                        phase: "aftermath",
+                    });
+                    continue;
+                }
+
+                // Clear
+                planets.push({
+                    planet: name,
+                    status: "clear",
+                    startDate: nextWindow.startDate,
+                    endDate: nextWindow.endDate,
+                    totalDays,
+                    daysElapsed: 0,
+                    daysRemaining: daysUntil,
+                    progressPercent: 0,
+                    phase: "clear",
+                });
+                continue;
+            }
+        }
+
+        // Fallback to day-by-day scanning if no cache available
         if (currentlyRetro) {
             current.push(name);
 

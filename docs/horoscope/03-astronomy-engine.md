@@ -8,18 +8,18 @@ isolation.
 
 ## Tracked Bodies
 
-9 classical + modern bodies:
+10 classical + modern bodies:
 
 | Body | Method Used | Notes |
 |------|-------------|-------|
 | Sun | `SunPosition(date).elon` | Geocentric ecliptic longitude |
 | Moon | `EclipticGeoMoon(date).lon` | Geocentric ecliptic longitude |
-| Mercury–Neptune | `EclipticLongitude(body, date)` | Heliocentric ≈ geocentric for sign |
+| Mercury–Pluto | `GeoVector(body, date) + Ecliptic()` | True geocentric ecliptic longitude |
 
-> **Important:** `Astronomy.EclipticLongitude()` is heliocentric and throws for
-> the Sun. The Sun and Moon require special geocentric handlers. For the other
-> planets, heliocentric longitude is a close-enough approximation for zodiac
-> sign placement.
+> **Important:** All planets now use `GeoVector() + Ecliptic()` for true geocentric
+> longitude. The previous implementation used `EclipticLongitude()` which returns
+> heliocentric longitude — off by up to 50° for inner planets. Sun and Moon use
+> their dedicated geocentric APIs. Pluto is now included.
 
 ## Longitude → Zodiac Sign
 
@@ -79,14 +79,14 @@ function isRetrograde(body: Astronomy.Body, date: Date): boolean
 
 Sun and Moon are excluded (never retrograde).
 
-Algorithm: Compare geocentric longitude today vs tomorrow.
-- Compute `lonToday` and `lonTomorrow` via `getGeocentricLongitude()`
+Algorithm: Compare geocentric longitude now vs 1 minute from now.
+Uses a 1-minute lookforward window for better station-point resolution.
+The old 24-hour window could miss brief stationary periods at the exact
+retrograde/direct station point.
+
+- Compute `lon` and `lon + 1 minute` via `getGeocentricLongitude()`
 - Handle 360°→0° wrap: if diff > 180°, subtract 360°; if diff < -180°, add 360°
 - If diff < 0, planet moved backward → retrograde
-
-This is a simple but effective heuristic. It may miss very short
-stationary periods at the exact retrograde/direct station point, but
-since positions are sampled at noon, this is rarely a practical issue.
 
 ## Active Aspects
 
@@ -105,7 +105,7 @@ Aspect types detected:
 | Opposition | 180° | ≤ 3° |
 
 Algorithm:
-1. Compute longitude for all 9 tracked bodies
+1. Compute longitude for all 10 tracked bodies
 2. For every pair (i, j) where j > i:
    - Calculate angular difference: `|lon_i - lon_j|`
    - Normalize: if diff > 180°, use `360 - diff`
@@ -138,3 +138,30 @@ type CosmicWeatherSnapshot = {
     activeAspects: { planet1: string; planet2: string; aspect: string; orbDegrees: number }[];
 };
 ```
+
+Since the Pluto fix, `planetPositions` contains 10 entries. The `isRetrograde`
+field applies to 8 retrograde candidates (Mercury–Pluto, excluding Sun and Moon).
+
+## Additional Exports
+
+The following retrograde-related functions and types are also exported from
+`astronomyEngine.ts` (replacing the deleted `retrogradeCalc.ts`):
+
+### Functions
+
+| Export | Signature | Purpose |
+|--------|-----------|--------|
+| `buildRetrogradeContext` | `(today: Date) → RetrogradeContext` | Build full retrograde context with per-planet detail |
+| `findRetrogradeStart` | `(body, fromDate, maxDays=200) → Date \| null` | Scan backward to find retrograde window start |
+| `findRetrogradeEnd` | `(body, fromDate, maxDays=250) → Date \| null` | Scan forward to find retrograde window end |
+| `findNextRetrogradeStart` | `(body, fromDate, maxDays=730) → Date \| null` | Scan forward to find next retrograde start |
+
+### Types
+
+| Export | Description |
+|--------|------------|
+| `RetrogradeContext` | 3-bucket summary (`current`, `upcoming`, `recentDirect`) + rich `planets` array |
+| `RetrogradePlanetDetail` | Per-planet retrograde data: status, window dates, progress, phase |
+
+See [06-retrograde-context.md](./06-retrograde-context.md) for full documentation
+of the retrograde scanning system.

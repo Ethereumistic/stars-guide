@@ -43,13 +43,14 @@ geocentric scanning approach as the frontend's CosmicToday component
 |------|--------|
 | `convex/lib/astronomyEngine.ts` | Rewrote longitude method to geocentric; added Pluto; added `buildRetrogradeContext()` + window scanning functions |
 | `convex/lib/astrology/retrogradeCalc.ts` | **DELETED** — replaced by functions in astronomyEngine.ts |
-| `convex/horoscopes/computeDailyContext.ts` | Changed import from `retrogradeCalc` to `astronomyEngine`; fixed VoC moon to use geocentric + include Pluto |
+| `convex/horoscopes/computeDailyContext.ts` | Changed import from `retrogradeCalc` to `astronomyEngine`; fixed VoC moon to use geocentric `GeoVector()+Ecliptic()` instead of `EclipticLongitude()`; added Pluto to VoC tracked planets |
 | `convex/lib/astrology/contextBuilder.ts` | Added Pluto to `PLANET_THEMES` catalog |
 
 ## Verification
 
 After the fix, backend and frontend produce **identical** results for
-all 8 retrograde candidates:
+all 8 retrograde candidates (the full system tracks 10 bodies but only 8
+can be retrograde — the Sun and Moon never retrograde):
 
 | Planet | Longitude | Sign | Retrograde |
 |--------|-----------|------|------------|

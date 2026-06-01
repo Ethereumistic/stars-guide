@@ -33,10 +33,12 @@ import {
     Sparkles,
     CalendarDays,
     RotateCcw,
+    Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import { zodiacUIConfig } from "@/config/zodiac-ui";
 import { compositionalSigns } from "@/astrology/signs";
+import { AIModelPicker } from "@/components/ai";
 
 const SIGNS = [
     "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
@@ -70,7 +72,33 @@ export default function HoroscopeAdminPage() {
     const horoscopes = useQuery(api.horoscopes.admin.listHoroscopesForDate, { date: selectedDate });
     const failedGens = useQuery(api.horoscopes.admin.getFailedGenerations, {});
 
-    // Mutations & actions
+    // ── Model Selector State ──────────────────────────────────────────────
+    const settings = useQuery(api.oracle.settings.listAllSettings);
+    // Use null for "no local change yet" — distinguish from "" (intentionally cleared)
+    const [localProvider, setLocalProvider] = useState<string | null>(null);
+    const [localModel, setLocalModel] = useState<string | null>(null);
+    const [isSavingModel, setIsSavingModel] = useState(false);
+
+    // Fallback model selector state
+    const [localFallbackProvider, setLocalFallbackProvider] = useState<string | null>(null);
+    const [localFallbackModel, setLocalFallbackModel] = useState<string | null>(null);
+    const [isSavingFallback, setIsSavingFallback] = useState(false);
+
+    // Read persisted horoscope model settings
+    const horoscopeProvider = settings?.find((s: any) => s.key === "horoscope_provider")?.value ?? "";
+    const horoscopeModel = settings?.find((s: any) => s.key === "horoscope_model")?.value ?? "";
+    const horoscopeFallbackProvider = settings?.find((s: any) => s.key === "horoscope_fallback_provider")?.value ?? "";
+    const horoscopeFallbackModel = settings?.find((s: any) => s.key === "horoscope_fallback_model")?.value ?? "";
+
+    // Use local values if user has made changes; otherwise fall back to saved values
+    const providerId = localProvider ?? horoscopeProvider ?? "";
+    const modelId = localModel ?? horoscopeModel ?? "";
+    const fallbackProviderId = localFallbackProvider ?? horoscopeFallbackProvider ?? "";
+    const fallbackModelId = localFallbackModel ?? horoscopeFallbackModel ?? "";
+
+    const updateSetting = useMutation(api.oracle.settings.upsertSetting);
+
+    // ── Mutations & actions ────────────────────────────────────────────────
     const retryMutation = useAction(api.horoscopes.admin.retryFailedGeneration);
     const overrideMutation = useMutation(api.horoscopes.admin.overrideHoroscope);
     const recomputeMutation = useAction(api.horoscopes.admin.recomputeAstrologyContext);
@@ -145,12 +173,14 @@ export default function HoroscopeAdminPage() {
     const handleGenerate = async () => {
         setIsGenerating(true);
         try {
+            const p = (localProvider ?? horoscopeProvider) || undefined;
+            const m = (localModel ?? horoscopeModel) || undefined;
             if (selectedSigns.size > 0 && selectedSigns.size < 12) {
                 const signsArray = Array.from(selectedSigns);
-                await generateSelectedMutation({ date: selectedDate, signs: signsArray });
+                await generateSelectedMutation({ date: selectedDate, signs: signsArray, providerId: p, modelId: m });
                 toast.success(`Generation started for ${signsArray.length} selected sign${signsArray.length > 1 ? "s" : ""} on ${selectedDate}.`);
             } else {
-                await generateAllMutation({ date: selectedDate });
+                await generateAllMutation({ date: selectedDate, providerId: p, modelId: m });
                 toast.success(`Generation started for all 12 signs on ${selectedDate}.`);
             }
         } catch (err) {
@@ -163,7 +193,9 @@ export default function HoroscopeAdminPage() {
     const handleRetry = async (date: string, sign: string) => {
         setRetryingSign(sign);
         try {
-            await retryMutation({ date, sign });
+            const p = (localProvider ?? horoscopeProvider) || undefined;
+            const m = (localModel ?? horoscopeModel) || undefined;
+            await retryMutation({ date, sign, providerId: p, modelId: m });
             toast.success(`Retry scheduled for ${sign}.`);
         } catch (err) {
             toast.error(err instanceof Error ? err.message : "Failed to retry.");
@@ -208,6 +240,77 @@ export default function HoroscopeAdminPage() {
         }
     };
 
+    const handleSaveModel = async () => {
+        if (!providerId || !modelId) {
+            toast.error("Please select both a provider and a model.");
+            return;
+        }
+        setIsSavingModel(true);
+        try {
+            await Promise.all([
+                updateSetting({
+                    key: "horoscope_provider",
+                    value: providerId,
+                    valueType: "string",
+                    label: "Horoscope Provider",
+                    description: "AI provider used for horoscope generation",
+                    group: "model",
+                }),
+                updateSetting({
+                    key: "horoscope_model",
+                    value: modelId,
+                    valueType: "string",
+                    label: "Horoscope Model",
+                    description: "AI model used for horoscope generation",
+                    group: "model",
+                }),
+            ]);
+            // Clear local state so saved values take over
+            setLocalProvider(null);
+            setLocalModel(null);
+            toast.success("Horoscope model settings saved.");
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Failed to save settings.");
+        } finally {
+            setIsSavingModel(false);
+        }
+    };
+
+    const handleSaveFallback = async () => {
+        if (!fallbackProviderId || !fallbackModelId) {
+            toast.error("Please select both a fallback provider and model.");
+            return;
+        }
+        setIsSavingFallback(true);
+        try {
+            await Promise.all([
+                updateSetting({
+                    key: "horoscope_fallback_provider",
+                    value: fallbackProviderId,
+                    valueType: "string",
+                    label: "Horoscope Fallback Provider",
+                    description: "AI provider used when the primary model fails",
+                    group: "model",
+                }),
+                updateSetting({
+                    key: "horoscope_fallback_model",
+                    value: fallbackModelId,
+                    valueType: "string",
+                    label: "Horoscope Fallback Model",
+                    description: "AI model used when the primary model fails",
+                    group: "model",
+                }),
+            ]);
+            setLocalFallbackProvider(null);
+            setLocalFallbackModel(null);
+            toast.success("Horoscope fallback model settings saved.");
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Failed to save fallback settings.");
+        } finally {
+            setIsSavingFallback(false);
+        }
+    };
+
     // ── Status icon renderer ─────────────────────────────────────────────
     const renderStatusIcon = (status: string | undefined) => {
         switch (status) {
@@ -236,6 +339,82 @@ export default function HoroscopeAdminPage() {
             <div>
                 <h1 className="text-3xl font-serif font-bold tracking-tight">Horoscopes</h1>
                 <p className="text-muted-foreground mt-1">Generate, monitor, and override daily horoscopes for all 12 signs.</p>
+            </div>
+
+            {/* Model Selector */}
+            <div className="rounded-lg border border-border/50 bg-card/50 p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-semibold tracking-tight">Generation Model</h2>
+                    {(providerId || modelId) && (
+                        <span className="text-xs text-muted-foreground">
+                            Saved: {horoscopeProvider} / {horoscopeModel}
+                        </span>
+                    )}
+                </div>
+                <div className="flex items-end gap-3 flex-wrap">
+                    <div className="flex-1 min-w-[280px]">
+                        <AIModelPicker
+                            providerId={providerId}
+                            modelId={modelId}
+                            onProviderChange={(id) => { setLocalProvider(id); setLocalModel(""); }}
+                            onModelChange={(id) => setLocalModel(id)}
+                            showProvider={true}
+                            showWarnings={true}
+                            disabled={isSavingModel}
+                            providerSource="oracle_settings"
+                        />
+                    </div>
+                    <Button
+                        size="sm"
+                        onClick={handleSaveModel}
+                        disabled={isSavingModel || !providerId || !modelId}
+                        className="gap-2"
+                    >
+                        {isSavingModel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                        Save
+                    </Button>
+                </div>
+            </div>
+
+            {/* Fallback Model Selector */}
+            <div className="rounded-lg border border-border/50 bg-card/50 p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-semibold tracking-tight">Fallback Model</h2>
+                    {(horoscopeFallbackProvider || horoscopeFallbackModel) && (
+                        <span className="text-xs text-muted-foreground">
+                            Saved: {horoscopeFallbackProvider} / {horoscopeFallbackModel}
+                        </span>
+                    )}
+                </div>
+                <p className="text-xs text-muted-foreground -mt-2">
+                    When the primary model fails after all retries, the system falls back to this model.
+                    If not set, it uses default models based on each provider type (which may not match).
+                </p>
+                <div className="flex items-end gap-3 flex-wrap">
+                    <div className="flex-1 min-w-[280px]">
+                        <AIModelPicker
+                            providerId={fallbackProviderId}
+                            modelId={fallbackModelId}
+                            onProviderChange={(id) => { setLocalFallbackProvider(id); setLocalFallbackModel(""); }}
+                            onModelChange={(id) => setLocalFallbackModel(id)}
+                            showProvider={true}
+                            showWarnings={true}
+                            disabled={isSavingFallback}
+                            providerSource="oracle_settings"
+                            label="Fallback LLM Model"
+                        />
+                    </div>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleSaveFallback}
+                        disabled={isSavingFallback || !fallbackProviderId || !fallbackModelId}
+                        className="gap-2"
+                    >
+                        {isSavingFallback ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                        Save Fallback
+                    </Button>
+                </div>
             </div>
 
             {/* Controls Bar */}

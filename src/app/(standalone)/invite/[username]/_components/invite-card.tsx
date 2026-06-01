@@ -15,7 +15,7 @@ import { compositionalSigns } from "@/astrology/signs";
 import { zodiacUIConfig } from "@/config/zodiac-ui";
 import { planetUIConfig } from "@/config/planet-ui";
 import { elementUIConfig } from "@/config/elements-ui";
-import { Doc } from "../../../../../convex/_generated/dataModel";
+import { Doc } from "@/../convex/_generated/dataModel";
 
 interface InviteCardProps {
     user: Doc<"users">;

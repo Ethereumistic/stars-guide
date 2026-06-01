@@ -14,6 +14,7 @@
  */
 
 import { getSignTrait } from "../lib/astrology/signTraits";
+import { getMoonPhaseFrame } from "../lib/astronomyEngine";
 
 // ─── Version ────────────────────────────────────────────────────────────────
 
@@ -79,6 +80,8 @@ export type DailyAstrologyContext = {
     stelliumSign?: string;
     /** Optional — aspect pattern descriptors */
     aspectSummary?: string[];
+    /** Optional — felt language from cosmic weather */
+    feltLanguage?: string;
 };
 
 export type PromptSections = {
@@ -331,6 +334,12 @@ function buildSectionA(ctx: DailyAstrologyContext): string {
         ? `  Aspect patterns: ${ctx.aspectSummary.join(", ")}`
         : "";
 
+    const moonPhaseFrame = getMoonPhaseFrame(moonPhase.name);
+    const feltLanguageBlock = ctx.feltLanguage
+        ? `COLLECTIVE ENERGY
+  ${ctx.feltLanguage}`
+        : "";
+
     return `SECTION A — ASTRONOMICAL CONTEXT for ${ctx.date}
 ═══════════════════════════════════════════════════════
 ⚠️  This entire section is CONTEXT ONLY. Do NOT repeat any planet names,
@@ -340,6 +349,10 @@ Translate EVERYTHING into felt human experience.
 MOON
   Phase: ${moonPhase.name} ${moonPhase.emoji} (${moonPhase.illumination}% illuminated)
 ${voidLine}${ingressLine}
+
+MOON PHASE FRAME
+${moonPhaseFrame}
+${feltLanguageBlock}
 
 PLANET POSITIONS
 ${planets}
@@ -423,8 +436,12 @@ Respond with ONLY valid JSON. No markdown fences. No commentary. No extra fields
   },
 
   "domainScores": [
-    { "name": "string — one of: Love, Career, Family, Health, Finance, Creativity, Social, Spirituality",
-      "score": "number — 0-100. How positively today's energy supports this domain." }
+    { "name": "Love",      "score": 78 },
+    { "name": "Career",    "score": 62 },
+    { "name": "Family",     "score": 55 },
+    { "name": "Health",    "score": 45 },
+    { "name": "Finance",    "score": 71 },
+    { "name": "Creativity", "score": 83 }
   ]
 }
 
@@ -432,10 +449,10 @@ CHARACTER LIMITS:
   - hook + bodyText combined MUST NOT exceed 450 characters. Count carefully.
   - mantra MUST NOT exceed 12 words.
   - Each dailyPillars value MUST be its specified word range.
-  - domainScores MUST have 4-6 entries. Scores MUST be 0-100 integers.
+  - domainScores MUST have exactly 6 entries. Scores MUST be 0-100 integers.
+  - The 6 entries must be chosen from these 8 domains: Love, Career, Family, Health, Finance, Creativity, Social, Spirituality.
+  - Pick the 6 domains most affected by today's transits for this sign, so the omitted 2 vary by sign and day.
   - Vary scores realistically: not all high, not all low. At least one domain notably different.
-  - Pick domains based on which life areas are most affected by today's transits for this sign.
-  - Never include the same domain set every day — rotate based on the day's astrology.
 
 JARGON BLACKLIST — NEVER include in your output:
   Planet names (Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune, Pluto)

@@ -23,6 +23,7 @@ import {
     Shield,
     Activity,
     BrainCircuit,
+    Camera,
 } from "lucide-react";
 
 const tools = [
@@ -105,6 +106,19 @@ const tools = [
                 icon: Settings,
                 title: "Journal Settings",
                 copy: "Limits, feature toggles, prompt bank, and Oracle integration.",
+            },
+        ],
+    },
+    // Media
+    {
+        section: "Media",
+        icon: <Camera className="h-5 w-5 text-galactic" />,
+        items: [
+            {
+                href: "/admin/media/instagram",
+                icon: Camera,
+                title: "Instagram",
+                copy: "Create and preview Instagram story/post assets for each zodiac sign.",
             },
         ],
     },

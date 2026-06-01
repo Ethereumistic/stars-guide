@@ -40,6 +40,7 @@ generation (at 02:00 UTC or on-demand).
 | `moonNextIngress` | optional object | `{ timestamp, fromSign, toSign }` |
 | `dominantElement` | optional string | "fire" \| "earth" \| "air" \| "water" |
 | `stelliumSign` | optional string | Sign with 3+ planets |
+| `retrogradePlanets` | optional array | `{ planet, status, startDate, endDate, totalDays, daysElapsed, daysRemaining, progressPercent, phase }[]` — Rich per-planet retrograde detail |
 | `aspectSummary` | optional string[] | e.g. `["focal_point", "dynamic_tension"]` |
 | `generatedAt` | number | `Date.now()` audit timestamp |
 
@@ -62,10 +63,10 @@ Final AI-generated horoscope content per sign per date.
 | `generatedAt` | optional number | `Date.now()` when content was successfully generated |
 | `generationDurationMs` | optional number | LLM call duration in milliseconds |
 | `content` | any | v2.0 JSON: `{ hook, bodyText, mantra, dailyPillars, domainScores }` |
-| `contextSnapshotId` | optional id | Reference to `daily_astrology_context` (optional link) |
+| `contextSnapshotId` | optional id | Reference to `daily_astrology_context` (optional link). **Reserved** — never written by current code. |
 | `modelUsed` | optional string | e.g. "gemma3:27b" |
 | `promptVersion` | optional string | e.g. "v2.0" |
-| `errors` | optional string[] | Error messages if generation failed |
+| `errors` | optional string[] | Error messages if generation failed. **Bug:** the `upsertHoroscope` mutation previously wrote `errorMessage` (string) instead of `errors` (string[]), so this field was never populated. This has been fixed. See [08-llm-generation.md](./08-llm-generation.md). |
 
 **Indexes:**
 - `by_date_sign` on `["date", "sign"]` — unique compound index for sign+date lookup
