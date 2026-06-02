@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { buildMetadata } from "@/lib/seo";
 import { buildOgImageUrl } from "@/lib/seo/og";
-import { Hero } from "@/components/hero/hero";
 import { GalacticGlow } from "@/components/hero/galactic-glow";
 import { websiteSchema, organizationSchema } from "@/lib/seo";
 import { JsonLd } from "@/components/seo/json-ld";
@@ -12,11 +11,6 @@ import {
   FeatureShowcase2,
   SocialProof,
 } from "@/components/landing/deferred-sections";
-import { Hero1 } from "@/components/hero/hero1";
-import { Hero2 } from "@/components/hero/hero2";
-import { Hero3 } from "@/components/hero/hero3";
-import { Hero4 } from "@/components/hero/hero4";
-import { Hero5 } from "@/components/hero/hero5";
 import { Hero0 } from "@/components/hero/hero0";
 
 export const metadata: Metadata = buildMetadata({
@@ -34,19 +28,21 @@ export default function Home() {
   return (
     <main className="relative z-10 flex flex-col overflow-x-clip">
       <JsonLd data={websiteSchema() as unknown as Record<string, unknown>} />
-      <JsonLd data={organizationSchema() as unknown as Record<string, unknown>} />
+      <JsonLd
+        data={organizationSchema() as unknown as Record<string, unknown>}
+      />
       {/* Above-the-fold — always eager loaded */}
       <div className="relative">
         <GalacticGlow />
         <Hero0 />
-        <Hero />
+        {/*<Hero />
 
 
         <Hero1 />
         <Hero2 />
         <Hero3 />
         <Hero4 />
-        <Hero5 />
+        <Hero5 />*/}
       </div>
 
       {/* Below-fold sections — content-visibility: auto + dynamic import for faster LCP/INP */}
