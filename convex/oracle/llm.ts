@@ -37,6 +37,12 @@ import type {
 } from "../../lib/oracle/pipelineTypes";
 import type { SynastryPayload } from "../../lib/oracle/pipelineTypes";
 import { ORACLE_SAFETY_RULES } from "../../lib/oracle/safetyRules";
+import {
+  scanResponse,
+  detectRefusal,
+  REFUSAL_RECOVERY_BLOCK,
+  OUTPUT_SAFETY_BLOCK_MESSAGE,
+} from "../../lib/oracle/responseSafety";
 
 const CRISIS_PATTERNS: RegExp[] = [
   /\b(suicide|suicidal)\b/i,
@@ -65,6 +71,13 @@ const CRISIS_PATTERNS: RegExp[] = [
 
 
 const MAX_USER_QUESTION_LENGTH = 2000;
+
+// ─── Per-Tier Timeout Constants (P0 #4: Async Resilient Model Chain) ───────
+// If a provider can't connect in 25s or stops streaming for 15s, move on.
+// This ensures a single hanged provider can't burn the entire action budget.
+const TIER_FETCH_TIMEOUT_MS = 25_000;   // Time to establish a connection
+const STREAM_IDLE_TIMEOUT_MS = 15_000;   // Max time between tokens before abort
+const MAX_REFUSAL_RETRIES = 1;             // Only retry once after a refusal
 
 /** Simple, fast hash for system prompt observability (not cryptographic) */
 function simpleHash(str: string): string {
@@ -529,91 +542,163 @@ export const invokeOracle = action({
       debugModelUsed = `${args.debugModelOverride.providerId}/${args.debugModelOverride.model}`;
     }
 
-    // ── Try provider router first, then fallback chain ──────────────────────
-    const prompt = { systemPrompt, userMessage };
-    let result: Awaited<ReturnType<typeof callProviderStreaming>> = null;
-    let usedProviderId: string | null = null;
-    let usedModel: string | null = null;
-    let usedTier: string | null = null;
+    // ── Build ordered provider attempt list ─────────────────────────────────
+    // Unified ordered list of (entry, provider, tier) for the model chain.
+    // The provider router selects the best entry first; remaining entries follow.
+    const attemptOrder: Array<{ entry: ModelChainEntry; provider: ProviderConfig; tier: string }> = [];
 
-    // Attempt 1: Use the provider router for concurrency-aware selection
+    // Start with provider router's best selection
     const selection = selectProvider(modelChain, providers, primaryPipeline?.modelHint);
 
     if (selection) {
-      usedProviderId = selection.provider.id;
-      usedModel = selection.entry.model;
-      usedTier = selection.tier;
+      attemptOrder.push({
+        entry: selection.entry,
+        provider: selection.provider,
+        tier: selection.tier,
+      });
+    }
+
+    // Add remaining chain entries (skipping the one already selected by the router)
+    for (let i = 0; i < modelChain.length; i++) {
+      const entry = modelChain[i];
+      const provider = providers.find((p: ProviderConfig) => p.id === entry.providerId);
+      if (!provider) continue;
+
+      // Skip if this exact entry was already selected by the router
+      if (selection && entry.providerId === selection.provider.id && entry.model === selection.entry.model) {
+        continue;
+      }
+
+      attemptOrder.push({
+        entry,
+        provider,
+        tier: tierForIndex(i),
+      });
+    }
+
+    // ── Try providers with refusal recovery and output safety scanning ─────
+    const prompt = { systemPrompt, userMessage };
+    let result: Awaited<ReturnType<typeof callProviderStreaming>> | null = null;
+    let usedProviderId: string | null = null;
+    let usedModel: string | null = null;
+    let usedTier: string | null = null;
+    let refusalDetected = false;  // P0 #14: Track if a previous tier refused
+
+    for (let attemptIdx = 0; attemptIdx < attemptOrder.length; attemptIdx++) {
+      const { entry, provider, tier } = attemptOrder[attemptIdx];
+      const isLastAttempt = attemptIdx === attemptOrder.length - 1;
+
+      // Build prompt for this attempt — append refusal recovery block if retrying after a refusal
+      let currentPrompt = prompt;
+      if (refusalDetected) {
+        currentPrompt = {
+          systemPrompt: prompt.systemPrompt + "\n\n" + REFUSAL_RECOVERY_BLOCK,
+          userMessage: prompt.userMessage,
+        };
+      }
 
       try {
-        result = await callProviderStreaming(
+        const attemptResult = await callProviderStreaming(
           ctx,
-          selection.provider,
-          selection.entry.model,
-          prompt,
+          provider,
+          entry.model,
+          currentPrompt,
           llmConfig,
           conversationHistory,
           args.sessionId,
-          selection.tier,
+          tier,
           systemPromptHash,
           { actionStartTime, promptBuildEndTime },
         );
-      } catch (error) {
-        console.error(`Oracle ${selection.provider.id}/${selection.entry.model} failed:`, error);
-      } finally {
-        releaseProvider(selection.provider.id);
-      }
-    }
 
-    // Attempt 2: If router-selected provider failed, try remaining chain entries
-    if (!result) {
-      for (let i = 0; i < modelChain.length; i++) {
-        const entry = modelChain[i];
-
-        // Skip the provider we already tried via the router
-        if (selection && entry.providerId === selection.provider.id && entry.model === selection.entry.model) {
+        if (!attemptResult) {
+          // Provider returned null (fetch error, no content, etc.) — try next
           continue;
         }
 
-        const provider = providers.find((p: ProviderConfig) => p.id === entry.providerId);
-        if (!provider) {
-          console.error(`Oracle: Provider "${entry.providerId}" not found for model "${entry.model}", skipping`);
-          continue;
-        }
+        // ════════════════════════════════════════════════════════════════════
+        // P0 #7: OUTPUT SAFETY SCAN
+        // After every successful response, scan for safety violations.
+        // ════════════════════════════════════════════════════════════════════
+        const safetyResult = scanResponse(attemptResult.contentWithoutTitle, journalContext);
+        if (safetyResult.blocked) {
+          console.error(`[Oracle] OUTPUT SAFETY BLOCK on tier ${tier} (${provider.id}/${entry.model}): ${safetyResult.reason}`);
 
-        const tier = tierForIndex(i);
-
-        // Try concurrency-aware selection for this specific provider
-        const retrySelection = selectProvider([entry], [provider]);
-        if (!retrySelection) {
-          // Provider at capacity — skip
-          continue;
-        }
-
-        try {
-          result = await callProviderStreaming(
-            ctx,
-            provider,
-            entry.model,
-            prompt,
-            llmConfig,
-            conversationHistory,
-            args.sessionId,
-            tier,
-            systemPromptHash,
-            { actionStartTime, promptBuildEndTime },
-          );
-
-          if (result) {
-            usedProviderId = provider.id;
-            usedModel = entry.model;
-            usedTier = tier;
-            break; // finally will release
+          // Delete the LLM response message that was created during streaming
+          if (attemptResult.messageId) {
+            try {
+              await ctx.runMutation(internal.oracle.sessions.deleteMessage, {
+                messageId: attemptResult.messageId,
+              });
+            } catch (e) {
+              console.error("[Oracle] Failed to delete blocked safety message:", e);
+            }
           }
-        } catch (error) {
-          console.error(`Oracle ${provider.id}/${entry.model} (tier ${tier}) failed:`, error);
-        } finally {
-          releaseProvider(provider.id);
+
+          // Persist the safe fallback message and return
+          const safetyFallbackMsg = OUTPUT_SAFETY_BLOCK_MESSAGE;
+          await ctx.runMutation(api.oracle.sessions.addMessage, {
+            sessionId: args.sessionId,
+            role: "assistant",
+            content: safetyFallbackMsg,
+            fallbackTierUsed: "D",
+          });
+          await ctx.runMutation(api.oracle.sessions.updateSessionStatus, {
+            sessionId: args.sessionId,
+            status: "active",
+          });
+
+          return {
+            content: safetyFallbackMsg,
+            modelUsed: "safety_blocked",
+            fallbackTier: "D",
+          };
         }
+
+        // ════════════════════════════════════════════════════════════════════
+        // P0 #14: REFUSAL DETECTION & RETRY
+        // If the model refused a benign question, retry on the next tier
+        // with a refusal-recovery prompt appended.
+        // ════════════════════════════════════════════════════════════════════
+        if (!refusalDetected) {
+          const refusalCheck = detectRefusal(attemptResult.contentWithoutTitle);
+          if (refusalCheck.isRefusal && !hasCrisisSignal && !isLastAttempt) {
+            // Model refused a benign question — retry on next tier with recovery prompt
+            console.warn(`[Oracle] REFUSAL detected (${refusalCheck.confidence} confidence) on tier ${tier} (${provider.id}/${entry.model}). Pattern: ${refusalCheck.matchedPattern}. Retrying with recovery prompt.`);
+            refusalDetected = true;
+
+            // Delete the refusal message so it doesn't appear in conversation history
+            if (attemptResult.messageId) {
+              try {
+                await ctx.runMutation(internal.oracle.sessions.deleteMessage, {
+                  messageId: attemptResult.messageId,
+                });
+              } catch (e) {
+                console.error("[Oracle] Failed to delete refusal message:", e);
+              }
+            }
+
+            // Continue to next provider with refusal recovery prompt
+            continue;
+          } else if (refusalCheck.isRefusal && (hasCrisisSignal || isLastAttempt)) {
+            // Refusal on a crisis question or last provider — accept the refusal
+            console.warn(`[Oracle] REFUSAL detected on tier ${tier} but no retry available or crisis signal present. Accepting refusal.`);
+          }
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // SUCCESS — use this response
+        // ════════════════════════════════════════════════════════════════════
+        result = attemptResult;
+        usedProviderId = provider.id;
+        usedModel = entry.model;
+        usedTier = tier;
+        break;
+
+      } catch (error) {
+        console.error(`Oracle ${provider.id}/${entry.model} (tier ${tier}) failed:`, error);
+      } finally {
+        releaseProvider(provider.id);
       }
     }
 
@@ -820,7 +905,7 @@ async function callProviderStreaming(
   let response: Response;
   const fetchStartTime = Date.now();
   const fetchController = new AbortController();
-  const fetchTimeoutId = setTimeout(() => fetchController.abort(), 120_000);
+  const fetchTimeoutId = setTimeout(() => fetchController.abort(), TIER_FETCH_TIMEOUT_MS);
   try {
     response = await fetch(url, {
       method: "POST",
@@ -831,7 +916,7 @@ async function callProviderStreaming(
   } catch (error: any) {
     clearTimeout(fetchTimeoutId);
     if (error?.name === "AbortError") {
-      console.error(`Oracle ${provider.id}/${model} fetch timed out after 120s`);
+      console.error(`Oracle ${provider.id}/${model} fetch timed out after ${TIER_FETCH_TIMEOUT_MS / 1000}s`);
     } else {
       console.error(`Oracle ${provider.id}/${model} fetch failed:`, error);
     }
@@ -940,11 +1025,43 @@ async function callProviderStreaming(
   let firstTokenTime: number | undefined;
   let initialDecodeTime: number | undefined;
   let buffer = "";
+  // Track last token time for stream idle timeout (P0 #4)
+  // If no token received for STREAM_IDLE_TIMEOUT_MS, abort the stream
+  let lastTokenTime = Date.now();
+  // Abort controller for the stream idle timeout
+  const streamAbortController = new AbortController();
+  const streamIdleTimeoutId = setTimeout(() => {
+    if (!fullContent) {
+      console.error(`Oracle ${provider.id}/${model}: stream idle for ${STREAM_IDLE_TIMEOUT_MS / 1000}s with no content — aborting`);
+      streamAbortController.abort();
+    }
+  }, STREAM_IDLE_TIMEOUT_MS);
+
+  // Periodic check for stream idle timeout
+  const streamIdleCheckInterval = setInterval(() => {
+    const now = Date.now();
+    if (now - lastTokenTime > STREAM_IDLE_TIMEOUT_MS) {
+      if (fullContent.length < 50) {
+        // Very little content and idle for too long — abort
+        console.error(`Oracle ${provider.id}/${model}: stream idle for ${(now - lastTokenTime) / 1000}s with only ${fullContent.length} chars — aborting`);
+        streamAbortController.abort();
+      }
+      // If we have substantial content but the stream stalled, we'll let it finish with what we have
+      // The finalize step below will handle partial content gracefully.
+    }
+  }, 5_000); // Check every 5 seconds
+
 
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) {
+        break;
+      }
+
+      // Check if stream was aborted due to idle timeout (P0 #4)
+      if (streamAbortController.signal.aborted) {
+        console.warn(`Oracle ${provider.id}/${model}: stream aborted due to idle timeout`);
         break;
       }
 
@@ -968,6 +1085,7 @@ async function callProviderStreaming(
           const token = parsed.choices?.[0]?.delta?.content;
           if (token) {
             fullContent += token;
+            lastTokenTime = Date.now(); // Track for stream idle timeout (P0 #4)
             // Track timing: first token received
             if (firstTokenTime === undefined) {
               firstTokenTime = Date.now();
@@ -1026,6 +1144,10 @@ async function callProviderStreaming(
       });
     }
   } catch (error) {
+    // Clear stream idle timers on error
+    clearTimeout(streamIdleTimeoutId);
+    clearInterval(streamIdleCheckInterval);
+
     console.error(`Oracle ${provider.id}/${model} stream read error:`, error);
     if (!fullContent) {
       const recoveryText = "The cosmic channels wavered. Please try again. ->";
@@ -1043,6 +1165,10 @@ async function callProviderStreaming(
       return null;
     }
   }
+
+  // Clear stream idle timers — no longer needed after streaming completes
+  clearTimeout(streamIdleTimeoutId);
+  clearInterval(streamIdleCheckInterval);
 
   if (!fullContent) {
     const emptyText = "The stars fell silent. Please try again. ->";

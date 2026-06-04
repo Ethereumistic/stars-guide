@@ -14,9 +14,9 @@
 | 04 | [Prompt Assembly Pipeline](./04-prompt-assembly-pipeline.md) | Pipeline-driven prompt composition, system/user blocks, history, sanitization |
 | 05 | [Model Chain & Providers](./05-model-chain-providers.md) | Multi-provider fallback chain, request construction, API key resolution |
 | 06 | [Streaming Architecture](./06-streaming-architecture.md) | SSE streaming, flush intervals, Convex mutations, timing instrumentation |
-| 07 | [Safety & Crisis Detection](./07-safety-crisis-detection.md) | Hardcoded safety rules, crisis keywords, kill switch, input validation, sanitization |
+| 07 | [Safety & Crisis Detection](./07-safety-crisis-detection.md) | Hardcoded safety rules, crisis keywords, kill switch, input/output safety, sanitization |
 | 08 | [Session Management](./08-session-management.md) | Session lifecycle, CRUD operations, legacy migration |
-| 09 | [Quota System](./09-quota-system.md) | Per-role quotas, lifetime vs rolling, increment-on-success-only |
+| 09 | [Quota System](./09-quota-system.md) | Cost-based rate limiting, microdollar budgets, burst + weekly windows |
 | 10 | [Feature System](./10-feature-system.md) | Seven features, selection flow, injection mechanism, default prompts |
 | 11 | [Birth Context Injection](./11-birth-context-injection.md) | Universal birth data, depth instructions, data-vs-instructions separation |
 | 12 | [Journal Context Injection](./12-journal-context-injection.md) | Consent-gated journal context, budgets, Cosmic Recall, journal prompts |
@@ -27,6 +27,9 @@
 | 17 | [Session Title Generation](./17-session-title-generation.md) | TITLE: parsing, fallback derivation |
 | 18 | [Design Decisions](./18-design-decisions.md) | Sixteen key trade-offs and their rationale |
 | 19 | [Debug Panel](./19-debug-panel.md) | Admin observability, model override, timing metrics, token counters |
+| 20 | [Resilient Model Chain](./20-resilient-model-chain.md) | Per-tier timeouts, stream idle detection, unified attempt loop |
+| 21 | [Output Safety Scanner](./21-output-safety-scanner.md) | Post-LLM regex scanner — medical advice, self-harm, journal leaks, identity leaks |
+| 22 | [Refusal Detection & Retry](./22-refusal-detection-retry.md) | Detect model refusals on benign questions, retry on next tier with recovery prompt |
 
 ---
 
@@ -66,6 +69,14 @@
 │  │  14. Build prompt blocks ──────▶ [4-Prompt] merge all pipeline blk │  │
 │  │  15. Append debug model override ▶ [19-Debug] prepend to chain      │  │
 │  │  16. Iterate model chain ──────▶ [5-ModelChain] Tier A→B→C→D        │  │
+│  │     │  For each tier:                                            │  │
+│  │     │  16a. callProviderStreaming with per-tier timeout ──▶ [20]    │  │
+│  │     │  16b. If success: output safety scan ──▶ [21-Safety]        │  │
+│  │     │  16c. If blocked: delete message, return fallback           │  │
+│  │     │  16d. Refusal detection ──▶ [22-Refusal]                     │  │
+│  │     │  16e. If refusal + benign: delete message, retry w/ recovery│  │
+│  │     │  16f. If refusal + crisis/last tier: accept refusal          │  │
+│  │     │  16g. If all tiers fail: return hardcoded fallback (Tier D) │  │
 │  │  17. Stream response ──────────▶ [6-Streaming] SSE → Convex → UI   │  │
 │  │  18. Parse title ──────────────▶ [17-Title] update session.title    │  │
 │  │  19. Parse journal prompt ─────▶ [12-Journal] store on message     │  │
@@ -80,7 +91,13 @@
 │  │ sessions.ts  │ │  quota.ts     │ │ settings.ts  │ │ debug.ts     │     │
 │  │ CRUD +       │ │  checkQuota  │ │  read/write  │ │  providers   │     │
 │  │ streaming    │ │  increment   │ │  settings     │ │  list query  │     │
+│  │ deleteMsg    │ │              │ │              │ │              │     │
 │  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘     │
+│  ┌──────────────────────┐ ┌───────────────────────┐                       │
+│  │ responseSafety.ts   │ │ providerRouter.ts     │                       │
+│  │ scanResponse()       │ │ selectProvider()      │                       │
+│  │ detectRefusal()      │ │ releaseProvider()     │                       │
+│  └──────────────────────┘ └───────────────────────┘                       │
 └────────────────────────────────────────────────────────────────────────────┘
                            │ fetch (OpenAI-compatible API)
 ┌──────────────────────────▼──────────────────────────────────────────────┐

@@ -380,6 +380,28 @@ export const patchMessageBinauralParams = internalMutation({
     },
 });
 
+/** Delete an oracle message and decrement the session message count. Used for cleaning up refusal messages during tier retry. */
+export const deleteMessage = internalMutation({
+    args: {
+        messageId: v.id("oracle_messages"),
+    },
+    handler: async (ctx, { messageId }) => {
+        const msg = await ctx.db.get(messageId);
+        if (!msg) return;
+
+        // Decrement session message count
+        const session = await ctx.db.get(msg.sessionId);
+        if (session) {
+            await ctx.db.patch(msg.sessionId, {
+                messageCount: Math.max(0, session.messageCount - 1),
+                updatedAt: Date.now(),
+            });
+        }
+
+        await ctx.db.delete(messageId);
+    },
+});
+
 /** Patch the cost (in microdollars) onto an oracle message after LLM response. */
 export const patchMessageCost = internalMutation({
     args: {

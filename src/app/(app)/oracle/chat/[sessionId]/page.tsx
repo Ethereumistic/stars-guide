@@ -710,7 +710,7 @@ export default function OracleChatPage() {
                                         /* User message */
                                         <div className="flex justify-end">
                                             <div className="max-w-[80%] bg-primary/15 border border-primary/20 rounded-2xl rounded-br-md px-5 py-3.5">
-                                                <p className="text-sm md:text-base text-white/90 leading-relaxed">
+                                                <p className="text-sm md:text-base text-white/90 leading-relaxed break-words">
                                                     {msg.content}
                                                 </p>
                                             </div>

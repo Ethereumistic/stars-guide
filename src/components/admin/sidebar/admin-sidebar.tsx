@@ -52,6 +52,7 @@ const oracleNavItems = [
     { title: "Oracle Overview", href: "/admin/oracle", icon: LayoutDashboard },
     { title: "Settings", href: "/admin/oracle/settings", icon: Settings },
     { title: "Debug Live", href: "/admin/oracle/debug", icon: Bug },
+    { title: "Safety Scanner", href: "/admin/oracle/safety", icon: Shield },
 ];
 
 const journalNavItems = [
