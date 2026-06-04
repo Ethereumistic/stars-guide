@@ -79,6 +79,13 @@ crons.daily(
     internal.email.crons.refreshEmailSegments,
 );
 
+// Compute engagement status at 00:15 UTC daily (after midnight, before horoscope precompute)
+crons.daily(
+    "compute-engagement-status",
+    { hourUTC: 0, minuteUTC: 15 },
+    internal.users.crons.computeEngagementStatus,
+);
+
 // Send daily horoscope emails at 06:00 UTC
 crons.daily(
     "send-daily-horoscope-emails",

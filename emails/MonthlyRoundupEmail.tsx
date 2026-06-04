@@ -20,6 +20,7 @@ interface MonthlyRoundupEmailProps {
     sign: string;
     highlights: string[];
     nextMonthPreview: string;
+    unsubToken?: string;
 }
 
 export function MonthlyRoundupEmail({
@@ -28,6 +29,7 @@ export function MonthlyRoundupEmail({
     sign,
     highlights,
     nextMonthPreview,
+    unsubToken,
 }: MonthlyRoundupEmailProps) {
     return (
         <Html>
@@ -134,7 +136,7 @@ export function MonthlyRoundupEmail({
                                 Manage email preferences
                             </Link>
                             {" · "}
-                            <Link href="https://stars.guide/unsubscribe?email={{email}}" style={{ color: theme.colors.textMuted, textDecoration: "underline" }}>
+                            <Link href={unsubToken ? `https://stars.guide/unsubscribe?token=${unsubToken}` : "https://stars.guide/settings/emails"} style={{ color: theme.colors.textMuted, textDecoration: "underline" }}>
                                 Unsubscribe
                             </Link>
                         </Text>

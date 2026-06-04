@@ -27,6 +27,8 @@ import {
     Cpu,
     ChevronRight,
     Camera,
+    Users,
+    Mail,
 } from "lucide-react";
 import { GiCursedStar, GiScrollUnfurled, GiStarSwirl } from "react-icons/gi";
 import { SidebarHeaderLayout, SidebarUserFooter } from "@/components/layout/sidebar";
@@ -63,6 +65,14 @@ const moderationNavItems = [
 
 const notificationNavItems = [
     { title: "Notifications", href: "/admin/notifications", icon: Bell },
+];
+
+const usersNavItems = [
+    { title: "Users", href: "/admin/users", icon: Users },
+];
+
+const emailsNavItems = [
+    { title: "Emails", href: "/admin/emails", icon: Mail },
 ];
 
 const mediaNavItems = [
@@ -273,6 +283,24 @@ export function AdminSidebar({ userEmail, user, onSignOut }: AdminSidebarProps) 
                                 items={notificationNavItems}
                                 defaultOpen={false}
                                 isItemActive={(item) => pathname === item.href}
+                            />
+
+                            {/* Users */}
+                            <NavSection
+                                title="Users"
+                                icon={<Users className="h-4 w-4 text-galactic shrink-0" />}
+                                items={usersNavItems}
+                                defaultOpen={false}
+                                isItemActive={(item) => pathname === item.href || pathname?.startsWith("/admin/users")}
+                            />
+
+                            {/* Emails */}
+                            <NavSection
+                                title="Emails"
+                                icon={<Mail className="h-4 w-4 text-galactic shrink-0" />}
+                                items={emailsNavItems}
+                                defaultOpen={false}
+                                isItemActive={(item) => pathname === item.href || pathname?.startsWith("/admin/emails")}
                             />
                         </SidebarMenu>
                     </SidebarGroupContent>

@@ -17,9 +17,10 @@ import { theme, baseStyles } from "./theme";
 interface ReengagementEmailProps {
     sign: string;
     daysAway: number;
+    unsubToken?: string;
 }
 
-export function ReengagementEmail({ sign, daysAway }: ReengagementEmailProps) {
+export function ReengagementEmail({ sign, daysAway, unsubToken }: ReengagementEmailProps) {
     return (
         <Html>
             <Head />
@@ -93,7 +94,7 @@ export function ReengagementEmail({ sign, daysAway }: ReengagementEmailProps) {
                     <Text style={{ fontSize: "14px", color: theme.colors.textFaint, textAlign: "center", lineHeight: "1.6" }}>
                         If you'd rather not hear from us, we understand.
                         {" "}
-                        <Link href="https://stars.guide/unsubscribe?email={{email}}" style={{ color: theme.colors.textMuted, textDecoration: "underline" }}>
+                        <Link href={unsubToken ? `https://stars.guide/unsubscribe?token=${unsubToken}` : "https://stars.guide/settings/emails"} style={{ color: theme.colors.textMuted, textDecoration: "underline" }}>
                             Unsubscribe
                         </Link>
                         {" · "}

@@ -21,6 +21,7 @@ interface DailyHoroscopeEmailProps {
     luckyNumber: number;
     element: string;
     date: string;
+    unsubToken?: string;
 }
 
 export function DailyHoroscopeEmail({
@@ -30,6 +31,7 @@ export function DailyHoroscopeEmail({
     luckyNumber,
     element,
     date,
+    unsubToken,
 }: DailyHoroscopeEmailProps) {
     const formattedDate = new Date(date).toLocaleDateString("en-US", {
         weekday: "long",
@@ -137,7 +139,7 @@ export function DailyHoroscopeEmail({
                                 Manage email preferences
                             </Link>
                             {" · "}
-                            <Link href="https://stars.guide/unsubscribe?email={{email}}" style={{ color: theme.colors.textMuted, textDecoration: "underline" }}>
+                            <Link href={unsubToken ? `https://stars.guide/unsubscribe?token=${unsubToken}` : "https://stars.guide/settings/emails"} style={{ color: theme.colors.textMuted, textDecoration: "underline" }}>
                                 Unsubscribe
                             </Link>
                         </Text>

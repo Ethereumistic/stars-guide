@@ -18,9 +18,10 @@ import { theme, baseStyles } from "./theme";
 interface WelcomeEmailProps {
     userName?: string;
     sign: string;
+    unsubToken?: string;
 }
 
-export function WelcomeEmail({ userName, sign }: WelcomeEmailProps) {
+export function WelcomeEmail({ userName, sign, unsubToken }: WelcomeEmailProps) {
     return (
         <Html>
             <Head />
@@ -135,7 +136,7 @@ export function WelcomeEmail({ userName, sign }: WelcomeEmailProps) {
                             </Link>
                             {" · "}
                             <Link
-                                href="https://stars.guide/unsubscribe?email={{email}}"
+                                href={unsubToken ? `https://stars.guide/unsubscribe?token=${unsubToken}` : "https://stars.guide/settings/emails"}
                                 style={{ color: theme.colors.textMuted, textDecoration: "underline" }}
                             >
                                 Unsubscribe

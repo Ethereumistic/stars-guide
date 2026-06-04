@@ -22,7 +22,12 @@ import type * as email_leads from "../email/leads.js";
 import type * as email_lib from "../email/lib.js";
 import type * as email_queries from "../email/queries.js";
 import type * as email_sender from "../email/sender.js";
+import type * as email_unsubscribe from "../email/unsubscribe.js";
+import type * as email_unsubscribeActions from "../email/unsubscribeActions.js";
+import type * as email_unsubscribeHttp from "../email/unsubscribeHttp.js";
 import type * as email_webhooks from "../email/webhooks.js";
+import type * as emails_admin from "../emails/admin.js";
+import type * as emails_templateRenderer from "../emails/templateRenderer.js";
 import type * as files from "../files.js";
 import type * as friends from "../friends.js";
 import type * as hooks from "../hooks.js";
@@ -71,6 +76,9 @@ import type * as oracle_upsertProviders from "../oracle/upsertProviders.js";
 import type * as referrals from "../referrals.js";
 import type * as usernameModeration from "../usernameModeration.js";
 import type * as users from "../users.js";
+import type * as users_activity from "../users/activity.js";
+import type * as users_admin from "../users/admin.js";
+import type * as users_crons from "../users/crons.js";
 
 import type {
   ApiFromModules,
@@ -93,7 +101,12 @@ declare const fullApi: ApiFromModules<{
   "email/lib": typeof email_lib;
   "email/queries": typeof email_queries;
   "email/sender": typeof email_sender;
+  "email/unsubscribe": typeof email_unsubscribe;
+  "email/unsubscribeActions": typeof email_unsubscribeActions;
+  "email/unsubscribeHttp": typeof email_unsubscribeHttp;
   "email/webhooks": typeof email_webhooks;
+  "emails/admin": typeof emails_admin;
+  "emails/templateRenderer": typeof emails_templateRenderer;
   files: typeof files;
   friends: typeof friends;
   hooks: typeof hooks;
@@ -142,6 +155,9 @@ declare const fullApi: ApiFromModules<{
   referrals: typeof referrals;
   usernameModeration: typeof usernameModeration;
   users: typeof users;
+  "users/activity": typeof users_activity;
+  "users/admin": typeof users_admin;
+  "users/crons": typeof users_crons;
 }>;
 
 /**

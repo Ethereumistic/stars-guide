@@ -24,6 +24,8 @@ import {
     Activity,
     BrainCircuit,
     Camera,
+    Users,
+    Mail,
 } from "lucide-react";
 
 const tools = [
@@ -138,6 +140,25 @@ const tools = [
                 icon: Bell,
                 title: "Notifications",
                 copy: "Compose, schedule, and broadcast notifications to users.",
+            },
+        ],
+    },
+    // User Management
+    {
+        section: "User & Email Operations",
+        icon: <Users className="h-5 w-5 text-galactic" />,
+        items: [
+            {
+                href: "/admin/users",
+                icon: Users,
+                title: "User Management",
+                copy: "Browse, search, filter, and manage all registered users. Send emails, view activity, edit statuses.",
+            },
+            {
+                href: "/admin/emails",
+                icon: Mail,
+                title: "Email Operations",
+                copy: "Campaigns, delivery tracking, SMTP health, templates, leads, and manual email sends.",
             },
         ],
     },

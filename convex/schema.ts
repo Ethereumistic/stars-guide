@@ -41,7 +41,8 @@ export default defineSchema({
         role: v.union(
             v.literal("user"),
             v.literal("admin"),
-            v.literal("moderator")
+            v.literal("moderator"),
+            v.literal("banned"),     // Cannot sign in, data preserved for audit
         ),
 
         // User Settings (Privacy & Notifications)
@@ -54,6 +55,30 @@ export default defineSchema({
         // Kept as optional(v.any()) here temporarily so existing docs pass schema validation.
         // After running migrateSettings, this field can be removed entirely.
         featureFlags: v.optional(v.any()),
+
+        // ─── Email Deliverability State ───
+        emailStatus: v.optional(v.union(
+            v.literal("active"),       // Receiving emails normally
+            v.literal("bounced"),      // Hard bounce detected — stop sending
+            v.literal("complained"),   // Marked spam — stop sending
+            v.literal("unsubscribed"), // User opted out of marketing emails
+            v.literal("blocked"),       // Admin manually blocked
+        )),
+
+        // ─── Engagement / Lifecycle State ───
+        engagementStatus: v.optional(v.union(
+            v.literal("new"),       // 0–7 days since signup
+            v.literal("active"),    // Engaged within last 14 days
+            v.literal("dormant"),   // No activity for 14–60 days
+            v.literal("churned"),   // No activity for >60 days
+        )),
+
+        // ─── Activity Tracking ───
+        lastActiveAt: v.optional(v.number()),   // Unix ms — updated on meaningful activity
+        lastLoginAt: v.optional(v.number()),    // Unix ms — updated on every auth session
+
+        // ─── Soft Delete ───
+        deletedAt: v.optional(v.number()),      // Unix ms — set on account deletion request
 
         // User Preferences
         preferences: v.optional(v.object({
@@ -136,7 +161,10 @@ export default defineSchema({
         .index("by_subscription_status", ["subscriptionStatus"]) // Vital for Daily Cron Jobs
         .index("by_phone", ["phone"])
         .index("by_tier", ["tier"])
-        .index("by_role", ["role"]),
+        .index("by_role", ["role"])
+        .index("by_email_status", ["emailStatus"])
+        .index("by_engagement_status", ["engagementStatus"])
+        .index("by_last_active", ["lastActiveAt"]),
 
     // 3.5 FRIENDSHIPS (Symmetric bidirectional friend relationships)
     friendships: defineTable({
@@ -998,6 +1026,18 @@ export default defineSchema({
         )),
         createdAt: v.number(),
         updatedAt: v.number(),
+
+        // ─── Expanded Fields ───
+        unsubscribedAt: v.optional(v.number()),      // When user opted out
+        unsubscribeReason: v.optional(v.string()),   // Optional free-text reason
+        disabledTypes: v.optional(v.array(v.union(   // Granular type opt-outs
+            v.literal("welcome"),
+            v.literal("daily_horoscope"),
+            v.literal("weekly_cosmic"),
+            v.literal("monthly_roundup"),
+            v.literal("reengagement"),
+            v.literal("admin_broadcast"),
+        ))),
     })
         .index("by_userId", ["userId"]),
 
@@ -1007,10 +1047,11 @@ export default defineSchema({
         description: v.optional(v.string()),
         criteria: v.object({
             tier: v.optional(v.union(v.literal("free"), v.literal("popular"), v.literal("premium"))),
-            engagement: v.optional(v.union(v.literal("active"), v.literal("dormant"))),
+            engagement: v.optional(v.union(v.literal("new"), v.literal("active"), v.literal("dormant"), v.literal("churned"))),
             daysInactive: v.optional(v.number()),
             sign: v.optional(v.string()),
             hasEmailPref: v.optional(v.boolean()),
+            emailStatus: v.optional(v.union(v.literal("active"), v.literal("bounced"), v.literal("unsubscribed"))),
         }),
         count: v.number(),
         updatedAt: v.number(),
@@ -1029,7 +1070,9 @@ export default defineSchema({
         ),
         status: v.union(
             v.literal("draft"),
+            v.literal("scheduled"),
             v.literal("active"),
+            v.literal("sending"),
             v.literal("paused"),
             v.literal("completed"),
         ),
@@ -1045,7 +1088,38 @@ export default defineSchema({
         createdBy: v.id("users"),
         createdAt: v.number(),
         updatedAt: v.number(),
-    }),
+
+        // ─── Expanded Content Fields ───
+        htmlContent: v.optional(v.string()),           // For custom HTML campaigns
+        reactEmailTemplate: v.optional(v.string()),   // Template name: "WelcomeEmail" | "ReengagementEmail" | etc.
+        campaignData: v.optional(v.string()),           // JSON string of template props
+
+        // ─── Targeting ───
+        targetType: v.optional(v.union(
+            v.literal("all_users"),
+            v.literal("by_tier"),
+            v.literal("by_engagement"),
+            v.literal("by_email_status"),
+            v.literal("by_segment"),
+            v.literal("specific_emails"),
+        )),
+        targetFilter: v.optional(v.string()),          // Tier value, engagement value, segment name, etc.
+        targetEmails: v.optional(v.array(v.string())), // For specific_emails mode
+
+        // ─── Delivery Stats ───
+        sentCount: v.optional(v.number()),
+        readCount: v.optional(v.number()),
+        deliveredCount: v.optional(v.number()),
+        bouncedCount: v.optional(v.number()),
+        failedCount: v.optional(v.number()),
+        openedCount: v.optional(v.number()),
+        clickedCount: v.optional(v.number()),
+
+        // ─── Metadata ───
+        sentBy: v.optional(v.id("users")),              // Admin who triggered send
+    })
+        .index("by_type", ["type"])
+        .index("by_status_created", ["status", "createdAt"]),
 
     // 28. EMAIL DELIVERIES — Per-email delivery tracking
     emailDeliveries: defineTable({
@@ -1071,12 +1145,24 @@ export default defineSchema({
         clickedAt: v.optional(v.number()),
         bouncedAt: v.optional(v.number()),
         unsubscribedAt: v.optional(v.number()),
+
+        // ─── Expanded Fields ───
+        subject: v.optional(v.string()),               // What was the email subject?
+        htmlPreview: v.optional(v.string()),           // Truncated HTML snippet for admin preview
+        channel: v.optional(v.union(                  // Which SMTP identity was used
+            v.literal("transactional"),
+            v.literal("marketing"),
+        )),
+        errorMessage: v.optional(v.string()),          // SMTP error text on failure
+        errorCode: v.optional(v.string()),            // e.g. "EAUTH", "ECONNREFUSED"
     })
         .index("by_campaign", ["campaignId"])
         .index("by_user", ["userId"])
         .index("by_lead", ["leadId"])
         .index("by_messageId", ["messageId"])
-        .index("by_status", ["status"]),
+        .index("by_status", ["status"])
+        .index("by_channel", ["channel"])
+        .index("by_email_status", ["email", "status"]),
 
 });
 

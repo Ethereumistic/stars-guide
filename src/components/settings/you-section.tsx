@@ -298,13 +298,20 @@ export function YouSection({ user, delay = 0 }: YouSectionProps) {
 
             {/* Contact Info */}
             <div className="space-y-4">
-                {/* Email - Read only */}
+                {/* Email with link to preferences */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Mail className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm text-muted-foreground">Email</span>
                     </div>
-                    <span className="text-sm font-medium">{user.email || 'Not set'}</span>
+                    <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium">{user.email || 'Not set'}</span>
+                        {user.email && (
+                            <a href="/settings/emails" className="text-[10px] text-primary hover:underline font-mono uppercase tracking-wider">
+                                Preferences
+                            </a>
+                        )}
+                    </div>
                 </div>
 
                 {/* Phone - Editable */}

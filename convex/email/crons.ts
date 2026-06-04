@@ -57,6 +57,32 @@ export const getActiveLeads = internalQuery({
     },
 });
 
+/** Get recent email delivery for a user (deduplication check) */
+export const getRecentDeliveryForUser = internalQuery({
+    args: {
+        userId: v.id("users"),
+        sinceMs: v.number(),
+    },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("emailDeliveries")
+            .withIndex("by_user", (q) => q.eq("userId", args.userId))
+            .filter((q) => q.gte(q.field("sentAt"), args.sinceMs))
+            .first();
+    },
+});
+
+/** Get email preferences for a specific user */
+export const getEmailPrefsForUser = internalQuery({
+    args: { userId: v.id("users") },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("emailPreferences")
+            .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+            .first();
+    },
+});
+
 /** Get daily horoscope for sign + date */
 export const getHoroscopeForSignDate = internalQuery({
     args: { sign: v.string(), date: v.string() },
@@ -208,6 +234,18 @@ export const sendDailyHoroscopeEmails = internalAction({
         for (const user of users) {
             if (!user.email || !user.birthData?.placements) continue;
 
+            // Respect emailStatus and engagement
+            const emailStatus = (user as any).emailStatus ?? "active";
+            if (emailStatus === "bounced" || emailStatus === "complained" || emailStatus === "blocked" || emailStatus === "unsubscribed") continue;
+            if ((user as any).role === "banned" || (user as any).deletedAt) continue;
+            if ((user as any).engagementStatus === "churned") continue;
+
+            // Check email preferences for disabled types
+            const prefs = await ctx.runQuery(internal.email.crons.getEmailPrefsForUser, {
+                userId: user._id,
+            });
+            if (prefs?.disabledTypes?.includes("daily_horoscope")) continue;
+
             const sign = getSunSign(user.birthData.placements);
 
             const horoscope = await ctx.runQuery(
@@ -220,6 +258,11 @@ export const sendDailyHoroscopeEmails = internalAction({
                 continue;
             }
 
+            const unsubToken = await ctx.runAction(internal.email.unsubscribeActions.generateUnsubToken, {
+                email: user.email,
+                type: "daily_horoscope",
+            });
+
             const html = await render(
                 React.createElement(DailyHoroscopeEmail, {
                     sign,
@@ -228,6 +271,7 @@ export const sendDailyHoroscopeEmails = internalAction({
                     luckyNumber: Math.floor(Math.random() * 99) + 1,
                     element: (horoscope as any).element ?? "Fire",
                     date: today,
+                    unsubToken,
                 }),
             );
 
@@ -274,6 +318,10 @@ export const sendWelcomeEmails = internalAction({
             const leadEmail = (lead as any).email;
             if (!leadEmail) continue;
 
+            // Skip unsubscribed or bounced leads
+            const leadStatus = (lead as any).status;
+            if (leadStatus === "unsubscribed" || leadStatus === "bounced") continue;
+
             const daysSinceSignup = Math.floor(
                 (Date.now() - lead.optInAt) / (1000 * 60 * 60 * 24),
             );
@@ -289,8 +337,13 @@ export const sendWelcomeEmails = internalAction({
             if (deliveryCount >= sequenceEntry.emailNum) continue;
 
             const sign = (lead as any).sign ?? "Aries";
+            const unsubToken = await ctx.runAction(internal.email.unsubscribeActions.generateUnsubToken, {
+                email: leadEmail,
+                type: "welcome",
+            });
+
             const html = await render(
-                React.createElement(WelcomeEmail, { sign }),
+                React.createElement(WelcomeEmail, { sign, unsubToken }),
             );
 
             const messageId = await sendViaSmtp(ctx, {
@@ -306,6 +359,14 @@ export const sendWelcomeEmails = internalAction({
                     email: leadEmail,
                     messageId: messageId,
                     status: "sent",
+                    sentAt: Date.now(),
+                });
+            } else {
+                // Record failed delivery (was missing before)
+                await ctx.runMutation(internal.email.crons.recordDelivery, {
+                    leadId: lead._id,
+                    email: leadEmail,
+                    status: "failed",
                     sentAt: Date.now(),
                 });
             }
@@ -348,9 +409,26 @@ export const sendWeeklyCosmicEmails = internalAction({
         for (const user of users) {
             if (!user.email) continue;
 
+            // Respect emailStatus and engagement
+            const emailStatus = (user as any).emailStatus ?? "active";
+            if (emailStatus === "bounced" || emailStatus === "complained" || emailStatus === "blocked" || emailStatus === "unsubscribed") continue;
+            if ((user as any).role === "banned" || (user as any).deletedAt) continue;
+            if ((user as any).engagementStatus === "churned") continue;
+
+            // Check email preferences for disabled types
+            const prefs = await ctx.runQuery(internal.email.crons.getEmailPrefsForUser, {
+                userId: user._id,
+            });
+            if (prefs?.disabledTypes?.includes("weekly_cosmic")) continue;
+
             const sign = user.birthData?.placements
                 ? getSunSign(user.birthData.placements)
                 : "Aries";
+
+            const unsubToken = await ctx.runAction(internal.email.unsubscribeActions.generateUnsubToken, {
+                email: user.email,
+                type: "weekly_cosmic",
+            });
 
             const html = await render(
                 React.createElement(WeeklyCosmicEmail, {
@@ -358,33 +436,59 @@ export const sendWeeklyCosmicEmails = internalAction({
                     highlights,
                     overallTheme: (cosmic as any).feltLanguage ?? "The stars are aligning.",
                     recommendedFocus: `Focus on ${sign.toLowerCase()}-related areas this week.`,
+                    unsubToken,
                 }),
             );
 
-            await sendViaSmtp(ctx, {
+            const messageId = await sendViaSmtp(ctx, {
                 to: user.email,
                 subject: "🌌 Your weekly cosmic weather",
                 html,
                 channel: "marketing",
             });
+
+            // Record delivery
+            if (messageId) {
+                await ctx.runMutation(internal.email.crons.recordDelivery, {
+                    userId: user._id,
+                    email: user.email,
+                    messageId,
+                    status: "sent",
+                    sentAt: Date.now(),
+                });
+            } else {
+                await ctx.runMutation(internal.email.crons.recordDelivery, {
+                    userId: user._id,
+                    email: user.email,
+                    status: "failed",
+                    sentAt: Date.now(),
+                });
+            }
         }
 
         console.log(`[sendWeeklyCosmicEmails] Done`);
     },
 });
 
-// ── Re-engagement Emails (daily 10:00 UTC) ──────────────────────────────────
+// ── Re-engagement Emails v2 (daily 10:00 UTC) ──────────────────────────────
+// Uses engagementStatus === "dormant" instead of _creationTime
+// Respects emailStatus, emailPreferences, and deduplication
 
 export const sendReengagementEmails = internalAction({
     args: {},
     handler: async (ctx) => {
         const allUsers = await ctx.runQuery(internal.email.crons.getAllUsersWithEmail, {});
+        const now = Date.now();
+        const sevenDaysAgoMs = now - 7 * 24 * 60 * 60 * 1000;
 
-        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-
-        // Dormant = created over 7 days ago (simple proxy for inactive)
+        // Dormant = engagementStatus === "dormant" with active email
         const dormantUsers = allUsers.filter(
-            (u) => u.email && u._creationTime && u._creationTime < sevenDaysAgo,
+            (u: any) =>
+                u.email &&
+                u.engagementStatus === "dormant" &&
+                (u.emailStatus === "active" || !u.emailStatus) &&
+                u.role !== "banned" &&
+                !u.deletedAt,
         );
 
         console.log(`[sendReengagementEmails] Processing ${dormantUsers.length} dormant users`);
@@ -392,24 +496,52 @@ export const sendReengagementEmails = internalAction({
         for (const user of dormantUsers) {
             if (!user.email) continue;
 
+            // Deduplication: skip if sent re-engagement in last 7 days
+            const recentDelivery = await ctx.runQuery(internal.email.crons.getRecentDeliveryForUser, {
+                userId: user._id,
+                sinceMs: sevenDaysAgoMs,
+            });
+            if (recentDelivery) continue;
+
+            // Check email preferences
+            const prefs = await ctx.runQuery(internal.email.crons.getEmailPrefsForUser, {
+                userId: user._id,
+            });
+            if (prefs && (!prefs.subscribed || prefs.frequency === "none")) continue;
+            if (prefs?.disabledTypes?.includes("reengagement")) continue;
+
             const sign = user.birthData?.placements
                 ? getSunSign(user.birthData.placements)
                 : "Aries";
+
+            const unsubToken = await ctx.runAction(internal.email.unsubscribeActions.generateUnsubToken, {
+                email: user.email,
+                type: "reengagement",
+            });
 
             const html = await render(
                 React.createElement(ReengagementEmail, {
                     sign,
                     daysAway: Math.floor(
-                        (Date.now() - user._creationTime) / (1000 * 60 * 60 * 24),
+                        (now - user._creationTime) / (1000 * 60 * 60 * 24),
                     ),
+                    unsubToken,
                 }),
             );
 
-            await sendViaSmtp(ctx, {
+            const messageId = await sendViaSmtp(ctx, {
                 to: user.email,
                 subject: "✨ The stars are calling you back",
                 html,
                 channel: "marketing",
+            });
+
+            await ctx.runMutation(internal.email.crons.recordDelivery, {
+                userId: user._id,
+                email: user.email,
+                messageId: messageId ?? undefined,
+                status: messageId ? "sent" : "failed",
+                sentAt: Date.now(),
             });
         }
 
@@ -429,22 +561,35 @@ export const refreshEmailSegments = internalAction({
         for (const segment of segments) {
             const criteria = (segment as any).criteria ?? {};
 
-            let count = 0;
+            // Get all users with email for counting
+            const allUsersWithEmail = await ctx.runQuery(internal.email.crons.getAllUsersWithEmail, {});
+            const activeUsers = allUsersWithEmail.filter((u: any) => !u.deletedAt && u.role !== "banned");
 
-            if ((criteria as any).tier) {
-                const users = await ctx.runQuery(
-                    internal.email.crons.getUsersByTier,
-                    { tier: (criteria as any).tier },
+            let filtered = activeUsers;
+
+            // Apply engagement filter (expanded to include new/churned)
+            if (criteria.engagement) {
+                filtered = filtered.filter((u: any) => u.engagementStatus === criteria.engagement);
+            }
+            // Apply email status filter (new)
+            if (criteria.emailStatus) {
+                filtered = filtered.filter((u: any) =>
+                    (u.emailStatus ?? "active") === criteria.emailStatus
                 );
-                count = users.length;
-            } else {
-                const users = await ctx.runQuery(internal.email.crons.getAllUsersWithEmail, {});
-                count = users.length;
+            }
+            // Apply tier filter
+            if (criteria.tier) {
+                filtered = filtered.filter((u: any) => u.tier === criteria.tier);
+            }
+            // Apply days inactive filter
+            if (criteria.daysInactive) {
+                const cutoff = Date.now() - criteria.daysInactive * 24 * 60 * 60 * 1000;
+                filtered = filtered.filter((u: any) => (u.lastActiveAt ?? u._creationTime) < cutoff);
             }
 
             await ctx.runMutation(internal.email.crons.updateSegmentCount, {
                 segmentId: segment._id,
-                count,
+                count: filtered.length,
             });
         }
 

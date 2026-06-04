@@ -26,6 +26,7 @@ interface WeeklyCosmicEmailProps {
     highlights: Transit[];
     overallTheme: string;
     recommendedFocus: string;
+    unsubToken?: string;
 }
 
 export function WeeklyCosmicEmail({
@@ -33,6 +34,7 @@ export function WeeklyCosmicEmail({
     highlights,
     overallTheme,
     recommendedFocus,
+    unsubToken,
 }: WeeklyCosmicEmailProps) {
     return (
         <Html>
@@ -142,7 +144,7 @@ export function WeeklyCosmicEmail({
                                 Manage email preferences
                             </Link>
                             {" · "}
-                            <Link href="https://stars.guide/unsubscribe?email={{email}}" style={{ color: theme.colors.textMuted, textDecoration: "underline" }}>
+                            <Link href={unsubToken ? `https://stars.guide/unsubscribe?token=${unsubToken}` : "https://stars.guide/settings/emails"} style={{ color: theme.colors.textMuted, textDecoration: "underline" }}>
                                 Unsubscribe
                             </Link>
                         </Text>
