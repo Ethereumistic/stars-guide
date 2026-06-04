@@ -307,14 +307,57 @@ export function getBinauralBeatContext(params: {
 }): string {
   const { leftHz, rightHz, waveform, noiseVolume, noiseCutoff, durationSeconds, rationale } = params
   const minutes = Math.round(durationSeconds / 60)
+  const mode = rationale.stimulationMode ?? 'binaural'
+
+  const modeDescriptions: Record<string, string> = {
+    binaural: 'Binaural — two tones via headphones, perceived phantom beat via brainstem phase-locking. Requires headphones for full effect.',
+    monaural: 'Monaural — two tones mixed in mono, real acoustic amplitude modulation. Works on speakers without headphones.',
+    isochronic: 'Isochronic — single tone pulsing on/off at the target frequency. Strongest cortical entrainment. Works on speakers.',
+  }
+
+  // Noise-only sessions have different context
+  if (rationale.noiseType && rationale.noiseType !== 'none') {
+    const noiseDescriptions: Record<string, string> = {
+      white: 'White noise — equal energy across all frequencies. Bright, hissing sound ideal for masking sudden environmental noises and blocking distractions.',
+      pink: 'Pink noise — equal energy per octave. Balanced, warm sound that promotes relaxation, focus, and deep sleep.',
+      brown: 'Brown noise — energy drops 6 dB per octave. Deep, rumbling roar ideal for profound relaxation, sleep, and tinnitus relief.',
+      grey: 'Grey noise — perceptually flat to the human ear (inverse Fletcher-Munson contour). The gold standard for masking tinnitus and treating hyperacusis. Smooth, balanced, and natural-sounding.',
+      blue: 'Blue noise — power increases +3 dB per octave. Airy, bright hiss effective at masking low-frequency environmental rumbles like traffic and HVAC without adding muddy bass.',
+    }
+    const desc = noiseDescriptions[rationale.noiseType] ?? 'Ambient noise'
+
+    return [
+      '[BINAURAL BEAT CONTEXT]',
+      'A noise-only session has been generated for the user. Integrate this naturally into your response — explain what the noise type does, why it was chosen, and how it relates to their request. You do NOT need to repeat exact Hz values; the user will see a playable card with full details. Do NOT output any JSON or prescription blocks.',
+      '',
+      `Intent: ${rationale.intent}`,
+      `Mode: Noise-only (${rationale.noiseType} noise)`,
+      `Binaural carriers: MUTED (volume = 0)`,
+      `Noise type: ${rationale.noiseType}`,
+      `Noise volume: ${noiseVolume.toFixed(2)}`,
+      `${noiseCutoff < 20000 ? `Low-pass filter: ${noiseCutoff} Hz` : 'Full spectrum (no filter)'}`,
+      `Duration: ${minutes} minutes`,
+      desc,
+      rationale.personalization ?? '',
+      '[END BINAURAL BEAT CONTEXT]',
+    ].filter(Boolean).join('\n')
+  }
+
+  // Standard binaural / monaural / isochronic session
+  const modeLabel = mode === 'isochronic' ? 'Isochronic tone' : mode === 'monaural' ? 'Monaural beat' : 'Binaural beat'
+  const carrierInfo = mode === 'isochronic'
+    ? `Carrier: ${leftHz} Hz (pulsing)`
+    : `Carrier: ${leftHz} Hz (left) / ${rightHz} Hz (right)`
 
   return [
     '[BINAURAL BEAT CONTEXT]',
-    'A binaural beat session has been generated for the user. Integrate this naturally into your response — explain what the beat does, why these frequencies were chosen, and how it relates to their request. You do NOT need to repeat exact Hz values; the user will see a playable card with full details. Do NOT output any JSON or prescription blocks.',
+    `A ${modeLabel} session has been generated for the user. Integrate this naturally into your response — explain what the beat does, why these frequencies were chosen, and how it relates to their request. You do NOT need to repeat exact Hz values; the user will see a playable card with full details. Do NOT output any JSON or prescription blocks.`,
     '',
     `Intent: ${rationale.intent}`,
+    `Stimulation mode: ${modeLabel}`,
+    modeDescriptions[mode] ?? '',
     `Band: ${rationale.beatBand} (${rationale.beatHz} Hz beat frequency)`,
-    `Carrier: ${leftHz} Hz (left) / ${rightHz} Hz (right)`,
+    carrierInfo,
     `Waveform: ${waveform}`,
     `Noise: ${noiseVolume} volume, ${noiseCutoff} Hz cutoff`,
     `Duration: ${minutes} minutes`,

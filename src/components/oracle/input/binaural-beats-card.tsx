@@ -1,360 +1,322 @@
 "use client";
 
 import * as React from "react";
-import { Play, Square, Save, ChevronDown, Search, X } from "lucide-react";
+import { X, Save, Search, Check } from "lucide-react";
+import { RiPlayFill, RiStopFill, RiHeadphoneLine, RiEqualizer2Line } from "react-icons/ri";
+import { TbWaveSine, TbTriangle, TbBrain, TbMoon, TbSun, TbBolt, TbDroplet, TbWind, TbInfinity, TbAdjustments } from "react-icons/tb";
+import { PiWaveformBold } from "react-icons/pi";
 import { GiMusicalNotes } from "react-icons/gi";
-
-// ── Inline SVG waveform icons (avoiding extra dependencies) ──────────────────
-const _SineIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-    <path d="M1 6 C 4 1, 7 11, 10 6 S 16 1, 19 6 S 22 11, 23 6" />
-  </svg>
-);
-
-const _TriangleIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M1 6 L 7 1 L 13 11 L 19 1 L 23 6" />
-  </svg>
-);
+import { MdTune } from "react-icons/md";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   BINAURAL_FREQUENCIES,
   BINAURAL_BANDS,
   filterFrequencies,
   getBandColor,
   getBandSymbol,
+  getRecommendedMode,
+  SOLFEGGIO_FREQUENCIES,
+  PLANETARY_FREQUENCIES,
   type BinauralPreset,
   type BinauralBand,
+  type StimulationMode,
+  type CarrierSource,
 } from "@/lib/binaural-frequencies";
 import {
   type BinauralParams,
   type BinauralBeatParams,
+  type NoiseType,
+  CARRIER_MIN_BINAURAL,
+  CARRIER_MAX_BINAURAL,
+  CARRIER_MIN_MONAURAL,
+  CARRIER_MAX_MONAURAL,
+  NOISE_PRESETS,
 } from "@/lib/binaural-presets";
-import {
-  useBinauralPlayer,
-  formatTime,
-} from "@/hooks/use-binaural-player";
+import { useBinauralPlayer, formatTime } from "@/hooks/use-binaural-player";
 import { cn } from "@/lib/utils";
 
-// ── Constants ───────────────────────────────────────────────────────────────
-const CARRIER_MIN = 20;
-const CARRIER_MAX = 1000;
-const CARRIER_STEP = 0.1;
+// ── Carrier source display config ────────────────────────────────────────────
+const CARRIER_SOURCE_LABELS: Record<string, { label: string; icon: string; color: string }> = {
+  solfeggio: { label: "Solfeggio", icon: "✦", color: "text-violet-300" },
+  planetary: { label: "Planetary", icon: "☉", color: "text-amber-300" },
+};
 
+const MODE_LABELS: Record<StimulationMode, { label: string; short: string; icon: string; color: string }> = {
+  binaural:   { label: "Binaural", short: "Bin",  icon: "🎧", color: "text-emerald-300" },
+  monaural:   { label: "Monaural", short: "Mono", icon: "♩",  color: "text-sky-300" },
+  isochronic: { label: "Isochronic", short: "Iso", icon: "⫸", color: "text-purple-300" },
+};
+
+// ── Duration options ──────────────────────────────────────────────────────────
 const DURATION_OPTIONS = [
   { label: "15m", seconds: 900 },
   { label: "30m", seconds: 1800 },
-  { label: "60m", seconds: 3600 },
+  { label: "1h", seconds: 3600 },
 ] as const;
 
-const WAVEFORM_OPTIONS: { value: OscillatorType; label: string }[] = [
-  { value: "sine", label: "Sine" },
-  { value: "triangle", label: "Triangle" },
-];
+// ── Band icon/color map ───────────────────────────────────────────────────────
+const BAND_META: Record<string, {
+  icon: React.ElementType;
+  accentColor: string;
+  glowColor: string;
+  description: string;
+}> = {
+  Delta: { icon: TbMoon, accentColor: "#93c5fd", glowColor: "rgba(147,197,253,0.3)", description: "Deep sleep & healing" },
+  Theta: { icon: TbBrain, accentColor: "#c4b5fd", glowColor: "rgba(196,181,253,0.3)", description: "Meditation & creativity" },
+  Alpha: { icon: TbWind, accentColor: "#6ee7b7", glowColor: "rgba(110,231,183,0.3)", description: "Relaxed focus & flow" },
+  "Low Beta": { icon: TbSun, accentColor: "#bef264", glowColor: "rgba(190,242,100,0.3)", description: "Concentration" },
+  "Mid Beta": { icon: TbBolt, accentColor: "#fcd34d", glowColor: "rgba(252,211,77,0.3)", description: "Mental stimulation" },
+  "High Beta": { icon: TbBolt, accentColor: "#fdba74", glowColor: "rgba(253,186,116,0.3)", description: "Peak alertness" },
+  Gamma: { icon: TbInfinity, accentColor: "#fda4af", glowColor: "rgba(253,164,175,0.3)", description: "Peak cognition" },
+};
 
-// ── Slider CSS ───────────────────────────────────────────────────────────────
-const sliderCls = `w-full h-1 rounded-full appearance-none bg-white/10 accent-primary cursor-pointer
-  [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary
-  [&::-moz-range-thumb]:size-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:border-0`
-
-// ── Props ───────────────────────────────────────────────────────────────────
-interface BinauralBeatsCardProps {
-  onDismiss: () => void;
-  onGenerate?: (params: BinauralBeatParams) => void;
+function getBeatAccentColor(hz: number): string {
+  if (hz <= 4) return "#93c5fd";
+  if (hz <= 8) return "#c4b5fd";
+  if (hz <= 14) return "#6ee7b7";
+  if (hz <= 21) return "#bef264";
+  if (hz <= 30) return "#fcd34d";
+  if (hz <= 40) return "#fdba74";
+  return "#fda4af";
 }
 
-// ── Beat Visualizer Canvas ───────────────────────────────────────────────────
-function BeatCanvas({ leftHz, rightHz, isPlaying }: { leftHz: number; rightHz: number; isPlaying: boolean }) {
+// ── Slider component ──────────────────────────────────────────────────────────
+function StyledSlider({
+  label, value, min, max, step = 1, displayValue, accentColor, onChange,
+}: {
+  label: string; value: number; min: number; max: number; step?: number;
+  displayValue: string; accentColor: string; onChange: (v: number) => void;
+}) {
+  const pct = ((value - min) / (max - min)) * 100;
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[9px] uppercase tracking-[0.18em] text-white/35 font-medium">{label}</span>
+        <span className="text-[10px] font-mono tabular-nums" style={{ color: accentColor }}>{displayValue}</span>
+      </div>
+      <div className="relative h-6 flex items-center group">
+        <div className="absolute w-full h-1 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }} />
+        <div className="absolute h-1 rounded-full" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${accentColor}80, ${accentColor})` }} />
+        <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} className="absolute w-full h-full opacity-0 cursor-pointer" style={{ zIndex: 10 }} />
+        <div className="absolute size-4 rounded-full border-2 transition-transform group-hover:scale-110 pointer-events-none" style={{ left: `calc(${pct}% - 8px)`, background: accentColor, borderColor: "rgba(0,0,0,0.4)", boxShadow: `0 0 8px ${accentColor}` }} />
+      </div>
+    </div>
+  );
+}
+
+// ── Beat canvas visualizer ────────────────────────────────────────────────────
+function BeatCanvas({ leftHz, rightHz, isPlaying, accentColor }: { leftHz: number; rightHz: number; isPlaying: boolean; accentColor: string }) {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const animRef = React.useRef<number>(0);
-
   const beatHz = Math.abs(rightHz - leftHz);
-
-  const getBeatColor = (hz: number) => {
-    if (hz <= 4) return "#93c5fd";
-    if (hz <= 8) return "#c4b5fd";
-    if (hz <= 14) return "#6ee7b7";
-    if (hz <= 21) return "#bef264";
-    if (hz <= 30) return "#fcd34d";
-    if (hz <= 40) return "#fdba74";
-    return "#fda4af";
-  };
-
-  const beatColor = getBeatColor(beatHz);
 
   React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
     ctx.scale(dpr, dpr);
-
-    const width = rect.width;
-    const height = rect.height;
-    const centerY = height / 2;
-
-    function draw(timestamp: number) {
+    const W = rect.width;
+    const H = rect.height;
+    const cy = H / 2;
+    function hexToRgb(hex: string) { return { r: parseInt(hex.slice(1, 3), 16), g: parseInt(hex.slice(3, 5), 16), b: parseInt(hex.slice(5, 7), 16) }; }
+    const rgb = hexToRgb(accentColor);
+    function draw(ts: number) {
       if (!ctx) return;
-      ctx.clearRect(0, 0, width, height);
-
+      ctx.clearRect(0, 0, W, H);
       if (!isPlaying) {
-        // Idle: show subtle grid + beat frequency dots
-        ctx.strokeStyle = "rgba(255,255,255,0.06)";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(0, centerY);
-        ctx.lineTo(width, centerY);
-        ctx.stroke();
-
-        const dotCount = Math.min(12, Math.ceil(beatHz));
-        for (let i = 0; i < dotCount; i++) {
-          const x = (width / (dotCount + 1)) * (i + 1);
-          ctx.beginPath();
-          ctx.arc(x, centerY, 2.5, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(255,255,255,0.15)";
-          ctx.fill();
-        }
-        return;
+        const grad = ctx.createLinearGradient(0, 0, W, 0);
+        grad.addColorStop(0, "transparent"); grad.addColorStop(0.5, `rgba(${rgb.r},${rgb.g},${rgb.b},0.2)`); grad.addColorStop(1, "transparent");
+        ctx.strokeStyle = grad; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(W, cy); ctx.stroke();
+        const n = Math.max(3, Math.min(10, Math.round(beatHz)));
+        for (let i = 0; i < n; i++) { const x = (W / (n + 1)) * (i + 1); ctx.beginPath(); ctx.arc(x, cy, i % 2 === 0 ? 2.5 : 1.5, 0, Math.PI * 2); ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.3)`; ctx.fill(); }
+        animRef.current = requestAnimationFrame(draw); return;
       }
-
-      const t = timestamp / 1000;
-
-      // Primary wave
-      const beatAmplitude = height * 0.42;
-      ctx.beginPath();
-      ctx.strokeStyle = beatColor;
-      ctx.lineWidth = 2.5;
-      ctx.globalAlpha = 0.9;
-
-      for (let x = 0; x <= width; x++) {
-        const phase = (x / width) * Math.PI * 7;
-        const envelope = Math.sin(phase + t * beatHz * 0.18);
-        const y = centerY + envelope * beatAmplitude;
-        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      }
+      const t = ts / 1000; const amp = H * 0.38; const speed = beatHz * 0.12;
+      ctx.shadowColor = `rgba(${rgb.r},${rgb.g},${rgb.b},0.5)`; ctx.shadowBlur = 10;
+      const wGrad = ctx.createLinearGradient(0, 0, W, 0);
+      wGrad.addColorStop(0, `rgba(${rgb.r},${rgb.g},${rgb.b},0)`); wGrad.addColorStop(0.15, `rgba(${rgb.r},${rgb.g},${rgb.b},0.9)`); wGrad.addColorStop(0.5, `rgba(${rgb.r},${rgb.g},${rgb.b},1)`); wGrad.addColorStop(0.85, `rgba(${rgb.r},${rgb.g},${rgb.b},0.9)`); wGrad.addColorStop(1, `rgba(${rgb.r},${rgb.g},${rgb.b},0)`);
+      ctx.strokeStyle = wGrad; ctx.lineWidth = 2; ctx.globalAlpha = 0.9; ctx.beginPath();
+      for (let x = 0; x <= W; x++) { const phase = (x / W) * Math.PI * 8; const y = cy + Math.sin(phase * 0.5 + t * speed) * Math.sin(phase * 0.25) * amp; x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
       ctx.stroke();
-
-      // Subtle carrier wave overlay
-      ctx.globalAlpha = 0.2;
-      ctx.lineWidth = 1;
-      for (let x = 0; x < width; x++) {
-        const y = centerY + Math.sin((x / width) * Math.PI * 10 + t * leftHz * 0.015) * (height * 0.12);
-        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      }
+      ctx.globalAlpha = 0.15; ctx.lineWidth = 1; ctx.shadowBlur = 3; ctx.beginPath();
+      for (let x = 0; x <= W; x++) { const y = cy + Math.sin((x / W) * Math.PI * 20 + t * leftHz * 0.02) * H * 0.1; x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
       ctx.stroke();
-
-      // Beat phase indicator dot
-      const beatPhase = (timestamp / 1000 * beatHz) % 1;
-      const indicatorX = beatPhase * width;
-      const indicatorY = centerY + Math.sin(beatPhase * Math.PI * 2) * beatAmplitude;
-      ctx.beginPath();
-      ctx.arc(indicatorX, indicatorY, 5, 0, Math.PI * 2);
-      ctx.fillStyle = beatColor;
-      ctx.globalAlpha = 1;
-      ctx.fill();
-
-      ctx.globalAlpha = 1;
-      animRef.current = requestAnimationFrame(draw);
+      ctx.globalAlpha = 1; ctx.shadowColor = `rgba(${rgb.r},${rgb.g},${rgb.b},1)`; ctx.shadowBlur = 14;
+      const pp = (t * beatHz) % 1; const ppx = pp * W; const pphase = (ppx / W) * Math.PI * 8; const ppy = cy + Math.sin(pphase * 0.5 + t * speed) * Math.sin(pphase * 0.25) * amp;
+      ctx.beginPath(); ctx.arc(ppx, ppy, 5, 0, Math.PI * 2); ctx.fillStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},0.2)`; ctx.fill();
+      ctx.beginPath(); ctx.arc(ppx, ppy, 3, 0, Math.PI * 2); ctx.fillStyle = accentColor; ctx.fill();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; animRef.current = requestAnimationFrame(draw);
     }
-
     animRef.current = requestAnimationFrame(draw);
-    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
-  }, [leftHz, rightHz, isPlaying, beatHz, beatColor]);
-
-  return (
-    <canvas ref={canvasRef} className="w-full h-full rounded-lg" />
-  );
+    return () => cancelAnimationFrame(animRef.current);
+  }, [leftHz, rightHz, isPlaying, accentColor, beatHz]);
+  return <canvas ref={canvasRef} className="w-full h-full" />;
 }
 
-// ── Preset Dropdown with Search ─────────────────────────────────────────────
-function PresetDropdown({
-  presets,
-  selectedPreset,
-  onSelect,
-  onSearch,
-}: {
-  presets: BinauralPreset[];
-  selectedPreset: BinauralPreset | null;
-  onSelect: (preset: BinauralPreset) => void;
-  onSearch: (q: string) => void;
-}) {
+// ── Preset Dialog ─────────────────────────────────────────────────────────────
+function PresetDialog({ selectedPreset, onSelect }: { selectedPreset: BinauralPreset | null; onSelect: (preset: BinauralPreset) => void }) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [activeBand, setActiveBand] = React.useState<BinauralBand | "all">("all");
-  const ref = React.useRef<HTMLDivElement>(null);
+  const [activeSource, setActiveSource] = React.useState<CarrierSource | "all">("all");
 
-  const filteredPresets = React.useMemo(() => {
-    return filterFrequencies(activeBand === "all" ? null : activeBand, query);
-  }, [activeBand, query]);
+  const filteredPresets = React.useMemo(
+    () => filterFrequencies(activeBand === "all" ? null : activeBand, query, activeSource === "all" ? null : activeSource),
+    [activeBand, query, activeSource]
+  );
 
-  React.useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const handleQueryChange = (q: string) => {
-    setQuery(q);
-    onSearch(q);
-  };
+  const handleSelect = (preset: BinauralPreset) => { onSelect(preset); setOpen(false); setQuery(""); setActiveBand("all"); setActiveSource("all"); };
 
   return (
-    <div ref={ref} className="relative">
-      {/* Trigger */}
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-left hover:bg-white/[0.06] transition-colors"
-      >
-        <Search className="size-3 text-white/30 shrink-0" />
-        <span className="flex-1 text-[11px] text-white/50 font-mono truncate">
-          {selectedPreset ? `${selectedPreset.band} ${selectedPreset.beat}Hz` : "Select a beat..."}
-        </span>
-        <ChevronDown className={cn("size-3 text-white/30 transition-transform shrink-0", open && "rotate-180")} />
-      </button>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button className="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] transition-all text-left w-full group" type="button">
+          <RiEqualizer2Line className="size-3.5 text-white/35 shrink-0" />
+          <span className="flex-1 text-[11px] font-mono text-white/50 truncate">
+            {selectedPreset ? `${selectedPreset.band} · ${selectedPreset.beat} Hz` : "Browse presets…"}
+          </span>
+          <span className="text-[8px] text-white/20 group-hover:text-white/40 transition-colors uppercase tracking-wider shrink-0">Change</span>
+        </button>
+      </DialogTrigger>
 
-      {/* Dropdown */}
-      {open && (
-        <div className="absolute top-full left-0 right-0 mt-1.5 z-50 bg-[#0a0812] border border-white/12 rounded-xl shadow-2xl shadow-black/60 overflow-hidden max-h-80 overflow-y-auto">
-          {/* Search inside dropdown */}
-          <div className="sticky top-0 bg-[#0a0812] p-2 border-b border-white/[0.06]">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => handleQueryChange(e.target.value)}
-              placeholder="Search uses, band, frequency..."
-              className="w-full px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06] text-[11px] text-white/70 placeholder:text-white/25 focus:outline-none focus:border-white/12"
-              autoFocus
-            />
-          </div>
+      <DialogContent className="max-w-md bg-[#0d0b14] border border-white/10 rounded-2xl p-0 overflow-hidden shadow-2xl shadow-black/70">
+        <DialogHeader className="px-5 pt-5 pb-3 border-b border-white/[0.06]">
+          <DialogTitle className="text-sm font-serif text-white/80 flex items-center gap-2">
+            <GiMusicalNotes className="size-4 text-white/40" />
+            Choose a Frequency Preset
+          </DialogTitle>
+        </DialogHeader>
 
-          {/* Band filter pills */}
-          <div className="flex gap-1 px-2 pt-2 pb-1 overflow-x-auto scrollbar-thin">
-            <button
-              onClick={() => setActiveBand("all")}
-              className={cn(
-                "shrink-0 rounded-full px-2 py-0.5 text-[8px] font-medium transition-all border",
-                activeBand === "all"
-                  ? "bg-white/15 border-white/25 text-white"
-                  : "bg-white/[0.02] border-white/[0.06] text-white/40 hover:bg-white/[0.05]"
-              )}
-            >
-              All
-            </button>
-            {BINAURAL_BANDS.map((band) => (
-              <button
-                key={band.id}
-                onClick={() => setActiveBand(band.id)}
-                className={cn(
-                  "shrink-0 rounded-full px-2 py-0.5 text-[8px] font-medium transition-all border",
-                  activeBand === band.id
-                    ? cn("border-transparent", getBandColor(band.id).bg, getBandColor(band.id).text)
-                    : "bg-white/[0.02] border-white/[0.06] text-white/40 hover:bg-white/[0.05]"
-                )}
-              >
-                {band.symbol} {band.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Preset list */}
-          <div className="p-1.5 space-y-0.5">
-            {filteredPresets.length === 0 ? (
-              <p className="text-[10px] text-white/30 text-center py-4">No matches</p>
-            ) : (
-              filteredPresets.slice(0, 20).map((preset) => {
-                const bandColors = getBandColor(preset.band);
-                const symbol = getBandSymbol(preset.band);
-                const isActive = selectedPreset?.beat === preset.beat && Math.abs(selectedPreset?.leftHz - preset.leftHz) < 0.5;
-
-                return (
-                  <button
-                    key={`${preset.beat}-${preset.leftHz}-${preset.rightHz}`}
-                    onClick={() => { onSelect(preset); setOpen(false); setQuery(""); }}
-                    className={cn(
-                      "w-full text-left px-2.5 py-2 rounded-lg border transition-all",
-                      isActive
-                        ? "bg-white/10 border-white/20"
-                        : "border-transparent hover:bg-white/[0.04]"
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className={cn("size-6 rounded flex items-center justify-center text-[11px] font-serif", bandColors.bg, bandColors.text)}>
-                        {symbol}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[11px] text-white/80 font-mono">{preset.beat} Hz</span>
-                          <span className={cn("text-[8px] font-medium px-1 py-0.5 rounded-full", bandColors.bg, bandColors.text)}>
-                            {preset.band}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-0.5 mt-0.5">
-                          {preset.uses.slice(0, 3).map((use) => (
-                            <span key={use} className="text-[8px] text-white/30 bg-white/[0.03] px-1 py-0.5 rounded">
-                              {use}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="text-[8px] text-white/25 font-mono shrink-0">
-                        {preset.leftHz}/{preset.rightHz}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })
-            )}
+        {/* Search */}
+        <div className="px-4 pt-3 pb-2">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.07]">
+            <Search className="size-3.5 text-white/25 shrink-0" />
+            <input autoFocus type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by use, band, Hz, solfeggio, planetary…" className="flex-1 bg-transparent text-[12px] text-white/70 placeholder:text-white/25 focus:outline-none" />
+            {query && (<button onClick={() => setQuery("")} className="text-white/25 hover:text-white/50"><X className="size-3" /></button>)}
           </div>
         </div>
-      )}
-    </div>
+
+        {/* Band filter pills */}
+        <div className="flex items-center gap-1.5 px-4 pb-1 overflow-x-auto scrollbar-none">
+          <button onClick={() => setActiveBand("all")} className={cn("shrink-0 rounded-full px-2.5 py-1 text-[9px] font-medium border transition-all", activeBand === "all" ? "bg-white/15 border-white/25 text-white" : "bg-transparent border-white/[0.07] text-white/35 hover:text-white/55 hover:border-white/15")}>All</button>
+          {BINAURAL_BANDS.map((band) => {
+            const bandColors = getBandColor(band.id);
+            return (<button key={band.id} onClick={() => setActiveBand(band.id)} className={cn("shrink-0 rounded-full px-2.5 py-1 text-[9px] font-medium border transition-all", activeBand === band.id ? cn("border-transparent", bandColors.bg, bandColors.text) : "bg-transparent border-white/[0.07] text-white/35 hover:text-white/55 hover:border-white/15")}>{band.symbol} {band.id}</button>);
+          })}
+        </div>
+
+        {/* Carrier source filter pills */}
+        <div className="flex items-center gap-1.5 px-4 pb-2 overflow-x-auto scrollbar-none">
+          <button onClick={() => setActiveSource("all")} className={cn("shrink-0 rounded-full px-2.5 py-1 text-[9px] font-medium border transition-all", activeSource === "all" ? "bg-white/15 border-white/25 text-white" : "bg-transparent border-white/[0.07] text-white/35 hover:text-white/55 hover:border-white/15")}>All Sources</button>
+          <button onClick={() => setActiveSource("solfeggio")} className={cn("shrink-0 rounded-full px-2.5 py-1 text-[9px] font-medium border transition-all", activeSource === "solfeggio" ? "bg-violet-900/60 border-violet-500/30 text-violet-200" : "bg-transparent border-white/[0.07] text-white/35 hover:text-white/55 hover:border-white/15")}>✦ Solfeggio</button>
+          <button onClick={() => setActiveSource("planetary")} className={cn("shrink-0 rounded-full px-2.5 py-1 text-[9px] font-medium border transition-all", activeSource === "planetary" ? "bg-amber-900/60 border-amber-500/30 text-amber-200" : "bg-transparent border-white/[0.07] text-white/35 hover:text-white/55 hover:border-white/15")}>☉ Planetary</button>
+        </div>
+
+        {/* Preset list */}
+        <div className="overflow-y-auto max-h-80 px-3 pb-4 space-y-1">
+          {filteredPresets.length === 0 ? (
+            <div className="text-center py-8 text-[11px] text-white/25">No presets found</div>
+          ) : (
+            filteredPresets.map((preset) => {
+              const bandColors = getBandColor(preset.band);
+              const meta = BAND_META[preset.band];
+              const BandIcon = meta?.icon ?? TbWaveSine;
+              const isActive = selectedPreset?.beat === preset.beat && Math.abs((selectedPreset?.leftHz ?? 0) - preset.leftHz) < 0.5 && (selectedPreset?.carrierSource ?? "standard") === (preset.carrierSource ?? "standard");
+              const modeInfo = MODE_LABELS[preset.mode];
+
+              return (
+                <button key={`${preset.beat}-${preset.leftHz}-${preset.carrierSource ?? "standard"}`} onClick={() => handleSelect(preset)} className={cn("w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left", isActive ? "border-white/15 bg-white/[0.07]" : "border-transparent hover:bg-white/[0.04] hover:border-white/[0.06]")}>
+                  <div className={cn("size-9 rounded-xl shrink-0 flex items-center justify-center", bandColors.bg)}><BandIcon className={cn("size-4", bandColors.text)} /></div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[12px] font-mono text-white/85 tabular-nums">{preset.beat} Hz</span>
+                      <span className={cn("text-[8px] font-medium px-1.5 py-0.5 rounded-full", bandColors.bg, bandColors.text)}>{preset.band}</span>
+                      {preset.mode !== "binaural" && <span className="text-[7px] font-medium px-1 py-0.5 rounded-full bg-sky-900/40 text-sky-300 border border-sky-500/20">{modeInfo.icon} {modeInfo.short}</span>}
+                      {preset.carrierSource && preset.carrierSource !== "standard" && <span className={cn("text-[7px] font-medium px-1 py-0.5 rounded-full border", preset.carrierSource === "solfeggio" ? "bg-violet-900/40 text-violet-300 border-violet-500/20" : "bg-amber-900/40 text-amber-300 border-amber-500/20")}>{CARRIER_SOURCE_LABELS[preset.carrierSource]?.icon} {CARRIER_SOURCE_LABELS[preset.carrierSource]?.label}</span>}
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-0.5">
+                      {preset.uses.slice(0, 3).map((use) => (<span key={use} className="text-[8px] text-white/30">{use}</span>))}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="flex items-center gap-1 text-[9px] font-mono text-white/30">
+                      <RiHeadphoneLine className="size-2.5" />
+                      <span>{preset.leftHz}/{preset.rightHz}</span>
+                    </div>
+                  </div>
+                  {isActive && <Check className="size-3.5 text-white/60 shrink-0" />}
+                </button>
+              );
+            })
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-// ── Main Component ───────────────────────────────────────────────────────────
-export function BinauralBeatsCard({ onDismiss, onGenerate }: BinauralBeatsCardProps) {
-  const defaultPreset = BINAURAL_FREQUENCIES.find(f => f.beat === 10 && f.band === "Alpha")!;
+// ── Props ─────────────────────────────────────────────────────────────────────
+interface BinauralBeatsCardProps {
+  onDismiss: () => void;
+  onGenerate?: (params: BinauralBeatParams) => void;
+}
 
-  const [beatName, setBeatName] = React.useState<string>("Alpha Flow State");
+// ── Main Component ─────────────────────────────────────────────────────────────
+export function BinauralBeatsCard({ onDismiss, onGenerate }: BinauralBeatsCardProps) {
+  const defaultPreset = BINAURAL_FREQUENCIES.find((f) => f.beat === 10 && f.band === "Alpha" && f.carrierSource !== "solfeggio" && f.carrierSource !== "planetary")!;
+
+  const [beatName, setBeatName] = React.useState("Alpha Flow State");
   const [selectedPreset, setSelectedPreset] = React.useState<BinauralPreset>(defaultPreset);
-  const [leftHz, setLeftHz] = React.useState<number>(defaultPreset.leftHz);
-  const [rightHz, setRightHz] = React.useState<number>(defaultPreset.rightHz);
-  const [leftVolume, setLeftVolume] = React.useState<number>(1);
-  const [rightVolume, setRightVolume] = React.useState<number>(1);
+  const [leftHz, setLeftHz] = React.useState(defaultPreset.leftHz);
+  const [rightHz, setRightHz] = React.useState(defaultPreset.rightHz);
+  const [leftVolume, setLeftVolume] = React.useState(1);
+  const [rightVolume, setRightVolume] = React.useState(1);
   const [waveform, setWaveform] = React.useState<OscillatorType>("sine");
-  const [noiseVolume, setNoiseVolume] = React.useState<number>(0.1);
-  const [noiseCutoff, setNoiseCutoff] = React.useState<number>(500);
-  const [durationSeconds, setDurationSeconds] = React.useState<number>(1800);
+  const [noiseVolume, setNoiseVolume] = React.useState(0.1);
+  const [noiseCutoff, setNoiseCutoff] = React.useState(500);
+  const [durationSeconds, setDurationSeconds] = React.useState(1800);
+  const [stimulationMode, setStimulationMode] = React.useState<StimulationMode>(defaultPreset.mode);
 
   const { status, elapsed, playLive, updateLive, stop } = useBinauralPlayer();
   const isPlaying = status === "playing" || status === "stopping";
+
   const beatHz = Math.abs(rightHz - leftHz);
-  const brainState = selectedPreset ? { band: selectedPreset.band } : { band: "Alpha" as BinauralBand };
-  const bandColors = getBandColor(brainState.band);
-  const symbol = getBandSymbol(brainState.band);
+  const accentColor = getBeatAccentColor(beatHz);
+  const bandKey = selectedPreset?.band ?? "Alpha";
+  const bandMeta = BAND_META[bandKey] ?? BAND_META["Alpha"];
+  const bandColors = getBandColor(bandKey as BinauralBand);
+  const BandIcon = bandMeta.icon;
+  const modeInfo = MODE_LABELS[stimulationMode];
 
-  // ── Select preset ─────────────────────────────────────────────────────────
-  const handlePresetSelect = React.useCallback((preset: BinauralPreset) => {
-    setSelectedPreset(preset);
-    setLeftHz(preset.leftHz);
-    setRightHz(preset.rightHz);
-    setBeatName(`${preset.band} ${preset.beat}Hz`);
+  // Dynamic carrier range based on mode
+  const carrierMin = stimulationMode === "binaural" ? CARRIER_MIN_BINAURAL : CARRIER_MIN_MONAURAL;
+  const carrierMax = stimulationMode === "binaural" ? CARRIER_MAX_BINAURAL : CARRIER_MAX_MONAURAL;
 
-    if (isPlaying) {
-      pushLive({ leftHz: preset.leftHz, rightHz: preset.rightHz });
-    }
-  }, [isPlaying, updateLive]);
+  // ── Preset select ─────────────────────────────────────────────────────────
+  const handlePresetSelect = React.useCallback(
+    (preset: BinauralPreset) => {
+      setSelectedPreset(preset);
+      setLeftHz(preset.leftHz);
+      setRightHz(preset.rightHz);
+      setBeatName(`${preset.band} ${preset.beat}Hz`);
+      setStimulationMode(preset.mode);
+      if (isPlaying) pushLive({ leftHz: preset.leftHz, rightHz: preset.rightHz });
+    },
+    [isPlaying]
+  );
 
-  // ── Push to live audio ─────────────────────────────────────────────────────
+  // ── Push live ─────────────────────────────────────────────────────────────
   const pushLive = React.useCallback(
     (overrides: Partial<BinauralParams> = {}) => {
       if (status !== "playing") return;
@@ -368,316 +330,169 @@ export function BinauralBeatsCard({ onDismiss, onGenerate }: BinauralBeatsCardPr
         noiseCutoff: overrides.noiseCutoff ?? noiseCutoff,
       });
     },
-    [status, leftHz, rightHz, leftVolume, rightVolume, waveform, noiseVolume, noiseCutoff, updateLive],
+    [status, leftHz, rightHz, leftVolume, rightVolume, waveform, noiseVolume, noiseCutoff, updateLive]
   );
 
-  // ── Play / Stop toggle ─────────────────────────────────────────────────────
+  // ── Play / Stop ───────────────────────────────────────────────────────────
   const handleTogglePlay = React.useCallback(() => {
     if (isPlaying) { stop(); return; }
     playLive({
       name: beatName,
       leftHz, rightHz, leftVolume, rightVolume,
       waveform, noiseVolume, noiseCutoff,
-      durationSeconds, presetId: "custom"
+      noiseType: "pink" as const,
+      durationSeconds, presetId: "custom",
+      stimulationMode,
     });
-  }, [isPlaying, beatName, leftHz, rightHz, leftVolume, rightVolume, waveform, noiseVolume, noiseCutoff, durationSeconds, playLive, stop]);
+  }, [isPlaying, beatName, leftHz, rightHz, leftVolume, rightVolume, waveform, noiseVolume, noiseCutoff, durationSeconds, playLive, stop, stimulationMode]);
 
-  // ── Save to Chat ───────────────────────────────────────────────────────────
+  // ── Save ─────────────────────────────────────────────────────────────────
   const handleSave = React.useCallback(() => {
     onGenerate?.({
       version: 2,
       name: beatName,
       leftHz, rightHz, leftVolume, rightVolume,
       waveform, noiseVolume, noiseCutoff,
+      noiseType: "pink" as const,
       durationSeconds, presetId: "custom",
       generatedAt: new Date().toISOString(),
+      stimulationMode,
+      carrierSource: selectedPreset?.carrierSource ?? "standard",
     });
-  }, [beatName, leftHz, rightHz, leftVolume, rightVolume, waveform, noiseVolume, noiseCutoff, durationSeconds, onGenerate]);
+  }, [beatName, leftHz, rightHz, leftVolume, rightVolume, waveform, noiseVolume, noiseCutoff, durationSeconds, onGenerate, stimulationMode, selectedPreset]);
 
-  React.useEffect(() => { return () => { stop() } }, [stop]);
+  React.useEffect(() => () => { stop(); }, [stop]);
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-2xl overflow-hidden">
+    <div className="rounded-2xl border border-white/[0.08] overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)", backdropFilter: "blur(24px)" }}>
+      <div className="pointer-events-none absolute -top-10 -left-6 w-56 h-32 rounded-full opacity-30 blur-3xl" style={{ background: bandMeta.glowColor }} />
 
-      {/* === HEADER === */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/[0.06]">
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="flex size-5 items-center justify-center rounded-full bg-white/10 border border-white/15">
-            <GiMusicalNotes className="size-2.5 text-white/60" />
-          </div>
-          <span className="font-serif text-[11px] font-medium tracking-wide text-white/60 uppercase">
-            Binaural
-          </span>
+      {/* ── Header ── */}
+      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-white/[0.06]">
+        <div className="size-6 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center shrink-0">
+          <GiMusicalNotes className="size-3 text-white/50" />
         </div>
-        <input
-          type="text"
-          value={beatName}
-          onChange={(e) => setBeatName(e.target.value)}
-          placeholder="Name your beat..."
-          className="flex-1 min-w-0 px-2 py-1 rounded-md bg-transparent text-[13px] text-white/80 font-serif placeholder:text-white/20 focus:outline-none focus:bg-white/[0.03]"
-        />
-        <button
-          onClick={() => { stop(); onDismiss(); }}
-          className="text-white/25 hover:text-white/60 transition-colors p-1 rounded-md hover:bg-white/5"
-          aria-label="Close"
-        >
-          <X className="size-4" />
-        </button>
+        <input type="text" value={beatName} onChange={(e) => setBeatName(e.target.value)} placeholder="Name your session…" className="flex-1 min-w-0 bg-transparent text-[13px] font-serif text-white/80 placeholder:text-white/25 focus:outline-none" />
+        <button onClick={() => { stop(); onDismiss(); }} className="text-white/25 hover:text-white/60 transition-colors p-1 rounded-lg hover:bg-white/5"><X className="size-4" /></button>
       </div>
 
-      {/* === MAIN DISPLAY === */}
-      <div className="flex gap-3 p-4">
-        {/* Beat Info Card */}
-        <div className="w-32 shrink-0 flex flex-col items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-center space-y-1">
-          {/* Band badge */}
-          <div className={cn("text-[8px] font-medium px-2 py-0.5 rounded-full uppercase tracking-widest", bandColors.bg, bandColors.text)}>
-            {symbol} {brainState.band}
+      {/* ── Visualizer + Info ── */}
+      <div className="flex items-stretch gap-3 px-4 pt-4 pb-3">
+        <div className={cn("shrink-0 w-[88px] rounded-xl border p-3 flex flex-col items-center justify-between text-center")} style={{ background: `${bandMeta.glowColor.replace("0.3", "0.08")}`, borderColor: `${bandMeta.glowColor.replace("0.3", "0.25")}` }}>
+          <div className={cn("text-[8px] font-medium px-1.5 py-0.5 rounded-full uppercase tracking-widest", bandColors.bg, bandColors.text)}>{bandKey}</div>
+          <div>
+            <div className="text-2xl font-mono font-bold tabular-nums leading-none" style={{ color: accentColor, textShadow: `0 0 12px ${accentColor}` }}>{beatHz.toFixed(1)}</div>
+            <div className="text-[8px] text-white/25 mt-0.5 uppercase tracking-wider">Hz</div>
           </div>
-
-          {/* Big Hz display */}
-          <div className="font-serif text-3xl text-white/90 leading-none tabular-nums py-0.5">
-            {beatHz.toFixed(1)}
-          </div>
-          <div className="text-[8px] text-white/25 uppercase tracking-widest">Hz</div>
-
-          {/* L/R indicator */}
-          <div className="flex items-center gap-1 text-[8px] font-mono text-white/30 mt-0.5">
-            <span>L {leftHz.toFixed(0)}</span>
-            <span>/</span>
-            <span>R {rightHz.toFixed(0)}</span>
-          </div>
+          <BandIcon className="size-4" style={{ color: accentColor, opacity: 0.7 }} />
+          {/* Mode indicator */}
+          {stimulationMode !== "binaural" && (
+            <div className={cn("text-[7px] font-medium px-1.5 py-0.5 rounded-full mt-1", stimulationMode === "monaural" ? "bg-sky-900/40 text-sky-300" : "bg-purple-900/40 text-purple-300")}>
+              {modeInfo.icon} {modeInfo.label}
+            </div>
+          )}
         </div>
 
-        {/* Visualizer + Play Button */}
-        <div className="flex-1 min-w-0 flex flex-col justify-between">
-          {/* Canvas area */}
-          <div className="relative flex-1 min-h-[52px] max-h-[56px] rounded-lg bg-white/[0.02] border border-white/[0.06] overflow-hidden">
-            <BeatCanvas leftHz={leftHz} rightHz={rightHz} isPlaying={isPlaying} />
-
-            {/* Play button — overlaid on the visualizer */}
-            <button
-              onClick={handleTogglePlay}
-              className={cn(
-                "absolute bottom-2 right-2 flex items-center justify-center size-9 rounded-lg border transition-all backdrop-blur-md",
-                isPlaying
-                  ? "bg-white/15 border-white/25 text-white/80 hover:bg-white/20"
-                  : "bg-black/40 border-white/20 text-white/70 hover:bg-black/60 hover:text-white hover:border-white/30"
-              )}
-              aria-label={isPlaying ? "Stop" : "Play"}
-            >
-              {isPlaying ? (
-                <Square className="size-3.5 fill-current" />
-              ) : (
-                <Play className="size-4 ml-0.5" />
-              )}
+        <div className="flex-1 min-w-0 flex flex-col gap-2">
+          <div className="relative flex-1 min-h-[52px] max-h-[58px] rounded-xl overflow-hidden" style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.05)" }}>
+            <BeatCanvas leftHz={leftHz} rightHz={rightHz} isPlaying={isPlaying} accentColor={accentColor} />
+            <button onClick={handleTogglePlay} className={cn("absolute bottom-2 right-2 size-8 rounded-lg border flex items-center justify-center transition-all backdrop-blur-md", isPlaying ? "border-white/20 text-white/80 hover:bg-white/10" : "border-white/15 text-white/60 hover:text-white hover:border-white/25")} style={{ background: isPlaying ? `${bandMeta.glowColor.replace("0.3", "0.2")}` : "rgba(0,0,0,0.45)", boxShadow: isPlaying ? `0 0 12px ${bandMeta.glowColor}` : "none" }}>
+              {isPlaying ? <RiStopFill className="size-3.5" /> : <RiPlayFill className="size-4 ml-0.5" />}
             </button>
-
-            {/* Playing indicator */}
             {isPlaying && (
-              <div className="absolute top-2 left-2 flex items-center gap-1.5">
-                <div className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[8px] text-emerald-400/80 font-mono uppercase tracking-widest">
-                  {formatTime(elapsed)}
-                </span>
+              <div className="absolute top-2 left-2 flex items-center gap-1">
+                <span className="size-1.5 rounded-full animate-pulse" style={{ background: accentColor }} />
+                <span className="text-[8px] font-mono" style={{ color: accentColor, opacity: 0.8 }}>{formatTime(elapsed)}</span>
               </div>
             )}
           </div>
+          <PresetDialog selectedPreset={selectedPreset} onSelect={handlePresetSelect} />
+        </div>
+      </div>
 
-          <div className="mt-1.5">
-            <PresetDropdown
-                presets={[]}
-                selectedPreset={selectedPreset}
-                onSelect={handlePresetSelect}
-                onSearch={() => { }}
-              />
-            </div>
+      {/* ── Controls ── */}
+      <div className="px-4 pb-4 space-y-4">
+        {/* Stimulation Mode */}
+        <div className="rounded-xl p-3 space-y-3 border border-white/[0.06]" style={{ background: "rgba(255,255,255,0.015)" }}>
+          <div className="flex items-center gap-1.5 mb-1">
+            <TbAdjustments className="size-3.5 text-white/30" />
+            <span className="text-[9px] uppercase tracking-[0.18em] text-white/30 font-medium">Stimulation Mode</span>
           </div>
+          <div className="flex items-center gap-1.5 rounded-lg border border-white/[0.06] bg-black/20 p-1">
+            {(["binaural", "monaural", "isochronic"] as StimulationMode[]).map((mode) => {
+              const info = MODE_LABELS[mode];
+              const isActive = stimulationMode === mode;
+              return (
+                <button key={mode} onClick={() => setStimulationMode(mode)} className={cn("flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-medium transition-all", isActive ? "bg-white/10 text-white" : "text-white/40 hover:text-white/60")}>
+                  <span className="text-[11px]">{info.icon}</span>
+                  <span>{info.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[9px] text-white/25 leading-relaxed">
+            {stimulationMode === "binaural" && "🎧 Two tones via headphones — perceived phantom beat via brainstem phase-locking. Carriers 200–500 Hz."}
+            {stimulationMode === "monaural" && "♩ Two tones mixed in mono — real acoustic beating. Works on speakers. Carriers 100–800 Hz."}
+            {stimulationMode === "isochronic" && "⫸ Single pulsing tone — strongest cortical entrainment. Works on speakers. No beat frequency needed."}
+          </p>
         </div>
 
-      {/* === CONTROLS === */}
-      <div className="px-4 pb-4 space-y-3">
-
-        {/* Carrier Frequencies */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[8px] uppercase tracking-[0.2em] text-white/30 font-medium">Carrier Hz</span>
-            <div className="flex items-center gap-3 text-[10px] font-mono text-white/50">
-              <span>L: {leftHz.toFixed(1)}</span>
-              <span>R: {rightHz.toFixed(1)}</span>
-            </div>
+        {/* Carrier frequencies */}
+        <div className="rounded-xl p-3 space-y-3 border border-white/[0.06]" style={{ background: "rgba(255,255,255,0.015)" }}>
+          <div className="flex items-center gap-1.5 mb-1">
+            <RiHeadphoneLine className="size-3.5 text-white/30" />
+            <span className="text-[9px] uppercase tracking-[0.18em] text-white/30 font-medium">Carrier Frequencies</span>
+            <span className="text-[8px] text-white/20 ml-auto">{carrierMin}–{carrierMax} Hz</span>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1 p-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
-              <div className="flex items-center justify-between">
-                <span className="text-[8px] text-white/35">← Left</span>
-                <input
-                  type="number"
-                  min={CARRIER_MIN}
-                  max={CARRIER_MAX}
-                  step={CARRIER_STEP}
-                  value={leftHz}
-                  onChange={(e) => {
-                    const v = parseFloat(e.target.value);
-                    if (!isNaN(v)) {
-                      setLeftHz(Math.max(CARRIER_MIN, Math.min(CARRIER_MAX, v)));
-                      pushLive({ leftHz: v });
-                    }
-                  }}
-                  className="w-16 bg-transparent text-right text-[11px] tabular-nums font-mono text-white/70 focus:outline-none"
-                />
-              </div>
-              <input
-                type="range"
-                min={CARRIER_MIN}
-                max={CARRIER_MAX}
-                step={CARRIER_STEP}
-                value={leftHz}
-                onChange={(e) => {
-                  const v = parseFloat(e.target.value);
-                  setLeftHz(v);
-                  pushLive({ leftHz: v });
-                }}
-                className={sliderCls}
-              />
-            </div>
-            <div className="space-y-1 p-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
-              <div className="flex items-center justify-between">
-                <span className="text-[8px] text-white/35">Right →</span>
-                <input
-                  type="number"
-                  min={CARRIER_MIN}
-                  max={CARRIER_MAX}
-                  step={CARRIER_STEP}
-                  value={rightHz}
-                  onChange={(e) => {
-                    const v = parseFloat(e.target.value);
-                    if (!isNaN(v)) {
-                      setRightHz(Math.max(CARRIER_MIN, Math.min(CARRIER_MAX, v)));
-                      pushLive({ rightHz: v });
-                    }
-                  }}
-                  className="w-16 bg-transparent text-right text-[11px] tabular-nums font-mono text-white/70 focus:outline-none"
-                />
-              </div>
-              <input
-                type="range"
-                min={CARRIER_MIN}
-                max={CARRIER_MAX}
-                step={CARRIER_STEP}
-                value={rightHz}
-                onChange={(e) => {
-                  const v = parseFloat(e.target.value);
-                  setRightHz(v);
-                  pushLive({ rightHz: v });
-                }}
-                className={sliderCls}
-              />
-            </div>
-          </div>
+          <StyledSlider label={stimulationMode === "isochronic" ? "Carrier" : "Left Ear"} value={leftHz} min={carrierMin} max={carrierMax} step={0.1} displayValue={`${leftHz.toFixed(1)} Hz`} accentColor={accentColor} onChange={(v) => { setLeftHz(v); pushLive({ leftHz: v }); }} />
+          {stimulationMode !== "isochronic" && (
+            <StyledSlider label="Right Ear" value={rightHz} min={carrierMin} max={carrierMax} step={0.1} displayValue={`${rightHz.toFixed(1)} Hz`} accentColor={accentColor} onChange={(v) => { setRightHz(v); pushLive({ rightHz: v }); }} />
+          )}
         </div>
 
         {/* Volume */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[8px] uppercase tracking-[0.2em] text-white/30 font-medium">Volume</span>
-            <div className="flex items-center gap-3 text-[10px] font-mono text-white/50">
-              <span>L: {Math.round(leftVolume * 100)}%</span>
-              <span>R: {Math.round(rightVolume * 100)}%</span>
-            </div>
+        <div className="rounded-xl p-3 space-y-3 border border-white/[0.06]" style={{ background: "rgba(255,255,255,0.015)" }}>
+          <div className="flex items-center gap-1.5 mb-1">
+            <MdTune className="size-3.5 text-white/30" />
+            <span className="text-[9px] uppercase tracking-[0.18em] text-white/30 font-medium">Volume</span>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { label: "← Left", value: leftVolume, onChange: (v: number) => { setLeftVolume(v); pushLive({ leftVolume: v }); } },
-              { label: "Right →", value: rightVolume, onChange: (v: number) => { setRightVolume(v); pushLive({ rightVolume: v }); } },
-            ].map(({ label, value, onChange }) => (
-              <div key={label} className="space-y-1 p-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
-                <div className="flex items-center justify-between">
-                  <span className="text-[8px] text-white/35">{label}</span>
-                  <span className="text-[10px] font-mono text-white/50">{Math.round(value * 100)}%</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={Math.round(value * 100)}
-                  onChange={(e) => onChange(Number(e.target.value) / 100)}
-                  className={sliderCls}
-                />
-              </div>
+          {stimulationMode !== "isochronic" && (
+            <>
+              <StyledSlider label="Left" value={Math.round(leftVolume * 100)} min={0} max={100} displayValue={`${Math.round(leftVolume * 100)}%`} accentColor={accentColor} onChange={(v) => { setLeftVolume(v / 100); pushLive({ leftVolume: v / 100 }); }} />
+              <StyledSlider label="Right" value={Math.round(rightVolume * 100)} min={0} max={100} displayValue={`${Math.round(rightVolume * 100)}%`} accentColor={accentColor} onChange={(v) => { setRightVolume(v / 100); pushLive({ rightVolume: v / 100 }); }} />
+            </>
+          )}
+          {stimulationMode === "isochronic" && (
+            <StyledSlider label="Volume" value={Math.round(leftVolume * 100)} min={0} max={100} displayValue={`${Math.round(leftVolume * 100)}%`} accentColor={accentColor} onChange={(v) => { setLeftVolume(v / 100); setRightVolume(0); pushLive({ leftVolume: v / 100, rightVolume: 0 }); }} />
+          )}
+        </div>
+
+        {/* Ambient noise */}
+        <div className="rounded-xl p-3 space-y-3 border border-white/[0.06]" style={{ background: "rgba(255,255,255,0.015)" }}>
+          <div className="flex items-center gap-1.5 mb-1">
+            <PiWaveformBold className="size-3.5 text-white/30" />
+            <span className="text-[9px] uppercase tracking-[0.18em] text-white/30 font-medium">Ambient Noise</span>
+          </div>
+          <StyledSlider label="Volume" value={Math.round(noiseVolume * 100)} min={0} max={50} displayValue={`${Math.round(noiseVolume * 100)}%`} accentColor={accentColor} onChange={(v) => { setNoiseVolume(v / 100); pushLive({ noiseVolume: v / 100 }); }} />
+          <StyledSlider label="Cutoff" value={noiseCutoff} min={100} max={3000} step={50} displayValue={`${noiseCutoff} Hz`} accentColor={accentColor} onChange={(v) => { setNoiseCutoff(v); pushLive({ noiseCutoff: v }); }} />
+        </div>
+
+        {/* Bottom action bar */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-xl border border-white/[0.08] overflow-hidden">
+            {([{ value: "sine" as OscillatorType, icon: TbWaveSine, label: "Sine" }, { value: "triangle" as OscillatorType, icon: TbTriangle, label: "Tri" }]).map(({ value, icon: Icon, label }) => (
+              <button key={value} onClick={() => { setWaveform(value); pushLive({ waveform: value }); }} className={cn("flex items-center gap-1 px-3 py-2 text-[10px] font-medium transition-all", waveform === value ? "bg-white/12 text-white" : "bg-white/[0.03] text-white/35 hover:bg-white/[0.06] hover:text-white/55")}>
+                <Icon className="size-3.5" />{label}
+              </button>
             ))}
           </div>
-        </div>
-
-        {/* Ambient Noise */}
-        <div className="space-y-1.5 p-2.5 rounded-lg bg-white/[0.02] border border-white/[0.05]">
-          <div className="flex items-center justify-between">
-            <span className="text-[8px] uppercase tracking-[0.2em] text-white/30 font-medium">Ambient</span>
-            <span className="text-[9px] font-mono text-white/40">{Math.round(noiseVolume * 100)}% · {noiseCutoff}Hz</span>
+          <div className="flex items-center rounded-xl border border-white/[0.08] overflow-hidden">
+            {DURATION_OPTIONS.map((opt) => (
+              <button key={opt.seconds} onClick={() => setDurationSeconds(opt.seconds)} className={cn("px-3 py-2 text-[10px] font-mono font-medium transition-all", durationSeconds === opt.seconds ? "bg-white/12 text-white" : "bg-white/[0.03] text-white/35 hover:bg-white/[0.06] hover:text-white/55")}>{opt.label}</button>
+            ))}
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[7px] text-white/25 shrink-0">Vol</span>
-            <input type="range" min={0} max={50} step={1} value={Math.round(noiseVolume * 100)}
-              onChange={(e) => { const v = Number(e.target.value) / 100; setNoiseVolume(v); pushLive({ noiseVolume: v }); }}
-              className={`flex-1 ${sliderCls}`} />
-            <span className="text-[7px] text-white/25 shrink-0">Hz</span>
-            <input type="range" min={100} max={3000} step={50} value={noiseCutoff}
-              onChange={(e) => { const v = Number(e.target.value); setNoiseCutoff(v); pushLive({ noiseCutoff: v }); }}
-              className={`flex-1 ${sliderCls}`} />
-          </div>
-        </div>
-
-        {/* Action button group */}
-        <div className="flex items-stretch overflow-hidden rounded-lg border border-white/10">
-          {/* Waveform toggle */}
-          {WAVEFORM_OPTIONS.map((opt) => {
-            const isActive = waveform === opt.value;
-            const Icon = opt.value === "sine" ? _SineIcon : _TriangleIcon;
-            return (
-              <button
-                key={opt.value}
-                onClick={() => { setWaveform(opt.value); pushLive({ waveform: opt.value }); }}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 text-[10px] font-medium transition-all",
-                  isActive
-                    ? "bg-white/10 text-white"
-                    : "bg-white/[0.03] text-white/40 hover:bg-white/[0.06] hover:text-white/60"
-                )}
-                aria-label={opt.label}
-              >
-                <Icon className="size-3.5" />
-                {opt.label}
-              </button>
-            );
-          })}
-
-          <div className="w-px bg-white/10 shrink-0" />
-
-          {/* Duration toggle */}
-          {DURATION_OPTIONS.map((opt) => (
-            <button
-              key={opt.seconds}
-              onClick={() => setDurationSeconds(opt.seconds)}
-              className={cn(
-                "flex-1 px-3 py-2.5 text-[10px] font-mono font-medium transition-all",
-                durationSeconds === opt.seconds
-                  ? "bg-white/10 text-white"
-                  : "bg-white/[0.03] text-white/40 hover:bg-white/[0.06] hover:text-white/60"
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-
-          <div className="w-px bg-white/10 shrink-0" />
-
-          {/* Save to Chat */}
-          <button
-            onClick={handleSave}
-            className="flex-[2] flex items-center justify-center gap-2 px-4 py-2.5 text-[11px] font-medium bg-white/8 text-white/80 hover:bg-white/12 hover:text-white transition-all"
-          >
-            <Save className="size-3.5" />
-            Save to Chat
+          <button onClick={handleSave} className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border border-white/[0.08] bg-white/[0.05] hover:bg-white/[0.09] text-[11px] font-medium text-white/70 hover:text-white transition-all" style={{ boxShadow: `0 0 0 0 ${accentColor}` }} onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 0 12px ${bandMeta.glowColor}`; }} onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "none"; }}>
+            <Save className="size-3.5" />Save to Chat
           </button>
         </div>
       </div>
