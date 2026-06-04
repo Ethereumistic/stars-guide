@@ -18,7 +18,8 @@ User message arrives
   │  PRIMARY PATH: scoreIntentsWithLLM()                     │
   │                                                          │
   │  Fast LLM call (~200 tokens input, ~50 output)          │
-  │  • Model: first available from model_chain               │
+  │  • Model: first available from intent_model_chain         │
+  │    (separate admin-configurable chain, see below)          │
   │  • Temperature: 0.1 (deterministic classification)      │
   │  • max_tokens: 150                                       │
   │  • stream: false                                         │
@@ -74,6 +75,25 @@ Regex needs exact matches — a single typo collapses the entire classification.
 | `src/lib/oracle/intentRouterPrompt.ts` | System prompt, user message builder, JSON parser for the LLM call |
 | `src/lib/oracle/features.ts` | Regex patterns (still used as fallback) + legacy `classifyOracleToolIntent()` (still used by admin debug page) |
 | `src/lib/oracle/pipelineTypes.ts` | `IntentRouterResult`, `ScoredIntent`, `PipelineKey` types |
+| `src/lib/oracle/providers.ts` | `DEFAULT_INTENT_MODEL_CHAIN` — default chain for intent classification |
+
+---
+
+## Separate Model Chain for Intent Classification
+
+Intent classification uses its **own model chain** (`intent_model_chain`) stored in `oracle_settings`, entirely separate from the main Oracle inference chain (`model_chain`). This means:
+
+- Intent classification can use cheaper/faster models without affecting inference quality
+- The chain is admin-configurable at `/admin/oracle/settings` → Model tab → **Intent Classification** sub-tab
+- Falls back to `DEFAULT_INTENT_MODEL_CHAIN` if not configured:
+  ```
+  Tier A: openrouter / google/gemini-2.5-flash
+  Tier B: openrouter / anthropic/claude-sonnet-4
+  ```
+- Both chains share the same providers (configured in the Providers tab)
+- The "Save All" button persists all model chains + tuning parameters atomically
+
+This architecture is **extensible**: the Model tab uses a `MODEL_CHAIN_SLOTS` array — adding a new chain (e.g., for title generation) requires only one new slot entry and a corresponding `oracle_settings` key.
 
 ---
 
@@ -96,7 +116,7 @@ Key prompt rules:
 - Chart depth: "deep"/"detailed"/"full" → depth=full, otherwise → depth=core
 - If uncertain between generic_chat and another feature, prefer generic_chat
 
-The user message includes feature availability (birth_chart always available, journal_recall requires consent) and the raw user message.
+The user message includes feature availability (birth_chart always available, journal_recall requires consent, etc.) and the raw user message.
 
 Response format: `{"intents":[{"pipeline":"birth_chart","confidence":0.9,"depth":"core"},...]}`
 
@@ -231,7 +251,7 @@ invokeOracle entry
        │       │       └── manual_selection, confidence 1.0 → NO LLM CALL
        │       │
        │       ├── Otherwise: scoreIntentsWithLLM()
-       │       │       ├── Try LLM call with providers/modelChain from runtime settings
+       │       │       ├── Try LLM call with providers/intentModelChain from runtime settings
        │       │       │   ├── Build prompt: system (classifier) + user (message + features)
        │       │       │   ├── Call first available provider (timeout: 3s)
        │       │       │   ├── Parse JSON response → ScoredIntent[]
@@ -268,7 +288,7 @@ Key connections:
   - Routing writes back to oracle_sessions (featureKey + birthChartDepth)
   - Pipeline resolution reads feature injection from DB or hardcoded fallback
   - Birth data availability does NOT gate birth_chart detection — the pipeline handles missing data
-  - The intent router LLM call uses the SAME model chain and providers as the main Oracle call
+  - The intent router LLM call uses a **separate model chain** (`intent_model_chain`) from the main Oracle call (`model_chain`)
   - Only runs on the first message per session (subsequent messages use persisted featureKey)
 ```
 

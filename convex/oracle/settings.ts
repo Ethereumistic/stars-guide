@@ -11,6 +11,7 @@ import {
   parseProvidersConfig,
   parseModelChain,
   DEFAULT_MODEL_CHAIN,
+  DEFAULT_INTENT_MODEL_CHAIN,
   type ProviderConfig,
   type ModelChainEntry,
 } from "../../lib/oracle/providers";
@@ -117,6 +118,7 @@ async function _buildPromptRuntimeSettings(ctx: QueryCtx) {
     const providerMap = toSettingsMap(providerSettings);
 
     const modelChain = parseModelChain(modelMap.model_chain);
+    const intentModelChain = parseModelChain(modelMap.intent_model_chain);
     const providers = parseProvidersConfig(providerMap.providers_config);
 
   return {
@@ -132,6 +134,7 @@ async function _buildPromptRuntimeSettings(ctx: QueryCtx) {
     },
     providers,
     modelChain: modelChain.length > 0 ? modelChain : DEFAULT_MODEL_CHAIN,
+    intentModelChain: intentModelChain.length > 0 ? intentModelChain : DEFAULT_INTENT_MODEL_CHAIN,
   };
 }
 

@@ -235,7 +235,7 @@ export const invokeOracle = action({
       hasJournalConsent,
       currentFeatureKey: resolvedFeatureKey ?? null,
       providers: config.providers,
-      modelChain: config.modelChain,
+      modelChain: config.intentModelChain,
     });
 
     console.log(`[Oracle] Intent: ${JSON.stringify(intentResult.intents.map(i => `${i.pipelineKey}(${i.confidence.toFixed(2)}:${i.reason})`))}, hasBirthData=${Boolean(user?.birthData)}, hasJournalConsent=${hasJournalConsent}`);

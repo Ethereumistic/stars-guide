@@ -15,6 +15,7 @@ import {
   parseModelChain,
   ProviderConfig,
   ModelChainEntry,
+  DEFAULT_INTENT_MODEL_CHAIN,
 } from "@/lib/oracle/providers";
 import { ProviderManager } from "@/components/oracle-admin/provider-manager";
 import { ModelChainEditor } from "@/components/oracle-admin/model-chain-editor";
@@ -48,6 +49,30 @@ export default function OracleSettingsPage() {
 
   const [providers, setProviders] = React.useState<ProviderConfig[]>([]);
   const [modelChain, setModelChain] = React.useState<ModelChainEntry[]>([]);
+  const [intentModelChain, setIntentModelChain] = React.useState<ModelChainEntry[]>([]);
+  const [modelSubTab, setModelSubTab] = React.useState("oracle");
+
+  // ── Model chain slots (extensible — add entries for new chains) ──
+  const MODEL_CHAIN_SLOTS = [
+    {
+      key: "oracle",
+      label: "Oracle Inference",
+      description: "Models tried in order for Oracle responses and session titles. Fallback tiers ensure resilience.",
+      settingKey: "model_chain",
+      state: modelChain,
+      setState: setModelChain,
+      showTuning: true,
+    },
+    {
+      key: "intent",
+      label: "Intent Classification",
+      description: "Models tried in order to classify user intent (birth chart, journal recall, synastry, etc.). Called once per new session. Uses temp=0.1, max_tokens=150, non-streaming.",
+      settingKey: "intent_model_chain",
+      state: intentModelChain,
+      setState: setIntentModelChain,
+      showTuning: false,
+    },
+  ];
 
   const [soulDoc, setSoulDoc] = React.useState<string>(DEFAULT_ORACLE_SOUL);
   const [maxResponseTokens, setMaxResponseTokens] = React.useState(MAX_RESPONSE_TOKENS_DEFAULT);
@@ -79,6 +104,7 @@ export default function OracleSettingsPage() {
     
     setProviders(parseProvidersConfig(get("providers_config")));
     setModelChain(parseModelChain(get("model_chain")));
+    setIntentModelChain(parseModelChain(get("intent_model_chain") ?? JSON.stringify(DEFAULT_INTENT_MODEL_CHAIN)));
     setSoulDoc(get(SOUL_DOC_KEY) ?? DEFAULT_ORACLE_SOUL);
     setMaxResponseTokens(Number(get("max_response_tokens") ?? String(MAX_RESPONSE_TOKENS_DEFAULT)));
     setMaxContextMessages(Number(get("max_context_messages") ?? String(MAX_CONTEXT_MESSAGES_DEFAULT)));
@@ -233,30 +259,39 @@ export default function OracleSettingsPage() {
           </Card>
         </TabsContent>
 
+        {/* ──────── Model Tab (sub-tabbed per chain slot) ──────── */}
         <TabsContent value="model" className="space-y-4">
           <Card className="border-border/50 bg-card/50">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <div>
                 <CardTitle className="text-base">Model Settings</CardTitle>
                 <CardDescription>
-                  Configure inference models and tuning parameters.
+                  Configure model chains for different Oracle functions.
                 </CardDescription>
               </div>
               <Button
                 onClick={async () => {
                   setSavingKey("model_chain");
                   try {
+                    // Save the main chain (also saves providers via upsertProviders for backward compat)
                     await upsertProviders({
                       providersConfig: JSON.stringify(providers),
                       modelChain: JSON.stringify(modelChain),
                     });
-                    
+                    // Save the intent chain as a standalone setting (uses same providers, validated separately)
+                    await upsertSetting({
+                      key: "intent_model_chain",
+                      value: JSON.stringify(intentModelChain),
+                      valueType: "json",
+                      label: "Intent Classification Model Chain",
+                      group: "model",
+                      description: "Model fallback chain for intent classification (fast, deterministic)",
+                    });
                     await Promise.all([
                       upsertSetting({ key: "temperature", value: String(temperature), valueType: "number", label: "Temperature", group: "model", description: "" }),
                       upsertSetting({ key: "top_p", value: String(topP), valueType: "number", label: "Top-p", group: "model", description: "" }),
                       upsertSetting({ key: "stream_enabled", value: String(streamEnabled), valueType: "boolean", label: "Streaming", group: "model", description: "" }),
                     ]);
-                    
                     toast.success("Model settings saved");
                   } catch (e: any) {
                     toast.error(e?.message ?? "Error saving models");
@@ -269,54 +304,83 @@ export default function OracleSettingsPage() {
                 className="gap-2"
               >
                 <Save className="h-4 w-4" />
-                {savingKey === "model_chain" ? "Saving..." : "Save Model Settings"}
+                {savingKey === "model_chain" ? "Saving..." : "Save All"}
               </Button>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                  <h3 className="text-sm font-semibold flex items-center gap-2">
-                    Oracle Inference
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Models tried in order for Oracle responses. Fallback tiers ensure resilience.
-                    Session titles are now generated by the Oracle model itself — no separate chain needed.
-                  </p>
-                  <ModelChainEditor chain={modelChain} providers={providers} onChange={setModelChain} />
+              {/* Sub-tabs for each chain slot */}
+              <Tabs value={modelSubTab} onValueChange={setModelSubTab} className="space-y-4">
+                <TabsList className="w-fit">
+                  {MODEL_CHAIN_SLOTS.map((slot) => (
+                    <TabsTrigger key={slot.key} value={slot.key}>
+                      {slot.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
 
-                  <div className="space-y-3">
-                    <Label>Temperature: {temperature.toFixed(2)}</Label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.05"
-                      value={temperature}
-                      onChange={(event) => setTemperature(Number.parseFloat(event.target.value))}
-                      className="w-full accent-galactic"
-                    />
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label>Top-p: {topP.toFixed(2)}</Label>
-                    <input
-                      type="range"
-                      min="0.5"
-                      max="1"
-                      step="0.01"
-                      value={topP}
-                      onChange={(event) => setTopP(Number.parseFloat(event.target.value))}
-                      className="w-full accent-galactic"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4">
+                {MODEL_CHAIN_SLOTS.map((slot) => (
+                  <TabsContent key={slot.key} value={slot.key} className="space-y-4">
                     <div>
-                      <Label>Streaming</Label>
-                      <p className="mt-1 text-xs text-muted-foreground">Enable token-by-token Oracle streaming.</p>
+                      <h3 className="text-sm font-semibold mb-1">{slot.label}</h3>
+                      <p className="text-xs text-muted-foreground">{slot.description}</p>
                     </div>
-                    <Switch checked={streamEnabled} onCheckedChange={setStreamEnabled} />
-                  </div>
-                </div>
+                    <ModelChainEditor
+                      chain={slot.state}
+                      providers={providers}
+                      onChange={slot.setState}
+                    />
+
+                    {slot.showTuning && (
+                      <>
+                        <div className="space-y-3">
+                          <Label>Temperature: {temperature.toFixed(2)}</Label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.05"
+                            value={temperature}
+                            onChange={(event) => setTemperature(Number.parseFloat(event.target.value))}
+                            className="w-full accent-galactic"
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <Label>Top-p: {topP.toFixed(2)}</Label>
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="1"
+                            step="0.01"
+                            value={topP}
+                            onChange={(event) => setTopP(Number.parseFloat(event.target.value))}
+                            className="w-full accent-galactic"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4">
+                          <div>
+                            <Label>Streaming</Label>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Enable token-by-token Oracle streaming.
+                            </p>
+                          </div>
+                          <Switch checked={streamEnabled} onCheckedChange={setStreamEnabled} />
+                        </div>
+                      </>
+                    )}
+
+                    {!slot.showTuning && (
+                      <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                        <p className="text-xs text-muted-foreground">
+                          Intent classification uses hardcoded parameters for speed and determinism:
+                          temperature=<strong>0.1</strong>, max_tokens=<strong>150</strong>, stream=<strong>false</strong>, timeout=<strong>3s</strong>.
+                        </p>
+                      </div>
+                    )}
+                  </TabsContent>
+                ))}
+              </Tabs>
             </CardContent>
           </Card>
         </TabsContent>

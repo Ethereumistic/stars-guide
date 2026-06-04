@@ -47,6 +47,16 @@ export const DEFAULT_MODEL_CHAIN: ModelChainEntry[] = [
 ];
 
 /**
+ * Default chain for intent classification.
+ * Intent needs to be fast, cheap, and deterministic (temp 0.1, max_tokens 150).
+ * A single flash model is usually enough — fallbacks only if it fails.
+ */
+export const DEFAULT_INTENT_MODEL_CHAIN: ModelChainEntry[] = [
+  { providerId: "openrouter", model: "google/gemini-2.5-flash" },
+  { providerId: "openrouter", model: "anthropic/claude-sonnet-4" },
+];
+
+/**
  * Tier labels for the first N chain entries.
  * Index 0 => "A", 1 => "B", ... 25 => "Z"
  */

@@ -1,6 +1,6 @@
 # Oracle AI System — Full Technical Explanation (v2)
 
-> This document provides a complete, in-detail technical explanation of the Oracle AI system at stars.guide, covering every layer from admin configuration through the LLM invocation pipeline to user-facing output. Includes Journal integration (consent-gated context, Cosmic Recall, journal prompt suggestions), Oracle Tools v2 architecture (universal birth context, unified birth_chart feature with dynamic depth, cross-context mixing), **Synastry (two-chart overlay with role-based labeling)**, **Binaural Beats (Cloudflare Worker audio generation)**, **cost-based token quota (microdollar 5h burst + 7d weekly budgets)**, and the Admin Debug Panel (real-time LLM pipeline observability, model override, timing metrics, per-message cost). Last updated: 2026-06-03.
+> This document provides a complete, in-detail technical explanation of the Oracle AI system at stars.guide, covering every layer from admin configuration through the LLM invocation pipeline to user-facing output. Includes Journal integration (consent-gated context, Cosmic Recall, journal prompt suggestions), Oracle Tools v2 architecture (universal birth context, unified birth_chart feature with dynamic depth, cross-context mixing), **Synastry (two-chart overlay with role-based labeling)**, **Binaural Beats (Cloudflare Worker audio generation)**, **cost-based token quota (microdollar 5h burst + 7d weekly budgets)**, and the Admin Debug Panel (real-time LLM pipeline observability, model override, timing metrics, per-message cost). Last updated: 2026-06-04.
 
 ---
 
@@ -112,7 +112,8 @@ Key-value configuration store. Every admin-editable setting is a row with:
 | `temperature` | model | number | 0.82 | LLM sampling temperature |
 | `top_p` | model | number | 0.92 | Nucleus sampling threshold |
 | `stream_enabled` | model | boolean | true | Enable token-by-token streaming |
-| `model_chain` | model | json | DEFAULT_MODEL_CHAIN | Ordered model fallback entries |
+| `model_chain` | model | json | DEFAULT_MODEL_CHAIN | Ordered model fallback entries for Oracle inference |
+| `intent_model_chain` | model | json | DEFAULT_INTENT_MODEL_CHAIN | Model fallback chain for intent classification |
 | `max_response_tokens` | token_limits | number | 1000 | `max_tokens` parameter to LLM |
 | `max_context_messages` | token_limits | number | 20 | Max history messages in prompt |
 | `providers_config` | provider | json | DEFAULT_PROVIDERS | Provider endpoint definitions |
@@ -208,14 +209,16 @@ The admin UI lives at `/admin/oracle/settings` (file: `src/app/admin/oracle/sett
 - Saved as JSON string via `upsertProvidersConfig` mutation which validates with `validateProvidersConfig()`
 
 ### Tab 3: Model
-- `ModelChainEditor` component (`src/components/oracle-admin/model-chain-editor.tsx`)
-- Ordered list of `{providerId, model}` entries with drag reorder
-- Each entry shows its fallback tier badge (A, B, C...)
-- Model combobox with known model suggestions per provider type
-- Temperature slider (0–1, step 0.05, default 0.82)
-- Top-p slider (0.5–1, step 0.01, default 0.92)
-- Streaming toggle (default on)
-- Saves providers + chain + temperature + top_p + stream_enabled atomically
+The Model tab now uses **inner sub-tabs** to manage separate model chains for different Oracle functions. This design is extensible — adding a new chain only requires a new slot entry.
+
+**Sub-tabs:**
+- **Oracle Inference** — `ModelChainEditor` for the main `model_chain`. Includes Temperature slider (0–1, step 0.05, default 0.82), Top-p slider (0.5–1, step 0.01, default 0.92), and Streaming toggle.
+- **Intent Classification** — `ModelChainEditor` for the `intent_model_chain`. Hardcoded parameters shown as info (temp=0.1, max_tokens=150, stream=false, timeout=3s).
+- (Extensible: add more slots to `MODEL_CHAIN_SLOTS` array for future chains like title generation)
+
+Each sub-tab shows its own `ModelChainEditor` with drag-reorder, tier badges (A, B, C...), model combobox with capability badges, and provider-aware validation.
+
+"Save All" button persists both model chains + temperature + top_p + stream_enabled atomically.
 
 ### Tab 4: Limits
 - `max_response_tokens` — sent as `max_tokens` to the LLM (100–16000, default 1000)
@@ -384,7 +387,7 @@ interface ModelChainEntry {
 }
 ```
 
-**Defaults** (`src/lib/oracle/providers.ts:24-38`):
+**Defaults — Oracle Inference** (`src/lib/oracle/providers.ts`):
 ```
 Provider: OpenRouter (openrouter, https://openrouter.ai/api/v1)
 Chain:
@@ -392,6 +395,16 @@ Chain:
   Tier B: openrouter / anthropic/claude-sonnet-4
   Tier C: openrouter / x-ai/grok-4.1-fast
 ```
+
+**Defaults — Intent Classification** (`DEFAULT_INTENT_MODEL_CHAIN`):
+```
+Provider: OpenRouter (openrouter, https://openrouter.ai/api/v1)
+Chain:
+  Tier A: openrouter / google/gemini-2.5-flash
+  Tier B: openrouter / anthropic/claude-sonnet-4
+```
+
+Intent classification uses a **separate chain** from Oracle inference. It's stored as `intent_model_chain` in `oracle_settings` and can be configured independently at `/admin/oracle/settings` → Model tab → Intent Classification sub-tab. The intent router call uses hardcoded parameters for speed: temperature=0.1, max_tokens=150, stream=false, timeout=3000ms.
 
 ### Fallback Logic
 
@@ -1011,7 +1024,7 @@ interface ScoredIntent {
 When `invokeOracle` runs and no feature is active on the session:
 
 1. Fetch journal consent status
-2. Call `scoreIntentsWithLLM(question, hasBirthData, hasJournalConsent, currentFeatureKey, providers, modelChain)`
+2. Call `scoreIntentsWithLLM(question, hasBirthData, hasJournalConsent, currentFeatureKey, providers, intentModelChain)`
 3. This tries the LLM call first; on any failure, falls back to `scoreIntents()` (regex)
 4. If intent matches, persist both `featureKey` and `depth` to the session
 5. Resolve active pipelines from intents with confidence ≥ 0.5
@@ -1161,7 +1174,7 @@ This cross-context mixing is the future of the Oracle.
    i. Resolve active pipeline from `session.featureKey` (with legacy migration for `birth_chart_core`/`birth_chart_full`)
    j. If `synastry` pipeline: gather `synastryPayload` → emit `chart_b_data` block with role labels
    k. Fetch journal consent status
-   l. Run intent routing (`scoreIntentsWithLLM` — LLM call, regex fallback) if no feature active — auto-activate and persist `featureKey` + `birthChartDepth`
+   l. Run intent routing (`scoreIntentsWithLLM` — LLM call using `intentModelChain`, regex fallback) if no feature active — auto-activate and persist `featureKey` + `birthChartDepth`
    m. Pipeline produces `PromptBlock[]` with priorities; composer sorts and splits into system/user
    n. Build timespace context block
    o. Build prompt: system = safety + soul + feature instructions + timespace + journal; user = chart_a_data + chart_b_data + question
@@ -1315,7 +1328,7 @@ Synastry never uses "Chart A / Chart B" language. The system instructions, user 
 
 ---
 
-*Document generated from codebase analysis. All file references use the format `filepath:startLine-endLine`. Last updated: 2026-06-03.*
+*Document generated from codebase analysis. All file references use the format `filepath:startLine-endLine`. Last updated: 2026-06-04.*
 
 ---
 
