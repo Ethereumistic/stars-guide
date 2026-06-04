@@ -91,7 +91,7 @@ Intent classification uses its **own model chain** (`intent_model_chain`) stored
   Tier B: openrouter / anthropic/claude-sonnet-4
   ```
 - Both chains share the same providers (configured in the Providers tab)
-- The "Save All" button persists all model chains + tuning parameters atomically
+- The "Save All" button persists `providers_config` and `model_chain`. Temperature, top_p, and stream_enabled are saved via separate `upsertSetting` calls. The `intent_model_chain` setting has no write mutation in `upsertProviders.ts`.
 
 This architecture is **extensible**: the Model tab uses a `MODEL_CHAIN_SLOTS` array — adding a new chain (e.g., for title generation) requires only one new slot entry and a corresponding `oracle_settings` key.
 
@@ -152,7 +152,7 @@ Consent gates are applied **after** routing, not before:
 - **journal_recall**: If `hasJournalConsent === false`, the intent is filtered out from results even if the LLM detected it. The LLM doesn't know about consent state.
 - **birth_chart**: Always detected regardless of birth data availability. If the user has no stored birth data, the pipeline injects a `[CHART DATA UNAVAILABLE]` system block instructing the AI to ask for it, rather than responding generically.
 
-This is a critical design decision: **intent detection is never gated on data availability**. The AI should respond in chart-reading format and ask for data, not fall back to generic chat.
+This is a critical design decision: **the LLM router does not gate intent detection on data availability**. However, the **regex fallback** in `classifyOracleToolIntent` DOES gate `birth_chart` and `synastry` behind `hasBirthData === true`. The LLM router is primary, so the system usually behaves as described — but on regex fallback, birth chart/synastry intents are only detected when data exists. The AI should respond in chart-reading format and ask for data, not fall back to generic chat.
 
 ---
 
@@ -219,7 +219,7 @@ Four pipelines are currently registered:
 |----------|-----|-------------------|-----------|
 | Birth Chart | `birth_chart` | birth data, journal, timespace | `"smart"` |
 | Journal Recall | `journal_recall` | journal (expanded), timespace | `"smart"` |
-| Binaural Beats | `binaural_beats` | birth data, timespace | `"creative"` |
+| Binaural Beats | `binaural_beats` | timespace only | `"creative"` |
 | Generic Chat | `generic_chat` | timespace only | `"fast"` |
 
 Each pipeline provides:
@@ -287,7 +287,7 @@ Key connections:
   - Journal consent check MUST happen before routing (gates journal_recall in results)
   - Routing writes back to oracle_sessions (featureKey + birthChartDepth)
   - Pipeline resolution reads feature injection from DB or hardcoded fallback
-  - Birth data availability does NOT gate birth_chart detection — the pipeline handles missing data
+  - Birth data availability does NOT gate birth_chart detection in the LLM router (the regex fallback DOES gate it) — the pipeline handles missing data
   - The intent router LLM call uses a **separate model chain** (`intent_model_chain`) from the main Oracle call (`model_chain`)
   - Only runs on the first message per session (subsequent messages use persisted featureKey)
 ```

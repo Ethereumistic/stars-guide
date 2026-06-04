@@ -85,7 +85,7 @@ The first check in `invokeOracle`. If the `kill_switch` setting is `"true"`:
 
 `convex/oracle/llm.ts`
 
-Before any LLM call, the user's question is scanned against `CRISIS_PATTERNS` — a list of 22 regex patterns covering suicidal ideation, self-harm intent, domestic violence, substance abuse, and child abuse.
+Before any LLM call, the user's question is scanned against `CRISIS_PATTERNS` — a list of 22 regex patterns covering suicidal ideation, self-harm intent, hopelessness, overdose, jumping/throwing, and related phrases. It does NOT cover domestic violence, substance abuse, or child abuse.
 
 If a match is found:
 1. Return `crisis_response_text` (or hardcoded default) immediately
@@ -106,7 +106,7 @@ If a match is found:
 
 ### Hardcoded Safety Rules
 
-The safety rules are **not editable** from the admin panel and **not stored in the database**. They are hardcoded in `lib/oracle/safetyRules.ts` as `ORACLE_SAFETY_RULES` — a 32-line block starting with `[SAFETY - HIGHEST PRIORITY - NON-NEGOTIABLE]`. Changing them requires a code deploy.
+The safety rules are **not editable** from the admin panel and **not stored in the database**. They are hardcoded in `lib/oracle/safetyRules.ts` as `ORACLE_SAFETY_RULES` — a block starting with `[SAFETY - HIGHEST PRIORITY - NON-NEGOTIABLE]` covering: medical safety, crisis protocol, relationship with data, content boundaries, identity protection, manipulation resistance, mid-response safety. Changing them requires a code deploy.
 
 ---
 

@@ -124,7 +124,7 @@
 
  7. Safety Is a Single Wall of Text, Not Layered Defense
 
- Current state: Safety rules are a hardcoded 32-line text block at position 1 of the system prompt. Crisis detection is a keyword scan before the LLM call. That's it.
+ Current state: Safety rules are a hardcoded text block at position 1 of the system prompt covering medical safety, crisis protocol, relationship with data, content boundaries, identity protection, manipulation resistance, mid-response safety. Crisis detection is a 22-regex-pattern scan before the LLM call. That's it.
 
  The problem: You're relying entirely on the model's willingness to follow instructions. Models are getting better at jailbreaks and instruction override attacks. Your prompt injection defense only strips bracket tags — it doesn't catch base64-encoded prompts, Unicode
  homoglyphs, or indirect injection via pasted URLs.

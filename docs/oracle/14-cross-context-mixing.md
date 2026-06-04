@@ -2,7 +2,7 @@
 
 > Source: ORACLE_EXPLAINED.md §14
 
-This is the biggest UX win of the v2 architecture. Because birth data is always injected (not feature-gated) and journal context is always injected (not feature-gated), multiple context blocks coexist in every prompt.
+This is the biggest UX win of the v2 architecture. Because birth data and journal context are injected when their respective pipelines need them, multiple context blocks can coexist in a prompt — enabling cross-context mixing when multiple pipelines are active.
 
 ---
 
@@ -10,9 +10,9 @@ This is the biggest UX win of the v2 architecture. Because birth data is always 
 
 | Session type | Birth data visible | Journal visible | Timespace visible |
 |--------------|-------------------|-----------------|-------------------|
-| Generic chat (no tool) | ✅ (if saved) | ✅ (if consent) | ✅ |
-| `birth_chart` (core or full) | ✅ | ✅ (if consent) | ✅ |
-| `journal_recall` | ✅ (if saved) | ✅ (expanded budget) | ✅ |
+| Generic chat (no tool) | — | — | ✅ |
+| `birth_chart` (core or full) | ✅ (if saved) | ✅ (if consent) | ✅ |
+| `journal_recall` | — | ✅ (expanded budget) | ✅ |
 
 ---
 
@@ -72,8 +72,8 @@ This cross-context mixing is the future of the Oracle.
 │  Block 1: [BIRTH CHART DATA]     ← always when birthData    │
 │  Block 2: Sanitized question     ← always                    │
 │                                                              │
-│  ↑ Birth data is NOT feature-gated: it appears here         │
-│    in EVERY session type when the user has birthData saved. │
+│  ↑ Birth data is pipeline-gated: it appears here      │
+│    only when a pipeline declares needsBirthData=true.
 └─────────────────────────────────────────────────────────────┘
 
 Context source mapping:
@@ -81,9 +81,9 @@ Context source mapping:
   │   Birth Data       │   │  Journal Context  │   │ Timespace Context│
   │ (user.birthData)   │   │ (journal entries) │   │ (datetime/transits)│
   │                    │   │                    │   │                    │
-  │ Gated by: user has │   │ Gated by: consent  │   │ Gated by: always   │
-  │ birthData saved    │   │ = oracleCanRead... │   │ (conditionally     │
-  │                    │   │                    │   │  expanded w/ intent)│
+  │ Gated by: pipeline   │   │ Gated by: pipeline   │   │ Gated by: always   │
+  │ needs it + user has │   │ needs it + consent   │   │ (conditionally     │
+  │ birthData saved      │   │                      │   │  expanded w/ intent)│
   │ Injected: USER MSG │   │ Injected: SYS BLK4│   │ Injected: SYS BLK3.5│
   │ Depth-agnostic     │   │ Budget varies by   │   │                    │
   │ (always full data) │   │ Cosmic Recall mode │   │                    │
@@ -92,8 +92,9 @@ Context source mapping:
           └───────────┬───────────┴───────────────────────┘
                       │
               ALL THREE CAN COEXIST
-              in a single prompt — this is
-              cross-context mixing
+              in a single prompt when
+              their pipelines are active
+              — this is cross-context mixing
 ```
 
-**The v2 insight**: By separating data injection from feature instructions, you get cross-context mixing for free. The model always sees the full picture; features only add focus instructions.
+**The v2 insight**: By separating data injection from feature instructions, you get cross-context mixing when pipelines need it. The model sees the full picture for active pipelines; features only add focus instructions.

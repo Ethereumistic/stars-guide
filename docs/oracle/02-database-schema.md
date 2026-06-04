@@ -6,7 +6,7 @@ The Oracle uses five Convex tables defined in `convex/schema.ts`:
 
 ---
 
-## `oracle_settings` (Table 12, schema lines 279-295)
+## `oracle_settings` (Table 20)
 
 Key-value configuration store. Every admin-editable setting is a row with:
 - `key` — unique identifier (indexed)
@@ -14,7 +14,7 @@ Key-value configuration store. Every admin-editable setting is a row with:
 - `valueType` — `"string" | "number" | "boolean" | "json"`
 - `label` — human-readable name for admin UI
 - `description` — optional explanation
-- `group` — categorization: `"soul" | "model" | "token_limits" | "provider" | "quota" | "operations" | "safety"`
+- `group` — categorization: actual code queries by `"soul"`, `"model"`, `"token_limits"`, `"provider"`, and `"quota"`; the schema comment lists `"model" | "quota" | "content" | "safety" | "operational"`
 - `updatedAt`, `updatedBy` — audit trail
 
 **Known setting keys:**
@@ -40,7 +40,7 @@ Key-value configuration store. Every admin-editable setting is a row with:
 
 ---
 
-## `oracle_sessions` (Table 14, schema lines 312-332)
+## `oracle_sessions` (Table 22)
 
 Conversation sessions. Each session tracks:
 - `userId` — owner
@@ -57,7 +57,7 @@ Conversation sessions. Each session tracks:
 
 ---
 
-## `oracle_messages` (Table 15, schema lines 334-354)
+## `oracle_messages` (Table 28)
 
 Individual messages within sessions:
 - `sessionId` — foreign key to sessions (indexed)
@@ -69,27 +69,34 @@ Individual messages within sessions:
 - `systemPromptHash` — optional string; snapshot of system prompt for observability
 - `journalPrompt` — optional string (assistant only); journal prompt suggested by Oracle via `JOURNAL_PROMPT:` line in response
 - `timingPromptBuildMs` — optional number; milliseconds spent assembling the prompt (context loading, birth data, journal, timespace, etc.)
-- `timingRequestQueueMs` — optional number; milliseconds from prompt assembly completion to LLM HTTP request start (includes network overhead and LLM queue wait)
+- `timingRequestQueueMs` — optional number; milliseconds from prompt assembly completion to LLM HTTP request sent (includes provider lookup, URL building, header construction, and network overhead)
 - `timingTtftMs` — optional number; milliseconds from LLM HTTP request start to first content token received (Time to First Token, including network RTT and prompt processing)
 - `timingInitialDecodeMs` — optional number; milliseconds from first token to ~200 characters of output (measures initial generation speed after TTFT)
 - `timingTotalMs` — optional number; total wall-clock milliseconds from `invokeOracle` handler start to completion
 - `debugModelUsed` — optional string; when a debug model override is active, records the `providerId/model` string (e.g. `openrouter/anthropic/claude-sonnet-4`)
+- `audioData` — optional string (deprecated)
+- `audioStorageId` — optional storage ID
+- `audioUrl` — optional string
+- `binauralParams` — optional any; binaural beat parameters
+- `rating` — optional union of `"thumbs_up" | "thumbs_down"`
+- `ratingAt` — optional number; timestamp when rating was set
 - `createdAt`
 
 ---
 
-## `oracle_quota_usage` (Table 13, schema lines 298-309)
+## `oracle_quota_usage` (Table 21)
 
 Per-user quota tracking:
 - `userId` — indexed
-- `dailyCount` — questions in current 24h window
-- `dailyWindowStart` — timestamp when window started
-- `lifetimeCount` — total questions ever (never decremented)
-- `lastQuestionAt`, `updatedAt`
+- `burstCost` — `v.optional(v.float64())`; microdollars spent in current 5h burst window
+- `burstWindowStart` — `v.optional(v.float64())`; timestamp when current 5h window started
+- `weeklyCost` — `v.optional(v.float64())`; microdollars spent in current 7d weekly window
+- `weeklyWindowStart` — `v.optional(v.float64())`; timestamp when current 7d window started
+- `lastQuestionAt`, `updatedAt
 
 ---
 
-## `oracle_feature_injections` (Table 11, schema lines 268-276)
+## `oracle_feature_injections` (Table 19)
 
 Per-feature prompt augmentation blocks:
 - `featureKey` — indexed, e.g. `"birth_chart"`, `"journal_recall"`, `"birth_chart_depth_core"`, `"birth_chart_depth_full"`

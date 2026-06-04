@@ -40,11 +40,11 @@ pricePerToken = pricePer1MTokens / 1,000,000
 
 | Tier | 5h Burst Budget | 7d Weekly Budget |
 |------|-----------------|------------------|
-| free | $0.02 (20,000 µ$) | $0.10 (100,000 µ$) |
-| popular | $0.10 (100,000 µ$) | $0.50 (500,000 µ$) |
-| premium | $0.25 (250,000 µ$) | $1.50 (1,500,000 µ$) |
-| moderator | $5.00 (5,000,000 µ$) | $25.00 (25,000,000 µ$) |
-| admin | $50.00 (50,000,000 µ$) | $250.00 (250,000,000 µ$) |
+| free | $0.05 (50,000 µ$) | $0.20 (200,000 µ$) |
+| popular | $0.50 (500,000 µ$) | $2.00 (2,000,000 µ$) |
+| premium | $2.00 (2,000,000 µ$) | $8.00 (8,000,000 µ$) |
+| moderator | $100.00 (100,000,000 µ$) | $500.00 (500,000,000 µ$) |
+| admin | $100.00 (100,000,000 µ$) | $500.00 (500,000,000 µ$) |
 
 The plan is determined by: `(user.role === "admin" || user.role === "moderator") ? user.role : user.tier`
 
@@ -68,7 +68,7 @@ Pricing is read from `oracle_settings` key `model_pricing` (JSON), with hardcode
 | deepseek/deepseek-r1-0528:free | $0.00 | $0.00 |
 | deepseek/deepseek-chat-v3-0324:free | $0.00 | $0.00 |
 
-**`:free`-suffix models cost $0** — they don't consume budget. If the model chain falls back to a `:free` model, the user's budget is untouched. A separate `burstMinCostMicro` setting (default: 100 µ$) applies as an anti-spam floor.
+**`:free`-suffix models cost $0** — they don't consume budget. If the model chain falls back to a `:free` model, the user's budget is untouched. `calculateCostMicro()` returns 0 immediately for any model ending in `:free`. The `BURST_MIN_COST_MICRO` constant (100 µ$) exists in `pricing.ts` but is never applied by `calculateCostMicro()`.
 
 ---
 
@@ -76,7 +76,7 @@ Pricing is read from `oracle_settings` key `model_pricing` (JSON), with hardcode
 
 The quota check happens in `checkQuota` (`convex/oracle/quota.ts`). This is a **Convex query** — the server is the authority. Client-side displays are only UX hints.
 
-A server-side pre-check also runs at the top of `invokeOracle` action to close the TOCTOU gap between client check and server enforcement.
+A server-side pre-check also runs inside `invokeOracle` (calling `ctx.runQuery(api.oracle.quota.checkQuota, {})` — the same public `checkQuota` query) to close the TOCTOU gap between client check and server enforcement. There is no separate `checkQuotaServerSide` function.
 
 ---
 
@@ -110,17 +110,17 @@ A server-side pre-check also runs at the top of `invokeOracle` action to close t
 
 ### `incrementQuota` mutation (V2)
 
-**Arg:** `costUsdMicro: number` (required)
+**Arg:** `costMicro: v.optional(v.number())` (optional)
 
 **Logic:**
 1. Auth check
 2. Fetch existing usage record
-3. If no record: create with `burstCost: costUsdMicro, burstWindowStart: now, weeklyCost: costUsdMicro, weeklyWindowStart: now`
+3. If no record: create with `burstCost: costMicro, burstWindowStart: now, weeklyCost: costMicro, weeklyWindowStart: now`
 4. If record exists:
-   - Burst window expired → reset `burstCost = costUsdMicro`, `burstWindowStart = now`
-   - Else: `burstCost += costUsdMicro`
-   - Weekly window expired → reset `weeklyCost = costUsdMicro`, `weeklyWindowStart = now`
-   - Else: `weeklyCost += costUsdMicro`
+   - Burst window expired → reset `burstCost = costMicro`, `burstWindowStart = now`
+   - Else: `burstCost += costMicro`
+   - Weekly window expired → reset `weeklyCost = costMicro`, `weeklyWindowStart = now`
+   - Else: `weeklyCost += costMicro`
 5. Update `lastQuestionAt`, `updatedAt`
 
 ---
@@ -129,23 +129,16 @@ A server-side pre-check also runs at the top of `invokeOracle` action to close t
 
 ### `oracle_quota_usage` — fields
 
-**Kept (for migration compat):**
+**Active:**
 - `userId`
+- `burstCost` — `v.optional(v.float64())`; microdollars spent in current 5h window
+- `burstWindowStart` — `v.optional(v.float64())`; timestamp (ms) when current 5h window started
+- `weeklyCost` — `v.optional(v.float64())`; microdollars spent in current 7d window
+- `weeklyWindowStart` — `v.optional(v.float64())`; timestamp (ms) when current 7d window started
 - `lastQuestionAt`
 - `updatedAt`
 
-**Deprecated (V2 does not write these):**
-- `dailyCount` — was count-based, replaced by cost windows
-- `dailyWindowStart` — was single 24h window, replaced by two windows
-- `lifetimeCount` — was free-tier lifetime cap, replaced by 7d window
-
-**New:**
-```typescript
-burstCost: v.number(),        // microdollars spent in current 5h window
-burstWindowStart: v.number(), // timestamp (ms) when current 5h window started
-weeklyCost: v.number(),       // microdollars spent in current 7d window
-weeklyWindowStart: v.number(), // timestamp (ms) when current 7d window started
-```
+The deprecated V1 fields (`dailyCount`, `dailyWindowStart`, `lifetimeCount`) do NOT exist in the schema — they were cleanly removed during migration.
 
 ### `oracle_messages` — new field
 
@@ -159,16 +152,16 @@ costUsdMicro: v.optional(v.number()), // cost of this response in microdollars
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `quota_burst_budget_free` | 20000 | 5h budget in microdollars |
-| `quota_burst_budget_popular` | 100000 | |
-| `quota_burst_budget_premium` | 250000 | |
-| `quota_burst_budget_moderator` | 5000000 | |
-| `quota_burst_budget_admin` | 50000000 | |
-| `quota_weekly_budget_free` | 100000 | 7d budget in microdollars |
-| `quota_weekly_budget_popular` | 500000 | |
-| `quota_weekly_budget_premium` | 1500000 | |
-| `quota_weekly_budget_moderator` | 25000000 | |
-| `quota_weekly_budget_admin` | 250000000 | |
+| `quota_burst_budget_free` | 50000 | 5h budget in microdollars |
+| `quota_burst_budget_popular` | 500000 | |
+| `quota_burst_budget_premium` | 2000000 | |
+| `quota_burst_budget_moderator` | 100000000 | |
+| `quota_burst_budget_admin` | 100000000 | |
+| `quota_weekly_budget_free` | 200000 | 7d budget in microdollars |
+| `quota_weekly_budget_popular` | 2000000 | |
+| `quota_weekly_budget_premium` | 8000000 | |
+| `quota_weekly_budget_moderator` | 500000000 | |
+| `quota_weekly_budget_admin` | 500000000 | |
 | `quota_burst_window_ms` | 18000000 | 5 hours |
 | `quota_weekly_window_ms` | 604800000 | 7 days |
 | `model_pricing` | (JSON) | Per-model pricing overrides |
@@ -203,7 +196,7 @@ invokeOracle entry
        │
        ├─ Crisis detection ────── if triggered: return crisis response (NO quota consumed)
        │
-       ├─ Server-side pre-check ── checkQuotaServerSide (action → internal query)
+       ├─ Server-side pre-check ── checkQuota (same public query, called from invokeOracle)
        │                            denied → return "upgrade" response (NO quota consumed)
        │
        ├─ ... prompt assembly, model chain iteration ...
@@ -253,29 +246,27 @@ Client-side quota display:
 - Existing records work; missing cost fields = 0
 
 ### Phase 2: Dual-write
-- Update `incrementQuota` to accept and write `costUsdMicro`
-- Still increment `dailyCount` and `lifetimeCount` for backward compat
-- `checkQuota` returns V2 format (with `burstRemaining`, `weeklyRemaining`) alongside old `remaining`
+- Update `incrementQuota` to accept and write `costMicro`
+- V1 fields no longer exist in schema (already removed)
 
 ### Phase 3: Switch reads to V2
 - Client components read new V2 quota response
 - UI shows budget remaining instead of "X questions remaining"
 - Admin panel shows per-message cost
 
-### Phase 4: Remove V1 fields (after 2+ weeks of V2 stable)
-- Remove `dailyCount`, `dailyWindowStart`, `lifetimeCount`
-- Remove `quota_limit_*`, `quota_reset_*` from `oracle_settings`
-- Keep migration compat fields as `v.optional()`
+### Phase 4: V1 fields already removed
+- `dailyCount`, `dailyWindowStart`, `lifetimeCount` were cleanly removed from the schema — no backward-compat fields remain
+- `quota_limit_*`, `quota_reset_*` from `oracle_settings` no longer exist
 
 ---
 
 ## Edge Cases
 
-1. **Free models** → cost = 0, no budget consumed. Anti-spam floor (`burstMinCostMicro`, default 100 µ$) still applies.
+1. **Free models** → cost = 0; `calculateCostMicro()` returns `0` for `:free`-suffix models. The `BURST_MIN_COST_MICRO` constant exists but is never applied.
 
 2. **Window expiry race** → Convex mutations are serial per-document. Safe.
 
-3. **Missing token counts** → Fall back to `burstMinCostMicro`.
+3. **Missing token counts** → `calculateCostMicro()` falls back to conservative defaults ($3.00/$15.00 per 1M tokens).
 
 4. **Model not in pricing table** → Fall back to `$3.00/$15.00` per 1M (conservative overestimate).
 

@@ -2,7 +2,7 @@
 
 > Source: ORACLE_EXPLAINED.md §4
 
-The prompt is assembled by the **pipeline architecture**: each active pipeline (birth chart, journal recall, binaural beats, generic chat) contributes system prompt blocks and user message blocks. The orchestrator merges blocks from all active pipelines, sorts system blocks by priority, and concatenates them.
+The prompt is assembled by the **pipeline architecture**: each active pipeline (birth chart, journal recall, binaural beats, generic chat) contributes system prompt blocks and user message blocks. The orchestrator merges blocks from all active pipelines, sorts system blocks by priority, and concatenates them. Composition is done inline in `convex/oracle/llm.ts` — there is no separate `PromptComposer` class.
 
 This replaces the older `buildPrompt()` / `buildSystemPrompt()` functions. The pipeline-driven approach enables:
 - **Multi-intent composition**: birth_chart + journal_recall can be active simultaneously
@@ -26,18 +26,19 @@ Built by `buildSystemPrompt()` (`lib/oracle/promptBuilder.ts:41-70`):
 [Block 6: JOURNAL_PROMPT_DIRECTIVE]         ← hardcoded, only if journalContext is present + first response
 ```
 
-### Block 1 — Safety Rules (`lib/oracle/safetyRules.ts:9-32`)
+### Block 1 — Safety Rules (`lib/oracle/safetyRules.ts`)
 
-Hardcoded 32-line block starting with `[SAFETY - HIGHEST PRIORITY - NON-NEGOTIABLE]`. Contains:
+Hardcoded block starting with `[SAFETY - HIGHEST PRIORITY - NON-NEGOTIABLE]`. Contains:
 - Absolute prohibitions (no predictions, no financial/gambling advice, no medical advice, no legal advice, no death predictions, no religion disparagement, no sexualization, no prompt leaking, no identity reveal)
 - Crisis protocol (stop astrological conversation, redirect to professional support)
 - Manipulation resistance (roleplay/hypothetical/instruction-override attempts still enforced)
+- Identity protection, mid-response safety
 
 **Not editable from admin panel. Not stored in the database. Changes require a code deploy.**
 
-### Block 2 — Soul Document (`lib/oracle/soul.ts:25-62`)
+### Block 2 — Soul Document (`lib/oracle/soul.ts`)
 
-The `DEFAULT_ORACLE_SOUL` is ~62 lines defining Oracle's identity, voice, capabilities, and behavior. Stored in DB under key `"oracle_soul"` and editable by admin. Key sections:
+The `DEFAULT_ORACLE_SOUL` defines Oracle's identity, voice, capabilities, and behavior. Also exports `MAX_RESPONSE_TOKENS_DEFAULT` (1000) and `MAX_CONTEXT_MESSAGES_DEFAULT` (20). Stored in DB under key `"oracle_soul"` and editable by admin. Key sections:
 - IDENTITY: Not a fortune teller; shows patterns in motion; never breaks character
 - VOICE: Sharp warm older sister; short sentences; plain language; banned phrases listed
 - WHAT YOU WORK WITH: Cites specific placements; strongest at patterns/timing/connection
@@ -53,15 +54,15 @@ When a feature is active on the session, its instruction block is injected into 
 
 `buildTimespaceContext()` (`convex/oracle/timespace.ts`) always provides the user's local datetime and timezone. When temporal intent is detected in the user's question, it also injects cosmic weather data (planetary positions, moon phase, active transits). This block is always injected regardless of feature state.
 
-### Block 4 — Journal Context (consent-gated, always when consent granted)
+### Block 4 — Journal Context (pipeline-gated, consent-gated)
 
-If the user has granted consent (`journal_consent.oracleCanReadJournal === true`), `assembleJournalContext()` builds a `[JOURNAL CONTEXT]` block containing summaries of the user's recent journal entries. **This is now injected on EVERY message when consent is granted**, not just in Cosmic Recall sessions. The budget is expanded (doubled) when `journal_recall` is the active feature.
+If a pipeline declares `needsJournalContext: true` **and** the user has granted consent (`journal_consent.oracleCanReadJournal === true`), `assembleJournalContext()` builds a `[JOURNAL CONTEXT]` block containing summaries of the user's recent journal entries. Not every session gets journal context — `binaural_beats` and `synastry` pipelines set `needsJournalContext: false`. The budget is expanded (doubled) when `journal_recall` is the active feature.
 
 See [Journal Context Injection](./12-journal-context-injection.md) for the full context assembly specification.
 
-### Block 5 — Title Directive (`lib/oracle/promptBuilder.ts:13-25`)
+### Block 5 — Title Directive (`lib/oracle/promptBuilder.ts`)
 
-Hardcoded instruction requiring the model to output a `TITLE: <4-6 word title>` line at the very end. Only included on the first response. This title is parsed out of the response and used as the session title.
+Hardcoded instruction wrapped in `[SESSION TITLE]` tags, requiring the model to output a `TITLE: <4-6 word title>` line at the very end. The directive notes the title line "will be used as metadata, not shown to the user." Only included on the first response.
 
 ### Block 6 — Journal Prompt Suggestion Directive (optional)
 
@@ -79,7 +80,7 @@ Built by `buildUserMessage()` (`lib/oracle/promptBuilder.ts:61-73`):
 ```
 
 **Universal Birth Data** (v2 architectural change):
-Birth chart data is ALWAYS injected in the user message when the user has `birthData` saved — regardless of which feature is active. This is the key v2 change: birth data is not feature-gated. A Cosmic Recall session can reference the user's Venus placement because the full chart is always present. The same full data is injected for both "core" and "full" depth readings; the depth controls what the model *focuses on*, not what data it sees.
+Birth chart data is injected in the user message when the user has `birthData` saved **and** a pipeline declares `needsBirthData: true`. Only `birth_chart` and `synastry` pipelines do this. The `generic_chat` and `journal_recall` pipelines set `needsBirthData: false`. When data IS injected, the full chart is always included regardless of depth setting; the depth controls what the model *focuses on*, not what data it sees.
 
 **Sanitization** (`lib/oracle/promptBuilder.ts:102-106`):
 Before the user's text enters the prompt, `sanitizeUserQuestion()` strips any bracket-tagged content matching `[SYSTEM...]`, `[BIRTH...]`, `[USER...]`, `[FEATURE...]`, `[SAFETY...]`, `[END...]` to prevent tag injection attacks.
@@ -125,7 +126,7 @@ invokeOracle (entry point)
   ├─ Each pipeline.buildPromptBlocks() ─ returns { systemBlocks[], userBlocks[] }
   │   ├─ birthChartPipeline   ──────────── depth instructions + birth data + [CHART DATA UNAVAILABLE]
   │   ├─ journalRecallPipeline ─────────── Cosmic Recall mode + journal context
-  │   ├─ binauralBeatsPipeline ──────────── binaural protocol + personalization
+  │   ├─ binauralBeatsPipeline ──────────── binaural protocol + personalization (needsBirthData=false)
   │   └─ genericChatPipeline   ──────────── soul-driven open conversation
   │
   ├─ Sort system blocks by priority (descending) ── safety=100, soul=90, features vary

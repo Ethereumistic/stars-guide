@@ -47,7 +47,7 @@
    d. Load session + messages
    e. Load runtime settings (soul, model params, providers, chain)
    f. Load user (birthData, identity)
-   g. **Build universal birth context** — ALWAYS if `user.birthData` exists (`buildUniversalBirthContext`)
+   g. **Build birth context** — when a pipeline needs it (`needsBirthData: true`) and `user.birthData` exists (`buildUniversalBirthContext`)
    h. Resolve active feature (with legacy migration for `birth_chart_core`/`birth_chart_full`)
    i. Fetch journal consent status
    j. Run intent routing (`scoreIntentsWithLLM`) — LLM call for semantic classify, regex fallback on failure; auto-activate and persist `featureKey` + `birthChartDepth`
@@ -60,7 +60,7 @@
    q. Build conversation history (truncated)
    p. Iterate model chain:
       - For each entry: find provider, resolve API key from env, build URL/headers/body, fetch
-      - If streaming: create message placeholder, read SSE stream, flush every 100-300ms, parse title, finalize
+      - If streaming: create message placeholder, read SSE stream, flush throttled to 50ms, parse title, finalize
       - If non-streaming: parse complete response, create/finalize message
       - On success: increment quota (first response only), generate title, return
       - On failure: log, try next model
@@ -71,7 +71,7 @@
 
 ### Phase 5: User Sees Response
 
-1. During streaming: Convex reactive queries update the message content every 100-300ms
+1. During streaming: Convex reactive queries update the message content every 50ms (throttled)
 2. UI shows growing text with blinking cursor
 3. After completion: full response visible, copy button appears
 4. Session title updated (from TITLE: line parsing)
@@ -127,7 +127,7 @@
        │
        ▼
   [Phase 5: Response]
-  Stream to UI via Convex reactivity (100-300ms flush)
+  Stream to UI via Convex reactivity (50ms throttled flush)
   Parse TITLE: line → update session title
   Increment quota (first response only)
        │

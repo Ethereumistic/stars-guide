@@ -119,7 +119,7 @@ These metrics measure the server-side cost of each Oracle invocation. They are c
 
 | Metric | What it measures | Point A | Point B |
 |--------|-----------------|---------|--------|
-| Prompt Build | Time to assemble the full prompt (soul, birth data, journal, timespace, feature, history) | `actionStartTime` (handler entry) | `promptBuildEndTime` (after `buildPrompt()` returns) |
+| Prompt Build | Time to assemble the full prompt (soul, birth data, journal, timespace, feature, history) | `actionStartTime` (handler entry) | `promptBuildEndTime` (after pipeline blocks are composed) |
 | Request Queue | Time from prompt assembly done to LLM HTTP request sent (includes any internal Convex overhead between chains) | `promptBuildEndTime` | `fetchStartTime` (before `fetch()` call) |
 | TTFT (Time to First Token) | Time from HTTP request start to first SSE content token parsed | `fetchStartTime` | `firstTokenTime` (first `delta.content` parsed from SSE) |
 | Initial Decode | Time from first token to ~200 characters of output | `firstTokenTime` | `initialDecodeTime` (when `fullContent.length >= 200`) |

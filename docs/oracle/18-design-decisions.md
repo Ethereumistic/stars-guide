@@ -22,8 +22,8 @@ The birth chart **data** lives in the user message as `[BIRTH CHART DATA]`, whil
 - Instructions are system-level directives the model must follow
 - Depth can be changed without altering data injection
 
-### 6. Universal Birth Context vs. Feature-Gated Data (v2 change)
-Birth data is now injected for EVERY message when `user.birthData` exists, regardless of which feature is active. Previously, birth data was only injected when a birth chart feature was active. This enables cross-context mixing (a Cosmic Recall session can reference Venus) and eliminates data loss when switching features. The token cost increase (~275 tokens) is negligible (~0.03 cents per message).
+### 6. Pipeline-Gated Birth Context vs. Universal Injection (v2 change)
+Birth data is injected only when a pipeline declares `needsBirthData: true`. Only `birth_chart` and `synastry` pipelines do this. The `generic_chat` pipeline intentionally sets `needsBirthData: false` — generic conversations don't need the full chart. When multiple pipelines are active, birth data IS injected if any pipeline needs it.
 
 ### 7. Depth via Instructions, Not Data Scope (v2 change)
 Previously, "core" mode only injected Sun/Moon/Ascendant (3 placements, 4 aspects) while "full" mode injected everything (14 placements, 12 houses, 8 aspects). The v2 architecture ALWAYS injects the full data and uses instruction blocks to tell the model where to focus. This means:
@@ -32,11 +32,11 @@ Previously, "core" mode only injected Sun/Moon/Ascendant (3 placements, 4 aspect
 - The AI always has the full picture
 - Depth is a prompt instruction, not a data filter
 
-### 8. Journal Context is Universal When Consented (v2 change)
-Journal context is now injected on EVERY message when `journal_consent.oracleCanReadJournal === true`, not just in Cosmic Recall sessions. Cosmic Recall changes the budget (doubled) and adds feature instructions, but the data is always present. This means any Oracle session can naturally reference the user's journal without requiring the user to activate Cosmic Recall explicitly.
+### 8. Journal Context is Pipeline-Gated (v2 change)
+Journal context is injected only when a pipeline declares `needsJournalContext: true` AND the user has consented. The `journal_recall` pipeline sets `needsJournalContext: true`; `binaural_beats` and `synastry` set it to `false`. This means journal context is not present in every session — only when its data is relevant to the active feature.
 
-### 9. Streaming Flush Interval (100-300ms)
-The streaming flush interval starts at 100ms (first 2 seconds) then increases to 300ms. This balances UI responsiveness (fast initial token display) against Convex write load (each flush is a mutation). Too frequent would increase costs; too slow would make streaming feel laggy.
+### 9. Streaming Flush Interval (50ms)
+The streaming flush interval is a flat 50ms (`MIN_FLUSH_INTERVAL_MS = 50`). Each SSE chunk triggers a potential flush, throttled to at most once per 50ms. This balances UI responsiveness against Convex write load.
 
 ### 10. Quota Incremented Only on Success
 Quota is only incremented after a successful LLM response. Crisis responses, kill-switch responses, and all-models-failed responses do NOT consume quota. This means failures don't penalize the user.
@@ -54,7 +54,7 @@ The consent check happens server-side in `assembleJournalContext()`. The `[JOURN
 The `JOURNAL_PROMPT_DIRECTIVE` uses the word "MAY" (not "MUST"). Oracle only suggests a journal prompt when it naturally touches on emotional themes. This avoids spammy prompts on every response and maintains the conversational feel.
 
 ### 15. Intent Routing Before Feature Injection (v3 change)
-The intent router runs BEFORE feature injection in `invokeOracle`. This means the routing decision determines which pipeline(s) get activated. The router uses a fast LLM call for semantic understanding (handling typos, creative phrasing, multi-intent detection), falling back to regex on failure. **Intent detection is NOT consent-gated** — birth chart intent is always detected regardless of data availability, and journal recall intent is filtered after routing if the user hasn't consented. This ensures users get chart-reading format even without stored data (the AI asks for it), rather than falling back to generic chat.
+The intent router runs BEFORE feature injection in `invokeOracle`. This means the routing decision determines which pipeline(s) get activated. The router uses a fast LLM call for semantic understanding (handling typos, creative phrasing, multi-intent detection), falling back to regex on failure. **The LLM router does NOT gate intent detection on data availability** — birth chart/synastry intents are always detected regardless of data. However, **the regex fallback DOES gate** `birth_chart` and `synastry` behind `hasBirthData === true`. Journal recall intent is filtered after routing if the user hasn't consented. This ensures users get chart-reading format even without stored data (the AI asks for it), rather than falling back to generic chat.
 
 The LLM router adds ~200-500ms latency on the first message of a new session only. Subsequent messages use the persisted `featureKey` (manual selection shortcut, zero latency). The regex fallback ensures the system never breaks — if the LLM call fails, times out, or returns invalid JSON, the original regex patterns are used instead.
 

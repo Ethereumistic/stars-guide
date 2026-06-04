@@ -112,16 +112,16 @@ This gives per-message cost observability. The admin debug panel can show "this 
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `quota_burst_budget_free` | 20000 | 5h budget in microdollars (20000 = $0.02) |
-| `quota_burst_budget_popular` | 100000 | 5h budget in microdollars ($0.10) |
-| `quota_burst_budget_premium` | 250000 | 5h budget in microdollars ($0.25) |
-| `quota_burst_budget_moderator` | 5000000 | 5h budget in microdollars ($5.00) |
-| `quota_burst_budget_admin` | 50000000 | 5h budget in microdollars ($50.00) |
-| `quota_weekly_budget_free` | 100000 | 7d budget in microdollars ($0.10) |
-| `quota_weekly_budget_popular` | 500000 | 7d budget in microdollars ($0.50) |
-| `quota_weekly_budget_premium` | 1500000 | 7d budget in microdollars ($1.50) |
-| `quota_weekly_budget_moderator` | 25000000 | 7d budget in microdollars ($25.00) |
-| `quota_weekly_budget_admin` | 250000000 | 7d budget in microdollars ($250.00) |
+| `quota_burst_budget_free` | 50000 | 5h budget in microdollars (50000 = $0.05) |
+| `quota_burst_budget_popular` | 500000 | 5h budget in microdollars ($0.50) |
+| `quota_burst_budget_premium` | 2000000 | 5h budget in microdollars ($2.00) |
+| `quota_burst_budget_moderator` | 100000000 | 5h budget in microdollars ($100.00) |
+| `quota_burst_budget_admin` | 100000000 | 5h budget in microdollars ($100.00) |
+| `quota_weekly_budget_free` | 200000 | 7d budget in microdollars ($0.20) |
+| `quota_weekly_budget_popular` | 2000000 | 7d budget in microdollars ($2.00) |
+| `quota_weekly_budget_premium` | 8000000 | 7d budget in microdollars ($8.00) |
+| `quota_weekly_budget_moderator` | 500000000 | 7d budget in microdollars ($500.00) |
+| `quota_weekly_budget_admin` | 500000000 | 7d budget in microdollars ($500.00) |
 | `quota_burst_window_ms` | 18000000 | 5 hours in ms (5 * 60 * 60 * 1000) |
 | `quota_weekly_window_ms` | 604800000 | 7 days in ms (7 * 24 * 60 * 60 * 1000) |
 | `model_pricing` | (JSON — see default table above) | Per-model pricing overrides as JSON. If model missing, fall back to hardcoded defaults. |
@@ -159,7 +159,7 @@ This gives per-message cost observability. The admin debug panel can show "this 
 
 ### `incrementQuota` mutation (V2)
 
-**New arg:** `costUsdMicro: v.number()` (required)
+**New arg:** `costMicro: v.optional(v.number())` (optional)
 
 **Logic:**
 1. Auth check (same as V1)
@@ -217,7 +217,7 @@ if (isFirstResponse) {
 }
 ```
 
-**IMPORTANT:** The quota check (`checkQuota`) happens BEFORE `invokeOracle` on the client side. The server-side quota enforcement must also happen at the top of `invokeOracle` before any LLM call. We add a `checkQuotaServerSide` internal query that the action calls.
+**IMPORTANT:** The quota check (`checkQuota`) happens BEFORE `invokeOracle` on the client side. The server-side quota enforcement happens inside `invokeOracle` via the public `checkQuota` query (`ctx.runQuery(api.oracle.quota.checkQuota, {})`). There is no separate `checkQuotaServerSide` function — the same query is used for both client and server checks.
 
 ---
 
@@ -231,9 +231,9 @@ if (isFirstResponse) {
 
 ### Phase 2: Write to both old and new (dual-write)
 
-1. Update `incrementQuota` to accept and use `costUsdMicro`
-2. Still increment `dailyCount` and `lifetimeCount` for backward compat
-3. Update `checkQuota` to use new cost-based logic but ALSO return old-format data
+1. Update `incrementQuota` to accept and use `costMicro`
+2. V1 fields no longer exist in schema — no backward compat needed
+3. Update `checkQuota` to use new cost-based logic (already returns V2 format)
 
 ### Phase 3: Switch reads to V2
 
@@ -241,11 +241,11 @@ if (isFirstResponse) {
 2. UI shows budget remaining instead of "X questions remaining"
 3. Admin panel shows cost data per message
 
-### Phase 4: Remove V1 fields (after 2+ weeks of V2 stable)
+### Phase 4: Remove V1 fields (DONE)
 
-1. Remove `dailyCount`, `dailyWindowStart`, `lifetimeCount` from code
-2. Change schema fields to `v.optional(...)` if not already
-3. Clean up oracle_settings old keys (`quota_limit_*`, `quota_reset_*`)
+1. `dailyCount`, `dailyWindowStart`, `lifetimeCount` already removed from schema — no backward-compat fields exist
+2. Schema fields use `v.optional(v.float64())` for cost fields
+3. Old keys (`quota_limit_*`, `quota_reset_*`) cleaned up
 
 ---
 

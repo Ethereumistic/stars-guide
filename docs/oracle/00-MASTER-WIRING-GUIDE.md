@@ -17,7 +17,7 @@
 | 07 | [Safety & Crisis Detection](./07-safety-crisis-detection.md) | Hardcoded safety rules, crisis keywords, kill switch, input/output safety, sanitization |
 | 08 | [Session Management](./08-session-management.md) | Session lifecycle, CRUD operations, legacy migration |
 | 09 | [Quota System](./09-quota-system.md) | Cost-based rate limiting, microdollar budgets, burst + weekly windows |
-| 10 | [Feature System](./10-feature-system.md) | Seven features, selection flow, injection mechanism, default prompts |
+| 10 | [Feature System](./10-feature-system.md) | Six features, selection flow, injection mechanism, default prompts |
 | 11 | [Birth Context Injection](./11-birth-context-injection.md) | Universal birth data, depth instructions, data-vs-instructions separation |
 | 12 | [Journal Context Injection](./12-journal-context-injection.md) | Consent-gated journal context, budgets, Cosmic Recall, journal prompts |
 | 13 | [Intent Classification](./13-intent-classification.md) | LLM intent router (primary) + regex fallback, multi-intent scoring, pipeline resolution |
@@ -53,9 +53,9 @@
 │  │  Every other component either feeds into it or reads from it.       │  │
 │  │                                                                      │  │
 │  │  ORDER OF OPERATIONS:                                                │  │
-│  │  1. Kill switch check ──────────▶ [7-Safety] oracle_settings        │  │
-│  │  2. Crisis detection ───────────▶ [7-Safety] keyword scan           │  │
-│  │  3. Input validation ───────────▶ [7-Safety] length check           │  │
+│  │  1. Input validation ───────────▶ [7-Safety] length check           │  │
+│  │  2. Kill switch check ─────────▶ [7-Safety] oracle_settings        │  │
+│  │  3. Crisis detection ───────────▶ [7-Safety] keyword scan           │  │
 │  │  4. Load session + messages ────▶ [8-Sessions] oracle_sessions      │  │
 │  │  5. Load runtime settings ──────▶ [3-Admin] oracle_settings          │  │
 │  │  6. Load user + birthData ──────▶ [11-BirthContext] user table       │  │
@@ -77,13 +77,11 @@
 │  │     │  16e. If refusal + benign: delete message, retry w/ recovery│  │
 │  │     │  16f. If refusal + crisis/last tier: accept refusal          │  │
 │  │     │  16g. If all tiers fail: return hardcoded fallback (Tier D) │  │
-│  │  17. Stream response ──────────▶ [6-Streaming] SSE → Convex → UI   │  │
-│  │  18. Parse title ──────────────▶ [17-Title] update session.title    │  │
-│  │  19. Parse journal prompt ─────▶ [12-Journal] store on message     │  │
-│  │  20. Increment quota ──────────▶ [9-Quota] only on success          │  │
-│  │  21. Persist timing metrics ───▶ [19-Debug] patchMessageTiming      │  │
-│  │  22. Pipeline afterResponse ──▶ e.g., binaural params on message   │  │
-│  │  23. Finalize message ─────────▶ [6-Streaming] finalizeStreaming    │  │
+│  │  17. Server-side quota check ▶▶ [9-Quota] checkQuota query            │  │
+│  │  18. Increment quota ──────────▶ [9-Quota] only on success          │  │
+│  │  19. Persist timing metrics ───▶ [19-Debug] patchMessageTiming      │  │
+│  │  20. Pipeline afterResponse ──▶ e.g., binaural params on message   │  │
+│  │  21. Update session status ───▶ [8-Sessions]                      │  │
 │  └─────────────────────────────────────────────────────────────────────┘  │
 │                                                                            │
 │  Supporting modules (called by invokeOracle or by the frontend):          │
@@ -163,7 +161,7 @@ SYSTEM PROMPT (blocks sorted by priority, descending):
 
 USER MESSAGE (blocks from all active pipelines + sanitized question):
 │
-├── Block: [BIRTH CHART DATA] ────── from buildUniversalBirthContext(user.birthData) ── ALWAYS when birthData exists
+├── Block: [BIRTH CHART DATA] ────── from buildUniversalBirthContext(user.birthData) ── when a pipeline needs it
 ├── Block: [CHART DATA UNAVAILABLE] ── when birth_chart intent but no stored data ── instructs AI to ask for data
 ├── Block: sanitized user question ──── sanitizeUserQuestion() strips [TAG...] injection attempts
 
@@ -228,7 +226,7 @@ Feature can be activated two ways:
                  │   → User: [BIRTH CHART DATA] block
                  ├── journalRecallPipeline: needs journal (expanded), timespace
                  │   → System: [COSMIC RECALL MODE] block
-                 ├── binauralBeatsPipeline: needs birth data, timespace
+                 ├── binauralBeatsPipeline: needs timespace only
                  │   → System: binaural protocol, personalization
                  │   → Post-response: store binaural params on message
                  └── genericChatPipeline: needs timespace only
@@ -327,7 +325,7 @@ pipeline data requirements (not feature selection):
   Pipelines declare what they need:
   • birthChartPipeline: needsBirthData=true, needsJournalContext=true, needsTimespace=true
   • journalRecallPipeline: needsJournalContext=true (expanded), needsTimespace=true
-  • binauralBeatsPipeline: needsBirthData=true, needsTimespace=true
+  • binauralBeatsPipeline: needsBirthData=false, needsTimespace=true
   • genericChatPipeline: needsTimespace=true only
 
   The orchestrator merges requirements from ALL active pipelines.
@@ -397,7 +395,7 @@ callProviderStreaming() [convex/oracle/llm.ts]
        │                                 └── Returns messageId (used for timing patches)
        │
        ├── During streaming:
-       │     Every 100-300ms:
+       │     Every 50ms (throttled):
        │       updateStreamingContent ──▶ PATCH oracle_messages.content
        │       └── Triggers Convex reactivity → UI updates
        │
@@ -444,8 +442,8 @@ These are the architectural rules that must not be violated. If you're modifying
 | 2 | **Kill switch and crisis responses never consume quota** | Users shouldn't be penalized for system-level blocks | `convex/oracle/llm.ts` (incrementQuota only after successful LLM response) |
 | 3 | **Quota checks are server-authoritative** | Client can't bypass quota; client display is just a hint | `convex/oracle/quota.ts` |
 | 4 | **API keys are never in the DB** | DB leak doesn't expose keys; only env var names stored | `convex/oracle/upsertProviders.ts`, `src/lib/oracle/providers.ts` |
-| 5 | **Birth data is always injected when available and a pipeline needs it** | Enables cross-context mixing; birth_chart pipeline also injects a "ask for data" block when no data available | `convex/oracle/llm.ts` gathers per-pipeline requirements |
-| 6 | **Journal context is always injected when consented and a pipeline needs it** | Cosmic Recall sessions get expanded budget | `convex/oracle/llm.ts` merged pipeline requirements |
+| 5 | **Birth data is injected when a pipeline needs it and user has it** | Enables cross-context mixing; `birth_chart` and `synastry` pipelines set `needsBirthData: true`; `generic_chat` and `journal_recall` set it to `false` | `convex/oracle/llm.ts` gathers per-pipeline requirements |
+| 6 | **Journal context is injected when a pipeline needs it and consent is granted** | `journal_recall` pipeline sets `needsJournalContext: true`; `binaural_beats` and `synastry` set it to `false` | `convex/oracle/llm.ts` merged pipeline requirements |
 | 7 | **Journal consent is server-enforced** | Client cannot bypass consent; `requiresJournalConsent` on features is a UX hint | `convex/journal/context.ts` checks `oracleCanReadJournal` server-side |
 | 8 | **Journal context is non-blocking** | Journal failures don't stop Oracle from producing a reading | `convex/oracle/llm.ts` wraps journal assembly in try/catch |
 | 9 | **Intent routing never overrides manual feature selection** | Once a user picks a feature, it stays locked for the session; no LLM call is made | `scoreIntentsWithLLM` returns `manual_selection` immediately if `currentFeatureKey` is set |
@@ -507,9 +505,9 @@ These are the architectural rules that must not be violated. If you're modifying
 For any AI agent modifying or debugging the system, this is the exact sequence of operations in `invokeOracle`:
 
 ```
-1.   Check kill_switch ──────────────────────▶ [if ON] return fallback, no LLM, no quota
-2.   Check crisis keywords ──────────────────▶ [if match] return crisis text, no LLM, no quota
-3.   Validate input length ─────────────────▶ [if >2000 chars] reject
+1.   Validate input length ──────────────────▶ [if >2000 chars] reject
+2.   Check kill_switch ──────────────────────▶ [if ON] return fallback, no LLM, no quota
+3.   Check crisis keywords ──────────────────▶ [if match] return crisis text, no LLM, no quota
 4.   Load session + messages ────────────────▶ oracle_sessions + oracle_messages
 5.   Load runtime settings ─────────────────▶ soul, temperature, top_p, model_chain, providers, limits
 6.   Load user (birthData, identity) ─────────▶ users table
@@ -519,19 +517,19 @@ For any AI agent modifying or debugging the system, this is the exact sequence o
 10.  Resolve active pipelines ────────────────▶ map intents to pipeline objects, compose data requirements
 11.  Persist auto-activated feature ──────────▶ updateSessionFeature + updateSessionBirthChartDepth
 12.  Gather pipeline data ────────────────────▶ merge data requirements from ALL active pipelines
-13.  Build birth context ────────────────────▶ [BIRTH CHART DATA] if any pipeline needs it
-14.  Assemble journal context ──────────────▶ [JOURNAL CONTEXT] if any pipeline needs it + consent
+13.  Build birth context ────────────────────▶ [BIRTH CHART DATA] if any pipeline needsBirthData
+14.  Assemble journal context ──────────────▶ [JOURNAL CONTEXT] if any pipeline needsJournalContext + consent
 15.  Build timespace context ───────────────▶ local datetime + cosmic weather (conditionally expanded)
 16.  Build feature injection ────────────────▶ depth-specific instructions for primary pipeline
 17.  Compose system prompt ─────────────────▶ merge system blocks from ALL active pipelines (sorted by priority)
 18.  Compose user message ──────────────────▶ merge user blocks from ALL active pipelines + sanitized question
 19.  Build conversation history ────────────▶ last maxContextMessages, truncated to 16000 chars
-20.  Prepend debug model override ──────────▶ [if admin debug] prepend to model chain as Tier A
-21.  Iterate model chain ───────────────────▶ Tier A → B → C → ... until success
-22.  Stream response ───────────────────────▶ SSE → updateStreamingContent every 100-300ms
-23.  Parse title ───────────────────────────▶ TITLE: line extraction + cleanup
-24.  Parse journal prompt ──────────────────▶ JOURNAL_PROMPT: line extraction
-25.  Finalize message ──────────────────────▶ finalizeStreamingMessage (content, model, tokens, tier, hash)
+20.  Server-side quota pre-check ───────────▶ checkQuota query → if denied, return upgrade message
+21.  Prepend debug model override ──────────▶ [if admin debug] prepend to model chain as Tier A
+22.  Iterate model chain ───────────────────▶ Tier A → B → C → ... until success
+23.  Stream response (inside callProviderStreaming) ▶ SSE → updateStreamingContent throttled to 50ms
+24.  Parse title + journal prompt (inside callProviderStreaming) ▶ extracted from streamed content
+25.  Finalize message (inside callProviderStreaming) ▶ finalizeStreamingMessage
 26.  Run pipeline afterResponse hooks ──────▶ e.g., binaural_beats stores binaural params
 27.  Patch timing metrics ─────────────────▶ patchMessageTiming (promptBuild, queue, TTFT, decode, total)
 28.  Increment quota ───────────────────────▶ only on first response, only on success

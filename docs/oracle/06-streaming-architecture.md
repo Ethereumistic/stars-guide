@@ -25,7 +25,7 @@ The Oracle streams tokens in real-time from the LLM through Convex into the Reac
 1. **Create message placeholder**: `createStreamingMessage` inserts an empty `oracle_messages` row (role=assistant, content="")
 2. **Read SSE stream**: Uses `response.body.getReader()` + `TextDecoder` to read Server-Sent Events
 3. **Parse chunks**: Each `data: {json}` line is parsed; `choices[0].delta.content` tokens are appended to `fullContent`
-4. **Periodic flush**: Every 100ms (first 2s) then 300ms, the accumulated content is written to Convex via `updateStreamingContent` — this triggers Convex reactivity which updates the UI
+4. **Periodic flush**: Every 50ms (`MIN_FLUSH_INTERVAL_MS = 50`), the accumulated content is throttled and written to Convex via `updateStreamingContent` — this triggers Convex reactivity which updates the UI
 5. **Track usage**: If `parsed.usage` exists, `promptTokens` and `completionTokens` are captured
 6. **On stream complete**: Parse title from full response, strip title line, write final cleaned content via `updateStreamingContent`, then call `finalizeStreamingMessage` with metadata (model, tokens, tier)
 7. **Error handling**: If stream errors mid-way with partial content, the partial content is kept. If stream errors with zero content, a recovery message is inserted.
@@ -36,7 +36,7 @@ The Oracle streams tokens in real-time from the LLM through Convex into the Reac
 
 These are `internalMutation` (not publicly callable):
 - `createStreamingMessage` (`sessions.ts`): Creates empty assistant message, increments session messageCount
-- `updateStreamingContent` (`sessions.ts`): Patches message content in-place (called every 100-300ms during streaming)
+- `updateStreamingContent` (`sessions.ts`): Patches message content in-place (throttled to every 50ms during streaming)
 - `finalizeStreamingMessage` (`sessions.ts`): Sets final content, modelUsed, tokens, tier, timing metrics, debug model override; updates session metadata (primaryModelUsed, usedFallback, status)
 - `patchMessageTiming` (`sessions.ts`): Patches timing metrics (`timingPromptBuildMs`, `timingRequestQueueMs`, `timingTtftMs`, `timingInitialDecodeMs`, `timingTotalMs`) and `debugModelUsed` onto an existing message document; called by `invokeOracle` after a successful LLM call to persist observability data for the Admin Debug Panel (see [Debug Panel](./19-debug-panel.md))
 
@@ -76,7 +76,7 @@ LLM Provider (SSE stream)
        ▼
 callProviderStreaming() [convex/oracle/llm.ts]
        │
-       ├── Every 100-300ms:
+       ├── Every 50ms (throttled):
        │     updateStreamingContent (internalMutation)
        │         └──▶ Patches oracle_messages.content in-place
        │

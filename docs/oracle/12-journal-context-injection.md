@@ -25,22 +25,19 @@ In `invokeOracle` (`convex/oracle/llm.ts`):
    }
    ```
 
-2. After feature injection and birth context assembly, journal context is ALWAYS assembled when consent is granted — **not just in Cosmic Recall sessions**:
+2. After pipelines are resolved, journal context is assembled when a pipeline declares `needsJournalContext: true` **and** consent is granted — **not always when consented**:
    ```typescript
-   const isCosmicRecall = activeFeature?.key === "journal_recall";
-   try {
-       if (user?._id && hasJournalConsent) {
-           journalContext = await ctx.runQuery(
-               internal.journal.context.assembleJournalContext,
-               { userId: user._id, expandedBudget: isCosmicRecall },
-           );
-       }
-   } catch (e) {
-       journalContext = null;
+   const needsJournal = activePipelines.some((p) => p.dataRequirements.needsJournalContext);
+   if (needsJournal && user?._id && hasJournalConsent) {
+       journalContext = await ctx.runQuery(
+           internal.journal.context.assembleJournalContext,
+           { userId: user._id, expandedBudget: isCosmicRecall },
+       );
    }
    ```
+   The `binaural_beats` and `synastry` pipelines set `needsJournalContext: false`, so journal context is NOT assembled in those sessions even if consented.
 
-3. `journalContext` is passed to `buildPrompt()` and inserted into the system prompt.
+3. When journal context is present, it is injected into the system prompt as a block.
 
 4. When journal context is present, the `JOURNAL_PROMPT_DIRECTIVE` is also included, instructing Oracle that it may suggest a journal prompt.
 
@@ -94,7 +91,7 @@ After Oracle generates a response, `parseJournalPromptFromResponse()` (`lib/orac
 - The Oracle input menu checks `requiresJournalConsent` and queries consent status; if not granted, the feature is disabled with "Requires journal access" tooltip
 
 **What's the same (v2 change):**
-- Journal context is now always present in the system prompt when consent is granted, even in non-Cosmic-Recall sessions. The difference is only the budget and the feature instructions.
+- Journal context is injected in the system prompt when a pipeline needs it AND consent is granted. The `journal_recall` pipeline sets `needsJournalContext: true`, while `binaural_beats` and `synastry` set it to `false`. The difference from Cosmic Recall is only the expanded budget and the feature instructions.
 
 ---
 
@@ -129,7 +126,7 @@ invokeOracle
        │       │
        │       └── On failure: journalContext = null (non-blocking)
        │
-       ├── Step: buildPrompt()
+       ├── Step: Inject into system prompt
        │       │
        │       ├── If journalContext is present:
        │       │   └── Inject into system prompt (Block 4)

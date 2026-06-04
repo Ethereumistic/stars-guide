@@ -2,7 +2,7 @@
 
 > Source: ORACLE_EXPLAINED.md §11
 
-> This section documents the v2 universal birth context architecture. Birth data is always injected when the user has it saved — regardless of which feature is active. Depth is controlled by instructions, not data scope.
+> This section documents the v2 birth context architecture. Birth data is injected when a pipeline declares `needsBirthData: true` — the `birth_chart` and `synastry` pipelines do this; `generic_chat` and `journal_recall` do not. Depth is controlled by instructions, not data scope.
 
 ---
 
@@ -12,7 +12,7 @@ The v2 architecture separates **birth data** from **birth chart reading instruct
 
 | Layer | Where | What | When |
 |-------|-------|------|------|
-| Birth data | User message (`[BIRTH CHART DATA]`) | All placements, houses, aspects | ALWAYS when `user.birthData` exists |
+| Birth data | User message (`[BIRTH CHART DATA]`) | All placements, houses, aspects | When a pipeline needs it && `user.birthData` exists |
 | Reading instructions | System prompt (feature injection) | Core depth or Full depth instructions | Only when `birth_chart` feature is active |
 
 This separation is the key v2 change. Previously, "core" mode threw away most of the data (only injecting Sun/Moon/Ascendant), and "full" mode injected everything. Now both depths get the SAME full data — the instruction block tells the model which to focus on.
@@ -23,7 +23,7 @@ This separation is the key v2 change. Previously, "core" mode threw away most of
 
 `buildUniversalBirthContext()` in `src/lib/oracle/featureContext.ts`:
 
-This function is called **before** feature selection check in `invokeOracle`, making it independent of `activeFeature`. It ALWAYS returns the full chart:
+This function is called when a pipeline declares `needsBirthData: true`. It returns the full chart:
 
 ```
 Treat the stored chart data below as canonical truth. Do not invent different signs, houses, or aspects.
@@ -126,7 +126,7 @@ invokeOracle
        │       │       └── Returns: [BIRTH CHART DATA] block (ALL placements, houses, aspects)
        │       │
        │       │   This block goes into the USER MESSAGE (Block 1)
-       │       │   regardless of which feature is active
+       │       │   when a pipeline needs birth data
        │       │
        │       NO:
        │       │

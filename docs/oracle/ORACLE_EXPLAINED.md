@@ -49,16 +49,15 @@ The Oracle is a conversational astrology AI built on a **Convex + Next.js** stac
 │  oracle/sessions.ts  — Session & message CRUD               │
 │  oracle/settings.ts  — Admin settings read/write              │
 │  oracle/quota.ts     — Server-authoritative quota checks      │
-│  oracle/features.ts  — Feature injection queries             │
+│  oracle/featureInjections.ts — Feature injection queries     │
 │  oracle/debug.ts    — Admin debug queries (provider list, timing) │
 │  oracle/upsertProviders.ts — Provider/chain config mutations │
 │  lib/adminGuard.ts   — Admin authorization enforcement        │
 │                                                               │
-│  ═══ Oracle Tools v2 Architecture ═══                        │
-│  lib/oracle/features.ts — Unified birth_chart, intent         │
-│                           classification with depth           │
-│  lib/oracle/featureContext.ts — Universal birth context       │
-│                                  builder + depth instructions │
+│  ═══ Oracle Tools v2/v3 Architecture ═══                        │
+│  src/lib/oracle/features.ts — Feature definitions + intent patterns│
+│  src/lib/oracle/featureContext.ts — Universal birth context      │
+│                                    builder + depth instructions │
 │                                                               │
 │  ═══ Journal Integration (consent-gated) ═══                 │
 │  journal/context.ts  — [JOURNAL CONTEXT] block builder       │
@@ -83,11 +82,11 @@ The Oracle is a conversational astrology AI built on a **Convex + Next.js** stac
 
 Key architectural properties:
 - **Server-authoritative**: All quota checks, prompt assembly, and LLM calls happen server-side. Client-side quota displays are UX-only hints.
-- **Streaming-first**: Tokens stream from the LLM through Convex into the reactive UI in near-real-time (300ms flush intervals).
+- **Streaming-first**: Tokens stream from the LLM through Convex into the reactive UI in near-real-time (50ms flush intervals).
 - **Hardcoded safety first**: The safety rules block is hardcoded in code, always position 1 in the system prompt, and cannot be overridden by admin-editable settings.
 - **Multi-provider resilience**: A ranked fallback chain tries multiple models/providers; if all fail, a hardcoded fallback message is returned.
-- **Universal birth context** (v2): Birth data is ALWAYS injected into the prompt when available, regardless of which feature is active. Depth is controlled by instructions, not data scope.
-- **Cross-context mixing** (v2): Birth data, journal context, and timespace context coexist in every prompt. A Cosmic Recall session can reference Venus placements because birth data is always present.
+- **Pipeline-gated birth context** (v2): Birth data is injected only when a pipeline declares `needsBirthData: true`. The `generic_chat` and `journal_recall` pipelines set `needsBirthData: false` — birth data is NOT injected in those sessions. Depth is controlled by instructions, not data scope.
+- **Cross-context mixing** (v2): Birth data, journal context, and timespace context coexist in a prompt when the active pipelines require them. A birth_chart + journal_recall session can reference Venus placements and journal patterns simultaneously.
 
 ---
 
@@ -95,14 +94,14 @@ Key architectural properties:
 
 The Oracle uses five Convex tables defined in `convex/schema.ts`:
 
-### `oracle_settings` (Table 12, schema lines 279-295)
+### `oracle_settings` (Table 20)
 Key-value configuration store. Every admin-editable setting is a row with:
 - `key` — unique identifier (indexed)
 - `value` — always stored as string, parsed at app layer
 - `valueType` — `"string" | "number" | "boolean" | "json"`
 - `label` — human-readable name for admin UI
 - `description` — optional explanation
-- `group` — categorization: `"soul" | "model" | "token_limits" | "provider" | "quota" | "operations" | "safety"`
+- `group` — categorization: the schema comment lists `"model" | "quota" | "content" | "safety" | "operational"`, but actual code queries by `"soul"`, `"model"`, `"token_limits"`, `"provider"`, and `"quota"`
 - `updatedAt`, `updatedBy` — audit trail
 
 **Known setting keys:**
@@ -118,24 +117,24 @@ Key-value configuration store. Every admin-editable setting is a row with:
 | `max_context_messages` | token_limits | number | 20 | Max history messages in prompt |
 | `providers_config` | provider | json | DEFAULT_PROVIDERS | Provider endpoint definitions |
 | `model_pricing` | provider | json | DEFAULT_MODEL_PRICING | Per-model pricing table (prompt$/1M + completion$/1M) |
-| `quota_burst_budget_free` | quota | number | 20000 | 5h burst budget in µ$ ($0.02) |
-| `quota_burst_budget_popular` | quota | number | 100000 | 5h burst budget in µ$ ($0.10) |
-| `quota_burst_budget_premium` | quota | number | 250000 | 5h burst budget in µ$ ($0.25) |
-| `quota_burst_budget_moderator` | quota | number | 5000000 | 5h burst budget in µ$ ($5.00) |
-| `quota_burst_budget_admin` | quota | number | 50000000 | 5h burst budget in µ$ ($50.00) |
-| `quota_weekly_budget_free` | quota | number | 100000 | 7d weekly budget in µ$ ($0.10) |
-| `quota_weekly_budget_popular` | quota | number | 500000 | 7d weekly budget in µ$ ($0.50) |
-| `quota_weekly_budget_premium` | quota | number | 1500000 | 7d weekly budget in µ$ ($1.50) |
-| `quota_weekly_budget_moderator` | quota | number | 25000000 | 7d weekly budget in µ$ ($25.00) |
-| `quota_weekly_budget_admin` | quota | number | 250000000 | 7d weekly budget in µ$ ($250.00) |
+| `quota_burst_budget_free` | quota | number | 50000 | 5h burst budget in µ$ ($0.05) |
+| `quota_burst_budget_popular` | quota | number | 500000 | 5h burst budget in µ$ ($0.50) |
+| `quota_burst_budget_premium` | quota | number | 2000000 | 5h burst budget in µ$ ($2.00) |
+| `quota_burst_budget_moderator` | quota | number | 100000000 | 5h burst budget in µ$ ($100.00) |
+| `quota_burst_budget_admin` | quota | number | 100000000 | 5h burst budget in µ$ ($100.00) |
+| `quota_weekly_budget_free` | quota | number | 200000 | 7d weekly budget in µ$ ($0.20) |
+| `quota_weekly_budget_popular` | quota | number | 2000000 | 7d weekly budget in µ$ ($2.00) |
+| `quota_weekly_budget_premium` | quota | number | 8000000 | 7d weekly budget in µ$ ($8.00) |
+| `quota_weekly_budget_moderator` | quota | number | 500000000 | 7d weekly budget in µ$ ($500.00) |
+| `quota_weekly_budget_admin` | quota | number | 500000000 | 7d weekly budget in µ$ ($500.00) |
 | `quota_burst_window_ms` | quota | number | 18000000 | 5h window in ms |
 | `quota_weekly_window_ms` | quota | number | 604800000 | 7d window in ms |
-| `burst_min_cost_micro` | quota | number | 100 | Minimum µ$ charged per call even on free models (spam guard) |
+| `burst_min_cost_micro` | quota | number | 100 | Exported constant, but NOT applied by `calculateCostMicro()` — free models cost 0 µ$ |
 | `kill_switch` | operations | boolean | false | Emergency Oracle off switch |
 | `fallback_response_text` | safety | string | "The stars are momentarily beyond my reach..." | Hardcoded fallback copy |
 | `crisis_response_text` | safety | string | "I see you, and what you're carrying right now matters deeply..." | Crisis response copy |
 
-### `oracle_sessions` (Table 14, schema lines 312-332)
+### `oracle_sessions` (Table 22)
 Conversation sessions. Each session tracks:
 - `userId` — owner
 - `title` — initially truncated question, replaced by AI-generated title
@@ -150,7 +149,7 @@ Conversation sessions. Each session tracks:
 - `starType` — optional `"beveled" | "cursed"` pin tier
 - Timestamps: `createdAt`, `updatedAt`, `lastMessageAt`
 
-### `oracle_messages` (Table 15, schema lines 334-354)
+### `oracle_messages` (Table 28)
 Individual messages within sessions:
 - `sessionId` — foreign key to sessions (indexed)
 - `role` — `"user"` or `"assistant"`
@@ -162,28 +161,29 @@ Individual messages within sessions:
 - `systemPromptHash` — optional string; snapshot of system prompt for observability
 - `journalPrompt` — optional string (assistant only); journal prompt suggested by Oracle via `JOURNAL_PROMPT:` line in response
 - `timingPromptBuildMs` — optional number; milliseconds spent assembling the prompt (context loading, birth data, journal, timespace, etc.)
-- `timingRequestQueueMs` — optional number; milliseconds from prompt assembly completion to LLM HTTP request start (includes network overhead and LLM queue wait)
+- `timingRequestQueueMs` — optional number; milliseconds from prompt assembly completion to LLM HTTP request sent (includes provider lookup, URL building, header construction, and network overhead)
 - `timingTtftMs` — optional number; milliseconds from LLM HTTP request start to first content token received (Time to First Token, including network RTT and prompt processing)
 - `timingInitialDecodeMs` — optional number; milliseconds from first token to ~200 characters of output (measures initial generation speed after TTFT)
 - `timingTotalMs` — optional number; total wall-clock milliseconds from `invokeOracle` handler start to completion
 - `debugModelUsed` — optional string; when a debug model override is active, records the `providerId/model` string (e.g. `openrouter/anthropic/claude-sonnet-4`)
+- `audioData` — optional string (deprecated)
+- `audioStorageId` — optional storage ID
+- `audioUrl` — optional string
+- `binauralParams` — optional any; binaural beat parameters from the binaural_beats pipeline
+- `rating` — optional union of `"thumbs_up" | "thumbs_down"`
+- `ratingAt` — optional number; timestamp when rating was set
 - `createdAt`
 
-### `oracle_quota_usage` (Table 13, schema lines 298-309)
+### `oracle_quota_usage` (Table 21)
 Per-user quota tracking — **cost-based (V2)**. Replaced the old session-count caps with token-cost budgets in rolling windows:
 - `userId` — indexed
-- `burstCost` — microdollars spent in the current 5-hour burst window (burst abuse protection)
-- `burstWindowStart` — timestamp when current 5h window started
-- `weeklyCost` — microdollars spent in the current 7-day weekly window (the real budget)
-- `weeklyWindowStart` — timestamp when current 7d window started
+- `burstCost` — `v.optional(v.float64())`; microdollars spent in the current 5-hour burst window
+- `burstWindowStart` — `v.optional(v.float64())`; timestamp when current 5h window started
+- `weeklyCost` — `v.optional(v.float64())`; microdollars spent in the current 7-day weekly window
+- `weeklyWindowStart` — `v.optional(v.float64())`; timestamp when current 7d window started
 - `lastQuestionAt`, `updatedAt`
 
-**Deprecated (kept for backward compat, no longer written):**
-- `dailyCount` — old 24h question count
-- `dailyWindowStart` — old 24h window start
-- `lifetimeCount` — old free-tier lifetime cap
-
-### `oracle_feature_injections` (Table 11, schema lines 268-276)
+### `oracle_feature_injections` (Table 19)
 Per-feature prompt augmentation blocks:
 - `featureKey` — indexed, e.g. `"birth_chart"`, `"journal_recall"`, `"birth_chart_depth_core"`, `"birth_chart_depth_full"`
 - `contextText` — the prompt block injected into the system prompt
@@ -218,7 +218,7 @@ The Model tab now uses **inner sub-tabs** to manage separate model chains for di
 
 Each sub-tab shows its own `ModelChainEditor` with drag-reorder, tier badges (A, B, C...), model combobox with capability badges, and provider-aware validation.
 
-"Save All" button persists both model chains + temperature + top_p + stream_enabled atomically.
+"Save All" button persists `providers_config` and `model_chain` atomically. Temperature, top_p, and stream_enabled are saved via separate `upsertSetting` calls. The `intent_model_chain` setting has no write mutation in `upsertProviders.ts`.
 
 ### Tab 4: Limits
 - `max_response_tokens` — sent as `max_tokens` to the LLM (100–16000, default 1000)
@@ -227,8 +227,8 @@ Each sub-tab shows its own `ModelChainEditor` with drag-reorder, tier badges (A,
 ### Tab 5: Quotas
 **Cost-based rate limiting (V2)** — no longer session-count caps.
 - Per-tier burst budgets (5h window) and weekly budgets (7d window) in **microdollars** (µ$)
-- `quota_burst_budget_{plan}` — e.g. free gets $0.02/5h, popular $0.10/5h, premium $0.25/5h
-- `quota_weekly_budget_{plan}` — e.g. free gets $0.10/7d, popular $0.50/7d, premium $1.50/7d
+- `quota_burst_budget_{plan}` — e.g. free gets $0.05/5h, popular $0.50/5h, premium $2.00/5h
+- `quota_weekly_budget_{plan}` — e.g. free gets $0.20/7d, popular $2.00/7d, premium $8.00/7d
 - `quota_burst_window_ms` / `quota_weekly_window_ms` — rolling window durations
 - `burst_min_cost_micro` — minimum µ$ per call even on `:free` models (default 100 µ$ = $0.0001)
 - Model pricing table viewer — shows per-model prompt/completion $/1M tokens, editable as JSON
@@ -249,7 +249,7 @@ All admin queries/mutations call `requireAdmin()` (`convex/lib/adminGuard.ts:12-
 
 ## 4. Prompt Assembly Pipeline — Pipeline-Based Tagged Blocks (v3)
 
-The prompt is no longer assembled by a single monolithic `buildPrompt()` function with 7 positional parameters. Instead, the Oracle uses a **pipeline-based tagged block architecture**. Each feature (birth chart, synastry, journal recall, generic chat) is backed by a **pipeline** that declares `dataRequirements` and a `buildPromptBlocks()` function. A `PromptComposer` collects all blocks, sorts them by priority, applies conditional gates, and renders the final `[SYSTEM]` / `[USER]` split.
+The prompt is assembled inline in `convex/oracle/llm.ts`. Each active pipeline produces system prompt blocks and user message blocks. The orchestrator collects all blocks, sorts system blocks by priority, splits them into system vs user blocks, and renders the final prompt. There is no separate `PromptComposer` class — composition happens directly in `invokeOracle`.
 
 ### Pipeline Architecture
 
@@ -259,34 +259,41 @@ invokeOracle
   ├── Each pipeline declares dataRequirements:
   │     needsBirthData, needsJournalContext, expandedJournalBudget,
   │     needsTimespace, needsSynastryData
-  ├── Pipeline gathers data (birth data, synastry payload, journal context, timespace)
-  ├── Pipeline produces PromptBlocks: { type, label, priority, scope, content }
-  ├── PromptComposer collects blocks from ALL active pipelines
-  ├── Sorts by priority (highest first)
-  ├── Splits into system blocks vs user blocks
+  ├── Orchestrator gathers data per merged requirements (birth data, synastry payload, journal context, timespace)
+  ├── Each pipeline produces prompt blocks via buildPromptBlocks(pipelineCtx)
+  │     → SystemPromptBlock { content, priority, label }
+  │     → UserMessageBlock { content, label }
+  ├── Orchestrator collects blocks from ALL active pipelines
+  ├── Sorts system blocks by priority (highest first)
+  ├── Splits into system blocks vs user blocks (determined by which array the block is in)
   ├── Adds conversation history between system and final user block
   └── Renders to final messages array
 ```
 
 **Key files:**
-- `src/lib/oracle/pipelineTypes.ts` — `PipelineDefinition`, `PromptBlock`, `PipelineDataRequirements`
+- `src/lib/oracle/pipelineTypes.ts` — `OraclePipeline`, `SystemPromptBlock`, `UserMessageBlock`, `PipelineDataRequirements`
 - `src/lib/oracle/pipelines/birthChart.ts` — Birth chart pipeline
 - `src/lib/oracle/pipelines/synastry.ts` — Synastry pipeline (two-chart overlay)
 - `src/lib/oracle/pipelines/journalRecall.ts` — Cosmic Recall pipeline
 - `src/lib/oracle/pipelines/genericChat.ts` — Fallback pipeline
-- `src/lib/oracle/promptComposer.ts` — Block collection, sorting, and rendering
+- `convex/oracle/llm.ts` — Inline prompt composition (collects, sorts, and renders blocks)
 
-### PromptBlock Structure
+### Block Types
 
 ```typescript
-interface PromptBlock {
-  type: string;        // e.g. "safety", "soul", "feature_instruction", "birth_data"
-  label: string;       // e.g. "soul_document", "synastry_instructions", "chart_a_data"
-  priority: number;    // 90 = first, 10 = last
-  scope: "system" | "user";  // Which message array it belongs to
-  content: string;     // The actual text
+interface SystemPromptBlock {
+  content: string;     // The text to inject
+  priority: number;   // Higher priority = earlier in prompt
+  label: string;      // Label for debugging
+}
+
+interface UserMessageBlock {
+  content: string;     // The text to inject before the user's question
+  label: string;      // Label for debugging
 }
 ```
+
+There is no single `PromptBlock` interface with `type` or `scope` fields. System vs user is determined by which array the block is placed in. `UserMessageBlock` has no `priority` — user blocks are ordered by pipeline registration, not priority.
 
 ### System Prompt Blocks (typical priority order)
 
@@ -294,10 +301,10 @@ interface PromptBlock {
 |----------|-------|---------|--------|
 | 100 | `safety_rules` | `[SAFETY - HIGHEST PRIORITY]` block | Hardcoded |
 | 90 | `soul_document` | Oracle persona / voice / identity | `oracle_settings.oracle_soul` |
-| 80 | `feature_instruction` | Depth-specific or feature-specific instructions | Active pipeline (`birth_chart`, `synastry`, `journal_recall`) |
+| 80 | `feature_instruction` | Depth-specific or feature-specific instructions | Active pipeline |
 | 75 | `chart_a_unavailable` | Fallback if birth data missing | Conditional |
-| 70 | `timespace` | Local datetime + cosmic weather | `buildTimespaceContext()` |
-| 60 | `journal_context` | `[JOURNAL CONTEXT]` summaries | Consent-gated |
+| 50 | `timespace` | Local datetime + cosmic weather | `buildTimespaceContext()` |
+| 40 | `journal_context` | `[JOURNAL CONTEXT]` summaries | Consent-gated |
 | 50 | `title_directive` | `TITLE:` instruction | First response only |
 | 40 | `journal_prompt_directive` | `JOURNAL_PROMPT:` instruction | First response + journal present |
 
@@ -305,17 +312,17 @@ interface PromptBlock {
 
 | Label | Content | Condition |
 |-------|---------|-----------|
-| `chart_a_data` | `[YOUR CHART DATA]` — full birth chart | `needsBirthData && user.birthData` |
+| `chart_a_data` | `[BIRTH CHART DATA]` — full birth chart | `needsBirthData && user.birthData` |
 | `chart_b_data` | `[THEIR {ROLE} — CHART DATA]` — second chart + relationship | `needsSynastryData && synastryPayload` |
 | `question` | Sanitized user text | Always |
 
-**Important:** The old `buildUniversalBirthContext()` still produces the canonical chart text, but it is now wrapped as a `PromptBlock` with `label: "chart_a_data"` and `scope: "user"`. The synastry pipeline adds a second block `label: "chart_b_data"` with the partner's chart and relationship context.
+**Important:** The old `buildUniversalBirthContext()` still produces the canonical chart text, but it is now wrapped as a `UserMessageBlock` with `label: "chart_a_data"`. Birth data is only injected when a pipeline declares `needsBirthData: true` — `birth_chart` and `synastry` pipelines do; `generic_chat` and `journal_recall` do not. The synastry pipeline adds a second block `label: "chart_b_data"` with the partner's chart and relationship context.
 
 ### Block 1 — Safety Rules (`lib/oracle/safetyRules.ts`)
-Hardcoded 32-line block starting with `[SAFETY - HIGHEST PRIORITY - NON-NEGOTIABLE]`. Contains absolute prohibitions and crisis protocol. Always priority 100, always first.
+Hardcoded block starting with `[SAFETY - HIGHEST PRIORITY - NON-NEGOTIABLE]`. Contains absolute prohibitions and crisis protocol covering: medical safety, crisis protocol, relationship with data, content boundaries, identity protection, manipulation resistance, mid-response safety. Always priority 100, always first.
 
 ### Block 2 — Soul Document (`lib/oracle/soul.ts`)
-The `DEFAULT_ORACLE_SOUL` is ~62 lines defining Oracle's identity, voice, capabilities, and behavior. Stored in DB under key `"oracle_soul"` and editable by admin. Injected as `PromptBlock { type: "soul", label: "soul_document", priority: 90, scope: "system" }`.
+The `DEFAULT_ORACLE_SOUL` defines Oracle's identity, voice, capabilities, and behavior. Stored in DB under key `"oracle_soul"` and editable by admin. Also exports `MAX_RESPONSE_TOKENS_DEFAULT` (1000) and `MAX_CONTEXT_MESSAGES_DEFAULT` (20) used by `settings.ts`. Injected as `SystemPromptBlock { label: "soul_document", priority: 90 }`.
 
 ### Block 3 — Feature Instructions (pipeline-specific)
 Each pipeline contributes its own instruction block:
@@ -327,8 +334,8 @@ Each pipeline contributes its own instruction block:
 ### Block 3.5 — Timespace Context
 `buildTimespaceContext()` produces a block with local datetime and, when temporal intent is detected, cosmic weather data (planetary positions, moon phase, active transits). Always present.
 
-### Block 4 — Journal Context (consent-gated)
-If `journal_consent.oracleCanReadJournal === true`, `assembleJournalContext()` builds a `[JOURNAL CONTEXT]` block. **Injected on EVERY message when consent is granted**, not just Cosmic Recall sessions. Budget is expanded (doubled) when `journal_recall` is the active feature.
+### Block 4 — Journal Context (pipeline-gated, consent-gated)
+If a pipeline declares `needsJournalContext: true` **and** `journal_consent.oracleCanReadJournal === true`, `assembleJournalContext()` builds a `[JOURNAL CONTEXT]` block. **Not every session gets journal context** — the `binaural_beats` and `synastry` pipelines set `needsJournalContext: false`. Budget is expanded (doubled) when `journal_recall` is the active feature.
 
 ### Block 5 — Title Directive
 Hardcoded instruction requiring `TITLE: <4-6 word title>` on the last line. Only included on the first response. Parsed by `parseTitleFromResponse()`.
@@ -336,8 +343,8 @@ Hardcoded instruction requiring `TITLE: <4-6 word title>` on the last line. Only
 ### Block 6 — Journal Prompt Suggestion Directive
 Only included when journal context is present AND it's the first response. Instructs Oracle it MAY output `JOURNAL_PROMPT: <reflective question>`.
 
-### User Message: Universal Birth Data (v2)
-Birth chart data is ALWAYS injected as a `chart_a_data` user block when `user.birthData` exists — regardless of which feature is active. This enables cross-context mixing (Cosmic Recall can reference Venus, synastry can reference the user's natal placements alongside the partner chart).
+### User Message: Birth Data (v2, pipeline-gated)
+Birth chart data is injected as a `chart_a_data` user block when `user.birthData` exists **and** a pipeline declares `needsBirthData: true`. Only `birth_chart` and `synastry` pipelines do this. The `generic_chat` and `journal_recall` pipelines set `needsBirthData: false`, so birth data is NOT injected in those sessions. This is the fix for the "lobotomization" issue — generic conversation doesn't need the full chart.
 
 ### User Message: Synastry Data (v2)
 When `synastryPayload` is present on the session, the synastry pipeline adds a `chart_b_data` block containing the second person's full chart plus relationship metadata (`relationship`, `relationshipCategory`, `chartBName`). The system instructions explicitly ban "Chart A / Chart B" language in favor of role-based names.
@@ -505,7 +512,7 @@ The Oracle streams tokens in real-time from the LLM through Convex into the Reac
 1. **Create message placeholder**: `createStreamingMessage` inserts an empty `oracle_messages` row (role=assistant, content="")
 2. **Read SSE stream**: Uses `response.body.getReader()` + `TextDecoder` to read Server-Sent Events
 3. **Parse chunks**: Each `data: {json}` line is parsed; `choices[0].delta.content` tokens are appended to `fullContent`
-4. **Periodic flush**: Every 100ms (first 2s) then 300ms, the accumulated content is written to Convex via `updateStreamingContent` — this triggers Convex reactivity which updates the UI
+4. **Periodic flush**: Every 50ms (`MIN_FLUSH_INTERVAL_MS = 50`), the accumulated content is throttled and written to Convex via `updateStreamingContent` — this triggers Convex reactivity which updates the UI
 5. **Track usage**: If `parsed.usage` exists, `promptTokens` and `completionTokens` are captured
 6. **On stream complete**: Parse title from full response, strip title line, write final cleaned content via `updateStreamingContent`, then call `finalizeStreamingMessage` with metadata (model, tokens, tier)
 7. **Error handling**: If stream errors mid-way with partial content, the partial content is kept. If stream errors with zero content, a recovery message is inserted.
@@ -514,7 +521,7 @@ The Oracle streams tokens in real-time from the LLM through Convex into the Reac
 
 These are `internalMutation` (not publicly callable):
 - `createStreamingMessage` (`sessions.ts`): Creates empty assistant message, increments session messageCount
-- `updateStreamingContent` (`sessions.ts`): Patches message content in-place (called every 100-300ms during streaming)
+- `updateStreamingContent` (`sessions.ts`): Patches message content in-place (throttled to every 50ms during streaming)
 - `finalizeStreamingMessage` (`sessions.ts`): Sets final content, modelUsed, tokens, tier, timing metrics, debug model override; updates session metadata (primaryModelUsed, usedFallback, status)
 - `patchMessageTiming` (`sessions.ts`): Patches timing metrics (`timingPromptBuildMs`, `timingRequestQueueMs`, `timingTtftMs`, `timingInitialDecodeMs`, `timingTotalMs`) and `debugModelUsed` onto an existing message document; called by `invokeOracle` after a successful LLM call to persist observability data for the Admin Debug Panel (see Section 19)
 
@@ -552,11 +559,15 @@ This is a deliberate design choice: safety rules should require engineering revi
 
 `convex/oracle/llm.ts`:
 
-Before any LLM call, the user's question is scanned for crisis keywords:
-```
-"suicide", "kill myself", "end my life", "don't want to be here",
-"want to die", "better off dead", "no reason to live"
-```
+Before any LLM call, the user's question is scanned against `CRISIS_PATTERNS` — a list of 22 regex patterns covering:
+- Suicidal ideation (suicide/suicidal, kill myself, kms, end my life, etc.)
+- Self-harm (self-harm, hurting myself, cut myself, cutting myself)
+- Hopelessness (no reason to live, nothing left to live for, better off dead, not worth living)
+- Overdose (overdose, od on)
+- Jumping/throwing (jump off, throw myself)
+- Giving up (can't go on, give up on life, end it all)
+- Disappearance (want to disappear, wish I was/were dead)
+- And more
 
 If a match is found:
 1. The configured `crisis_response_text` (or hardcoded default) is returned immediately
@@ -568,16 +579,17 @@ If a match is found:
 
 `convex/oracle/llm.ts`:
 
-The first thing `invokeOracle` does is check the `kill_switch` setting:
-1. If `"true"`, immediately return the `fallback_response_text` (or default)
+The kill switch is checked early in `invokeOracle`. If the `kill_switch` setting is `"true"`:
+1. Immediately return the `fallback_response_text` (or hardcoded default)
 2. Persist as assistant message with `modelUsed: "kill_switch"`, `fallbackTierUsed: "D"`
-3. No LLM call is made
+3. No LLM call
 4. No quota consumed
 
 ### Input Validation (pre-LLM)
 
 `convex/oracle/llm.ts`:
 - Maximum question length: 2000 characters (`MAX_USER_QUESTION_LENGTH`)
+- Input validation runs FIRST in `invokeOracle`, before the kill switch and crisis checks.
 
 ### Prompt Injection Defense (post-input)
 
@@ -642,11 +654,11 @@ The quota check happens in `checkQuota` (`convex/oracle/quota.ts`). This is a **
 
 | Tier | 5h Burst Budget | 7d Weekly Budget | Rationale |
 |------|-----------------|-------------------|-----------|
-| free | $0.02 (20,000 µ$) | $0.10 (100,000 µ$) | ~5-10 short chats or 1-2 deep readings per week |
-| popular | $0.10 (100,000 µ$) | $0.50 (500,000 µ$) | ~20-40 short chats or 5-8 deep readings per week |
-| premium | $0.25 (250,000 µ$) | $1.50 (1,500,000 µ$) | ~50+ short chats or 15+ deep readings per week |
-| moderator | $5.00 | $25.00 | Effectively unlimited for ops |
-| admin | $50.00 | $250.00 | Effectively unlimited |
+| free | $0.05 (50,000 µ$) | $0.20 (200,000 µ$) | ~5-10 short chats or 1-2 deep readings per week |
+| popular | $0.50 (500,000 µ$) | $2.00 (2,000,000 µ$) | ~20-40 short chats or 5-8 deep readings per week |
+| premium | $2.00 (2,000,000 µ$) | $8.00 (8,000,000 µ$) | ~50+ short chats or 15+ deep readings per week |
+| moderator | $100.00 (100,000,000 µ$) | $500.00 (500,000,000 µ$) | Effectively unlimited for ops |
+| admin | $100.00 (100,000,000 µ$) | $500.00 (500,000,000 µ$) | Effectively unlimited |
 
 **Why two windows?**
 - **5h burst** prevents a free user from burning their whole weekly budget in one sitting.
@@ -661,9 +673,9 @@ costUsdMicro = (promptTokens * promptPricePerToken) + (completionTokens * comple
 
 Price per token = `pricePer1M / 1,000,000`. Stored as **microdollars** to avoid floating point ($0.03 = 30,000 µ$).
 
-**Free models:** `:free`-suffixed models (e.g. `google/gemini-2.5-flash:free`) cost $0.00 but still consume a minimum `burstMinCostMicro` (default 100 µ$ = $0.0001) to prevent infinite API spam.
+**Free models:** `:free`-suffixed models (e.g. `google/gemini-2.5-flash:free`) cost **0 µ$** — `calculateCostMicro()` returns 0 immediately for any model ending in `:free`. The `BURST_MIN_COST_MICRO` constant (100 µ$) exists in `pricing.ts` but is never applied by `calculateCostMicro()`.
 
-**Missing token counts:** If a provider doesn't return usage metadata, the system falls back to `burstMinCostMicro`.
+**Missing token counts:** If a provider doesn't return usage metadata, `calculateCostMicro()` falls back to conservative defaults ($3.00/$15.00 per 1M tokens).
 
 ### `checkQuota` Query (V2)
 
@@ -694,17 +706,17 @@ Logic:
 
 ### `incrementQuota` Mutation (V2)
 
-Accepts `costUsdMicro: number` (required).
+Accepts `costMicro: v.optional(v.number())` (optional, not required).
 
 Logic:
 1. Auth check
 2. Fetch existing usage record
-3. If no record: create with `burstCost: costUsdMicro`, `burstWindowStart: now`, `weeklyCost: costUsdMicro`, `weeklyWindowStart: now`
+3. If no record: create with `burstCost: costMicro`, `burstWindowStart: now`, `weeklyCost: costMicro`, `weeklyWindowStart: now`
 4. If record exists:
-   - Check if burst window expired → reset `burstCost` to `costUsdMicro`, update `burstWindowStart`
-   - Else: add `costUsdMicro` to `burstCost`
-   - Check if weekly window expired → reset `weeklyCost` to `costUsdMicro`, update `weeklyWindowStart`
-   - Else: add `costUsdMicro` to `weeklyCost`
+   - Check if burst window expired → reset `burstCost` to `costMicro`, update `burstWindowStart`
+   - Else: add `costMicro` to `burstCost`
+   - Check if weekly window expired → reset `weeklyCost` to `costMicro`, update `weeklyWindowStart`
+   - Else: add `costMicro` to `weeklyCost`
 5. Update `lastQuestionAt`, `updatedAt`
 
 ### `calculateCostMicro` Helper
@@ -731,7 +743,7 @@ No DB reads inside — the caller (`invokeOracle`) reads the pricing table from 
 
 ### Quota Check in `invokeOracle`
 
-`checkQuota` is called on the client before `invokeOracle`. A server-side pre-check is also added at the top of the `invokeOracle` action (`checkQuotaServerSide` internal query) to close the TOCTOU gap between client check and LLM call.
+`checkQuota` is called on the client before `invokeOracle`. A server-side pre-check also runs inside `invokeOracle` (calling `ctx.runQuery(api.oracle.quota.checkQuota, {})` — the same public `checkQuota` query) to close the TOCTOU gap between client check and LLM call. There is no separate `checkQuotaServerSide` function.
 
 ---
 
@@ -739,20 +751,20 @@ No DB reads inside — the caller (`invokeOracle`) reads the pricing table from 
 
 ### Oracle Tools v2/v3 Architecture
 
-The v2 architecture unifies the two birth chart features into a single `birth_chart` tool with a `depth` field. Birth chart **data** is always injected (not feature-gated). Birth chart **instructions** vary by depth. The v3 architecture adds **pipelines** — each feature is backed by a pipeline that declares `dataRequirements` and `buildPromptBlocks()`.
+The v2 architecture unifies the two birth chart features into a single `birth_chart` tool with a `depth` field. Birth chart **data** is injected when a pipeline declares `needsBirthData: true`. Birth chart **instructions** vary by depth. The v3 architecture adds **pipelines** — each feature is backed by a pipeline that declares `dataRequirements` and `buildPromptBlocks()`.
 
 ### Feature / Pipeline Definitions
 
-Defined in `src/lib/oracle/features.ts` and `src/lib/oracle/pipelines/`. Eight features are registered:
+Defined in `src/lib/oracle/features.ts` and `src/lib/oracle/pipelines/`. Six features are registered:
 
 | Key | Label | Implemented | Requires Birth Data | Requires Journal Consent | Requires Synastry Data | Menu Group | Execution Path |
 |-----|-------|-------------|---------------------|--------------------------|------------------------|------------|----------------|
 | `attach_files` | Add photos & files | No | No | No | No | primary | LLM |
 | `birth_chart` | Birth chart analysis | Yes | Yes | No | No | primary | LLM |
-| `synastry` | Synastry analysis | **Yes** | Yes | No | **Yes** | primary | LLM |
+| `synastry` | Synastry analysis | Yes | Yes | No | Yes | primary | LLM |
 | `journal_recall` | Cosmic Recall | Yes | No | Yes | No | primary | LLM |
 | `sign_card_image` | Create sign card image | No | Yes | No | No | more | LLM |
-| `binaural_beats` | Create binaural beat | **Yes** | No | No | No | more | **Cloudflare Worker** |
+| `binaural_beats` | Create binaural beat | Yes | No | No | No | primary | Cloudflare Worker |
 
 **Binaural Beats is non-LLM.** It appears in the feature menu and intent router, but selecting it triggers a Cloudflare Worker that generates a 30-second loopable WAV via DSP math (phase accumulators + pink noise). The browser's Web Audio API handles looping and auto-stop. No Convex DB writes, no LLM call.
 
@@ -790,7 +802,7 @@ When `invokeOracle` detects an active LLM feature on the session (`session.featu
 5. For other features:
    - Queries `oracle_feature_injections` table for a matching `featureKey` row
    - Falls back to `activeFeature.fallbackInjectionText`
-6. Birth data is ALWAYS injected regardless of feature — see Section 11
+6. Birth data is injected when a pipeline needs it (see Section 11) — `birth_chart` and `synastry` set `needsBirthData: true`; `generic_chat` and `journal_recall` do not
 
 ### Default Prompts
 
@@ -809,7 +821,7 @@ When `synastry` is the active feature, `SynastryCard` renders with two-phase flo
 
 ## 11. Birth Context Injection
 
-> This section documents the v2 universal birth context architecture. Birth data is always injected when the user has it saved — regardless of which feature is active. Depth is controlled by instructions, not data scope.
+> This section documents the v2 birth context architecture. Birth data is injected when a pipeline declares `needsBirthData: true` — the `birth_chart` and `synastry` pipelines do; `generic_chat` and `journal_recall` do not. Depth is controlled by instructions, not data scope.
 
 ### Architecture: Data vs. Instructions
 
@@ -817,7 +829,7 @@ The v2 architecture separates **birth data** from **birth chart reading instruct
 
 | Layer | Where | What | When |
 |-------|-------|------|------|
-| Birth data | User message (`[BIRTH CHART DATA]`) | All placements, houses, aspects | ALWAYS when `user.birthData` exists |
+| Birth data | User message (`[BIRTH CHART DATA]`) | All placements, houses, aspects | When `needsBirthData: true` && `user.birthData` exists |
 | Reading instructions | System prompt (feature injection) | Core depth or Full depth instructions | Only when `birth_chart` feature is active |
 
 This separation is the key v2 change. Previously, "core" mode threw away most of the data (only injecting Sun/Moon/Ascendant), and "full" mode injected everything. Now both depths get the SAME full data — the instruction block tells the model which to focus on.
@@ -826,7 +838,7 @@ This separation is the key v2 change. Previously, "core" mode threw away most of
 
 `buildUniversalBirthContext()` in `src/lib/oracle/featureContext.ts`:
 
-This function is called **before** feature selection check in `invokeOracle`, making it independent of `activeFeature`. It ALWAYS returns the full chart:
+This function is called when a pipeline declares `needsBirthData: true`. It returns the full chart:
 
 ```
 Treat the stored chart data below as canonical truth. Do not invent different signs, houses, or aspects.
@@ -925,22 +937,19 @@ In `invokeOracle` (`convex/oracle/llm.ts`):
    }
    ```
 
-2. After feature injection and birth context assembly, journal context is ALWAYS assembled when consent is granted — **not just in Cosmic Recall sessions**:
+2. After pipelines are resolved, journal context is assembled when a pipeline declares `needsJournalContext: true` **and** consent is granted — **not always when consented**:
    ```typescript
-   const isCosmicRecall = activeFeature?.key === "journal_recall";
-   try {
-       if (user?._id && hasJournalConsent) {
-           journalContext = await ctx.runQuery(
-               internal.journal.context.assembleJournalContext,
-               { userId: user._id, expandedBudget: isCosmicRecall },
-           );
-       }
-   } catch (e) {
-       journalContext = null;
+   const needsJournal = activePipelines.some((p) => p.dataRequirements.needsJournalContext);
+   if (needsJournal && user?._id && hasJournalConsent) {
+       journalContext = await ctx.runQuery(
+           internal.journal.context.assembleJournalContext,
+           { userId: user._id, expandedBudget: isCosmicRecall },
+       );
    }
    ```
+   The `binaural_beats` and `synastry` pipelines set `needsJournalContext: false`, so journal context is NOT assembled in those sessions even if consented.
 
-3. `journalContext` is passed to `buildPrompt()` and inserted into the system prompt.
+3. When journal context is present, it is injected into the system prompt as a block.
 
 4. When journal context is present, the `JOURNAL_PROMPT_DIRECTIVE` is also included, instructing Oracle that it may suggest a journal prompt.
 
@@ -984,7 +993,7 @@ After Oracle generates a response, `parseJournalPromptFromResponse()` (`lib/orac
 - The Oracle input menu checks `requiresJournalConsent` and queries consent status; if not granted, the feature is disabled with "Requires journal access" tooltip
 
 **What's the same (v2 change):**
-- Journal context is now always present in the system prompt when consent is granted, even in non-Cosmic-Recall sessions. The difference is only the budget and the feature instructions.
+- Journal context is injected in the system prompt when a pipeline needs it AND consent is granted. The `journal_recall` pipeline sets `needsJournalContext: true`, while `binaural_beats` and `synastry` set it to `false`. The difference from Cosmic Recall is only the expanded budget and the feature instructions.
 
 ---
 
@@ -1037,7 +1046,7 @@ Consent gating is applied **after** routing (the LLM doesn't know consent state)
 - **No birth data** → `birth_chart` and `synastry` intents are still detected; the pipeline injects a `[CHART DATA UNAVAILABLE]` block instructing the AI to ask for data in chart-reading format, rather than falling back to generic chat
 - **Synastry without Chart B** → `synastry` intent is detected but the pipeline will prompt the user to import a second chart
 
-This is a critical design decision: intent detection is **never gated on data availability**. The AI should respond in the appropriate format regardless.
+This is a critical design decision: the **LLM router** does not gate intent detection on data availability. However, the **regex fallback** in `classifyOracleToolIntent` does gate `birth_chart` and `synastry` behind `hasBirthData === true`. The LLM router is primary, so the system usually behaves as described — but on regex fallback, birth chart/synastry intents are only detected when data exists.
 
 ### Manual Selection Override
 
@@ -1077,16 +1086,16 @@ Once a tool is activated, it persists for the session.
 
 ## 14. Cross-Context Mixing
 
-This is the biggest UX win of the v2 architecture. Because birth data is always injected (not feature-gated) and journal context is always injected (not feature-gated), multiple context blocks coexist in every prompt.
+This is the biggest UX win of the v2 architecture. Because birth data and journal context are injected when their respective pipelines need them, multiple context blocks can coexist in a prompt — enabling cross-context mixing when multiple pipelines are active.
 
 ### Context Visibility by Session Type
 
 | Session type | Birth data visible | Journal visible | Synastry visible | Timespace visible |
 |--------------|-------------------|-----------------|------------------|-------------------|
-| Generic chat (no tool) | ✅ (if saved) | ✅ (if consent) | — | ✅ |
-| `birth_chart` (core or full) | ✅ | ✅ (if consent) | — | ✅ |
-| `synastry` | ✅ (if saved) | ✅ (if consent) | ✅ (Chart B + relationship) | ✅ |
-| `journal_recall` | ✅ (if saved) | ✅ (expanded budget) | — | ✅ |
+| Generic chat (no tool) | — | — | — | ✅ |
+| `birth_chart` (core or full) | ✅ (if saved) | ✅ (if consent) | — | ✅ |
+| `synastry` | ✅ (if saved) | — | ✅ (Chart B + relationship) | ✅ |
+| `journal_recall` | — | ✅ (expanded budget) | — | ✅ |
 
 ### Example: Synastry + Journal + Birth Data
 
@@ -1163,34 +1172,34 @@ This cross-context mixing is the future of the Oracle.
 2. Detects there's a user message without a corresponding assistant response
 3. Calls `invokeOracle` action with `{ sessionId, userQuestion, timezone }`
 4. **Server-side execution** (the full `invokeOracle` pipeline):
-   a. Input validation (max length check)
+   a. Input validation (max length check) — runs first
    b. Kill switch check → if on, return fallback
    c. Crisis detection → if triggered, return crisis response
-   d. **Server-side quota pre-check** (`checkQuotaServerSide`) → if denied, return quota-exceeded message
+   d. **Server-side quota pre-check** (`ctx.runQuery(api.oracle.quota.checkQuota, {})`) → if denied, return quota-exceeded message
    e. Load session with all messages
    f. Load runtime settings (soul, model params, providers, chain, **pricing table**)
    g. Load user (birthData, identity)
-   h. **Build universal birth context** — ALWAYS if `user.birthData` exists (`buildUniversalBirthContext`) → emitted as `chart_a_data` block
-   i. Resolve active pipeline from `session.featureKey` (with legacy migration for `birth_chart_core`/`birth_chart_full`)
-   j. If `synastry` pipeline: gather `synastryPayload` → emit `chart_b_data` block with role labels
+   h. **Resolve active pipelines** — merge data requirements from all active pipelines
+   i. **Gather data per merged pipeline requirements** — birth data (only if any pipeline declares `needsBirthData`), synastry payload (if `needsSynastryData`), journal context (only if any pipeline declares `needsJournalContext` AND user has consented)
+   j. Resolve active pipeline from `session.featureKey` (with legacy migration for `birth_chart_core`/`birth_chart_full`)
    k. Fetch journal consent status
    l. Run intent routing (`scoreIntentsWithLLM` — LLM call using `intentModelChain`, regex fallback) if no feature active — auto-activate and persist `featureKey` + `birthChartDepth`
-   m. Pipeline produces `PromptBlock[]` with priorities; composer sorts and splits into system/user
+   m. Each pipeline produces system/user prompt blocks via `buildPromptBlocks()`; orchestrator collects and sorts system blocks by priority
    n. Build timespace context block
-   o. Build prompt: system = safety + soul + feature instructions + timespace + journal; user = chart_a_data + chart_b_data + question
+   o. Assemble system prompt: safety + soul + feature instructions + timespace + journal; user: chart_a_data + chart_b_data + question
    p. Build conversation history (truncated)
    q. Iterate model chain:
       - For each entry: find provider, resolve API key from env, build URL/headers/body, fetch
-      - If streaming: create message placeholder, read SSE stream, flush every 100-300ms, parse title, finalize
+      - If streaming: create message placeholder, read SSE stream, flush throttled to 50ms, parse title, finalize
       - If non-streaming: parse complete response, create/finalize message
-      - On success: **calculate cost** (`calculateCostMicro`), store on message (`costUsdMicro`), increment quota with cost (`incrementQuota({ costUsdMicro })`), generate title, return
+      - On success: **calculate cost** (`calculateCostMicro`), store on message (`costUsdMicro`), increment quota with cost (`incrementQuota({ costMicro })`), generate title, return
       - On failure: log, try next model
    r. If all models fail: insert hardcoded fallback message
 5. Action resolves, client sets `isStreaming = false`, `setConversationActive()`
 
 ### Phase 5: User Sees Response
 
-1. During streaming: Convex reactive queries update the message content every 100-300ms
+1. During streaming: Convex reactive queries update the message content every 50ms (throttled)
 2. UI shows growing text with blinking cursor
 3. After completion: full response visible, copy button appears
 4. Session title updated (from TITLE: line parsing)
@@ -1251,7 +1260,7 @@ Previously a separate LLM call generated the session title. This was removed dur
 The Oracle model itself generates the title as a `TITLE:` line at the end of its first response.
 
 **How it works:**
-1. The `ORACLE_TITLE_DIRECTIVE` (hardcoded as the last block in every system prompt) instructs the model: "On the very last line of your response, output: TITLE: <4-6 word session summary>"
+1. The `ORACLE_TITLE_DIRECTIVE` (wrapped in `[SESSION TITLE]` / `[END SESSION TITLE]` tags) instructs the model: "On the very last line of your response, output: TITLE: <4-6 word session summary>. This line will be used as metadata, not shown to the user."
 2. `invokeOracle` calls `parseTitleFromResponse(content)` which:
    - Searches for a `TITLE: <text>` line (case-insensitive regex: `/^\s*TITLE:\s*(.+?)\s*$/im`)
    - If found: extracts title, strips surrounding quotes, truncates to 60 chars, removes the TITLE line from content
@@ -1281,20 +1290,20 @@ API keys are never stored in the database. Only the **environment variable name*
 ### 5. Birth Data in User Message vs. System Prompt (v2 refined)
 The birth chart **data** lives in the user message as a `chart_a_data` block, while the birth chart **reading instructions** (core vs full depth, synastry instructions) live in the system prompt. This separation ensures the model treats chart data as user-provided facts (not system instructions). Depth is a prompt instruction, not a data filter.
 
-### 6. Universal Birth Context vs. Feature-Gated Data (v2 change)
-Birth data is now injected for EVERY message when `user.birthData` exists, regardless of which feature is active. Previously, birth data was only injected when a birth chart feature was active. This enables cross-context mixing (a Cosmic Recall session can reference Venus, a synastry session can reference the user's natal Moon alongside the partner chart). The token cost increase (~275 tokens) is negligible (~0.03 cents per message).
+### 6. Pipeline-Gated Birth Context vs. Universal Injection (v2 change)
+Birth data is injected only when a pipeline declares `needsBirthData: true`. Only `birth_chart` and `synastry` pipelines do this. The `generic_chat` pipeline intentionally sets `needsBirthData: false` (the "lobotomization fix") — generic conversations don't need the full chart. When multiple pipelines are active (e.g., `birth_chart` + `journal_recall`), birth data IS injected because at least one pipeline needs it.
 
 ### 7. Depth via Instructions, Not Data Scope (v2 change)
 Previously, "core" mode only injected Sun/Moon/Ascendant (3 placements, 4 aspects) while "full" mode injected everything (14 placements, 12 houses, 8 aspects). The v2 architecture ALWAYS injects the full data and uses instruction blocks to tell the model where to focus. This means a user in "core" mode who asks "What about my Venus?" gets a real answer — the AI sees Venus.
 
-### 8. Journal Context is Universal When Consented (v2 change)
-Journal context is now injected on EVERY message when `journal_consent.oracleCanReadJournal === true`, not just in Cosmic Recall sessions. Cosmic Recall changes the budget (doubled) and adds feature instructions, but the data is always present.
+### 8. Journal Context is Pipeline-Gated (v2 change)
+Journal context is injected only when a pipeline declares `needsJournalContext: true` AND the user has consented. The `journal_recall` pipeline sets `needsJournalContext: true`; `binaural_beats` and `synastry` set it to `false`. This means journal context is not present in every session — only when its data is relevant to the active feature.
 
 ### 9. Cost-Based Quota vs. Session-Count Quota (V2 change)
 The old system counted "1 question = 1 unit" regardless of cost. A short "hi" and a deep synastry reading both consumed the same quota. V2 replaces this with **microdollar budgets** in rolling 5h burst + 7d weekly windows. A generic chat costs ~$0.001; a synastry reading costs ~$0.03. This maps naturally to subscription pricing and prevents abuse.
 
-### 10. Streaming Flush Interval (100-300ms)
-The streaming flush interval starts at 100ms (first 2 seconds) then increases to 300ms. This balances UI responsiveness (fast initial token display) against Convex write load (each flush is a mutation). Too frequent would increase costs; too slow would make streaming feel laggy.
+### 10. Streaming Flush Interval (50ms)
+The streaming flush interval is a flat 50ms (`MIN_FLUSH_INTERVAL_MS = 50`). Each SSE chunk triggers a potential flush, throttled to at most once per 50ms. This balances UI responsiveness against Convex write load.
 
 ### 11. Quota Incremented Only on Success
 Quota is only incremented after a successful LLM response. Crisis responses, kill-switch responses, and all-models-failed responses do NOT consume quota. This means failures don't penalize the user.
@@ -1311,14 +1320,14 @@ The consent check happens server-side in `assembleJournalContext()`. The `[JOURN
 ### 15. Journal Prompt Suggestions are Optional
 The `JOURNAL_PROMPT_DIRECTIVE` uses the word "MAY" (not "MUST"). Oracle only suggests a journal prompt when it naturally touches on emotional themes. This avoids spammy prompts on every response.
 
-### 16. Intent Classification Before Feature Injection (v2/v3 change)
-The intent router runs BEFORE pipeline block generation. It uses a fast LLM call for semantic understanding (handling typos, creative phrasing, multi-intent detection), falling back to regex on failure. Intent detection is NOT consent-gated — birth chart/synastry intents are always detected regardless of data availability. The pipeline then injects the appropriate `[CHART DATA UNAVAILABLE]` or `[THEIR {ROLE} — CHART DATA]` blocks.
+### 16. Intent Routing Before Feature Injection (v2/v3 change)
+The intent router runs BEFORE pipeline block generation. It uses a fast LLM call for semantic understanding (handling typos, creative phrasing, multi-intent detection), falling back to regex on failure. The **LLM router** does NOT gate intent detection on data availability — birth_chart and synastry intents are always detected. However, the **regex fallback** DOES gate `birth_chart` and `synastry` behind `hasBirthData === true`. Journal recall intent is filtered after routing if the user hasn't consented.
 
 ### 17. Legacy Feature Key Migration (v2 change)
 Sessions created before v2 may have `featureKey: "birth_chart_core"` or `"birth_chart_full"`. Rather than requiring a database migration, `invokeOracle` detects these legacy keys on the next call and automatically patches the session to `featureKey: "birth_chart"` with the appropriate `birthChartDepth`. This is transparent to the user.
 
 ### 18. Pipeline-Based Prompt Composition (v3 change)
-The prompt is no longer assembled by a monolithic `buildPrompt()` with 7 positional parameters. Instead, **pipelines** produce typed `PromptBlock` objects with priorities. A composer sorts them and splits into system/user scopes. This enables clean multi-pipeline composition (synastry + journal + birth data all coexisting) and makes the prompt structure inspectable in the debug panel.
+The prompt is assembled inline in `convex/oracle/llm.ts` — there is no separate `PromptComposer` class. Pipelines produce typed `SystemPromptBlock` and `UserMessageBlock` objects. The orchestrator collects them, sorts system blocks by priority, and renders the final prompt. This enables clean multi-pipeline composition (synastry + journal + birth data all coexisting) and makes the prompt structure inspectable in the debug panel.
 
 ### 19. Synastry Role-Based Labeling (v3)
 Synastry never uses "Chart A / Chart B" language. The system instructions, user message headers, and aspect tables all use role-based names (e.g. "Your Sun conjuncts Alex's Moon"). This is enforced by `getRelationshipLabel()` and `getRelationshipPhrase()` helpers, with a hardcoded ban on "Chart A / Chart B" in the synastry instructions block.
@@ -1441,7 +1450,7 @@ These metrics measure the server-side cost of each Oracle invocation. They are c
 
 | Metric | What it measures | Point A | Point B |
 |--------|-----------------|---------|--------|
-| Prompt Build | Time to assemble the full prompt (soul, birth data, journal, timespace, feature, history) | `actionStartTime` (handler entry) | `promptBuildEndTime` (after `buildPrompt()` returns) |
+| Prompt Build | Time to assemble the full prompt (soul, birth data, journal, timespace, feature, history) | `actionStartTime` (handler entry) | `promptBuildEndTime` (after pipeline blocks are composed) |
 | Request Queue | Time from prompt assembly done to LLM HTTP request sent (includes any internal Convex overhead between chains) | `promptBuildEndTime` | `fetchStartTime` (before `fetch()` call) |
 | TTFT (Time to First Token) | Time from HTTP request start to first SSE content token parsed | `fetchStartTime` | `firstTokenTime` (first `delta.content` parsed from SSE) |
 | Initial Decode | Time from first token to ~200 characters of output | `firstTokenTime` | `initialDecodeTime` (when `fullContent.length >= 200`) |

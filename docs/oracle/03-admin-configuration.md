@@ -27,7 +27,7 @@ The admin UI lives at `/admin/oracle/settings` (file: `src/app/admin/oracle/sett
 - Temperature slider (0–1, step 0.05, default 0.82)
 - Top-p slider (0.5–1, step 0.01, default 0.92)
 - Streaming toggle (default on)
-- Saves providers + chain + temperature + top_p + stream_enabled atomically
+- Saves providers + chain atomically via `upsertProvidersConfig` (persists `providers_config` and `model_chain`). Temperature, top_p, and stream_enabled are saved via separate `upsertSetting` calls. The `intent_model_chain` setting has no write mutation in `upsertProviders.ts`.
 
 ### Tab 4: Limits
 - `max_response_tokens` — sent as `max_tokens` to the LLM (100–16000, default 1000)
@@ -35,7 +35,7 @@ The admin UI lives at `/admin/oracle/settings` (file: `src/app/admin/oracle/sett
 
 ### Tab 5: Quotas
 - Per-role quota limits: free, popular, premium, moderator, admin
-- Free tier uses lifetime cap; all others use rolling 24h window
+- Cost-based budgets in microdollars (5h burst + 7d weekly windows)
 
 ### Tab 6: Operations
 - **Kill Switch**: Toggle Oracle on/off with CONFIRM dialog
@@ -50,6 +50,11 @@ All admin queries/mutations call `requireAdmin()` (`convex/lib/adminGuard.ts:12-
 1. Calls `getAuthUserId(ctx)` — throws if unauthenticated
 2. Fetches user, verifies `user.role === "admin"` — throws if not admin
 3. Returns `{ userId, user }` for downstream use
+
+Note: `settings.ts` has three versions of `getSetting`:
+- `getSetting` — admin-guarded (uses `requireAdmin`)
+- `getSettingInternal` — no admin guard (internalQuery, used by `llm.ts`)
+- `getSettingPublic` — no admin guard (regular query, used by client)
 
 ---
 

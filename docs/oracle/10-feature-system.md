@@ -6,25 +6,24 @@
 
 ## Oracle Tools v2 Architecture
 
-The v2 architecture unifies the two birth chart features into a single `birth_chart` tool with a `depth` field (`"core"` or `"full"`). Birth chart **data** is always injected (not feature-gated). Birth chart **instructions** vary by depth.
+The v2 architecture unifies the two birth chart features into a single `birth_chart` tool with a `depth` field (`"core"` or `"full"`). Birth chart **data** is injected when a pipeline needs it. Birth chart **instructions** vary by depth.
 
 ---
 
 ## Feature Definitions
 
-Defined in `src/lib/oracle/features.ts`. Seven features are registered:
+Defined in `src/lib/oracle/features.ts`. Six features are registered:
 
 | Key | Label | Implemented | Requires Birth Data | Requires Journal Consent | Menu Group |
 |-----|-------|-------------|---------------------|--------------------------|------------|
 | `attach_files` | Add photos & files | No | No | No | primary |
 | `birth_chart` | Birth chart analysis | Yes | Yes | No | primary |
-| `synastry_core` | Synastry analysis | No | Yes | No | more |
-| `synastry_full` | Deep synastry analysis | No | Yes | No | more |
+| `synastry` | Synastry analysis | Yes | Yes | No | primary |
 | `sign_card_image` | Create sign card image | No | Yes | No | more |
-| `binaural_beat` | Create binaural beat | No | No | No | more |
+| `binaural_beats` | Create binaural beat | Yes | No | No | primary |
 | `journal_recall` | Cosmic Recall | Yes | No | Yes | primary |
 
-Only `birth_chart` and `journal_recall` are currently implemented.
+Four features are currently implemented: `birth_chart`, `synastry`, `journal_recall`, `binaural_beats`.
 
 ---
 
@@ -51,7 +50,7 @@ When `invokeOracle` detects an active feature on the session (`session.featureKe
 3. For other features:
    - Queries `oracle_feature_injections` table for a matching `featureKey` row → this becomes the `featureInjection` string injected into the system prompt
    - Falls back to `activeFeature.fallbackInjectionText`
-4. Birth data is ALWAYS injected regardless of feature — see [Birth Context Injection](./11-birth-context-injection.md)
+4. Birth data is injected when a pipeline needs it — see [Birth Context Injection](./11-birth-context-injection.md)
 
 ---
 
@@ -99,8 +98,8 @@ invokeOracle reads session.featureKey
        │       │   └── Fallback: activeFeature.fallbackInjectionText
        │       └── Result: instruction block → injected into system prompt (Block 3)
        │
-       └── Birth data ALWAYS injected into user message (Block 1)
-           regardless of feature (see 11-birth-context-injection.md)
+       └── Birth data injected into user message (Block 1)
+           when a pipeline needs it (see 11-birth-context-injection.md)
 
 Also connected:
   - Intent Classification (13-intent-classification.md) can auto-activate features
