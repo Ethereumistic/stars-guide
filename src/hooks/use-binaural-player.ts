@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react'
 import type { BinauralParams, NoiseType } from '@/lib/binaural-presets'
 import { NOISE_PRESETS } from '@/lib/binaural-presets'
 
-type Status = 'idle' | 'playing' | 'stopping'
+type Status = 'idle' | 'playing'
 
 // ── Noise buffer generation ─────────────────────────────────────────────────
 // Each noise type uses a different spectral distribution:
@@ -455,20 +455,10 @@ export function useBinauralPlayer() {
     noiseFilterRef.current?.frequency.linearRampToValueAtTime(params.noiseCutoff, t + ramp)
   }, [])
 
-  // ── Stop with 2s fade-out ─────────────────────────────────────────────────
+  // ── Stop immediately (no fade-out — instant cutoff like a video) ──────────
   const stop = useCallback(() => {
-    if (!ctxRef.current || !masterRef.current) return
-    setStatus('stopping')
-
-    const ctx = ctxRef.current
-    const master = masterRef.current
-    master.gain.cancelScheduledValues(ctx.currentTime)
-    master.gain.setValueAtTime(master.gain.value, ctx.currentTime)
-    master.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 2)
-
-    if (timerRef.current) clearInterval(timerRef.current)
-
-    setTimeout(() => _cleanup(true), 2200)
+    // Immediately clean up — no fade-out delay
+    _cleanup(true)
   }, [])
 
   // ── Cleanup ───────────────────────────────────────────────────────────────

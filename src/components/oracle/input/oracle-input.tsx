@@ -51,7 +51,7 @@ export function OracleInput({
   const showBirthPreview = isBirthChartFeature(featureKey)
   const showBinauralBeats = featureKey === "binaural_beats"
   const showSynastry = isSynastryFeature(featureKey)
-  const showFeatureBadge = activeFeature && !showBirthPreview && !showSynastry
+  const showFeatureBadge = activeFeature && !showBirthPreview && !showSynastry && !showBinauralBeats
 
   const consent = useQuery(api.journal.consent.getConsent)
 

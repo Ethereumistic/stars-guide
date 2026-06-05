@@ -343,7 +343,7 @@ interface BinauralBeatHistoryCardProps {
 export function BinauralBeatHistoryCard({ params }: BinauralBeatHistoryCardProps) {
   const { status, elapsed, play, stop } = useBinauralPlayer();
 
-  const isPlaying = status === "playing" || status === "stopping";
+  const isPlaying = status === "playing";
   const noiseMode = isNoiseOnly(params);
   const beatHz = Math.abs(params.rightHz - params.leftHz);
   const brainState = getBrainStateFromBeat(beatHz);
