@@ -226,7 +226,7 @@ export function CosmicToday() {
             </div>
 
             {/* ═════════════ COSMIC CONNECTIONS ═════════════ */}
-            <CosmicConnections />
+            {/* <CosmicConnections /> */}
         </section>
     );
 }

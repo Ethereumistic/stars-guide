@@ -35,14 +35,6 @@ export default function Home() {
       <div className="relative">
         <GalacticGlow />
         <Hero0 />
-        {/*<Hero />
-
-
-        <Hero1 />
-        <Hero2 />
-        <Hero3 />
-        <Hero4 />
-        <Hero5 />*/}
       </div>
 
       {/* Below-fold sections — content-visibility: auto + dynamic import for faster LCP/INP */}
