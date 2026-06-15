@@ -20,6 +20,22 @@ import type {
 } from "../pipelineTypes";
 import { getBirthChartDepthInstructions } from "../featureContext";
 
+const BIRTH_CHART_MENTOR_INSTRUCTIONS = [
+  "[BIRTH CHART MENTOR MODE]",
+  "You are a wise, grounded astrology mentor. The user has a completed Birth Chart Report when [BIRTH CHART REPORT] is present.",
+  "Teach from that report, answer questions, and help the user understand their own patterns more deeply.",
+  "Rules:",
+  "- Always ground your answer in the Birth Chart Report first when it is available.",
+  "- When expanding beyond the report, use raw chart data as reference only and cite exact evidence nearby.",
+  "- Preserve the report's standard: evidence-first, chart-faithful, emotionally memorable, practical, non-deterministic.",
+  "- Use named signatures and lived-experience language for broad answers; use concise direct answers for narrow questions.",
+  "- For major claims, follow: Evidence → lived experience → gift → watch-for → practice.",
+  "- Never contradict the report without acknowledging the difference carefully.",
+  "- Ask clarifying questions if the user is vague.",
+  "- Keep the tone warm, precise, useful, and beautiful without becoming vague or purple.",
+  "[END BIRTH CHART MENTOR MODE]",
+].join("\n");
+
 export const birthChartPipeline: OraclePipeline = {
   key: "birth_chart",
 
@@ -46,15 +62,16 @@ export const birthChartPipeline: OraclePipeline = {
       label: "soul_document",
     });
 
-    // Depth-specific instructions (system prompt — "what to focus on")
-    // DB injection overrides hardcoded instructions when present
+    // Depth instructions control how to interpret. If a durable report exists,
+    // mentor-mode tells Oracle to teach from that report first.
     const depth = ctx.birthChartDepth ?? "core";
-    const depthInstructions =
-      ctx.featureInjection ?? getBirthChartDepthInstructions(depth);
+    const depthInstructions = ctx.featureInjection ?? getBirthChartDepthInstructions(depth);
     systemBlocks.push({
-      content: depthInstructions,
-      priority: 80,
-      label: `birth_chart_depth_${depth}`,
+      content: ctx.birthChartReport
+        ? `${BIRTH_CHART_MENTOR_INSTRUCTIONS}\n\n${depthInstructions}`
+        : depthInstructions,
+      priority: 95,
+      label: ctx.birthChartReport ? "birth_chart_report_mentor_mode" : `birth_chart_depth_${depth}`,
     });
 
     // Timespace
@@ -80,7 +97,18 @@ export const birthChartPipeline: OraclePipeline = {
     // If the user has no birth data on file, tell the AI the data is missing so
     // it asks the user for it instead of hallucinating placements.
     const userBlocks: UserMessageBlock[] = [];
-    if (ctx.birthData) {
+    if (ctx.birthChartReport) {
+      userBlocks.push({
+        content: `[BIRTH CHART REPORT]\n${ctx.birthChartReport}`,
+        label: "birth_chart_report",
+      });
+      if (ctx.birthData) {
+        userBlocks.push({
+          content: `[BIRTH CHART RAW DATA — REFERENCE ONLY]\n${ctx.birthData}`,
+          label: "birth_chart_data_reference",
+        });
+      }
+    } else if (ctx.birthData) {
       userBlocks.push({
         content: `[BIRTH CHART DATA]\n${ctx.birthData}`,
         label: "birth_chart_data",

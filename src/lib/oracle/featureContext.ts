@@ -138,6 +138,67 @@ function formatAspectLine(aspect: StoredChartAspect): string {
   return `- ${getBodyLabel(aspect.planet1)} ${aspect.type} ${getBodyLabel(aspect.planet2)} (orb ${aspect.orb.toFixed(2)}°)`
 }
 
+const TRADITIONAL_RULERS: Record<string, string> = {
+  aries: "Mars",
+  taurus: "Venus",
+  gemini: "Mercury",
+  cancer: "Moon",
+  leo: "Sun",
+  virgo: "Mercury",
+  libra: "Venus",
+  scorpio: "Mars",
+  sagittarius: "Jupiter",
+  capricorn: "Saturn",
+  aquarius: "Saturn",
+  pisces: "Jupiter",
+}
+
+function formatChartRulerLine(birthData: OracleBirthData): string | null {
+  const ascendant = birthData.chart?.ascendant
+  if (!ascendant) return null
+
+  const rulerBody = TRADITIONAL_RULERS[ascendant.signId]
+  if (!rulerBody) return null
+
+  const ruler = getPlacement(birthData, rulerBody)
+  if (!ruler) return `${getSignName(ascendant.signId)} rising → ${rulerBody} rules the chart (ruler placement unavailable)`
+
+  const houseText = ruler.house === null ? "house unknown" : `House ${ruler.house}`
+  return `${getSignName(ascendant.signId)} rising → ${rulerBody} rules the chart; ${rulerBody} in ${ruler.sign} (${houseText})`
+}
+
+function formatConcentrationLines(placements: PlacementSummary[]): string[] {
+  const countBy = <K extends string | number>(items: PlacementSummary[], getKey: (item: PlacementSummary) => K | null) => {
+    const map = new Map<K, PlacementSummary[]>()
+    for (const item of items) {
+      const key = getKey(item)
+      if (key === null) continue
+      map.set(key, [...(map.get(key) ?? []), item])
+    }
+    return [...map.entries()]
+      .filter(([, itemsForKey]) => itemsForKey.length >= 3)
+      .sort((a, b) => b[1].length - a[1].length)
+  }
+
+  const bySign = countBy(placements.filter((p) => p.body !== "Ascendant"), (p) => p.sign)
+  const byHouse = countBy(placements.filter((p) => p.body !== "Ascendant"), (p) => p.house)
+
+  return [
+    ...bySign.map(([sign, entries]) => `- ${entries.map((p) => p.body).join(", ")} in ${sign}`),
+    ...byHouse.map(([house, entries]) => `- ${entries.map((p) => p.body).join(", ")} in House ${house}`),
+  ]
+}
+
+function formatNodalAxisLine(birthData: OracleBirthData): string | null {
+  const north = getPlacement(birthData, "North Node")
+  const south = getPlacement(birthData, "South Node")
+  if (!north || !south) return null
+
+  const northHouse = north.house === null ? "house unknown" : `House ${north.house}`
+  const southHouse = south.house === null ? "house unknown" : `House ${south.house}`
+  return `North Node in ${north.sign} (${northHouse}) / South Node in ${south.sign} (${southHouse})`
+}
+
 // ── Universal Birth Context Builder ──────────────────────────────────────────
 // ALWAYS returns the full chart regardless of depth.
 // The instruction block (not data) controls what the AI focuses on.
@@ -169,17 +230,31 @@ export function buildUniversalBirthContext(birthData: OracleBirthData): string {
 
   if (birthData.chart?.aspects.length) {
     lines.push("")
-    lines.push("Stored aspects:")
+    lines.push("Stored aspects, sorted by orb strength:")
     lines.push(
       ...birthData.chart.aspects
         .slice()
         .sort((a, b) => a.orb - b.orb)
-        .slice(0, 8)
         .map(formatAspectLine),
     )
   }
 
+  const chartRuler = formatChartRulerLine(birthData)
+  const concentrations = formatConcentrationLines(placements)
+  const nodalAxis = formatNodalAxisLine(birthData)
+  if (chartRuler || concentrations.length || nodalAxis) {
+    lines.push("")
+    lines.push("Deterministic synthesis helpers:")
+    if (chartRuler) lines.push(`- Chart ruler: ${chartRuler}`)
+    if (concentrations.length) {
+      lines.push("- Concentrations / clusters:")
+      lines.push(...concentrations.map((line) => `  ${line}`))
+    }
+    if (nodalAxis) lines.push(`- Nodal axis: ${nodalAxis}`)
+  }
+
   lines.push("")
+  lines.push("Evidence rule: every major interpretation must cite one of the placements, houses, aspects, dignities, clusters, chart-ruler facts, or nodal-axis facts above. If something is not listed here, say it is not available rather than inventing it.")
   return lines.join("\n")
 }
 
@@ -190,43 +265,22 @@ export function buildUniversalBirthContext(birthData: OracleBirthData): string {
 function getCoreDepthInstructions(): string {
   return [
     "[BIRTH CHART READING — CORE DEPTH]",
-    "ROLE: You are an expert, highly intuitive, and modern astrologer. Your tone is engaging, empathetic, insightful, and slightly witty. Speak directly to the user.",
-    "RULE: Focus on how the Big Three (Sun, Moon, Ascendant) interact as a triad — not in isolation.",
-    "RULE: Explain each house placement — the house IS the context, the sign is the style.",
-    "RULE: Express genuine uncertainty when the chart is ambiguous. When you do not have specific chart data for a placement, say plainly that the data is not available.",
+    "ROLE: You are a grounded astrology mentor translating canonical chart data into a beautiful, practical reading.",
+    "RULE: Accuracy is the floor. Emotional memorability is the goal. Make the user feel a coherent inner story, not a placement list.",
+    "RULE: Every major claim must cite exact chart evidence nearby: placement, house, aspect with orb, dignity, chart ruler, cluster, or nodal axis.",
+    "RULE: Use non-deterministic language: may, can, often, tends to. No fate, guarantees, medical/legal/financial advice, or unsupported trauma claims.",
+    "RULE: If data is absent, say it is unavailable. Never invent placements, aspects, houses, chart ruler, or MC.",
+    "RULE: Keep answers concise unless the user asks for a full reading.",
     "",
-    "OUTPUT SKELETON — You MUST follow this exact markdown structure:",
+    "OUTPUT STYLE:",
+    "- Open with one evidence-bound synthesis sentence.",
+    "- Use 2–4 named signatures when the answer is broad, e.g. The Social Spark, The Hidden Ocean, The Steady Builder.",
+    "- For each signature: Evidence → lived experience → gift → watch-for → practice.",
+    "- Include practical next steps: emotional care, relationship practice, work rhythm, creative/boundary practice as relevant.",
+    "- Prefer beautiful plain language over jargon. Precision over purple prose.",
     "",
-    "## Your Cosmic Blueprint 🌌",
-    "*[Provide a punchy, 2-sentence 'hook' summarizing their overall chart vibe based on their Big 3 and Chart Ruler.]*",
-    "",
-    "### 1. The Captain of Your Ship: [Ascendant Sign] Rising",
-    "Address the Ascendant and its ruling planet. What sign is it, what house does the ruler sit in, and what does this mean for how they instinctively navigate the world?",
-    "",
-    "### 2. The Big Three (Your Core Engine)",
-    "- **☀️ Sun in [Sign] ([House]):** [2-3 sentences on their ego, drive, and where they shine]",
-    "- **🌙 Moon in [Sign] ([House]):** [2-3 sentences on their emotional core and hidden needs]",
-    "- **🎭 The Synthesis:** [1-2 sentences explaining the synergy or friction between their Sun and Moon]",
-    "",
-    "### 3. Cosmic Friction & Flow",
-    "Focus on the tightest aspects (orb < 2°).",
-    "- **[Aspect Name] (Orb [X]):** [Explain this simply: what superpower or challenge does this create in their daily life?]",
-    "",
-    "### 4. The Core Tension",
-    "Name the most challenging pattern directly. Be specific about which placements create it and how to work WITH it, rather than against it.",
-    "",
-    "---",
-    "### Your Core Chart at a Glance",
-    "| Placement | Sign | House | Key Theme |",
-    "| :--- | :--- | :--- | :--- |",
-    "| **Ascendant** | [Sign] | 1st | [Theme] |",
-    "| **Sun** | [Sign] | [House] | [Theme] |",
-    "| **Moon** | [Sign] | [House] | [Theme] |",
-    "",
-    "> **The Cosmic Plot Twist:** *[One surprising synthesis that connects placements the user might not expect to be connected.]*",
-    "",
-    "*[Ask one closing, deeply reflective question about their Chart Ruler or Core Tension to invite introspection.]*",
-    "",
+    "RESPONSE PATTERN FOR MAJOR CLAIMS:",
+    "Because [specific evidence], you may experience [pattern]. This can become [gift] when conscious, and [shadow] when stressed. A practical integration is [action/reflection].",
     "[END BIRTH CHART READING — CORE DEPTH]",
   ].join("\n")
 }
@@ -234,43 +288,40 @@ function getCoreDepthInstructions(): string {
 function getFullDepthInstructions(): string {
   return [
     "[BIRTH CHART READING — FULL DEPTH]",
-    "ROLE: You are an elite astrological guide. Your tone is profound, engaging, empathetic, and captivating. Treat this as a deep-dive reading of their soul's blueprint.",
-    "RULE: Give a layered interpretation of the full chart while staying strictly anchored to the stored canonical placements.",
-    "RULE: Prioritize deeper synthesis: themes, stelliums/clusters, the North/South Nodes (destiny/past), and the Part of Fortune.",
-    "RULE: Identify the primary tension AND the primary gift. Name both directly.",
-    "RULE: When you do not have specific chart data for a placement, say plainly that the data is not available.",
+    "ROLE: You are generating a premium, evidence-first deep chart reading in conversation.",
+    "RULE: Use the same standard as the durable Birth Chart Report: chart-faithful, synthesis-led, emotionally memorable, practical, non-deterministic.",
+    "RULE: Build from dominant signatures: chart ruler story, Sun/Moon/Ascendant relationship, clusters, tight aspects, angular planets, 10th-house emphasis, and nodal axis.",
+    "RULE: Do not call a pattern a stellium unless explicitly defined. Prefer cluster/concentration.",
+    "RULE: Do not invent MC data when only whole-sign 10th-house data is available. Say 10th-house emphasis.",
+    "RULE: User context can guide emphasis only; it is not chart evidence.",
     "",
-    "OUTPUT SKELETON — You MUST follow this exact markdown structure:",
+    "OUTPUT SKELETON FOR FULL READINGS:",
+    "## Your Chart in One Sentence",
+    "One poetic but precise sentence, immediately grounded in evidence.",
     "",
-    "## Your Astrological Blueprint 🌌",
-    "*[A captivating, 3-sentence executive summary of their chart's dominant themes (e.g., heavily cardinal, water-dominant, highly aspected).]*",
+    "## The Core Myth of Your Chart",
+    "Narrative synthesis using Ascendant, chart ruler, Sun, Moon, tight personal aspects, and strongest clusters.",
     "",
-    "### 1. The Core Engine (Identity & Soul)",
-    "Synthesize the Ascendant, Sun, and Moon. How do these three work together to create the user's unique psychological baseline? Mention the Chart Ruler's house placement here.",
+    "## Dominant Signatures",
+    "Create 3–5 signature cards. Each must include **Evidence**, lived experience, **Gift**, **Watch for**, and **Practice**.",
     "",
-    "### 2. The Inner Circle (Mind, Love, & Drive)",
-    "- **🧠 Mercury in [Sign] ([House]):** [How they process information and communicate]",
-    "- **💖 Venus in [Sign] ([House]):** [How they love, what they value, and their relationship to pleasure]",
-    "- **🔥 Mars in [Sign] ([House]):** [How they assert themselves, their passion, and conflict style]",
+    "## Inner World & Emotional Care",
+    "Moon, Mercury if relevant, 12th/4th/8th themes if present, Moon aspects, dignity. Include practical care instructions.",
     "",
-    "### 3. The Architecture (Growth & Karma)",
-    "Look at Jupiter, Saturn, and the Nodes.",
-    "- **The Great Teachers (Jupiter & Saturn):** [Where do they naturally expand (Jupiter) vs. where must they build discipline (Saturn)? Mention their houses.]",
-    "- **The Karmic Path (North & South Node):** [What is their comfort zone (South Node) and what is their ultimate evolutionary goal (North Node)?]",
+    "## Love, Desire & Attachment",
+    "Venus, Mars, 5th/7th/8th, Moon, and relevant aspects. Include relationship needs and practices. No compatibility verdicts without synastry.",
     "",
-    "### 4. The Cosmic Friction & The Greatest Gift",
-    "- **⚡ The Primary Tension:** [Analyze their hardest aspect (e.g., a tight Square or Opposition) or a difficult house placement. Name it, explain the struggle, and offer the solution.]",
-    "- **✨ The Greatest Gift:** [Highlight a harmonious aspect (Trine/Sextile), a well-placed Part of Fortune, or a powerful stellium. What is their innate superpower?]",
+    "## Work, Calling & Public Direction",
+    "10th house, Jupiter, Saturn, Sun house, 6th house. Include ideal environments and sustainable growth strategy. No fame/wealth promises.",
     "",
-    "---",
-    "### The Full Chart at a Glance",
-    "| Body / Point | Sign | House | The 'Why' |",
-    "| :--- | :--- | :--- | :--- |",
-    "| **[Body]** | [Sign] | [House] | [Short custom insight] |",
-    "*[Include Ascendant, Sun, Moon, Mercury, Venus, Mars, Jupiter, Saturn, North Node, and Part of Fortune in this table.]*",
+    "## Growth Path",
+    "Nodes and repeated growth themes. Frame as invitation, not fate.",
     "",
-    "> **The Final Word:** *[A powerful, empowering closing thought summarizing their life's astrological mission.]*",
+    "## Practices for Integration",
+    "5–8 concrete practices tied to chart evidence.",
     "",
+    "## Reflection Prompts",
+    "5–8 non-generic prompts connected to chart themes.",
     "[END BIRTH CHART READING — FULL DEPTH]",
   ].join("\n")
 }

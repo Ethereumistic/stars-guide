@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Users, MessageSquarePlus } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { ArrowLeft, Users, MessageSquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { GiCursedStar } from "react-icons/gi";
@@ -12,6 +13,15 @@ interface OracleTopBarProps {
 }
 
 export function OracleTopBar({ showLogo, centerCtaLabel }: OracleTopBarProps) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const showReportBack = pathname === "/oracle/birth-chart-report";
+
+  const handleBack = () => {
+    if (window.history.length > 1) router.back();
+    else router.push("/oracle/new");
+  };
+
   return (
     <>
       {/* Decorative blur orbs */}
@@ -21,7 +31,19 @@ export function OracleTopBar({ showLogo, centerCtaLabel }: OracleTopBarProps) {
       <div className="relative z-20 px-3 pt-3 md:px-5 md:pt-4">
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 flex-1 items-center justify-start gap-2">
-            <SidebarTrigger className="h-9 w-9 border border-white/15 bg-background/60 text-foreground/70 hover:border-primary/40 hover:text-primary md:hidden transition-all duration-500" />
+            {showReportBack ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBack}
+                className="h-9 gap-2 rounded-xl border border-white/10 bg-background/40 px-3 text-foreground/70 hover:border-primary/40 hover:text-primary transition-all duration-500"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">Back</span>
+              </Button>
+            ) : (
+              <SidebarTrigger className="h-9 w-9 border border-white/15 bg-background/60 text-foreground/70 hover:border-primary/40 hover:text-primary md:hidden transition-all duration-500" />
+            )}
           </div>
 
           <div className="flex flex-1 items-center justify-center">

@@ -205,6 +205,41 @@ export const invokeOracle = action({
 
     const user = await ctx.runQuery(api.users.current, {});
 
+    // ── Birth Chart Report conversational onboarding gate ────────────────
+    // If the user has birth data but no completed durable report, the Oracle
+    // stays in the normal chat UI and asks profiling questions one-by-one as
+    // hardcoded assistant messages instead of spending an LLM call.
+    const missingBirthChartReport = Boolean(
+      user?.birthData && user.birthChartReport?.status !== "completed",
+    );
+    if (missingBirthChartReport && user?._id) {
+      const report = user.birthChartReport;
+      const step = report?.onboardingStep;
+
+      const addAssistant = async (content: string) => {
+        await ctx.runMutation(api.oracle.sessions.addMessage, {
+          sessionId: args.sessionId,
+          role: "assistant",
+          content,
+          fallbackTierUsed: "D",
+          modelUsed: "birth_chart_report_onboarding",
+        });
+      };
+
+      if (!report || !step) {
+        await ctx.runMutation(internal.birthChartReport.queue.startChatOnboarding, { userId: user._id, sessionId: args.sessionId });
+        await addAssistant("Welcome — I’m here. Before we go further, I want to create the Birth Chart Report that will become the living foundation for our Oracle conversations.\n\nI’ll read your placements, houses, aspects, and chart pattern first, then weave in a few details only you can give me: the season you’re in, what you want the chart to help with, and the kind of language that actually lands.\n\nAnswer what feels true, skip anything that doesn’t. The questions will open below, right where you normally speak to me.");
+        return { content: "", modelUsed: "birth_chart_report_onboarding", fallbackTier: "D" };
+      }
+
+      await addAssistant(
+        step === "queued"
+          ? "I’m still crafting your Birth Chart Report — gathering the chart into something you can return to. Once it’s ready, we’ll continue from the report itself."
+          : "Take your time with the Birth Chart Report questions below. Once you submit them, I’ll begin crafting the report.",
+      );
+      return { content: "", modelUsed: "birth_chart_report_onboarding", fallbackTier: "D" };
+    }
+
     // ── Legacy feature key migration ──────────────────────────────────────
     let resolvedFeatureKey = session.featureKey;
     if (resolvedFeatureKey === "birth_chart_core" || resolvedFeatureKey === "birth_chart_full") {
@@ -299,8 +334,12 @@ export const invokeOracle = action({
 
     // Gather birth data ONLY if a pipeline needs it
     let birthData: string | null = null;
+    let birthChartReport: string | null = null;
     if (needsBirth && user?.birthData) {
       birthData = buildUniversalBirthContext(user.birthData);
+      if (user.birthChartReport?.status === "completed" && user.birthChartReport.markdown) {
+        birthChartReport = user.birthChartReport.markdown;
+      }
     }
 
     // Gather journal context (if any pipeline needs it and consent exists)
@@ -333,12 +372,11 @@ export const invokeOracle = action({
     // Load feature injection from DB (for pipelines that use it)
     let featureInjection: string | null = null;
     if (primaryIntent?.pipelineKey === "birth_chart") {
-      const depth = (primaryIntent.metadata?.depth as BirthChartDepth) ?? session.birthChartDepth ?? "core";
       try {
-        const depthRecord = await ctx.runQuery(api.oracle.features.getFeatureInjection, {
-          featureKey: `birth_chart_depth_${depth}`,
+        const record = await ctx.runQuery(api.oracle.features.getFeatureInjection, {
+          featureKey: "birth_chart",
         });
-        featureInjection = depthRecord?.contextText ?? null;
+        featureInjection = record?.contextText ?? null;
       } catch (e) {
         // Fall back to hardcoded — pipeline handles this
       }
@@ -377,6 +415,7 @@ export const invokeOracle = action({
       featureKey: session.featureKey ?? null,
       birthChartDepth: session.birthChartDepth ?? (primaryIntent?.metadata?.depth as BirthChartDepth | null) ?? null,
       birthData,
+      birthChartReport,
       journalContext,
       timespaceContext,
       soulDoc: config.soulDoc,

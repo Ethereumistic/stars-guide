@@ -37,6 +37,15 @@ crons.daily(
     internal.horoscopes.computeDailyContext.computeDailyContextJob,
 );
 
+// ─── BIRTH CHART REPORT GENERATION ───────────────────────────────────────
+// Process the durable report queue; enqueue also schedules an immediate pass.
+crons.interval(
+    "process-birth-chart-report-jobs",
+    { seconds: 60 },
+    internal.birthChartReport.worker.processNextJobs,
+    { limit: 3 },
+);
+
 // ─── SCHEDULED NOTIFICATIONS ─────────────────────────────────────────────
 // Check for campaigns due for delivery every minute.
 crons.interval(

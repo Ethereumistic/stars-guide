@@ -95,6 +95,50 @@ export const createSession = mutation({
     },
 });
 
+export const createBirthChartReportSession = mutation({
+    args: {},
+    handler: async (ctx) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Not authenticated");
+
+        const user = await ctx.db.get(userId);
+        const existingSessionId = user?.birthChartReport?.oracleSessionId;
+        if (existingSessionId) {
+            const existing = await ctx.db.get(existingSessionId);
+            if (existing && existing.userId === userId) return existingSessionId;
+        }
+
+        const now = Date.now();
+        const sessionId = await ctx.db.insert("oracle_sessions", {
+            userId,
+            title: "Birth Chart Report",
+            titleGenerated: true,
+            featureKey: "birth_chart",
+            status: "active",
+            messageCount: 1,
+            createdAt: now,
+            updatedAt: now,
+            lastMessageAt: now,
+        });
+
+        await ctx.db.insert("oracle_messages", {
+            sessionId,
+            role: "user",
+            content: "Birth Chart Report",
+            createdAt: now,
+        });
+
+        await ctx.db.patch(userId, {
+            birthChartReport: {
+                ...(user?.birthChartReport ?? { status: "pending" as const }),
+                oracleSessionId: sessionId,
+            },
+        });
+
+        return sessionId;
+    },
+});
+
 export const addMessage = mutation({
     args: {
         sessionId: v.id("oracle_sessions"),

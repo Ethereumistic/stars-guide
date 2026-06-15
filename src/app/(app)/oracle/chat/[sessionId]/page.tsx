@@ -23,6 +23,7 @@ import { GiCursedStar, GiScrollUnfurled } from "react-icons/gi";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { OracleInput } from "@/components/oracle/input/oracle-input";
+import { BirthReportQuestionnaire } from "@/components/oracle/birth-report/BirthReportQuestionnaire";
 import { BinauralBeatHistoryCard } from "@/components/oracle/input/binaural-beat-history-card";
 import {
     isBeatMessage as isBinauralBeatMessage,
@@ -61,6 +62,27 @@ function AudioPlayer({ storageId }: { storageId: string }) {
 }
 
 /** Component that renders assistant message content with blur-reveal animation on trailing text when streaming */
+function FakeStreamingOnboardingMessage({ content }: { content: string }) {
+    const [visible, setVisible] = React.useState(0);
+    React.useEffect(() => {
+        setVisible(0);
+        const words = content.split(/(\s+)/);
+        const id = window.setInterval(() => {
+            setVisible((v) => {
+                if (v >= words.length) {
+                    window.clearInterval(id);
+                    return v;
+                }
+                return v + 2;
+            });
+        }, 55);
+        return () => window.clearInterval(id);
+    }, [content]);
+    const words = content.split(/(\s+)/);
+    const done = visible >= words.length;
+    return <AssistantMessageContent content={words.slice(0, visible).join("")} isStreamingThis={!done} />;
+}
+
 function AssistantMessageContent({ content, isStreamingThis }: { content: string; isStreamingThis: boolean }) {
     // Split at a safe word boundary ~25 chars from the end (2-3 words) for the blur-reveal effect
     const BLUR_CHARS = 25;
@@ -248,6 +270,8 @@ export default function OracleChatPage() {
     const [shared, setShared] = useState<string | null>(null);
     const [ratingOverrides, setRatingOverrides] = useState<Record<string, "positive" | "negative" | "none">>({});
     const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null);
+    const [nowMs, setNowMs] = useState(() => Date.now());
+    const [dismissedReportReadyForSession, setDismissedReportReadyForSession] = useState<string | null>(null);
     const { user } = useUserStore();
     const hasInvokedRef = useRef(false);
     const initialLoadDoneRef = useRef(false);
@@ -275,6 +299,7 @@ export default function OracleChatPage() {
     const loadingMessage = useLoadingMessage(isStreaming);
 
     const sessionData = useQuery(api.oracle.sessions.getSessionWithMessages, { sessionId });
+    const currentUser = useQuery(api.users.current);
     const quota = useQuery(api.oracle.quota.checkQuota);
     const quotaExhausted = quota && !quota.allowed;
 
@@ -284,6 +309,7 @@ export default function OracleChatPage() {
     const rateMessageMutation = useMutation(api.oracle.sessions.rateMessage);
     const unrateMessageMutation = useMutation(api.oracle.sessions.unrateMessage);
     const invokeOracle = useAction(api.oracle.llm.invokeOracle);
+    const submitBirthReportQuestionnaire = useAction(api.birthChartReport.queue.submitReportQuestionnaire);
 
     useEffect(() => {
         if (sessionData === null) {
@@ -337,7 +363,10 @@ export default function OracleChatPage() {
         if (!lastUserMessage) return;
 
         const assistantCount = sessionData.messages.filter((m) => m.role === "assistant").length;
-        if (assistantCount >= userMessages.length) {
+        const reportOnboardingActive = Boolean(
+            currentUser?.birthData && currentUser.birthChartReport?.status !== "completed",
+        );
+        if (!reportOnboardingActive && assistantCount >= userMessages.length) {
             setConversationActive();
             return;
         }
@@ -378,11 +407,17 @@ export default function OracleChatPage() {
         };
 
         callOracle();
-    }, [state, sessionId, sessionData?.messages?.length, sessionData, invokeOracle, setConversationActive, setIsStreaming, debugModelOverride, setDebugLastMetrics, setDebugDebugModelUsed, setDebugClientTiming]);
+    }, [state, sessionId, sessionData?.messages?.length, sessionData, currentUser?.birthData, currentUser?.birthChartReport?.status, invokeOracle, setConversationActive, setIsStreaming, debugModelOverride, setDebugLastMetrics, setDebugDebugModelUsed, setDebugClientTiming]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [sessionData?.messages?.length, isStreaming, pendingUserMessage]);
+
+    useEffect(() => {
+        if (!currentUser?.birthData || currentUser.birthChartReport?.status === "completed") return;
+        const id = window.setInterval(() => setNowMs(Date.now()), 250);
+        return () => window.clearInterval(id);
+    }, [currentUser?.birthData, currentUser?.birthChartReport?.status]);
 
     const handleCopy = useCallback((content: string, id: string) => {
         navigator.clipboard.writeText(content);
@@ -566,6 +601,37 @@ export default function OracleChatPage() {
         }
     }, [inputValue, selectedFeatureKey, isStreaming, sessionId, addMessageMutation, invokeOracle, setIsStreaming, debugModelOverride, setDebugLastMetrics, setDebugDebugModelUsed, setDebugClientTiming, clearSelectedFeature]);
 
+    const reportStatus = currentUser?.birthChartReport?.status;
+    const reportOnboardingStep = currentUser?.birthChartReport?.onboardingStep;
+    const latestOnboardingMessage = sessionData?.messages
+        ?.filter((m: any) => m.role === "assistant" && m.modelUsed === "birth_chart_report_onboarding")
+        .at(-1);
+    const onboardingWelcomeStillRevealing = Boolean(
+        latestOnboardingMessage && nowMs - latestOnboardingMessage.createdAt < 5_500,
+    );
+    const reportQuestionnaireActive = Boolean(
+        currentUser?.birthData && reportStatus !== "completed" && reportOnboardingStep === "questionnaire" && !onboardingWelcomeStillRevealing,
+    );
+    const reportGenerating = Boolean(
+        currentUser?.birthData && reportStatus !== "completed" && (reportOnboardingStep === "queued" || reportStatus === "generating"),
+    );
+    const showReportReadyCard = Boolean(
+        reportStatus === "completed" && dismissedReportReadyForSession !== String(sessionId),
+    );
+
+    const handleReportQuestionnaireSubmit = useCallback(async (answers: any) => {
+        if (isStreaming || state === "oracle_responding") return;
+        const content = "I answered the Birth Chart Report questions. Please create my report.";
+        setPendingUserMessage(content);
+        await addMessageMutation({ sessionId, role: "user", content });
+        await submitBirthReportQuestionnaire({ answers, sessionId, priority: 2 });
+    }, [isStreaming, state, addMessageMutation, sessionId, submitBirthReportQuestionnaire]);
+
+    const handleDismissReportReady = useCallback(() => {
+        setDismissedReportReadyForSession(String(sessionId));
+        inputRef.current?.focus();
+    }, [sessionId]);
+
     // Compute countdown for quota cap (burst or weekly)
     const quotaCountdown = React.useMemo(() => {
         if (!quota || quota.allowed || !quota.reason) return null;
@@ -598,6 +664,7 @@ export default function OracleChatPage() {
         _id: m._id as Id<"oracle_messages">,
         rating: (m as any).rating as "positive" | "negative" | undefined,
         journalPrompt: (m as any).journalPrompt as string | undefined,
+        modelUsed: (m as any).modelUsed as string | undefined,
     }));
     const allMessages = pendingUserMessage && !serverMessages.some(m => m.role === "user" && m.content === pendingUserMessage)
         ? [...serverMessages, { role: "user" as const, content: pendingUserMessage, createdAt: Date.now(), _id: undefined as Id<"oracle_messages"> | undefined, rating: undefined as "positive" | "negative" | undefined, journalPrompt: undefined as string | undefined }]
@@ -639,8 +706,13 @@ export default function OracleChatPage() {
     }
 
     // Determine input bar state
-    const isInputDisabled = isStreaming || state === "oracle_responding" || !!quotaExhausted;
-    const inputPlaceholder = isStreaming || state === "oracle_responding"
+    const isBusyOrQuotaBlocked = isStreaming || state === "oracle_responding" || !!quotaExhausted;
+    const isInputDisabled = isBusyOrQuotaBlocked || reportQuestionnaireActive || reportGenerating;
+    const inputPlaceholder = reportQuestionnaireActive
+        ? "Answer the report questions above…"
+        : reportGenerating
+            ? "Your report is being crafted…"
+            : isStreaming || state === "oracle_responding"
         ? "Oracle is speaking..."
         : quotaExhausted
             ? "Quota exhausted"
@@ -746,6 +818,10 @@ export default function OracleChatPage() {
                                     const displayContent = isStreamingThis
                                         ? msg.content
                                         : msg.content;
+                                    const shouldFakeStreamOnboarding = !isStreamingThis
+                                        && (msg as any).modelUsed === "birth_chart_report_onboarding"
+                                        && Date.now() - msg.createdAt < 120_000
+                                        && isLastAssistant;
 
                                     // Compute effective rating for action buttons
                                     const msgId = msg._id;
@@ -754,7 +830,11 @@ export default function OracleChatPage() {
 
                                     return (
                                         <div className="flex-1 min-w-0 py-2">
-                                            <AssistantMessageContent content={displayContent} isStreamingThis={isStreamingThis} />
+                                            {shouldFakeStreamOnboarding ? (
+                                                <FakeStreamingOnboardingMessage content={displayContent} />
+                                            ) : (
+                                                <AssistantMessageContent content={displayContent} isStreamingThis={isStreamingThis} />
+                                            )}
                                             {(msg as any).audioUrl ? (
                                                 <div className="mt-4">
                                                     <audio
@@ -964,6 +1044,47 @@ export default function OracleChatPage() {
                     ) : (
                         /* ─── Normal Input Bar ─── */
                         <>
+                            {reportQuestionnaireActive && (
+                                <div className="mb-3">
+                                    <BirthReportQuestionnaire
+                                        disabled={isBusyOrQuotaBlocked}
+                                        onSubmit={handleReportQuestionnaireSubmit}
+                                    />
+                                </div>
+                            )}
+                            {reportGenerating && !reportQuestionnaireActive && reportStatus !== "completed" && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="mb-3 rounded-2xl border border-galactic/20 bg-galactic/10 p-4 text-sm text-white/70 backdrop-blur-xl"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <Loader2 className="h-4 w-4 animate-spin text-galactic" />
+                                        <div>
+                                            <div className="font-serif text-white">Crafting your Birth Chart Report…</div>
+                                            <div className="text-xs text-white/45">I’ll let you know here as soon as it’s ready.</div>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                            {showReportReadyCard && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="mb-3 rounded-2xl border border-primary/20 bg-primary/10 p-4 backdrop-blur-xl"
+                                >
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <div>
+                                            <div className="font-serif text-white">Your Birth Chart Report is ready.</div>
+                                            <div className="text-xs text-white/45">We can continue chatting from this deeper chart context.</div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button size="sm" variant="outline" className="rounded-xl border-primary/20 bg-primary/5" onClick={handleDismissReportReady}>Continue chatting</Button>
+                                            <Button size="sm" variant="default" className="rounded-xl" onClick={() => router.push("/oracle/birth-chart-report")}>Open report</Button>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
                             <OracleInput
                                 inputRef={inputRef}
                                 value={inputValue}

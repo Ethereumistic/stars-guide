@@ -90,6 +90,44 @@ export default defineSchema({
             notifications: v.optional(v.boolean()),
         })),
 
+        // --- Durable Birth Chart Report ---
+        // One generated, reusable report used as canonical Oracle chart context.
+        birthChartReport: v.optional(v.object({
+            status: v.union(
+                v.literal("pending"),
+                v.literal("generating"),
+                v.literal("completed"),
+                v.literal("failed"),
+            ),
+            markdown: v.optional(v.string()),
+            profilingAnswers: v.optional(v.object({
+                // v1 legacy fields kept for existing generated/user documents.
+                centralQuestion: v.optional(v.string()),
+                publicPersona: v.optional(v.string()),
+                innerExperience: v.optional(v.string()),
+                // v2 structured questionnaire fields.
+                currentSeason: v.optional(v.array(v.string())),
+                reportFocus: v.optional(v.array(v.string())),
+                growthPattern: v.optional(v.array(v.string())),
+                tonePreference: v.optional(v.string()),
+                preferredName: v.optional(v.string()),
+                pronouns: v.optional(v.string()),
+                customContext: v.optional(v.string()),
+            })),
+            onboardingStep: v.optional(v.union(
+                v.literal("centralQuestion"),
+                v.literal("publicPersona"),
+                v.literal("innerExperience"),
+                v.literal("pronouns"),
+                v.literal("questionnaire"),
+                v.literal("queued"),
+            )),
+            generatedAt: v.optional(v.number()),
+            oracleSessionId: v.optional(v.id("oracle_sessions")),
+            errorMessage: v.optional(v.string()),
+            version: v.optional(v.number()),
+        })),
+
         // --- The "Static Core" (Astronomical Data) ---
         // Essential for RAG. Loaded instantly with the user.
         birthData: v.optional(v.object({
@@ -165,6 +203,25 @@ export default defineSchema({
         .index("by_email_status", ["emailStatus"])
         .index("by_engagement_status", ["engagementStatus"])
         .index("by_last_active", ["lastActiveAt"]),
+
+    // 3.4 BIRTH CHART REPORT JOBS (Async durable report generation)
+    birth_chart_report_jobs: defineTable({
+        userId: v.id("users"),
+        status: v.union(
+            v.literal("queued"),
+            v.literal("processing"),
+            v.literal("completed"),
+            v.literal("failed"),
+        ),
+        priority: v.number(),
+        attempts: v.number(),
+        maxAttempts: v.number(),
+        error: v.optional(v.string()),
+        startedAt: v.optional(v.number()),
+        completedAt: v.optional(v.number()),
+    })
+        .index("by_user", ["userId"])
+        .index("by_status", ["status"]),
 
     // 3.5 FRIENDSHIPS (Symmetric bidirectional friend relationships)
     friendships: defineTable({

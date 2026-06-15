@@ -127,31 +127,15 @@ export function OracleChartPreview({
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-[220px] text-balance">
                     <p className="leading-relaxed">
-                      {depth === "full"
-                        ? "The Oracle will deeply analyze your full birth chart — planets, houses, aspects and all placements — to deliver a comprehensive reading."
-                        : "The Oracle will read your Sun, Moon, and Ascendant to provide a focused cosmic insight."}
+                      The Oracle will use your durable Birth Chart Report as the foundation, then go deeper with raw chart data when needed.
                     </p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
-            {onDepthChange && (
-              <button
-                type="button"
-                onClick={() => onDepthChange(depth === "core" ? "full" : "core")}
-                className={`
-                  flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-medium
-                  rounded-full px-2.5 py-1 border transition-all duration-200 shrink-0 ml-2
-                  ${depth === "full"
-                    ? "border-galactic/40 bg-galactic/15 text-galactic shadow-[0_0_10px_rgba(157,78,221,0.25)]"
-                    : "border-white/10 text-white/30 hover:text-white/50 hover:border-white/20"
-                  }
-                `}
-                aria-label={depth === "full" ? "Switch to core depth" : "Enable full depth"}
-              >
-                {depth === "full" ? "Full" : "Core"}
-              </button>
-            )}
+            <span className="shrink-0 rounded-full border border-galactic/30 bg-galactic/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-galactic">
+              Report
+            </span>
           </div>
 
           {/* ── Chart circle ── */}

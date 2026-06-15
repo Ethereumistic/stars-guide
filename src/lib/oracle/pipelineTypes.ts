@@ -125,6 +125,8 @@ export interface PipelineContext {
   birthChartDepth: "core" | "full" | null;
   /** Birth data context string (pre-built by orchestrator, only if a pipeline needs it) */
   birthData: string | null;
+  /** Durable generated birth chart report, preferred over raw chart data when completed. */
+  birthChartReport: string | null;
   /** Raw birth data object (always available if user has it, for internal computation like binaural personalization) */
   rawBirthData: unknown | null;
   /** Journal context string (pre-built by orchestrator, consent-gated) */
