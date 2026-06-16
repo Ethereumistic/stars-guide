@@ -44,4 +44,5 @@ export type SessionItem = {
     starType: StarType;
     lastMessageAt: number;
     status?: string;
+    featureKey?: string;
 };

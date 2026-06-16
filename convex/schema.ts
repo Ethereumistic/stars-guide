@@ -100,6 +100,7 @@ export default defineSchema({
                 v.literal("failed"),
             ),
             markdown: v.optional(v.string()),
+            structured: v.optional(v.any()),
             profilingAnswers: v.optional(v.object({
                 // v1 legacy fields kept for existing generated/user documents.
                 centralQuestion: v.optional(v.string()),

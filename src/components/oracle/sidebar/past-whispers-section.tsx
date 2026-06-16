@@ -1,12 +1,9 @@
 "use client";
 
-import * as React from "react";
-import { useMutation, useQuery } from "convex/react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useQuery } from "convex/react";
+import { usePathname } from "next/navigation";
 import { Loader2, MessageSquare } from "lucide-react";
 import { api } from "@/../convex/_generated/api";
-import { GiMazeCornea } from "react-icons/gi";
 import {
     SidebarGroup,
     SidebarGroupLabel,
@@ -69,18 +66,10 @@ export function PastWhispersSection({
     onSetStarType,
 }: PastWhispersSectionProps) {
     const pathname = usePathname();
-    const router = useRouter();
     const currentUser = useQuery(api.users.current);
-    const createReportSession = useMutation(api.oracle.sessions.createBirthChartReportSession);
-    const reportSessionId = currentUser?.birthChartReport?.oracleSessionId;
-    const reportHref = reportSessionId ? `/oracle/chat/${reportSessionId}` : "/oracle/new";
-    const isReportActive = pathname === "/oracle/birth-chart-report" || (reportSessionId && pathname === `/oracle/chat/${reportSessionId}`);
-
-    const handleReportClick = async (event: React.MouseEvent<HTMLAnchorElement>) => {
-        event.preventDefault();
-        const sessionId = reportSessionId ?? await createReportSession({});
-        router.push(`/oracle/chat/${sessionId}`);
-    }; 
+    const reportSessionId = currentUser?.birthChartReport?.oracleSessionId
+        ? String(currentUser.birthChartReport.oracleSessionId)
+        : null;
 
     return (
         <>
@@ -91,20 +80,6 @@ export function PastWhispersSection({
                 </SidebarGroupLabel>
                 <SidebarGroupContent className="h-full w-full min-w-12">
                     <ScrollArea className="h-full w-full min-w-0">
-                        <SidebarMenuSub className="mx-0 mb-2 border-none pl-0 gap-0.5">
-                            <li className="group/item relative list-none">
-                                <Link
-                                    href={reportHref}
-                                    onClick={handleReportClick}
-                                    className={`flex h-10 w-62 items-center gap-3 rounded-md border border-transparent pr-8 text-foreground/70 transition-colors duration-300 hover:bg-accent/40 hover:text-primary ${isReportActive ? "bg-accent/40 font-medium text-primary" : ""}`}
-                                >
-                                    <span className="shrink-0 w-5 flex items-center justify-center">
-                                        <GiMazeCornea className="h-4 w-4 text-primary" />
-                                    </span>
-                                    <span className="flex-1 truncate text-sm font-sans">Birth Chart Report</span>
-                                </Link>
-                            </li>
-                        </SidebarMenuSub>
                         {sessions === undefined ? (
                             <div className="flex items-center justify-center py-4">
                                 <Loader2 className="h-4 w-4 animate-spin text-foreground/30" />
@@ -128,6 +103,7 @@ export function PastWhispersSection({
                                                     key={session._id}
                                                     session={session}
                                                     isActive={isActive}
+                                                    isBirthChartReportSession={reportSessionId === String(session._id)}
                                                     onSetStarType={onSetStarType}
                                                     onRequestDelete={onRequestDelete}
                                                     onRequestRename={onRequestRename}

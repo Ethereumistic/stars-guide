@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Edit2, Share, Trash2, MoreVertical } from "lucide-react";
-import { GiBeveledStar, GiCursedStar } from "react-icons/gi";
+import { GiBeveledStar, GiCursedStar, GiMazeCornea } from "react-icons/gi";
 import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
@@ -27,13 +27,17 @@ interface SessionListItemProps {
     isActive: boolean,
   ) => void;
   onRequestRename: (sessionId: string, currentTitle: string) => void;
+  isBirthChartReportSession?: boolean;
 }
 
-function StarIcon({ starType }: { starType: StarType | null }) {
-  if (starType === "cursed") {
+function SessionIcon({ session, isBirthChartReportSession }: { session: SessionItem; isBirthChartReportSession?: boolean }) {
+  if (isBirthChartReportSession) {
+    return <GiMazeCornea className="h-4 w-4 text-primary" />;
+  }
+  if (session.starType === "cursed") {
     return <GiCursedStar className="h-4 w-4 text-galactic" />;
   }
-  if (starType === "beveled") {
+  if (session.starType === "beveled") {
     return <GiBeveledStar className="h-4 w-4 text-primary" />;
   }
   return null;
@@ -45,6 +49,7 @@ export function SessionListItem({
   onSetStarType,
   onRequestDelete,
   onRequestRename,
+  isBirthChartReportSession = false,
 }: SessionListItemProps) {
   return (
     <SidebarMenuSubItem className="group/item relative">
@@ -60,16 +65,16 @@ export function SessionListItem({
         className="pr-8 transition-colors duration-300 group h-10 w-62 flex items-center gap-3 rounded-md border border-transparent text-foreground/70 hover:bg-accent/40 hover:text-primary data-[active=true]:bg-accent/40 data-[active=true]:text-primary data-[active=true]:font-medium"
       >
         <Link href={`/oracle/chat/${session._id}`}>
-          {/* Star icon — only rendered when session is starred */}
-          {session.starType && (
+          {/* Icon — report sessions get the birth chart glyph; starred sessions get star glyphs. */}
+          {(session.starType || isBirthChartReportSession) && (
             <span className="shrink-0 w-5 flex items-center justify-center">
-              <StarIcon starType={session.starType} />
+              <SessionIcon session={session} isBirthChartReportSession={isBirthChartReportSession} />
             </span>
           )}
 
           {/* Title — takes all remaining space and truncates with ellipsis */}
           <span
-            className={`flex-1 text-sm font-sans truncate ${!session.starType ? "pl-1" : ""}`}
+            className={`flex-1 text-sm font-sans truncate ${!(session.starType || isBirthChartReportSession) ? "pl-1" : ""}`}
           >
             {session.title}
           </span>

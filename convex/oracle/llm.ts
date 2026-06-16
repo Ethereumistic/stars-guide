@@ -17,6 +17,7 @@ import {
 } from "../../lib/oracle/features";
 import { buildUniversalBirthContext } from "../../lib/oracle/featureContext";
 import { buildTimespaceContext } from "./timespace";
+import { compactStructuredReportForOracle, getStructuredReport } from "../birthChartReport/v2";
 import {
   type ProviderConfig,
   type ModelChainEntry,
@@ -338,7 +339,10 @@ export const invokeOracle = action({
     if (needsBirth && user?.birthData) {
       birthData = buildUniversalBirthContext(user.birthData);
       if (user.birthChartReport?.status === "completed" && user.birthChartReport.markdown) {
-        birthChartReport = user.birthChartReport.markdown;
+        const structuredReport = getStructuredReport(user);
+        birthChartReport = structuredReport
+          ? compactStructuredReportForOracle(structuredReport)
+          : user.birthChartReport.markdown;
       }
     }
 

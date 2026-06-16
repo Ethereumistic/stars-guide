@@ -11,13 +11,19 @@ import {
   buildReportUserPrompt,
   sanitizeReportMarkdown,
 } from "./prompts";
+import {
+  extractStructuredReportJson,
+  renderBirthChartReportMarkdown,
+  validateBirthChartReportV2,
+} from "./v2";
 
 export async function generateAndSaveReport(ctx: ActionCtx, userId: Id<"users">) {
   const user = await ctx.runQuery(internal.birthChartReport.mutations.getUserForReport, { userId });
   if (!user?.birthData) throw new Error("Missing birth data");
 
   const config = await ctx.runQuery(internal.oracle.settings.getPromptRuntimeSettingsInternal, {});
-  const selection = selectProvider(config.modelChain, config.providers, "smart");
+  const modelChain = config.birthChartReportModelChain ?? config.modelChain;
+  const selection = selectProvider(modelChain, config.providers, "smart");
   if (!selection) throw new Error("No LLM provider capacity available");
 
   try {
@@ -38,35 +44,60 @@ export async function generateAndSaveReport(ctx: ActionCtx, userId: Id<"users">)
         },
       ],
       temperature: 0.55,
-      maxTokens: 6000,
+      maxTokens: 12000,
       title: "Stars.Guide Birth Chart Report",
-      thinkingMode: "auto",
+      thinkingMode: "disabled",
     });
 
-    const markdown = sanitizeReportMarkdown(result.content ?? "");
+    let structured;
+    try {
+      structured = validateBirthChartReportV2(extractStructuredReportJson(result.content ?? ""));
+    } catch (validationError) {
+      const error = validationError instanceof Error ? validationError.message : "Invalid structured report";
+      console.warn("[BirthChartReport] structured validation failed; attempting repair", { userId, error });
+      const repair = await callLLMEndpoint({
+        provider: selection.provider,
+        model: selection.entry.model,
+        messages: [
+          {
+            role: "system",
+            content: [
+              "You repair a Stars.Guide Birth Chart Report JSON object.",
+              "Return valid JSON only. No Markdown, comments, code fences, or explanation.",
+              "Preserve the user's astrology interpretation, but fix schema errors exactly.",
+              "Every signature must have a non-empty evidence array named exactly evidence.",
+              "Every lifeAreas section must have a non-empty evidence array named exactly evidence.",
+              "Every topThemes/gifts/growthEdges/practices/reflectionPrompts item must have evidence when the schema includes it.",
+              "Evidence objects must use the supplied labels/placements/aspects already present in the JSON; do not invent new chart facts.",
+            ].join("\n"),
+          },
+          {
+            role: "user",
+            content: [
+              `[VALIDATION ERROR]\n${error}\n[END VALIDATION ERROR]`,
+              "",
+              "[INVALID JSON TO REPAIR]",
+              result.content ?? "",
+              "[END INVALID JSON TO REPAIR]",
+            ].join("\n"),
+          },
+        ],
+        temperature: 0.1,
+        maxTokens: 12000,
+        title: "Stars.Guide Birth Chart Report JSON Repair",
+        thinkingMode: "disabled",
+      });
+      structured = validateBirthChartReportV2(extractStructuredReportJson(repair.content ?? ""));
+    }
+    const markdown = sanitizeReportMarkdown(renderBirthChartReportMarkdown(structured));
     if (markdown.length < 2200) {
       throw new Error("Generated report was unexpectedly short");
-    }
-
-    const requiredSections = [
-      "## Chart at a Glance",
-      "## Your Chart in One Sentence",
-      "## The Core Myth of Your Chart",
-      "## Your Dominant Signatures",
-      "## Inner World & Emotional Care",
-      "## Love, Desire & Attachment Patterns",
-      "## Work, Calling & Public Direction",
-      "## Practices for Integration",
-      "## Reflection Prompts",
-    ];
-    const missingSections = requiredSections.filter((section) => !markdown.includes(section));
-    if (missingSections.length > 0) {
-      throw new Error(`Generated report missing required sections: ${missingSections.join(", ")}`);
     }
 
     await ctx.runMutation(internal.birthChartReport.mutations.saveCompletedReport, {
       userId,
       markdown,
+      structured,
       version: BIRTH_CHART_REPORT_VERSION,
     });
   } finally {

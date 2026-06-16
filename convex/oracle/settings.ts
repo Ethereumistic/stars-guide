@@ -119,6 +119,7 @@ async function _buildPromptRuntimeSettings(ctx: QueryCtx) {
 
     const modelChain = parseModelChain(modelMap.model_chain);
     const intentModelChain = parseModelChain(modelMap.intent_model_chain);
+    const birthChartReportModelChain = parseModelChain(modelMap.birth_chart_report_model_chain);
     const providers = parseProvidersConfig(providerMap.providers_config);
 
   return {
@@ -135,6 +136,7 @@ async function _buildPromptRuntimeSettings(ctx: QueryCtx) {
     providers,
     modelChain: modelChain.length > 0 ? modelChain : DEFAULT_MODEL_CHAIN,
     intentModelChain: intentModelChain.length > 0 ? intentModelChain : DEFAULT_INTENT_MODEL_CHAIN,
+    birthChartReportModelChain: birthChartReportModelChain.length > 0 ? birthChartReportModelChain : (modelChain.length > 0 ? modelChain : DEFAULT_MODEL_CHAIN),
   };
 }
 

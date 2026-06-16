@@ -41,9 +41,9 @@ crons.daily(
 // Process the durable report queue; enqueue also schedules an immediate pass.
 crons.interval(
     "process-birth-chart-report-jobs",
-    { seconds: 60 },
+    { minutes: 5 },
     internal.birthChartReport.worker.processNextJobs,
-    { limit: 3 },
+    { limit: 1 },
 );
 
 // ─── SCHEDULED NOTIFICATIONS ─────────────────────────────────────────────

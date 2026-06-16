@@ -89,6 +89,7 @@ export function useOracleSessions() {
         starType: (s.starType as StarType) ?? null,
         lastMessageAt: s.lastMessageAt ?? s.updatedAt ?? s.createdAt,
         status: s.status,
+        featureKey: s.featureKey,
     }));
 
     // Sort: cursed stars first, then beveled stars, then unstarred — each group by updatedAt desc

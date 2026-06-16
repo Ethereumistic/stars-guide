@@ -16,6 +16,7 @@ import {
   ProviderConfig,
   ModelChainEntry,
   DEFAULT_INTENT_MODEL_CHAIN,
+  DEFAULT_MODEL_CHAIN,
 } from "@/lib/oracle/providers";
 import { ProviderManager } from "@/components/oracle-admin/provider-manager";
 import { ModelChainEditor } from "@/components/oracle-admin/model-chain-editor";
@@ -50,6 +51,7 @@ export default function OracleSettingsPage() {
   const [providers, setProviders] = React.useState<ProviderConfig[]>([]);
   const [modelChain, setModelChain] = React.useState<ModelChainEntry[]>([]);
   const [intentModelChain, setIntentModelChain] = React.useState<ModelChainEntry[]>([]);
+  const [birthChartReportModelChain, setBirthChartReportModelChain] = React.useState<ModelChainEntry[]>([]);
   const [modelSubTab, setModelSubTab] = React.useState("oracle");
 
   // ── Model chain slots (extensible — add entries for new chains) ──
@@ -70,6 +72,15 @@ export default function OracleSettingsPage() {
       settingKey: "intent_model_chain",
       state: intentModelChain,
       setState: setIntentModelChain,
+      showTuning: false,
+    },
+    {
+      key: "birth-report",
+      label: "Birth Chart Report",
+      description: "Models tried in order for durable Birth Chart Report generation. Use stronger structured-output models here; reports are long JSON artifacts and are not streamed.",
+      settingKey: "birth_chart_report_model_chain",
+      state: birthChartReportModelChain,
+      setState: setBirthChartReportModelChain,
       showTuning: false,
     },
   ];
@@ -103,8 +114,10 @@ export default function OracleSettingsPage() {
     const get = (key: string) => settings.find((setting) => setting.key === key)?.value;
     
     setProviders(parseProvidersConfig(get("providers_config")));
-    setModelChain(parseModelChain(get("model_chain")));
+    const parsedOracleChain = parseModelChain(get("model_chain"));
+    setModelChain(parsedOracleChain);
     setIntentModelChain(parseModelChain(get("intent_model_chain") ?? JSON.stringify(DEFAULT_INTENT_MODEL_CHAIN)));
+    setBirthChartReportModelChain(parseModelChain(get("birth_chart_report_model_chain") ?? JSON.stringify(parsedOracleChain.length ? parsedOracleChain : DEFAULT_MODEL_CHAIN)));
     setSoulDoc(get(SOUL_DOC_KEY) ?? DEFAULT_ORACLE_SOUL);
     setMaxResponseTokens(Number(get("max_response_tokens") ?? String(MAX_RESPONSE_TOKENS_DEFAULT)));
     setMaxContextMessages(Number(get("max_context_messages") ?? String(MAX_CONTEXT_MESSAGES_DEFAULT)));
@@ -278,15 +291,25 @@ export default function OracleSettingsPage() {
                       providersConfig: JSON.stringify(providers),
                       modelChain: JSON.stringify(modelChain),
                     });
-                    // Save the intent chain as a standalone setting (uses same providers, validated separately)
-                    await upsertSetting({
-                      key: "intent_model_chain",
-                      value: JSON.stringify(intentModelChain),
-                      valueType: "json",
-                      label: "Intent Classification Model Chain",
-                      group: "model",
-                      description: "Model fallback chain for intent classification (fast, deterministic)",
-                    });
+                    // Save specialized chains as standalone settings (same provider pool, validated separately)
+                    await Promise.all([
+                      upsertSetting({
+                        key: "intent_model_chain",
+                        value: JSON.stringify(intentModelChain),
+                        valueType: "json",
+                        label: "Intent Classification Model Chain",
+                        group: "model",
+                        description: "Model fallback chain for intent classification (fast, deterministic)",
+                      }),
+                      upsertSetting({
+                        key: "birth_chart_report_model_chain",
+                        value: JSON.stringify(birthChartReportModelChain),
+                        valueType: "json",
+                        label: "Birth Chart Report Model Chain",
+                        group: "model",
+                        description: "Model fallback chain for durable structured birth chart report generation",
+                      }),
+                    ]);
                     await Promise.all([
                       upsertSetting({ key: "temperature", value: String(temperature), valueType: "number", label: "Temperature", group: "model", description: "" }),
                       upsertSetting({ key: "top_p", value: String(topP), valueType: "number", label: "Top-p", group: "model", description: "" }),
@@ -373,8 +396,16 @@ export default function OracleSettingsPage() {
                     {!slot.showTuning && (
                       <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                         <p className="text-xs text-muted-foreground">
-                          Intent classification uses hardcoded parameters for speed and determinism:
-                          temperature=<strong>0.1</strong>, max_tokens=<strong>150</strong>, stream=<strong>false</strong>, timeout=<strong>3s</strong>.
+                          {slot.key === "intent" ? (
+                            <>
+                              Intent classification uses hardcoded parameters for speed and determinism:
+                              temperature=<strong>0.1</strong>, max_tokens=<strong>150</strong>, stream=<strong>false</strong>, timeout=<strong>3s</strong>.
+                            </>
+                          ) : (
+                            <>
+                              Birth Chart Report generation uses non-streaming structured JSON generation with thinking disabled, temperature=<strong>0.55</strong>, max_tokens=<strong>12000</strong>, plus one low-temperature repair pass if schema validation fails.
+                            </>
+                          )}
                         </p>
                       </div>
                     )}

@@ -19,6 +19,7 @@ import type * as birthChartReport_generate from "../birthChartReport/generate.js
 import type * as birthChartReport_mutations from "../birthChartReport/mutations.js";
 import type * as birthChartReport_prompts from "../birthChartReport/prompts.js";
 import type * as birthChartReport_queue from "../birthChartReport/queue.js";
+import type * as birthChartReport_v2 from "../birthChartReport/v2.js";
 import type * as birthChartReport_worker from "../birthChartReport/worker.js";
 import type * as cosmicWeather from "../cosmicWeather.js";
 import type * as crons from "../crons.js";
@@ -103,6 +104,7 @@ declare const fullApi: ApiFromModules<{
   "birthChartReport/mutations": typeof birthChartReport_mutations;
   "birthChartReport/prompts": typeof birthChartReport_prompts;
   "birthChartReport/queue": typeof birthChartReport_queue;
+  "birthChartReport/v2": typeof birthChartReport_v2;
   "birthChartReport/worker": typeof birthChartReport_worker;
   cosmicWeather: typeof cosmicWeather;
   crons: typeof crons;

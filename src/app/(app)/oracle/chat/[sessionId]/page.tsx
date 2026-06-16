@@ -603,6 +603,10 @@ export default function OracleChatPage() {
 
     const reportStatus = currentUser?.birthChartReport?.status;
     const reportOnboardingStep = currentUser?.birthChartReport?.onboardingStep;
+    const reportOriginSessionId = currentUser?.birthChartReport?.oracleSessionId
+        ? String(currentUser.birthChartReport.oracleSessionId)
+        : null;
+    const isReportOriginSession = reportOriginSessionId === String(sessionId);
     const latestOnboardingMessage = sessionData?.messages
         ?.filter((m: any) => m.role === "assistant" && m.modelUsed === "birth_chart_report_onboarding")
         .at(-1);
@@ -610,13 +614,13 @@ export default function OracleChatPage() {
         latestOnboardingMessage && nowMs - latestOnboardingMessage.createdAt < 5_500,
     );
     const reportQuestionnaireActive = Boolean(
-        currentUser?.birthData && reportStatus !== "completed" && reportOnboardingStep === "questionnaire" && !onboardingWelcomeStillRevealing,
+        isReportOriginSession && currentUser?.birthData && reportStatus !== "completed" && reportOnboardingStep === "questionnaire" && !onboardingWelcomeStillRevealing,
     );
     const reportGenerating = Boolean(
-        currentUser?.birthData && reportStatus !== "completed" && (reportOnboardingStep === "queued" || reportStatus === "generating"),
+        isReportOriginSession && currentUser?.birthData && reportStatus !== "completed" && (reportOnboardingStep === "queued" || reportStatus === "generating"),
     );
     const showReportReadyCard = Boolean(
-        reportStatus === "completed" && dismissedReportReadyForSession !== String(sessionId),
+        isReportOriginSession && reportStatus === "completed" && dismissedReportReadyForSession !== String(sessionId),
     );
 
     const handleReportQuestionnaireSubmit = useCallback(async (answers: any) => {

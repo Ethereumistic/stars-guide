@@ -27,6 +27,12 @@ export const processNextJobs = internalAction({
         results.push({ jobId: job._id, status: "completed" });
       } catch (err) {
         const error = err instanceof Error ? err.message : "Unknown birth chart report generation error";
+        console.error("[BirthChartReport] generation failed", {
+          jobId: job._id,
+          userId: job.userId,
+          error,
+          stack: err instanceof Error ? err.stack : undefined,
+        });
         await ctx.runMutation(internal.birthChartReport.queue.markJobFailed, {
           jobId: job._id,
           error,

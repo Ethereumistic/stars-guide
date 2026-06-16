@@ -6,9 +6,11 @@ This document explains the current Birth Chart Report flow from entering Oracle 
 
 ## Purpose
 
-The Birth Chart Report is a durable, generated Markdown report stored on the user document. Once completed, Oracle treats it as canonical birth-chart context instead of re-deriving everything from raw birth data on every chat.
+The Birth Chart Report is a durable, generated Markdown report stored on the user document. Once completed, Oracle treats it as the user's birth-chart foundation and prefers it over re-deriving the whole reading from raw birth data in every chat.
 
-The UX goal is: keep users inside the normal Oracle chat, introduce the report with a streamed-feeling assistant message, collect a few personalization answers inside the input area, generate the report asynchronously, then continue chat with the finished report available.
+The UX goal is: keep users inside the normal Oracle chat, automatically start the report flow when a user with birth data tries to chat without a completed report, collect a few personalization answers above the input, generate the report asynchronously, then continue chat with the finished report available.
+
+The report is not a separate always-pinned sidebar object. It is tied to the specific Oracle session that triggered or submitted the Birth Chart Report flow.
 
 ## Main data model
 
@@ -29,37 +31,47 @@ Important fields:
   - `pronouns?: string`
   - `customContext?: string`
   - legacy v1 fields are still accepted
-- `onboardingStep`: currently uses `questionnaire` or `queued` for the v2 flow
-- `oracleSessionId`: the dedicated Oracle session associated with the Birth Chart Report
+- `onboardingStep`: currently uses `questionnaire` or `queued` for the v2 chat questionnaire flow
+- `oracleSessionId`: the Oracle session that owns/triggered the Birth Chart Report flow
 - `generatedAt`, `errorMessage`, `version`
 
 ### `birth_chart_report_jobs`
 
 Async queue table. One active queued/processing job per user is enforced by `getActiveJobForUser` before creating jobs.
 
-## Sidebar entry
+## Sidebar behavior
 
-The Past Whispers sidebar renders a pinned `Birth Chart Report` item in:
+File:
 
 - `src/components/oracle/sidebar/past-whispers-section.tsx`
 
-It uses:
+The Past Whispers sidebar **does not** render an always-present `Birth Chart Report` button anymore.
 
-- icon: `GiMazeCornea`
-- icon class: `text-primary`
-- title: `Birth Chart Report`
+Current behavior:
 
-Behavior:
+1. Past Whispers renders only real Oracle sessions from `api.oracle.sessions.getUserSessions`.
+2. The birth report session appears naturally in that list only after such a session exists.
+3. The session whose id equals `currentUser.birthChartReport.oracleSessionId` gets the birth chart glyph (`GiMazeCornea`) via `SessionListItem`.
+4. Other `featureKey: "birth_chart"` sessions do **not** get that glyph just because they used birth chart context.
 
-1. If `currentUser.birthChartReport.oracleSessionId` exists, clicking opens `/oracle/chat/{oracleSessionId}`.
-2. If no session exists, clicking calls `api.oracle.sessions.createBirthChartReportSession`.
-3. That mutation creates a normal Oracle session titled `Birth Chart Report`, inserts an initial user message `Birth Chart Report`, stores the session id on `users.birthChartReport.oracleSessionId`, then the client routes to `/oracle/chat/{sessionId}`.
+Relevant files:
 
-This means the pinned item behaves like a normal chat session, not like a static report page link.
+- `src/components/oracle/sidebar/past-whispers-section.tsx`
+- `src/components/oracle/sidebar/session-list-item.tsx`
+- `src/components/oracle/sidebar/use-oracle-sessions.ts`
+- `src/components/oracle/sidebar/utils.ts`
+
+Important implementation detail: `SessionItem` carries `featureKey`, but the report icon is controlled by an explicit `isBirthChartReportSession` prop, computed from `currentUser.birthChartReport.oracleSessionId === session._id`. This prevents every birth-chart-related chat from looking like the durable report session.
+
+### Legacy helper mutation
+
+`convex/oracle/sessions.ts` still contains `createBirthChartReportSession`. It can create/reuse a dedicated report session, but the sidebar no longer calls it as an always-visible pinned entry. The primary path is the normal `/oracle/new` chat flow described below.
 
 ## New Oracle session / first user message flow
 
-Normal sessions are created from `/oracle/new` via `api.oracle.sessions.createSession`.
+Normal sessions are created from `/oracle/new` via:
+
+- `api.oracle.sessions.createSession`
 
 When a user sends a message in `/oracle/chat/[sessionId]`, the page calls:
 
@@ -77,7 +89,7 @@ const missingBirthChartReport = Boolean(
 );
 ```
 
-If the user has birth data but no completed report, normal LLM routing is skipped.
+If the user has birth data but no completed report, normal LLM routing is skipped. Oracle starts or continues the Birth Chart Report onboarding instead.
 
 ### First missing-report response
 
@@ -144,6 +156,14 @@ Current question categories:
 
 Important implementation detail: the normal Oracle input is disabled while the questionnaire is active, but the questionnaire itself must only receive the busy/quota disabled state, not the normal input disabled state. Otherwise badge selection and Begin Report become disabled.
 
+The questionnaire is scoped to the origin report session only. In `src/app/(app)/oracle/chat/[sessionId]/page.tsx`, `isReportOriginSession` is computed from:
+
+```ts
+currentUser.birthChartReport.oracleSessionId === sessionId
+```
+
+The questionnaire, generating card, and ready card are only shown when this is true.
+
 ## Submitting the questionnaire
 
 On final submit, the chat page calls:
@@ -189,6 +209,7 @@ Files:
 - `convex/birthChartReport/worker.ts`
 - `convex/birthChartReport/generate.ts`
 - `convex/birthChartReport/prompts.ts`
+- `convex/birthChartReport/mutations.ts`
 
 Pipeline:
 
@@ -197,10 +218,15 @@ Pipeline:
 3. Worker marks job processing with `markJobProcessing`.
 4. `markJobProcessing` also patches the user report status to `generating`.
 5. Worker calls `generateAndSaveReport`.
-6. `generateAndSaveReport` loads the user via internal query/mutation calls, builds prompts, selects an Oracle provider, calls the LLM endpoint, sanitizes Markdown, and saves it.
+6. `generateAndSaveReport` loads the user via internal query/mutation calls, builds prompts, selects an Oracle provider, calls the LLM endpoint, sanitizes Markdown, validates required sections, and saves it.
 7. Completed report is stored at `users.birthChartReport.markdown` with `status: "completed"`, `generatedAt`, and `version`.
-8. Worker marks the queue job completed.
-9. If generation fails, `markJobFailed` retries until `maxAttempts`; terminal failure sets user report `status: "failed"` and `errorMessage`.
+8. `saveCompletedReport` also updates the origin session if `users.birthChartReport.oracleSessionId` exists:
+   - `title: "Birth Chart Report"`
+   - `titleGenerated: true`
+   - `featureKey: "birth_chart"`
+   - refreshed `updatedAt` and `lastMessageAt`
+9. Worker marks the queue job completed.
+10. If generation fails, `markJobFailed` retries until `maxAttempts`; terminal failure sets user report `status: "failed"` and `errorMessage`.
 
 Important Convex rule: actions do not use `ctx.db` directly. Generation and worker actions use `ctx.runQuery` / `ctx.runMutation`.
 
@@ -212,31 +238,72 @@ File:
 
 Version:
 
-- `BIRTH_CHART_REPORT_VERSION = 2`
+- `BIRTH_CHART_REPORT_VERSION = 3`
 
-The prompt asks for Markdown with sections such as:
+Generation settings in `convex/birthChartReport/generate.ts`:
 
-- chart motto / invocation
-- Chart at a Glance
-- Core Pattern
-- Inner Weather
-- How You Move Through the World
-- Mind, Voice & Learning Style
-- Love, Desire & Attachment Patterns
-- Work, Calling & Public Direction
-- Gifts You Can Trust
-- Growth Edges / Shadow Patterns
-- Personal Motto
-- Reflection Prompts
-- Central Story of This Chart
+- `temperature: 0.55`
+- `maxTokens: 6000`
+- minimum Markdown length: `2200`
+- validates that required premium sections are present before saving
 
-Voice requirements:
+The report prompt now follows the birth-chart interpretation standard:
 
-- second person
-- grounded, emotionally intelligent, warm, clear
-- “wise older sister” energy
-- not theatrical, not overly mystical, not purple prose
-- every major claim must cite chart evidence
+- evidence-first
+- chart-faithful
+- non-deterministic
+- synthesis-led
+- emotionally memorable
+- beautiful but precise
+- practical
+- psychologically grounded
+
+Required report section order:
+
+1. `# Birth Chart Report for {name}`
+2. short blockquote motto/invocation rooted in chart evidence
+3. `## Chart at a Glance`
+4. `## Your Chart in One Sentence`
+5. `## The Core Myth of Your Chart`
+6. `## Your Dominant Signatures`
+   - 3–5 signature cards
+   - each with **Evidence**, lived experience, **Gift**, **Watch for**, and **Practice**
+7. `## Inner World & Emotional Care`
+8. `## Outer Self & Life Approach`
+9. `## Mind, Voice & Learning Style`
+10. `## Love, Desire & Attachment Patterns`
+11. `## Work, Calling & Public Direction`
+12. `## North Node Growth Path`
+13. `## Gifts You Can Trust`
+14. `## Growth Edges / Shadow Patterns`
+15. `## Practices for Integration`
+16. `## Reflection Prompts`
+17. `## Personal Motto / Closing Blessing`
+
+Prompt safety/quality rules:
+
+- every major claim must cite nearby chart evidence
+- profiling answers are wrapped as untrusted context and may only guide emphasis
+- do not invent placements, houses, dignities, aspects, chart ruler, MC, or patterns
+- say “10th-house emphasis” rather than MC if MC data is unavailable
+- avoid deterministic, medical, legal, financial, fatalistic, or unsupported trauma claims
+- avoid inflated labels like “chosen,” “old soul,” “destined,” “guaranteed,” or “psychic healer”
+
+## Birth context and synthesis helpers
+
+File:
+
+- `src/lib/oracle/featureContext.ts`
+
+`buildUniversalBirthContext` now includes deterministic synthesis helpers in addition to raw placements/houses/aspects:
+
+- traditional chart ruler line
+- concentrations / clusters by sign and house
+- nodal axis
+- full aspect list sorted by orb strength
+- explicit evidence rule
+
+The chart context tells the model to treat stored chart data as canonical truth and to avoid inventing anything not listed.
 
 ## Report renderer/page
 
@@ -248,7 +315,17 @@ Renderer:
 
 - `src/components/oracle/BirthChartReportRenderer.tsx`
 
-The page is now a scrollable transparent page inside the Oracle shell so the star background shows through. It does not start onboarding. It only displays a completed report or a not-ready state.
+The page is a scrollable transparent page inside the Oracle shell so the star background shows through. It does not start onboarding. It only displays a completed report or a not-ready state.
+
+The renderer provides premium visual hierarchy for:
+
+- hero-style title
+- section headers
+- signature-card-like `h3` blocks
+- blockquotes
+- list cards
+- tables
+- print styles
 
 The Print / PDF button is below the report content. Back navigation lives in the Oracle top bar for this route.
 
@@ -260,6 +337,7 @@ Files:
 
 - `src/lib/oracle/pipelineTypes.ts`
 - `src/lib/oracle/pipelines/birthChart.ts`
+- `src/lib/oracle/featureContext.ts`
 - `convex/oracle/llm.ts`
 
 For the `birth_chart` pipeline, the completed report is inserted as:
@@ -269,16 +347,38 @@ For the `birth_chart` pipeline, the completed report is inserted as:
 ...
 ```
 
-Raw birth data may still be included as reference, but the durable report is preferred as canonical context.
+Raw birth data may still be included as:
+
+```txt
+[BIRTH CHART RAW DATA — REFERENCE ONLY]
+...
+```
+
+When a completed report exists, the birth chart pipeline combines:
+
+- mentor-mode instructions that teach from the report first
+- depth instructions from `getBirthChartDepthInstructions`
+- report context
+- raw chart data as reference
+
+The mentor-mode standard is:
+
+- ground answers in the report first
+- cite exact evidence when expanding beyond the report
+- preserve evidence-first, chart-faithful, emotionally memorable, practical, non-deterministic interpretation
+- use named signatures and lived-experience language for broad answers
+- for major claims, use: Evidence → lived experience → gift → watch-for → practice
 
 ## Chat ready/generating states
 
 In `/oracle/chat/[sessionId]`:
 
-- If `status !== "completed"` and `onboardingStep === "queued"` or `status === "generating"`, a crafting state appears above the input.
-- If `status === "completed"`, a ready card can appear above the input with:
+- If this is the report origin session, `status !== "completed"`, and `onboardingStep === "queued"` or `status === "generating"`, a crafting state appears above the input.
+- If this is the report origin session and `status === "completed"`, a ready card can appear above the input with:
   - Continue chatting
   - Open report
+
+Important scoping rule: the questionnaire, generating card, and ready card are only displayed in the session whose id equals `users.birthChartReport.oracleSessionId`. New chats should not show the “report ready” card just because the user has a completed report.
 
 Important bug fix: `reportGenerating` must explicitly exclude `status === "completed"`, because old documents can keep `onboardingStep: "queued"` after completion. Otherwise the normal input stays disabled with “Your report is being crafted…” even though the report is complete.
 
@@ -286,10 +386,14 @@ The ready card is dismissible per session via “Continue chatting”; it should
 
 ## Common pitfalls
 
+- Do not render an always-visible Birth Chart Report button in Past Whispers.
+- Do not put the birth report icon on every `featureKey: "birth_chart"` session. Only the `users.birthChartReport.oracleSessionId` session gets it.
+- Do not show questionnaire/generating/ready report cards in unrelated sessions.
 - Do not send questionnaire answers as separate normal chat messages.
 - Do not show the questionnaire before the hardcoded welcome has finished fake-streaming.
-- Do not make the pinned sidebar item route directly to `/oracle/birth-chart-report`; it should open/create the dedicated report chat session.
 - Do not disable the questionnaire using the same boolean that disables the normal Oracle input.
 - Do not treat `onboardingStep: "queued"` alone as generating if `status === "completed"`.
 - Do not call external LLM providers from queries/mutations.
 - Do not use `ctx.db` inside Convex actions.
+- Do not treat questionnaire/profile answers as chart evidence.
+- Do not invent MC/chart ruler/aspects/houses when the canonical chart context does not provide them.
