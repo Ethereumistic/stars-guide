@@ -4,7 +4,8 @@
  * Computes engagement status for all active users daily.
  */
 import { internalAction } from "../_generated/server";
-import { internal } from "../_generated/api";
+
+const { internal } = require("../_generated/api") as any;
 
 /** Compute engagement status for all active users (daily, 00:15 UTC) */
 export const computeEngagementStatus = internalAction({

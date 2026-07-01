@@ -10,6 +10,8 @@
 
 import type * as admin from "../admin.js";
 import type * as ai from "../ai.js";
+import type * as aiGateway_admin from "../aiGateway/admin.js";
+import type * as aiGateway_runtime from "../aiGateway/runtime.js";
 import type * as aiQueries from "../aiQueries.js";
 import type * as analytics from "../analytics.js";
 import type * as analyticsInternal from "../analyticsInternal.js";
@@ -95,6 +97,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   ai: typeof ai;
+  "aiGateway/admin": typeof aiGateway_admin;
+  "aiGateway/runtime": typeof aiGateway_runtime;
   aiQueries: typeof aiQueries;
   analytics: typeof analytics;
   analyticsInternal: typeof analyticsInternal;

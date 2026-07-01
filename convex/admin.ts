@@ -1,8 +1,30 @@
 import { query, mutation, action, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+import { makeFunctionReference } from "convex/server";
 import { requireAdmin } from "./lib/adminGuard";
-import { parseProvidersConfig, resolveProvider, callLLMEndpoint } from "./lib/llmProvider";
+import { callLLMEndpoint, type LLMProvider } from "./lib/llmProvider";
+
+const runGenerationJobRef = makeFunctionReference<"action", { jobId: string }, any>(
+    "ai:runGenerationJob",
+);
+const validateAdminRef = makeFunctionReference<"query", Record<string, never>, string | null>(
+    "aiQueries:validateAdmin",
+);
+const synthesizeZeitgeistRef = makeFunctionReference<"action", { archetypes: string[]; modelId: string; providerId?: string }, string>(
+    "ai:synthesizeZeitgeist",
+);
+const synthesizeEmotionalZeitgeistRef = makeFunctionReference<"action", { rawEvents: string; modelId: string; providerId?: string }, string>(
+    "ai:synthesizeEmotionalZeitgeist",
+);
+const listEnabledProvidersRef = makeFunctionReference<"query">(
+    "aiGateway/admin:listEnabledProvidersInternal",
+);
+const logGatewayEventRef = makeFunctionReference<"mutation">(
+    "aiGateway/admin:logGatewayEventInternal",
+);
+const invokeAIGatewayRef = makeFunctionReference<"action">(
+    "aiGateway/runtime:invokeAIGateway",
+);
 
 // ─── VALID SIGNS (Canonical list) ─────────────────────────────────────────
 const VALID_SIGNS = [
@@ -375,7 +397,7 @@ export const startGeneration = mutation({
         });
 
         // Fire-and-forget: schedule the AI action to run server-side
-        await ctx.scheduler.runAfter(0, internal.ai.runGenerationJob, { jobId });
+        await ctx.scheduler.runAfter(0, runGenerationJobRef, { jobId });
 
         return jobId;
     },
@@ -716,13 +738,13 @@ export const synthesizeZeitgeistAction = action({
     },
     handler: async (ctx, args): Promise<string> => {
         // Validate admin auth via internal query
-        const userId = await ctx.runQuery(internal.aiQueries.validateAdmin, {});
+        const userId = await ctx.runQuery(validateAdminRef, {});
         if (!userId) {
             throw new Error("UNAUTHORIZED: Admin access required");
         }
 
         // Delegate to the internal synthesis action
-        const summary: string = await ctx.runAction(internal.ai.synthesizeZeitgeist, {
+        const summary: string = await ctx.runAction(synthesizeZeitgeistRef, {
             archetypes: args.archetypes,
             modelId: args.modelId,
             providerId: args.providerId,
@@ -743,12 +765,12 @@ export const synthesizeEmotionalZeitgeistAction = action({
         providerId: v.optional(v.string()),
     },
     handler: async (ctx, args): Promise<string> => {
-        const userId = await ctx.runQuery(internal.aiQueries.validateAdmin, {});
+        const userId = await ctx.runQuery(validateAdminRef, {});
         if (!userId) {
             throw new Error("UNAUTHORIZED: Admin access required");
         }
 
-        const result: string = await ctx.runAction(internal.ai.synthesizeEmotionalZeitgeist, {
+        const result: string = await ctx.runAction(synthesizeEmotionalZeitgeistRef, {
             rawEvents: args.rawEvents,
             modelId: args.modelId,
             providerId: args.providerId,
@@ -775,14 +797,29 @@ export const testLLMEndpointAction = action({
         thinkingMode: v.string(), // "auto" | "disabled" | "low" | "medium" | "high"
     },
     handler: async (ctx, args) => {
-        const userId = await ctx.runQuery(internal.aiQueries.validateAdmin, {});
+        const userId = await ctx.runQuery(validateAdminRef, {});
         if (!userId) {
             throw new Error("UNAUTHORIZED: Admin access required");
         }
 
-        const providersRaw = (await ctx.runQuery(internal.aiQueries.getOracleProvidersConfig, {})) ?? undefined;
-        const providers = parseProvidersConfig(providersRaw);
-        const provider = resolveProvider(providers, args.providerId);
+        const providers = await ctx.runQuery(listEnabledProvidersRef, {}) as Array<{
+            providerId: string;
+            name: string;
+            type: string;
+            baseUrl: string;
+            apiKeyEnvVar: string;
+        }>;
+        const providerRow = providers.find((provider) => provider.providerId === args.providerId);
+        if (!providerRow) {
+            throw new Error(`Provider "${args.providerId}" is missing or disabled in AI Gateway.`);
+        }
+        const provider: LLMProvider = {
+            id: providerRow.providerId,
+            name: providerRow.name,
+            type: providerRow.type,
+            baseUrl: providerRow.baseUrl,
+            apiKeyEnvVar: providerRow.apiKeyEnvVar,
+        };
 
         const startTime = Date.now();
 
@@ -800,6 +837,15 @@ export const testLLMEndpointAction = action({
             });
 
             const durationMs = Date.now() - startTime;
+            await ctx.runMutation(logGatewayEventRef, {
+                featureKey: "ai_admin_test",
+                mode: "chat",
+                providerId: provider.id,
+                model: args.modelId,
+                tier: "A",
+                status: "success",
+                durationMs,
+            });
 
             return {
                 success: true,
@@ -812,6 +858,17 @@ export const testLLMEndpointAction = action({
             };
         } catch (error: any) {
             const durationMs = Date.now() - startTime;
+            await ctx.runMutation(logGatewayEventRef, {
+                featureKey: "ai_admin_test",
+                mode: "chat",
+                providerId: provider.id,
+                model: args.modelId,
+                tier: "A",
+                status: "failure",
+                errorType: "provider_error",
+                errorMessage: (error.message ?? String(error)).slice(0, 2000),
+                durationMs,
+            });
             return {
                 success: false,
                 content: null,
@@ -820,6 +877,58 @@ export const testLLMEndpointAction = action({
                 modelUsed: `${provider.id}/${args.modelId}`,
                 thinkingModeUsed: args.thinkingMode,
                 durationMs,
+            };
+        }
+    },
+});
+
+/**
+ * testAIFeatureProfileAction — Test a configured AI Gateway feature profile.
+ * Streaming, image, and embedding profiles are intentionally rejected by the
+ * gateway until those runtime modes have dedicated adapters.
+ */
+export const testAIFeatureProfileAction = action({
+    args: {
+        featureKey: v.string(),
+        prompt: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const userId = await ctx.runQuery(validateAdminRef, {});
+        if (!userId) {
+            throw new Error("UNAUTHORIZED: Admin access required");
+        }
+
+        const startTime = Date.now();
+        try {
+            const result = await ctx.runAction(invokeAIGatewayRef, {
+                feature: args.featureKey,
+                messages: [{ role: "user", content: args.prompt }],
+            }) as {
+                content: string;
+                reasoning?: string | null;
+                providerId: string;
+                model: string;
+                tier: string;
+            };
+
+            return {
+                success: true,
+                content: result.content,
+                reasoning: result.reasoning ?? null,
+                error: null,
+                modelUsed: `${result.providerId}/${result.model}`,
+                tier: result.tier,
+                durationMs: Date.now() - startTime,
+            };
+        } catch (error: any) {
+            return {
+                success: false,
+                content: null,
+                reasoning: null,
+                error: error.message ?? String(error),
+                modelUsed: args.featureKey,
+                tier: null,
+                durationMs: Date.now() - startTime,
             };
         }
     },

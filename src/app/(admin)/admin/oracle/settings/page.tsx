@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, Save, AlertTriangle, CheckCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle, Loader2, Save } from "lucide-react";
 import { api } from "@/../convex/_generated/api";
 import {
   DEFAULT_ORACLE_SOUL,
@@ -10,16 +11,6 @@ import {
   MAX_RESPONSE_TOKENS_DEFAULT,
   MAX_CONTEXT_MESSAGES_DEFAULT,
 } from "@/lib/oracle/soul";
-import {
-  parseProvidersConfig,
-  parseModelChain,
-  ProviderConfig,
-  ModelChainEntry,
-  DEFAULT_INTENT_MODEL_CHAIN,
-  DEFAULT_MODEL_CHAIN,
-} from "@/lib/oracle/providers";
-import { ProviderManager } from "@/components/oracle-admin/provider-manager";
-import { ModelChainEditor } from "@/components/oracle-admin/model-chain-editor";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -43,55 +34,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
+type SettingItem = {
+  key: string;
+  value: string;
+  valueType: "string" | "number" | "boolean" | "json";
+  label: string;
+  group: string;
+  description?: string;
+};
+
 export default function OracleSettingsPage() {
   const settings = useQuery(api.oracle.settings.listAllSettings);
   const upsertSetting = useMutation(api.oracle.settings.upsertSetting);
-  const upsertProviders = useMutation(api.oracle.upsertProviders.upsertProvidersConfig);
 
-  const [providers, setProviders] = React.useState<ProviderConfig[]>([]);
-  const [modelChain, setModelChain] = React.useState<ModelChainEntry[]>([]);
-  const [intentModelChain, setIntentModelChain] = React.useState<ModelChainEntry[]>([]);
-  const [birthChartReportModelChain, setBirthChartReportModelChain] = React.useState<ModelChainEntry[]>([]);
-  const [modelSubTab, setModelSubTab] = React.useState("oracle");
-
-  // ── Model chain slots (extensible — add entries for new chains) ──
-  const MODEL_CHAIN_SLOTS = [
-    {
-      key: "oracle",
-      label: "Oracle Inference",
-      description: "Models tried in order for Oracle responses and session titles. Fallback tiers ensure resilience.",
-      settingKey: "model_chain",
-      state: modelChain,
-      setState: setModelChain,
-      showTuning: true,
-    },
-    {
-      key: "intent",
-      label: "Intent Classification",
-      description: "Models tried in order to classify user intent (birth chart, journal recall, synastry, etc.). Called once per new session. Uses temp=0.1, max_tokens=150, non-streaming.",
-      settingKey: "intent_model_chain",
-      state: intentModelChain,
-      setState: setIntentModelChain,
-      showTuning: false,
-    },
-    {
-      key: "birth-report",
-      label: "Birth Chart Report",
-      description: "Models tried in order for durable Birth Chart Report generation. Use stronger structured-output models here; reports are long JSON artifacts and are not streamed.",
-      settingKey: "birth_chart_report_model_chain",
-      state: birthChartReportModelChain,
-      setState: setBirthChartReportModelChain,
-      showTuning: false,
-    },
-  ];
-
-  const [soulDoc, setSoulDoc] = React.useState<string>(DEFAULT_ORACLE_SOUL);
+  const [soulDoc, setSoulDoc] = React.useState(DEFAULT_ORACLE_SOUL);
   const [maxResponseTokens, setMaxResponseTokens] = React.useState(MAX_RESPONSE_TOKENS_DEFAULT);
   const [maxContextMessages, setMaxContextMessages] = React.useState(MAX_CONTEXT_MESSAGES_DEFAULT);
-
-  const [temperature, setTemperature] = React.useState(0.82);
-  const [topP, setTopP] = React.useState(0.92);
-  const [streamEnabled, setStreamEnabled] = React.useState(true);
   const [fallbackResponse, setFallbackResponse] = React.useState("");
   const [crisisResponse, setCrisisResponse] = React.useState("");
   const [oracleEnabled, setOracleEnabled] = React.useState(true);
@@ -107,24 +65,13 @@ export default function OracleSettingsPage() {
   const [savingKey, setSavingKey] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (!settings) {
-      return;
-    }
+    if (!settings) return;
 
     const get = (key: string) => settings.find((setting) => setting.key === key)?.value;
-    
-    setProviders(parseProvidersConfig(get("providers_config")));
-    const parsedOracleChain = parseModelChain(get("model_chain"));
-    setModelChain(parsedOracleChain);
-    setIntentModelChain(parseModelChain(get("intent_model_chain") ?? JSON.stringify(DEFAULT_INTENT_MODEL_CHAIN)));
-    setBirthChartReportModelChain(parseModelChain(get("birth_chart_report_model_chain") ?? JSON.stringify(parsedOracleChain.length ? parsedOracleChain : DEFAULT_MODEL_CHAIN)));
+
     setSoulDoc(get(SOUL_DOC_KEY) ?? DEFAULT_ORACLE_SOUL);
     setMaxResponseTokens(Number(get("max_response_tokens") ?? String(MAX_RESPONSE_TOKENS_DEFAULT)));
     setMaxContextMessages(Number(get("max_context_messages") ?? String(MAX_CONTEXT_MESSAGES_DEFAULT)));
-
-    setTemperature(Number.parseFloat(get("temperature") ?? "0.82"));
-    setTopP(Number.parseFloat(get("top_p") ?? "0.92"));
-    setStreamEnabled(get("stream_enabled") !== "false");
     setFallbackResponse(get("fallback_response_text") ?? "");
     setCrisisResponse(get("crisis_response_text") ?? "");
     setOracleEnabled(get("kill_switch") !== "true");
@@ -137,7 +84,7 @@ export default function OracleSettingsPage() {
     });
   }, [settings]);
 
-  async function saveBatch(items: Array<{ key: string; value: string; valueType: "string" | "number" | "boolean" | "json"; label: string; group: string; description?: string }>, savingState: string, successMessage: string) {
+  async function saveBatch(items: SettingItem[], savingState: string, successMessage: string) {
     setSavingKey(savingState);
     try {
       await Promise.all(
@@ -156,25 +103,6 @@ export default function OracleSettingsPage() {
     }
   }
 
-  async function saveProvidersAndChain(providersToSave: ProviderConfig[], chainToSave: ModelChainEntry[], savingState: string, successMessage: string) {
-    setSavingKey(savingState);
-    try {
-      await upsertProviders({
-        providersConfig: JSON.stringify(providersToSave),
-        modelChain: JSON.stringify(chainToSave),
-      });
-      toast.success(successMessage);
-      
-      // Update local state proactively
-      setProviders(providersToSave);
-      setModelChain(chainToSave);
-    } catch (error: any) {
-      toast.error(error?.message ?? "Failed to save provider config");
-    } finally {
-      setSavingKey(null);
-    }
-  }
-
   if (!settings) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -185,20 +113,21 @@ export default function OracleSettingsPage() {
 
   return (
     <div className="max-w-5xl space-y-8">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-serif font-bold">Oracle Settings</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Soul document, providers, model, limits, quotas, and operational controls.
+            Oracle-specific voice, limits, quota, safety copy, and operational controls.
           </p>
         </div>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/admin/ai">AI Infrastructure</Link>
+        </Button>
       </div>
 
       <Tabs defaultValue="soul" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="soul">Soul</TabsTrigger>
-          <TabsTrigger value="providers">Providers</TabsTrigger>
-          <TabsTrigger value="model">Model</TabsTrigger>
           <TabsTrigger value="limits">Limits</TabsTrigger>
           <TabsTrigger value="quota">Quotas</TabsTrigger>
           <TabsTrigger value="ops">Operations</TabsTrigger>
@@ -206,18 +135,24 @@ export default function OracleSettingsPage() {
 
         <TabsContent value="soul" className="space-y-4">
           <Card className="border-border/50 bg-card/50">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
               <div>
                 <CardTitle className="text-base">Soul Document</CardTitle>
                 <CardDescription>
-                  The unified instruction document that defines Oracle&apos;s identity, voice, capabilities, and constraints.
-                  Target: ~800-1200 tokens.
+                  Oracle identity, voice, capabilities, and constraints. Provider and model routing now lives in AI Infrastructure.
                 </CardDescription>
               </div>
               <Button
                 onClick={() =>
                   saveBatch(
-                    [{ key: SOUL_DOC_KEY, value: soulDoc, valueType: "string", label: "Oracle Soul Document", group: "soul", description: "Unified soul document defining Oracle identity and behavior" }],
+                    [{
+                      key: SOUL_DOC_KEY,
+                      value: soulDoc,
+                      valueType: "string",
+                      label: "Oracle Soul Document",
+                      group: "soul",
+                      description: "Unified soul document defining Oracle identity and behavior",
+                    }],
                     "soul",
                     "Soul document saved",
                   )
@@ -233,14 +168,12 @@ export default function OracleSettingsPage() {
             <CardContent>
               <Textarea
                 value={soulDoc}
-                onChange={(e) => setSoulDoc(e.target.value)}
+                onChange={(event) => setSoulDoc(event.target.value)}
                 className="min-h-[500px] border-white/10 bg-black/20 font-mono text-sm leading-relaxed"
                 placeholder="Write the Oracle soul document..."
               />
-              <div className="flex items-center justify-between mt-3">
-                <p className="text-xs text-muted-foreground">
-                  {soulDoc.length} characters
-                </p>
+              <div className="mt-3 flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">{soulDoc.length} characters</p>
                 <Button
                   variant="outline"
                   size="sm"
@@ -254,174 +187,12 @@ export default function OracleSettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="providers" className="space-y-4">
-          <Card className="border-border/50 bg-card/50">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <div>
-                <CardTitle className="text-base">Inference Providers</CardTitle>
-                <CardDescription>
-                  Providers are now managed centrally in{" "}
-                  <a href="/admin/ai" className="text-primary hover:underline font-medium">AI Infrastructure</a>.
-                  The list below shows the current providers for reference.
-                </CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ProviderManager providers={providers} onChange={setProviders} readOnly />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ──────── Model Tab (sub-tabbed per chain slot) ──────── */}
-        <TabsContent value="model" className="space-y-4">
-          <Card className="border-border/50 bg-card/50">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <div>
-                <CardTitle className="text-base">Model Settings</CardTitle>
-                <CardDescription>
-                  Configure model chains for different Oracle functions.
-                </CardDescription>
-              </div>
-              <Button
-                onClick={async () => {
-                  setSavingKey("model_chain");
-                  try {
-                    // Save the main chain (also saves providers via upsertProviders for backward compat)
-                    await upsertProviders({
-                      providersConfig: JSON.stringify(providers),
-                      modelChain: JSON.stringify(modelChain),
-                    });
-                    // Save specialized chains as standalone settings (same provider pool, validated separately)
-                    await Promise.all([
-                      upsertSetting({
-                        key: "intent_model_chain",
-                        value: JSON.stringify(intentModelChain),
-                        valueType: "json",
-                        label: "Intent Classification Model Chain",
-                        group: "model",
-                        description: "Model fallback chain for intent classification (fast, deterministic)",
-                      }),
-                      upsertSetting({
-                        key: "birth_chart_report_model_chain",
-                        value: JSON.stringify(birthChartReportModelChain),
-                        valueType: "json",
-                        label: "Birth Chart Report Model Chain",
-                        group: "model",
-                        description: "Model fallback chain for durable structured birth chart report generation",
-                      }),
-                    ]);
-                    await Promise.all([
-                      upsertSetting({ key: "temperature", value: String(temperature), valueType: "number", label: "Temperature", group: "model", description: "" }),
-                      upsertSetting({ key: "top_p", value: String(topP), valueType: "number", label: "Top-p", group: "model", description: "" }),
-                      upsertSetting({ key: "stream_enabled", value: String(streamEnabled), valueType: "boolean", label: "Streaming", group: "model", description: "" }),
-                    ]);
-                    toast.success("Model settings saved");
-                  } catch (e: any) {
-                    toast.error(e?.message ?? "Error saving models");
-                  } finally {
-                    setSavingKey(null);
-                  }
-                }}
-                disabled={savingKey === "model_chain"}
-                size="sm"
-                className="gap-2"
-              >
-                <Save className="h-4 w-4" />
-                {savingKey === "model_chain" ? "Saving..." : "Save All"}
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {/* Sub-tabs for each chain slot */}
-              <Tabs value={modelSubTab} onValueChange={setModelSubTab} className="space-y-4">
-                <TabsList className="w-fit">
-                  {MODEL_CHAIN_SLOTS.map((slot) => (
-                    <TabsTrigger key={slot.key} value={slot.key}>
-                      {slot.label}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-
-                {MODEL_CHAIN_SLOTS.map((slot) => (
-                  <TabsContent key={slot.key} value={slot.key} className="space-y-4">
-                    <div>
-                      <h3 className="text-sm font-semibold mb-1">{slot.label}</h3>
-                      <p className="text-xs text-muted-foreground">{slot.description}</p>
-                    </div>
-                    <ModelChainEditor
-                      chain={slot.state}
-                      providers={providers}
-                      onChange={slot.setState}
-                    />
-
-                    {slot.showTuning && (
-                      <>
-                        <div className="space-y-3">
-                          <Label>Temperature: {temperature.toFixed(2)}</Label>
-                          <input
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.05"
-                            value={temperature}
-                            onChange={(event) => setTemperature(Number.parseFloat(event.target.value))}
-                            className="w-full accent-galactic"
-                          />
-                        </div>
-
-                        <div className="space-y-3">
-                          <Label>Top-p: {topP.toFixed(2)}</Label>
-                          <input
-                            type="range"
-                            min="0.5"
-                            max="1"
-                            step="0.01"
-                            value={topP}
-                            onChange={(event) => setTopP(Number.parseFloat(event.target.value))}
-                            className="w-full accent-galactic"
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4">
-                          <div>
-                            <Label>Streaming</Label>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              Enable token-by-token Oracle streaming.
-                            </p>
-                          </div>
-                          <Switch checked={streamEnabled} onCheckedChange={setStreamEnabled} />
-                        </div>
-                      </>
-                    )}
-
-                    {!slot.showTuning && (
-                      <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                        <p className="text-xs text-muted-foreground">
-                          {slot.key === "intent" ? (
-                            <>
-                              Intent classification uses hardcoded parameters for speed and determinism:
-                              temperature=<strong>0.1</strong>, max_tokens=<strong>150</strong>, stream=<strong>false</strong>, timeout=<strong>3s</strong>.
-                            </>
-                          ) : (
-                            <>
-                              Birth Chart Report generation uses non-streaming structured JSON generation with thinking disabled, temperature=<strong>0.55</strong>, max_tokens=<strong>12000</strong>, plus one low-temperature repair pass if schema validation fails.
-                            </>
-                          )}
-                        </p>
-                      </div>
-                    )}
-                  </TabsContent>
-                ))}
-              </Tabs>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="limits" className="space-y-4">
           <Card className="border-border/50 bg-card/50">
             <CardHeader>
               <CardTitle className="text-base">Token &amp; Context Limits</CardTitle>
               <CardDescription>
-                Two mechanically-connected limits that directly control LLM behavior.
+                Oracle prompt limits. Feature provider, model, timeout, and temperature defaults are configured in AI Infrastructure profiles.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -431,7 +202,7 @@ export default function OracleSettingsPage() {
                     Max Response Tokens
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Sent as <code className="text-galactic/80">max_tokens</code> to the LLM. Every model call uses this ceiling.
+                    Upper response ceiling used by Oracle runtime compatibility paths.
                   </p>
                   <Input
                     id="max-response-tokens"
@@ -440,7 +211,7 @@ export default function OracleSettingsPage() {
                     max={16000}
                     step={100}
                     value={maxResponseTokens}
-                    onChange={(e) => setMaxResponseTokens(Number(e.target.value))}
+                    onChange={(event) => setMaxResponseTokens(Number(event.target.value))}
                     className="border-white/10 bg-black/20"
                   />
                 </div>
@@ -450,7 +221,7 @@ export default function OracleSettingsPage() {
                     Max Context Messages
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Maximum conversation history messages included in each prompt. Prevents unbounded context growth.
+                    Maximum conversation history messages included in each Oracle prompt.
                   </p>
                   <Input
                     id="max-context-messages"
@@ -459,7 +230,7 @@ export default function OracleSettingsPage() {
                     max={100}
                     step={2}
                     value={maxContextMessages}
-                    onChange={(e) => setMaxContextMessages(Number(e.target.value))}
+                    onChange={(event) => setMaxContextMessages(Number(event.target.value))}
                     className="border-white/10 bg-black/20"
                   />
                 </div>
@@ -470,8 +241,22 @@ export default function OracleSettingsPage() {
                   onClick={() =>
                     saveBatch(
                       [
-                        { key: "max_response_tokens", value: String(maxResponseTokens), valueType: "number", label: "Max Response Tokens", group: "token_limits", description: "Sent as max_tokens to the LLM" },
-                        { key: "max_context_messages", value: String(maxContextMessages), valueType: "number", label: "Max Context Messages", group: "token_limits", description: "Maximum conversation history messages per prompt" },
+                        {
+                          key: "max_response_tokens",
+                          value: String(maxResponseTokens),
+                          valueType: "number",
+                          label: "Max Response Tokens",
+                          group: "token_limits",
+                          description: "Oracle max response token ceiling",
+                        },
+                        {
+                          key: "max_context_messages",
+                          value: String(maxContextMessages),
+                          valueType: "number",
+                          label: "Max Context Messages",
+                          group: "token_limits",
+                          description: "Maximum conversation history messages per prompt",
+                        },
                       ],
                       "limits",
                       "Limits saved",
@@ -537,17 +322,26 @@ export default function OracleSettingsPage() {
                   </div>
                   <div>
                     <p className="text-lg font-semibold">{oracleEnabled ? "Oracle is LIVE" : "Oracle is OFFLINE"}</p>
-                    <p className="text-sm text-muted-foreground">Users either reach Oracle normally or see the fallback message immediately.</p>
+                    <p className="text-sm text-muted-foreground">
+                      Users either reach Oracle normally or see the fallback message immediately.
+                    </p>
                   </div>
                 </div>
-                <Switch checked={oracleEnabled} onCheckedChange={(checked) => {
-                  if (!checked) {
-                    setShowKillSwitchDialog(true);
-                    return;
-                  }
-                  setOracleEnabled(true);
-                  saveBatch([{ key: "kill_switch", value: "false", valueType: "boolean", label: "Oracle Kill Switch", group: "operations" }], "kill_switch", "Oracle is live");
-                }} />
+                <Switch
+                  checked={oracleEnabled}
+                  onCheckedChange={(checked) => {
+                    if (!checked) {
+                      setShowKillSwitchDialog(true);
+                      return;
+                    }
+                    setOracleEnabled(true);
+                    saveBatch(
+                      [{ key: "kill_switch", value: "false", valueType: "boolean", label: "Oracle Kill Switch", group: "operations" }],
+                      "kill_switch",
+                      "Oracle is live",
+                    );
+                  }}
+                />
               </div>
             </CardContent>
           </Card>
@@ -555,12 +349,27 @@ export default function OracleSettingsPage() {
           <Card className="border-border/50 bg-card/50">
             <CardHeader>
               <CardTitle className="text-base">Crisis Response</CardTitle>
-              <CardDescription>Fast-path response used before the model is called.</CardDescription>
+              <CardDescription>
+                Fast-path response used before the model is called. Crisis detection and safety rules remain hardcoded server-side.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Textarea value={crisisResponse} onChange={(event) => setCrisisResponse(event.target.value)} className="min-h-[120px] border-white/10 bg-black/20" />
+              <Textarea
+                value={crisisResponse}
+                onChange={(event) => setCrisisResponse(event.target.value)}
+                className="min-h-[120px] border-white/10 bg-black/20"
+              />
               <div className="flex justify-end">
-                <Button onClick={() => saveBatch([{ key: "crisis_response_text", value: crisisResponse, valueType: "string", label: "Crisis Response", group: "safety" }], "crisis_response", "Crisis response saved")} disabled={savingKey === "crisis_response" || !crisisResponse.trim()}>
+                <Button
+                  onClick={() =>
+                    saveBatch(
+                      [{ key: "crisis_response_text", value: crisisResponse, valueType: "string", label: "Crisis Response", group: "safety" }],
+                      "crisis_response",
+                      "Crisis response saved",
+                    )
+                  }
+                  disabled={savingKey === "crisis_response" || !crisisResponse.trim()}
+                >
                   Save Crisis Response
                 </Button>
               </div>
@@ -573,9 +382,22 @@ export default function OracleSettingsPage() {
               <CardDescription>Last-resort copy when every model fails or Oracle is offline.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Textarea value={fallbackResponse} onChange={(event) => setFallbackResponse(event.target.value)} className="min-h-[100px] border-white/10 bg-black/20" />
+              <Textarea
+                value={fallbackResponse}
+                onChange={(event) => setFallbackResponse(event.target.value)}
+                className="min-h-[100px] border-white/10 bg-black/20"
+              />
               <div className="flex justify-end">
-                <Button onClick={() => saveBatch([{ key: "fallback_response_text", value: fallbackResponse, valueType: "string", label: "Fallback Response", group: "safety" }], "fallback_response", "Fallback response saved")} disabled={savingKey === "fallback_response" || !fallbackResponse.trim()}>
+                <Button
+                  onClick={() =>
+                    saveBatch(
+                      [{ key: "fallback_response_text", value: fallbackResponse, valueType: "string", label: "Fallback Response", group: "safety" }],
+                      "fallback_response",
+                      "Fallback response saved",
+                    )
+                  }
+                  disabled={savingKey === "fallback_response" || !fallbackResponse.trim()}
+                >
                   Save Fallback Response
                 </Button>
               </div>
@@ -592,7 +414,11 @@ export default function OracleSettingsPage() {
               Type CONFIRM to enable the kill switch immediately.
             </DialogDescription>
           </DialogHeader>
-          <Input value={confirmKillSwitch} onChange={(event) => setConfirmKillSwitch(event.target.value)} placeholder="CONFIRM" />
+          <Input
+            value={confirmKillSwitch}
+            onChange={(event) => setConfirmKillSwitch(event.target.value)}
+            placeholder="CONFIRM"
+          />
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowKillSwitchDialog(false)}>Cancel</Button>
             <Button
@@ -602,7 +428,11 @@ export default function OracleSettingsPage() {
                 setShowKillSwitchDialog(false);
                 setConfirmKillSwitch("");
                 setOracleEnabled(false);
-                await saveBatch([{ key: "kill_switch", value: "true", valueType: "boolean", label: "Oracle Kill Switch", group: "operations" }], "kill_switch", "Oracle is offline");
+                await saveBatch(
+                  [{ key: "kill_switch", value: "true", valueType: "boolean", label: "Oracle Kill Switch", group: "operations" }],
+                  "kill_switch",
+                  "Oracle is offline",
+                );
               }}
             >
               Take Offline

@@ -9,7 +9,12 @@
 import { query, mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { api, internal } from "../_generated/api";
+import { makeFunctionReference } from "convex/server";
+
+const { internal } = require("../_generated/api") as any;
+const getCosmicWeatherForPublicDateRef = makeFunctionReference<"query">(
+    "cosmicWeather:getForPublicDate",
+);
 
 /**
  * getDailyPrompt — Returns a daily prompt for the authenticated user.
@@ -42,9 +47,9 @@ export const getDailyPrompt = query({
 
         try {
             const cosmicWeather = await ctx.runQuery(
-                api.cosmicWeather.getForPublicDate,
+                getCosmicWeatherForPublicDateRef,
                 { date: today },
-            );
+            ) as any;
 
             if (cosmicWeather) {
                 moonPhase = cosmicWeather.moonPhase.name;

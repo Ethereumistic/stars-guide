@@ -2,7 +2,7 @@
 
 import { internalAction } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+import { makeFunctionReference } from "convex/server";
 import { z } from "zod";
 import {
     LLMProvider,
@@ -11,6 +11,28 @@ import {
     callLLMEndpoint,
     DEFAULT_PROVIDER,
 } from "./lib/llmProvider";
+
+const { internal } = require("./_generated/api") as any;
+const getZeitgeistInternalRef = makeFunctionReference<"query", { zeitgeistId: string }, any>(
+    "aiQueries:getZeitgeistInternal",
+);
+const invokeAIGatewayRef = makeFunctionReference<"action", {
+    feature: string;
+    mode?: "chat" | "json" | "stream" | "embedding" | "image";
+    messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+    overrides?: {
+        providerId?: string;
+        model?: string;
+        temperature?: number;
+        maxTokens?: number;
+        thinkingMode?: "auto" | "disabled" | "low" | "medium" | "high";
+    };
+}, {
+    content: string;
+    providerId: string;
+    model: string;
+    tier: string;
+}>("aiGateway/runtime:invokeAIGateway");
 
 // ─── SAFETY CONSTANTS ─────────────────────────────────────────────────────
 const MAX_RETRIES_PER_SIGN = 2;
@@ -174,14 +196,17 @@ export const runGenerationJob = internalAction({
     args: { jobId: v.id("generationJobs") },
     handler: async (ctx, args) => {
         // 1. Fetch job details
-        const job = await ctx.runQuery(internal.aiQueries.getJobDetails, { jobId: args.jobId });
+        const job = await ctx.runQuery(
+            makeFunctionReference<"query", { jobId: string }, any>("aiQueries:getJobDetails"),
+            { jobId: args.jobId }
+        );
         if (!job) {
             console.error(`Job ${args.jobId} not found`);
             return;
         }
 
         // 2. Fetch zeitgeist
-        const zeitgeist = await ctx.runQuery(internal.aiQueries.getZeitgeistInternal, {
+        const zeitgeist = await ctx.runQuery(getZeitgeistInternalRef, {
             zeitgeistId: job.zeitgeistId,
         });
         if (!zeitgeist) {
@@ -420,13 +445,9 @@ export const synthesizeZeitgeist = internalAction({
         providerId: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        const providersRaw = (await ctx.runQuery(internal.aiQueries.getOracleProvidersConfig, {})) ?? undefined;
-        const providers = parseProvidersConfig(providersRaw);
-        const provider = resolveProvider(providers, args.providerId);
-
-        const { content } = await callLLMEndpoint({
-            provider,
-            model: args.modelId,
+        const { content } = await ctx.runAction(invokeAIGatewayRef, {
+            feature: "zeitgeist_synthesis",
+            mode: "chat",
             messages: [
                 {
                     role: "system",
@@ -437,9 +458,12 @@ export const synthesizeZeitgeist = internalAction({
                     content: `Synthesize these world events into a unified psychological baseline:\n\n${args.archetypes.map((a, i) => `${i + 1}. ${a}`).join("\n")}`,
                 },
             ],
-            temperature: 0.6,
-            maxTokens: 300,
-            title: "Stars.Guide Zeitgeist Synthesis",
+            overrides: {
+                providerId: args.providerId,
+                model: args.modelId,
+                temperature: 0.6,
+                maxTokens: 300,
+            },
         });
 
         return (content ?? "").trim();
@@ -458,14 +482,10 @@ export const synthesizeEmotionalZeitgeist = internalAction({
         providerId: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        const providersRaw = (await ctx.runQuery(internal.aiQueries.getOracleProvidersConfig, {})) ?? undefined;
-        const providers = parseProvidersConfig(providersRaw);
-        const provider = resolveProvider(providers, args.providerId);
-
         // Pass 1: Emotional Translation
-        const { content: emotionalContent } = await callLLMEndpoint({
-            provider,
-            model: args.modelId,
+        const { content: emotionalContent } = await ctx.runAction(invokeAIGatewayRef, {
+            feature: "emotional_translation",
+            mode: "chat",
             messages: [
                 {
                     role: "system",
@@ -485,17 +505,20 @@ Rules:
                     content: `World events / current vibe:\n${args.rawEvents}\n\nDescribe the collective emotional state.`,
                 },
             ],
-            temperature: 0.65,
-            maxTokens: 400,
-            title: "Stars.Guide Emotional Translation",
+            overrides: {
+                providerId: args.providerId,
+                model: args.modelId,
+                temperature: 0.65,
+                maxTokens: 400,
+            },
         });
 
         // Pass 2: Emotional Register Classification
         let emotionalRegister = "";
         try {
-            const { content: classifyContent } = await callLLMEndpoint({
-                provider,
-                model: args.modelId,
+            const { content: classifyContent } = await ctx.runAction(invokeAIGatewayRef, {
+                feature: "emotional_register_classification",
+                mode: "json",
                 messages: [
                     {
                         role: "system",
@@ -505,10 +528,13 @@ Output ONLY a JSON array, e.g. ["anxious", "restless"]`,
                     },
                     { role: "user", content: (emotionalContent ?? "").trim() },
                 ],
-                temperature: 0.3,
-                maxTokens: 100,
-                jsonMode: true,
-                title: "Stars.Guide Register Classification",
+                overrides: {
+                    providerId: args.providerId,
+                    model: args.modelId,
+                    temperature: 0.3,
+                    maxTokens: 100,
+                    thinkingMode: "disabled",
+                },
             });
 
             const parsed = JSON.parse((classifyContent ?? "").replace(/```json\n?|```/g, "").trim());

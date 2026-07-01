@@ -7,8 +7,9 @@
 import { query, mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { internal } from "../_generated/api";
 import { deriveMoodZone, JOURNAL_LIMITS } from "../../src/lib/journal/constants";
+
+const { internal } = require("../_generated/api") as any;
 
 /**
  * Helper: compute word count from text content.

@@ -4,12 +4,11 @@
 
 The Stars.Guide daily horoscope pipeline is a fully automated, astronomy-engine–driven system that generates personalized, jargon-free horoscope content for all 12 zodiac signs every day. No manual gates are required — the system computes, generates, stores, and serves content via Convex cron jobs and actions.
 
-The pipeline runs on three daily cron triggers:
+The core horoscope pipeline runs on two daily cron triggers. Felt language can still be generated on demand, but the dedicated daily felt-language cron is currently disabled in `convex/crons.ts`.
 
 | Time (UTC) | Job | Purpose |
 |---|---|---|
 | 00:05 | `compute-cosmic-weather` | Compute raw astronomical snapshot (planet positions, aspects, moon phase) |
-| 00:10 | `generate-felt-language` | LLM translation of raw data into felt emotional prose (stored but unused) |
 | 02:00 | `generate-daily-horoscopes` | Compute enriched context → queue 12 sign generations (30 s stagger) |
 
 ### Pipeline Diagram
@@ -164,9 +163,9 @@ This is persisted to the `cosmicWeather` table via the `computeAndStore` action.
 ## Stage 1b: Felt Language
 
 **File**: `convex/cosmicWeather.ts`
-**Cron**: `generate-felt-language` at 00:10 UTC
+**Cron**: No dedicated cron currently registered; generated on demand/admin when needed.
 
-After the raw astronomical snapshot is computed, a second cron job translates that data into "felt language" — emotionally resonant prose describing the collective energetic climate.
+After the raw astronomical snapshot is computed, `generateFeltLanguage` can translate that data into "felt language" - emotionally resonant prose describing the collective energetic climate. The dedicated 00:10 UTC cron is currently disabled because it was burning LLM tokens when the prose was not always needed.
 
 ### LLM Translation
 
@@ -180,9 +179,9 @@ The system prompts a lightweight model (`google/gemini-2.5-flash-lite`) with str
 
 The moon phase frame (from `getMoonPhaseFrame()`) is injected to anchor the emotional container. The prompt sends retrograde planet names and active aspects for grounding.
 
-### ⚠️ Stored But Unused
+### Stored And Consumed When Present
 
-The felt language is computed and stored on the `cosmicWeather` record (fields `feltLanguage` and `feltLanguageGeneratedAt`), but it is **not currently consumed by the horoscope generation pipeline**. The horoscope prompt (Stage 5) does not include felt language as input. This is a known gap — see [Known Issues](#known-issues).
+The felt language is stored on the `cosmicWeather` record (fields `feltLanguage` and `feltLanguageGeneratedAt`). `convex/horoscopes/generateForSign.ts` reads it from the matching `cosmicWeather` record and includes it in the horoscope prompt when it is available.
 
 ---
 
@@ -685,23 +684,21 @@ Ratings are stored in the `horoscope_ratings` table with indexes `by_user_sign_d
 
 **File**: `convex/crons.ts`
 
-All 10 cron jobs registered in the system:
+All active cron jobs registered in the system:
 
 | # | Name | Schedule | Function | Purpose |
 |---|---|---|---|---|
 | 1 | `compute-cosmic-weather` | Daily 00:05 UTC | `cosmicWeather.dailyCosmicWeatherJob` | Compute raw astronomical snapshot |
-| 2 | `generate-felt-language` | Daily 00:10 UTC | `cosmicWeather.dailyFeltLanguageJob` | LLM translation to felt prose |
-| 3 | `deliver-scheduled-notifications` | Every 60s | `notifications.delivery.processScheduledNotifications` | Check for due notification campaigns |
-| 4 | `aggregate-daily-activity` | Daily 03:00 UTC | `analyticsInternal.aggregateDailyActivity` | DAU aggregation fallback |
-| 5 | `detect-analytics-anomalies` | Daily 04:00 UTC | `analyticsInternal.detectAnalyticsAnomalies` | Traffic spike/drop detection |
-| 6 | `generate-daily-horoscopes` | Daily 02:00 UTC | `horoscopes.queueDailyGenerations.queueDailyGenerations` | Context + 12 sign generations |
-| 7 | `refresh-email-segments` | Daily 00:30 UTC | `email.crons.refreshEmailSegments` | Refresh user segments for email |
+| 2 | `deliver-scheduled-notifications` | Every 60s | `notifications.delivery.processScheduledNotifications` | Check for due notification campaigns |
+| 3 | `aggregate-daily-activity` | Daily 03:00 UTC | `analyticsInternal.aggregateDailyActivity` | DAU aggregation fallback |
+| 4 | `detect-analytics-anomalies` | Daily 04:00 UTC | `analyticsInternal.detectAnalyticsAnomalies` | Traffic spike/drop detection |
+| 5 | `generate-daily-horoscopes` | Daily 02:00 UTC | `horoscopes.queueDailyGenerations.queueDailyGenerations` | Context + 12 sign generations |
+| 6 | `refresh-email-segments` | Daily 00:30 UTC | `email.crons.refreshEmailSegments` | Refresh user segments for email |
+| 7 | `compute-engagement-status` | Daily 01:00 UTC | `users.crons.computeEngagementStatus` | Refresh user engagement status |
 | 8 | `send-daily-horoscope-emails` | Daily 06:00 UTC | `email.crons.sendDailyHoroscopeEmails` | Daily horoscope email blast |
 | 9 | `send-welcome-emails` | Daily 07:00 UTC | `email.crons.sendWelcomeEmails` | Welcome email for new users |
 | 10 | `send-weekly-cosmic-emails` | Weekly Saturday 09:00 UTC | `email.crons.sendWeeklyCosmicEmails` | Weekly cosmic digest email |
-
-Additionally:
-- `send-reengagement-emails` — Daily 10:00 UTC — re-engagement emails
+| 11 | `send-reengagement-emails` | Daily 10:00 UTC | `email.crons.sendReengagementEmails` | Re-engagement emails |
 
 ### 30-Second Stagger Config
 
@@ -728,15 +725,11 @@ The stagger interval can be overridden via `oracle_settings` key `horoscope_stag
 
 ## Known Issues
 
-### 1. Felt Language Unused
-
-The felt language generated at 00:10 UTC is stored on the `cosmicWeather` record but is **not consumed by the horoscope generation pipeline**. The `DailyAstrologyContext` type and the prompt builder do not include felt language as input. This represents wasted LLM cost and a missed opportunity for richer prompt grounding.
-
-### 2. contextSnapshotId Reserved
+### 1. contextSnapshotId Reserved
 
 The `daily_horoscopes` schema includes `contextSnapshotId: v.optional(v.id("daily_astrology_context"))` but the generation pipeline does not populate it. It remains `undefined` on all records. The intent is to link each horoscope back to the context snapshot it was generated from for reproducibility and debugging.
 
-### 3. ASPECT_THEME_MODIFIERS Unused
+### 2. ASPECT_THEME_MODIFIERS Unused
 
 The `ASPECT_THEME_MODIFIERS` catalog in `contextBuilder.ts` defines weighted theme pushes per aspect type, but it is never referenced. The `summariseAspects()` function uses hard-coded counts instead. This catalog could enrich the energy signature and dominant themes if wired up.
 

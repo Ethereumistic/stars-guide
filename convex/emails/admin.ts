@@ -6,10 +6,13 @@
  */
 import { query, mutation, action, internalQuery, internalMutation, internalAction } from "../_generated/server";
 import { v } from "convex/values";
-import { paginationOptsValidator } from "convex/server";
-import { internal, api } from "../_generated/api";
+import { makeFunctionReference, paginationOptsValidator } from "convex/server";
 import { Doc } from "../_generated/dataModel";
 import { requireAdmin } from "../lib/adminGuard";
+
+const { internal, api } = require("../_generated/api") as any;
+const currentUserRef = makeFunctionReference<"query">("users:current");
+const sendEmailRef = makeFunctionReference<"action">("email/sender:sendEmail");
 
 // ─── Queries ────────────────────────────────────────────────────────────────
 
@@ -575,14 +578,14 @@ export const testSmtp = action({
     args: {},
     handler: async (ctx) => {
         // Verify admin via shared query (actions can't use requireAdmin directly)
-        const user = await ctx.runQuery(api.users.current) as any;
+        const user = await ctx.runQuery(currentUserRef, {}) as any;
         if (!user || user.role !== "admin") throw new Error("Unauthorized");
 
         const testEmail = user.email ?? "badjarovv@gmail.com";
         const results = { auth: false, oracle: false, errors: [] as string[] };
 
         try {
-            await ctx.runAction(internal.email.sender.sendEmail, {
+            await ctx.runAction(sendEmailRef, {
                 to: testEmail,
                 subject: "[SMTP Test] auth@stars.guide",
                 html: "<p>This is a test email from auth@stars.guide. If you received it, the transactional SMTP channel is healthy.</p>",
@@ -594,7 +597,7 @@ export const testSmtp = action({
         }
 
         try {
-            await ctx.runAction(internal.email.sender.sendEmail, {
+            await ctx.runAction(sendEmailRef, {
                 to: testEmail,
                 subject: "[SMTP Test] oracle@stars.guide",
                 html: "<p>This is a test email from oracle@stars.guide. If you received it, the marketing SMTP channel is healthy.</p>",

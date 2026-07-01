@@ -603,6 +603,90 @@ export default defineSchema({
         .index("by_key", ["key"])
         .index("by_group", ["group"]),
 
+    // 12b. AI GATEWAY (Feature-agnostic provider/model infrastructure)
+    ai_providers: defineTable({
+        providerId: v.string(),
+        name: v.string(),
+        type: v.union(
+            v.literal("openrouter"),
+            v.literal("ollama"),
+            v.literal("openai_compatible"),
+        ),
+        baseUrl: v.string(),
+        apiKeyEnvVar: v.string(),
+        maxConcurrent: v.optional(v.number()),
+        enabled: v.boolean(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+        updatedBy: v.optional(v.id("users")),
+    })
+        .index("by_provider_id", ["providerId"])
+        .index("by_enabled", ["enabled"]),
+
+    ai_feature_profiles: defineTable({
+        featureKey: v.string(),
+        label: v.string(),
+        enabled: v.boolean(),
+        mode: v.union(
+            v.literal("chat"),
+            v.literal("json"),
+            v.literal("stream"),
+            v.literal("embedding"),
+            v.literal("image"),
+        ),
+        chainJson: v.string(),
+        temperature: v.number(),
+        topP: v.optional(v.number()),
+        maxTokens: v.number(),
+        timeoutMs: v.number(),
+        thinkingMode: v.union(
+            v.literal("auto"),
+            v.literal("disabled"),
+            v.literal("low"),
+            v.literal("medium"),
+            v.literal("high"),
+        ),
+        retries: v.number(),
+        safetyProfile: v.optional(v.union(
+            v.literal("oracle"),
+            v.literal("content_generation"),
+            v.literal("none"),
+        )),
+        quotaScope: v.optional(v.union(
+            v.literal("oracle_user"),
+            v.literal("admin_ops"),
+            v.literal("none"),
+        )),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+        updatedBy: v.optional(v.id("users")),
+    })
+        .index("by_feature_key", ["featureKey"])
+        .index("by_enabled", ["enabled"]),
+
+    ai_gateway_events: defineTable({
+        featureKey: v.string(),
+        mode: v.string(),
+        providerId: v.optional(v.string()),
+        model: v.optional(v.string()),
+        tier: v.optional(v.string()),
+        status: v.union(
+            v.literal("success"),
+            v.literal("failure"),
+            v.literal("blocked"),
+        ),
+        errorType: v.optional(v.string()),
+        errorMessage: v.optional(v.string()),
+        durationMs: v.optional(v.number()),
+        promptTokens: v.optional(v.number()),
+        completionTokens: v.optional(v.number()),
+        costMicro: v.optional(v.number()),
+        createdAt: v.number(),
+    })
+        .index("by_feature_created", ["featureKey", "createdAt"])
+        .index("by_provider_created", ["providerId", "createdAt"])
+        .index("by_status_created", ["status", "createdAt"]),
+
     // 13. ORACLE QUOTA USAGE (Cost-based quota tracking — microdollars)
     oracle_quota_usage: defineTable({
         userId: v.id("users"),

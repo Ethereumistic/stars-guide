@@ -2,7 +2,6 @@
 
 import { v } from "convex/values";
 import { action } from "../_generated/server";
-import { api, internal } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
 import {
   parseTitleFromResponse,
@@ -44,6 +43,8 @@ import {
   REFUSAL_RECOVERY_BLOCK,
   OUTPUT_SAFETY_BLOCK_MESSAGE,
 } from "../../lib/oracle/responseSafety";
+
+const { api: apiRef, internal: internalRef } = require("../_generated/api") as any;
 
 const CRISIS_PATTERNS: RegExp[] = [
   /\b(suicide|suicidal)\b/i,
@@ -136,19 +137,19 @@ export const invokeOracle = action({
     }
 
     // ── Kill switch ───────────────────────────────────────────────────────
-    const killSwitch = await ctx.runQuery(internal.oracle.settings.getSettingInternal, {
+    const killSwitch = await ctx.runQuery(internalRef.oracle.settings.getSettingInternal, {
       key: "kill_switch",
     });
 
     if (killSwitch?.value === "true") {
-      const fallbackText = await ctx.runQuery(internal.oracle.settings.getSettingInternal, {
+      const fallbackText = await ctx.runQuery(internalRef.oracle.settings.getSettingInternal, {
         key: "fallback_response_text",
       });
       const offlineMessage =
         fallbackText?.value ??
         "The Oracle rests. Return soon. ->";
 
-      await ctx.runMutation(api.oracle.sessions.addMessage, {
+      await ctx.runMutation(apiRef.oracle.sessions.addMessage, {
         sessionId: args.sessionId,
         role: "assistant",
         content: offlineMessage,
@@ -167,14 +168,14 @@ export const invokeOracle = action({
       pattern.test(args.userQuestion),
     );
     if (hasCrisisSignal) {
-      const crisisResponse = await ctx.runQuery(internal.oracle.settings.getSettingInternal, {
+      const crisisResponse = await ctx.runQuery(internalRef.oracle.settings.getSettingInternal, {
         key: "crisis_response_text",
       });
       const crisisText =
         crisisResponse?.value ??
         "I see you, and what you're carrying right now matters deeply. Please reach out to the Crisis Text Line - text HOME to 741741 - or call the 988 Suicide & Crisis Lifeline.";
 
-      await ctx.runMutation(api.oracle.sessions.addMessage, {
+      await ctx.runMutation(apiRef.oracle.sessions.addMessage, {
         sessionId: args.sessionId,
         role: "assistant",
         content: crisisText,
@@ -192,7 +193,7 @@ export const invokeOracle = action({
     // PHASE 1: LOAD CONTEXT (unchanged from original)
     // ════════════════════════════════════════════════════════════════════════
 
-    const session = await ctx.runQuery(api.oracle.sessions.getSessionWithMessages, {
+    const session = await ctx.runQuery(apiRef.oracle.sessions.getSessionWithMessages, {
       sessionId: args.sessionId,
     });
     if (!session) {
@@ -200,11 +201,11 @@ export const invokeOracle = action({
     }
 
     const config = await ctx.runQuery(
-      internal.oracle.settings.getPromptRuntimeSettingsInternal,
+      internalRef.oracle.settings.getPromptRuntimeSettingsInternal,
       {},
     );
 
-    const user = await ctx.runQuery(api.users.current, {});
+    const user = await ctx.runQuery(apiRef.users.current, {});
 
     // ── Birth Chart Report conversational onboarding gate ────────────────
     // If the user has birth data but no completed durable report, the Oracle
@@ -218,7 +219,7 @@ export const invokeOracle = action({
       const step = report?.onboardingStep;
 
       const addAssistant = async (content: string) => {
-        await ctx.runMutation(api.oracle.sessions.addMessage, {
+        await ctx.runMutation(apiRef.oracle.sessions.addMessage, {
           sessionId: args.sessionId,
           role: "assistant",
           content,
@@ -228,7 +229,7 @@ export const invokeOracle = action({
       };
 
       if (!report || !step) {
-        await ctx.runMutation(internal.birthChartReport.queue.startChatOnboarding, { userId: user._id, sessionId: args.sessionId });
+        await ctx.runMutation(internalRef.birthChartReport.queue.startChatOnboarding, { userId: user._id, sessionId: args.sessionId });
         await addAssistant("Welcome — I’m here. Before we go further, I want to create the Birth Chart Report that will become the living foundation for our Oracle conversations.\n\nI’ll read your placements, houses, aspects, and chart pattern first, then weave in a few details only you can give me: the season you’re in, what you want the chart to help with, and the kind of language that actually lands.\n\nAnswer what feels true, skip anything that doesn’t. The questions will open below, right where you normally speak to me.");
         return { content: "", modelUsed: "birth_chart_report_onboarding", fallbackTier: "D" };
       }
@@ -245,13 +246,13 @@ export const invokeOracle = action({
     let resolvedFeatureKey = session.featureKey;
     if (resolvedFeatureKey === "birth_chart_core" || resolvedFeatureKey === "birth_chart_full") {
       resolvedFeatureKey = "birth_chart";
-      await ctx.runMutation(api.oracle.sessions.updateSessionFeature, {
+      await ctx.runMutation(apiRef.oracle.sessions.updateSessionFeature, {
         sessionId: args.sessionId,
         featureKey: "birth_chart",
       });
       const legacyDepth: BirthChartDepth = session.featureKey === "birth_chart_full" ? "full" : "core";
       if (!session.birthChartDepth) {
-        await ctx.runMutation(internal.oracle.sessions.updateSessionBirthChartDepth, {
+        await ctx.runMutation(internalRef.oracle.sessions.updateSessionBirthChartDepth, {
           sessionId: args.sessionId,
           depth: legacyDepth,
         });
@@ -262,7 +263,7 @@ export const invokeOracle = action({
     let hasJournalConsent = false;
     if (user?._id) {
       try {
-        const consent = await ctx.runQuery(api.journal.consent.getConsent, {});
+        const consent = await ctx.runQuery(apiRef.journal.consent.getConsent, {});
         hasJournalConsent = consent?.oracleCanReadJournal === true;
       } catch (e) {
         console.error("Journal consent check failed (non-blocking):", e);
@@ -309,13 +310,13 @@ export const invokeOracle = action({
 
     // ── Persist auto-activated feature to session ──────────────────────────
     if (!session.featureKey && primaryIntent && primaryIntent.pipelineKey !== "generic_chat") {
-      await ctx.runMutation(api.oracle.sessions.updateSessionFeature, {
+      await ctx.runMutation(apiRef.oracle.sessions.updateSessionFeature, {
         sessionId: args.sessionId,
         featureKey: primaryIntent.pipelineKey,
       });
       // If birth_chart with depth, persist that too
       if (primaryIntent.pipelineKey === "birth_chart" && primaryIntent.metadata?.depth) {
-        await ctx.runMutation(internal.oracle.sessions.updateSessionBirthChartDepth, {
+        await ctx.runMutation(internalRef.oracle.sessions.updateSessionBirthChartDepth, {
           sessionId: args.sessionId,
           depth: primaryIntent.metadata.depth as BirthChartDepth,
         });
@@ -351,7 +352,7 @@ export const invokeOracle = action({
     if (needsJournal && user?._id && hasJournalConsent) {
       try {
         journalContext = await ctx.runQuery(
-          internal.journal.context.assembleJournalContext,
+          internalRef.journal.context.assembleJournalContext,
           { userId: user._id, expandedBudget: expandedJournal },
         );
       } catch (e) {
@@ -377,7 +378,7 @@ export const invokeOracle = action({
     let featureInjection: string | null = null;
     if (primaryIntent?.pipelineKey === "birth_chart") {
       try {
-        const record = await ctx.runQuery(api.oracle.features.getFeatureInjection, {
+        const record = await ctx.runQuery(apiRef.oracle.features.getFeatureInjection, {
           featureKey: "birth_chart",
         });
         featureInjection = record?.contextText ?? null;
@@ -386,7 +387,7 @@ export const invokeOracle = action({
       }
     } else if (primaryIntent?.pipelineKey === "journal_recall") {
       try {
-        const record = await ctx.runQuery(api.oracle.features.getFeatureInjection, {
+        const record = await ctx.runQuery(apiRef.oracle.features.getFeatureInjection, {
           featureKey: "journal_recall",
         });
         featureInjection = record?.contextText ?? null;
@@ -492,7 +493,7 @@ export const invokeOracle = action({
     let pricingTable: Record<string, { promptPer1M: number; completionPer1M: number }> = {};
     try {
       const pricingSetting = await ctx.runQuery(
-        internal.oracle.settings.getSettingInternal,
+        internalRef.oracle.settings.getSettingInternal,
         { key: PRICING_TABLE_SETTINGS_KEY },
       );
       if (pricingSetting?.value) {
@@ -509,17 +510,17 @@ export const invokeOracle = action({
     // Server-side quota gate — reject before making any LLM API calls
     if (user?._id) {
       try {
-        const quota = await ctx.runQuery(api.oracle.quota.checkQuota, {});
+        const quota = await ctx.runQuery(apiRef.oracle.quota.checkQuota, {});
         if (!quota.allowed) {
           // Return a quota-exceeded message instead of calling the LLM
           const exceededText = "You've reached your quota limit. Please try again later. ->";
-          await ctx.runMutation(api.oracle.sessions.addMessage, {
+          await ctx.runMutation(apiRef.oracle.sessions.addMessage, {
             sessionId: args.sessionId,
             role: "assistant",
             content: exceededText,
             fallbackTierUsed: "D",
           });
-          await ctx.runMutation(api.oracle.sessions.updateSessionStatus, {
+          await ctx.runMutation(apiRef.oracle.sessions.updateSessionStatus, {
             sessionId: args.sessionId,
             status: "active",
           });
@@ -670,7 +671,7 @@ export const invokeOracle = action({
           // Delete the LLM response message that was created during streaming
           if (attemptResult.messageId) {
             try {
-              await ctx.runMutation(internal.oracle.sessions.deleteMessage, {
+              await ctx.runMutation(internalRef.oracle.sessions.deleteMessage, {
                 messageId: attemptResult.messageId,
               });
             } catch (e) {
@@ -680,13 +681,13 @@ export const invokeOracle = action({
 
           // Persist the safe fallback message and return
           const safetyFallbackMsg = OUTPUT_SAFETY_BLOCK_MESSAGE;
-          await ctx.runMutation(api.oracle.sessions.addMessage, {
+          await ctx.runMutation(apiRef.oracle.sessions.addMessage, {
             sessionId: args.sessionId,
             role: "assistant",
             content: safetyFallbackMsg,
             fallbackTierUsed: "D",
           });
-          await ctx.runMutation(api.oracle.sessions.updateSessionStatus, {
+          await ctx.runMutation(apiRef.oracle.sessions.updateSessionStatus, {
             sessionId: args.sessionId,
             status: "active",
           });
@@ -713,7 +714,7 @@ export const invokeOracle = action({
             // Delete the refusal message so it doesn't appear in conversation history
             if (attemptResult.messageId) {
               try {
-                await ctx.runMutation(internal.oracle.sessions.deleteMessage, {
+                await ctx.runMutation(internalRef.oracle.sessions.deleteMessage, {
                   messageId: attemptResult.messageId,
                 });
               } catch (e) {
@@ -750,21 +751,21 @@ export const invokeOracle = action({
     // ════════════════════════════════════════════════════════════════════════
 
     if (!result) {
-      const fallbackText = await ctx.runQuery(internal.oracle.settings.getSettingInternal, {
+      const fallbackText = await ctx.runQuery(internalRef.oracle.settings.getSettingInternal, {
         key: "fallback_response_text",
       });
       const fallbackContent =
         fallbackText?.value ??
         "The stars are momentarily beyond my reach - cosmic interference is rare, but it happens. Please try again in a moment. ->";
 
-      await ctx.runMutation(api.oracle.sessions.addMessage, {
+      await ctx.runMutation(apiRef.oracle.sessions.addMessage, {
         sessionId: args.sessionId,
         role: "assistant",
         content: fallbackContent,
         fallbackTierUsed: "D",
       });
 
-      await ctx.runMutation(api.oracle.sessions.updateSessionStatus, {
+      await ctx.runMutation(apiRef.oracle.sessions.updateSessionStatus, {
         sessionId: args.sessionId,
         status: "active",
       });
@@ -798,14 +799,14 @@ export const invokeOracle = action({
 
       // Store cost on the message record
       if (result.messageId) {
-        await ctx.runMutation(internal.oracle.sessions.patchMessageCost, {
+        await ctx.runMutation(internalRef.oracle.sessions.patchMessageCost, {
           messageId: result.messageId,
           costUsdMicro: costMicro,
         });
       }
 
       // Increment quota with the computed cost
-      await ctx.runMutation(api.oracle.quota.incrementQuota, {
+      await ctx.runMutation(apiRef.oracle.quota.incrementQuota, {
         costMicro,
       });
     }
@@ -814,7 +815,7 @@ export const invokeOracle = action({
     if (isFirstResponse) {
       const hasAI = Boolean(result.title);
       const title = result.title || deriveTitleFromContent(result.contentWithoutTitle);
-      await ctx.runMutation(internal.oracle.sessions.updateSessionTitle, {
+      await ctx.runMutation(internalRef.oracle.sessions.updateSessionTitle, {
         sessionId: args.sessionId,
         title,
         titleGenerated: hasAI,
@@ -843,7 +844,7 @@ export const invokeOracle = action({
 
     // ── Store timing metrics on the message ────────────────────────────────
     if (result.messageId) {
-      await ctx.runMutation(internal.oracle.sessions.patchMessageTiming, {
+      await ctx.runMutation(internalRef.oracle.sessions.patchMessageTiming, {
         messageId: result.messageId,
         timingPromptBuildMs: timingMetrics.promptBuildMs,
         timingRequestQueueMs: timingMetrics.requestQueueMs,
@@ -863,7 +864,7 @@ export const invokeOracle = action({
           const actions = pipeline.afterResponse(result.contentWithoutTitle, pipelineCtx);
           for (const action of actions) {
             if (action.type === "store_binaural_params" && result.messageId) {
-              await ctx.runMutation(internal.oracle.sessions.patchMessageBinauralParams, {
+              await ctx.runMutation(internalRef.oracle.sessions.patchMessageBinauralParams, {
                 messageId: result.messageId,
                 binauralParams: action.payload,
               });
@@ -876,7 +877,7 @@ export const invokeOracle = action({
     }
 
     // ── Update session status ──────────────────────────────────────────────
-    await ctx.runMutation(api.oracle.sessions.updateSessionStatus, {
+    await ctx.runMutation(apiRef.oracle.sessions.updateSessionStatus, {
       sessionId: args.sessionId,
       status: "active",
     });
@@ -897,7 +898,7 @@ export const invokeOracle = action({
 
 /**
  * Generic streaming call to any OpenAI-compatible chat completions endpoint.
- * Works with OpenRouter, Ollama, and any OpenAI-compatible API.
+ * Works with OpenRouter, Ollama, and any OpenAI-compatible apiRef.
  *
  * COMPLETELY UNCHANGED from the original implementation.
  * Do not modify this function — it handles SSE parsing, streaming mutations,
@@ -994,7 +995,7 @@ async function callProviderStreaming(
     const firstTokenTime = Date.now();
 
     const messageId: Id<"oracle_messages"> = await ctx.runMutation(
-      internal.oracle.sessions.createStreamingMessage,
+      internalRef.oracle.sessions.createStreamingMessage,
       { sessionId },
     );
 
@@ -1009,12 +1010,12 @@ async function callProviderStreaming(
       nonStreamEarlyPatch.timingRequestQueueMs = fetchStartTime - timingContext.promptBuildEndTime;
     }
     try {
-      await ctx.runMutation(internal.oracle.sessions.patchMessageTiming, nonStreamEarlyPatch);
+      await ctx.runMutation(internalRef.oracle.sessions.patchMessageTiming, nonStreamEarlyPatch);
     } catch (e) {
       console.error("Oracle: failed to write early timing patch (non-streaming, non-blocking):", e);
     }
 
-    await ctx.runMutation(internal.oracle.sessions.finalizeStreamingMessage, {
+    await ctx.runMutation(internalRef.oracle.sessions.finalizeStreamingMessage, {
       messageId,
       sessionId,
       content: contentWithoutPrompt,
@@ -1031,7 +1032,7 @@ async function callProviderStreaming(
 
   // For streaming mode, process SSE chunks
   const messageId: Id<"oracle_messages"> = await ctx.runMutation(
-    internal.oracle.sessions.createStreamingMessage,
+    internalRef.oracle.sessions.createStreamingMessage,
     { sessionId },
   );
 
@@ -1052,7 +1053,7 @@ async function callProviderStreaming(
     earlyTimingPatch.timingRequestQueueMs = fetchStartTime - timingContext.promptBuildEndTime;
   }
   try {
-    await ctx.runMutation(internal.oracle.sessions.patchMessageTiming, earlyTimingPatch);
+    await ctx.runMutation(internalRef.oracle.sessions.patchMessageTiming, earlyTimingPatch);
   } catch (e) {
     console.error("Oracle: failed to write early timing patch (non-blocking):", e);
   }
@@ -1138,7 +1139,7 @@ async function callProviderStreaming(
                   messageId,
                   timingTtftMs: firstTokenTime - fetchStartTime,
                 };
-                await ctx.runMutation(internal.oracle.sessions.patchMessageTiming, ttftPatch);
+                await ctx.runMutation(internalRef.oracle.sessions.patchMessageTiming, ttftPatch);
               } catch (e) {
                 console.error("Oracle: failed to write TTFT timing patch (non-blocking):", e);
               }
@@ -1152,7 +1153,7 @@ async function callProviderStreaming(
                   messageId,
                   timingInitialDecodeMs: initialDecodeTime - (firstTokenTime ?? fetchStartTime),
                 };
-                await ctx.runMutation(internal.oracle.sessions.patchMessageTiming, decodePatch);
+                await ctx.runMutation(internalRef.oracle.sessions.patchMessageTiming, decodePatch);
               } catch (e) {
                 console.error("Oracle: failed to write initial decode timing patch (non-blocking):", e);
               }
@@ -1171,7 +1172,7 @@ async function callProviderStreaming(
       // Flush after every SSE chunk, throttled to MIN_FLUSH_INTERVAL_MS.
       const now = Date.now();
       if (fullContent !== lastFlushedContent && (now - lastFlushTime >= MIN_FLUSH_INTERVAL_MS || lastFlushTime === 0)) {
-        await ctx.runMutation(internal.oracle.sessions.updateStreamingContent, {
+        await ctx.runMutation(internalRef.oracle.sessions.updateStreamingContent, {
           messageId,
           content: fullContent,
         });
@@ -1181,7 +1182,7 @@ async function callProviderStreaming(
     }
     // Final flush: ensure all remaining content is written before finalizing
     if (fullContent !== lastFlushedContent) {
-      await ctx.runMutation(internal.oracle.sessions.updateStreamingContent, {
+      await ctx.runMutation(internalRef.oracle.sessions.updateStreamingContent, {
         messageId,
         content: fullContent,
       });
@@ -1194,11 +1195,11 @@ async function callProviderStreaming(
     console.error(`Oracle ${provider.id}/${model} stream read error:`, error);
     if (!fullContent) {
       const recoveryText = "The cosmic channels wavered. Please try again. ->";
-      await ctx.runMutation(internal.oracle.sessions.updateStreamingContent, {
+      await ctx.runMutation(internalRef.oracle.sessions.updateStreamingContent, {
         messageId,
         content: recoveryText,
       });
-      await ctx.runMutation(internal.oracle.sessions.finalizeStreamingMessage, {
+      await ctx.runMutation(internalRef.oracle.sessions.finalizeStreamingMessage, {
         messageId,
         sessionId,
         content: recoveryText,
@@ -1216,11 +1217,11 @@ async function callProviderStreaming(
   if (!fullContent) {
     const emptyText = "The stars fell silent. Please try again. ->";
     console.error(`Oracle ${provider.id}/${model}: stream completed with no content`);
-    await ctx.runMutation(internal.oracle.sessions.updateStreamingContent, {
+    await ctx.runMutation(internalRef.oracle.sessions.updateStreamingContent, {
       messageId,
       content: emptyText,
     });
-    await ctx.runMutation(internal.oracle.sessions.finalizeStreamingMessage, {
+    await ctx.runMutation(internalRef.oracle.sessions.finalizeStreamingMessage, {
       messageId,
       sessionId,
       content: emptyText,
@@ -1235,12 +1236,12 @@ async function callProviderStreaming(
   const { journalPrompt, contentWithoutPrompt } = parseJournalPromptFromResponse(contentWithoutTitle);
 
   // Final flush: update streaming content with the title+prompt-stripped version
-  await ctx.runMutation(internal.oracle.sessions.updateStreamingContent, {
+  await ctx.runMutation(internalRef.oracle.sessions.updateStreamingContent, {
     messageId,
     content: contentWithoutPrompt,
   });
 
-  await ctx.runMutation(internal.oracle.sessions.finalizeStreamingMessage, {
+  await ctx.runMutation(internalRef.oracle.sessions.finalizeStreamingMessage, {
     messageId,
     sessionId,
     content: contentWithoutPrompt,

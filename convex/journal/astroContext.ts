@@ -7,7 +7,8 @@
  */
 import { internalQuery } from "../_generated/server";
 import { v } from "convex/values";
-import { api, internal } from "../_generated/api";
+
+const { internal } = require("../_generated/api") as any;
 
 // Simple aspect type from sign comparison (whole-sign aspects)
 function signAspectType(signA: string, signB: string): string | null {

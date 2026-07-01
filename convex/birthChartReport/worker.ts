@@ -2,8 +2,9 @@
 
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
-import { internal } from "../_generated/api";
 import { generateAndSaveReport } from "./generate";
+
+const { internal } = require("../_generated/api") as any;
 
 export const processNextJobs = internalAction({
   args: { limit: v.optional(v.number()) },

@@ -6,7 +6,8 @@
  * - Scheduled notification delivery every minute
  */
 import { cronJobs } from "convex/server";
-import { internal } from "./_generated/api";
+
+const { internal } = require("./_generated/api") as any;
 
 const crons = cronJobs();
 

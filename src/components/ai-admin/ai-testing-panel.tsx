@@ -105,6 +105,8 @@ export function AITestingPanel({ providers }: AITestingPanelProps) {
         <CardContent className="space-y-4">
           <AIModelPicker
             {...picker.props}
+            providerSource="explicit"
+            providers={providers}
             showWarnings={true}
           />
 

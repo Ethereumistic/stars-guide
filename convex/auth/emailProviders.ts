@@ -11,7 +11,9 @@
  */
 import { Email } from "@convex-dev/auth/providers/Email";
 import { generateRandomString } from "@oslojs/crypto/random";
-import { internal } from "../_generated/api";
+import { makeFunctionReference } from "convex/server";
+
+const sendEmailRef = makeFunctionReference<"action">("email/sender:sendEmail");
 
 // ─── Shared ───────────────────────────────────────────────────────────────────
 
@@ -98,7 +100,7 @@ export const verifyEmailProvider = Email({
         ctx?: any,
     ) {
         if (!ctx?.runAction) throw new Error("Auth email: Convex ctx not available");
-        await ctx.runAction(internal.email.sender.sendEmail, {
+        await ctx.runAction(sendEmailRef, {
             to: params.identifier,
             subject: "Verify your Stars Guide account",
             html: otpEmailHtml(params.token, "verification"),
@@ -122,7 +124,7 @@ export const resetEmailProvider = Email({
         ctx?: any,
     ) {
         if (!ctx?.runAction) throw new Error("Auth email: Convex ctx not available");
-        await ctx.runAction(internal.email.sender.sendEmail, {
+        await ctx.runAction(sendEmailRef, {
             to: params.identifier,
             subject: "Reset your Stars Guide password",
             html: otpEmailHtml(params.token, "reset"),

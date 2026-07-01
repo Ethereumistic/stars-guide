@@ -82,7 +82,7 @@ const tools = [
                 href: "/admin/oracle/settings",
                 icon: Settings,
                 title: "Oracle Settings",
-                copy: "Soul document, providers, model chain, limits, quotas, and ops.",
+                copy: "Oracle soul document, prompt limits, quotas, safety copy, and ops.",
             },
             {
                 href: "/admin/oracle/debug",

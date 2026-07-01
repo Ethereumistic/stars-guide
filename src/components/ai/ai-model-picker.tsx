@@ -201,7 +201,7 @@ export function AIModelPicker({
           showWarnings={showWarnings}
         />
         <p className="text-xs text-muted-foreground">
-          No providers configured in Oracle Settings. Type any model ID manually.
+          No providers configured in AI Infrastructure. Type any model ID manually.
         </p>
       </div>
     );

@@ -22,8 +22,14 @@
  */
 import { query, mutation, action } from "../_generated/server";
 import { v } from "convex/values";
-import { internal, api } from "../_generated/api";
+import { makeFunctionReference } from "convex/server";
 import { requireAdmin } from "../lib/adminGuard";
+
+const { internal, api } = require("../_generated/api") as any;
+const checkAdminRef = makeFunctionReference<"query">("horoscopes/helpers:_checkAdmin");
+const listHoroscopesForDateRef = makeFunctionReference<"query">("horoscopes/admin:listHoroscopesForDate");
+const resetHoroscopeStatusRef = makeFunctionReference<"mutation">("horoscopes/helpers:_resetHoroscopeStatus");
+const generateForSignRef = makeFunctionReference<"action">("horoscopes/generateForSign:generateForSign");
 
 // ─── VALID SIGNS ─────────────────────────────────────────────────────────
 const VALID_SIGNS = [
@@ -158,16 +164,16 @@ export const retryFailedGeneration = action({
     },
     handler: async (ctx, args): Promise<string> => {
         // Admin check via internal query (actions don't have ctx.db)
-        await ctx.runQuery(internal.horoscopes.helpers._checkAdmin, {});
+        await ctx.runQuery(checkAdminRef, {});
 
         if (!VALID_SIGNS.includes(args.sign as typeof VALID_SIGNS[number])) {
             throw new Error(`Invalid sign: ${args.sign}`);
         }
 
         // Find the existing record
-        const existing = await ctx.runQuery(api.horoscopes.admin.listHoroscopesForDate, {
+        const existing = await ctx.runQuery(listHoroscopesForDateRef, {
             date: args.date,
-        });
+        }) as any[];
 
         const record = existing.find((h: any) => h.sign === args.sign);
         if (!record) {
@@ -175,12 +181,12 @@ export const retryFailedGeneration = action({
         }
 
         // Reset status via internal mutation
-        await ctx.runMutation(internal.horoscopes.helpers._resetHoroscopeStatus, {
+        await ctx.runMutation(resetHoroscopeStatusRef, {
             horoscopeId: record._id,
         });
 
         // Trigger re-generation via internal action (passing optional provider/model override)
-        await ctx.scheduler.runAfter(0, internal.horoscopes.generateForSign.generateForSign, {
+        await ctx.scheduler.runAfter(0, generateForSignRef, {
             date: args.date,
             sign: args.sign,
             providerId: args.providerId ?? undefined,

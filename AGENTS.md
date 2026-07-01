@@ -1,116 +1,89 @@
-# AGENTS.md — stars-guide
+# AGENTS.md - stars-guide
 
-Astrology web app at **stars.guide**. Next.js App Router + Convex + Cloudflare Workers.
+Astrology education web app at stars.guide. The main product surface is the Oracle AI chat.
 
-## Stack
+## Must Follow
 
-- **Frontend**: Next.js 15 (App Router), React 19, Tailwind v4, shadcn-ui (Radix), motion
-- **Backend/DB**: Convex (schema, queries, mutations, actions, crons, HTTP API)
-- **Auth**: @convex-dev/auth (email + Google One Tap)
-- **Astrology**: astronomy-engine (real ephemeris), custom astrology modules
-- **AI/LLM**: Multi-provider Oracle (Google Gemini, OpenAI) via provider router
-- **Deploy**: Cloudflare Workers via @opennextjs/cloudflare (`pnpm deploy`)
-- **Build**: `pnpm build` (standard Next), `opennextjs-cloudflare build` (CF build)
+- Use `pnpm` for package commands and dependency work. Do not use npm/yarn for installs.
+- Do not run `pnpm dev`, `pnpm build`, `pnpm deploy`, `pnpm preview`, `pnpm lint`, or `pnpm check` unless the user asks.
+- Do not edit generated/build output: `convex/_generated/`, `env.d.ts`, `.next/`, `.open-next/`, `.wrangler/`, `tsconfig.tsbuildinfo`.
+- Do not edit lockfiles unless the task intentionally changes dependencies.
+- Convex actions cannot use `ctx.db`; use `ctx.runQuery` / `ctx.runMutation`.
+- Keep Oracle safety rules hardcoded and server-enforced. Admin settings must not be able to override crisis/safety behavior.
 
-## Scripts (NEVER run unless asked)
+## Stack Snapshot
 
-```
-pnpm dev          # Next dev server
-pnpm build        # Standard Next build (NOT for CF deploy)
-pnpm deploy       # CF: opennextjs-cloudflare build + deploy
-pnpm preview      # CF: build + local preview
-pnpm lint         # ESLint
-check             # build + tsc
-```
+- Next.js App Router, React 19, Tailwind v4, shadcn/Radix, motion.
+- Convex for backend, database, auth, actions, crons, and HTTP endpoints.
+- `@convex-dev/auth` with email and Google One Tap.
+- Astrology calculations use `astronomy-engine` plus local astrology modules.
+- Cloudflare Workers deploy through `@opennextjs/cloudflare`.
+- Oracle LLM routing is multi-provider, configured through Convex/admin settings.
 
-## Project Layout
+## Where To Look First
 
-```
-src/app/                    # Next.js App Router pages
-  (shell)/                  # Authenticated shell layout (sidebar, nav)
-    dashboard/              # Main dashboard
-    horoscopes/[sign]/[date]/ # Daily horoscopes per sign
-    learn/{signs,planets,houses,aspects,elements}/ # Astrology 101
-    settings/               # User settings
-    pricing/                # Tier page
-    [username]/             # Public profile
-  admin/                    # Admin panel (oracle, journal, horoscope, ban, AI, notifications)
-  oracle/chat/[sessionId]/  # AI Oracle chat
-  journal/{new,calendar,search,stats,[entryId]}/ # Journaling
-  onboarding/               # Sign-up flow
-  invite/[username]/        # Viral referral pages
+- Oracle UI routes: `src/app/(app)/oracle/`
+- Oracle UI components: `src/components/oracle/`
+- Oracle backend: `convex/oracle/`
+- Oracle prompt, feature, safety, and provider client logic: `src/lib/oracle/` plus compatibility re-exports in `lib/oracle/`
+- Oracle docs: `docs/oracle/README.md` and `docs/oracle/00-MASTER-WIRING-GUIDE.md`
+- Auth: `convex/auth.ts`, `convex/auth/`, `src/app/(auth)/`
+- Journal: `convex/journal/`, `src/app/(app)/journal/`
+- Horoscopes: `convex/horoscopes/`, `src/app/(public)/horoscopes/`
+- Learn/Astrology 101: `src/app/(public)/learn/`, `src/components/learn/`
+- Admin tools: `src/app/(admin)/admin/`
+- Emails: `emails/`, `convex/email/`, `convex/emails/`
 
-convex/                     # Convex backend (ALL server logic)
-  schema.ts                 # DB schema (users, horoscopes, oracleSessions, journal, etc.)
-  crons.ts                  # Scheduled jobs (cosmic weather, horoscope gen, notifications)
-  auth.ts                   # Custom auth (Google One Tap authorize)
-  horoscopes/               # Daily horoscope gen pipeline
-  oracle/                   # AI Oracle: quota, sessions, LLM routing, synastry
-  journal/                  # Journal entries, prompts, search, stats
-  cosmicWeather.ts          # Daily planetary positions + felt language
-  users.ts, friends.ts, referrals.ts, notifications/
-  lib/                      # Shared: astronomyEngine, astrology/contextBuilder, signTraits
+## App Route Groups
 
-lib/oracle/                 # Client-side Oracle logic
-  features.ts               # Feature flags & gating
-  promptBuilder.ts           # Prompt assembly
-  safetyRules.ts             # Crisis detection keywords
-  soul.ts                    # Oracle personality/system prompt
-  providers.ts               # Provider config
-  intentRouter.ts            # Intent classification
-  pipelines/                 # Prompt pipeline chains
+- `src/app/(public)/`: marketing/public pages, learn, blog, pricing, horoscopes, profiles, legal.
+- `src/app/(app)/`: authenticated product app, Oracle, journal, dashboard/settings shell.
+- `src/app/(admin)/`: admin panels and operational tools.
+- `src/app/(auth)/`: sign in, sign up, password flows.
+- `src/app/(standalone)/`: onboarding and invite flows.
+- `src/app/api/`: Next route handlers.
 
-src/components/             # React components (ui/, oracle/, dashboard/, horoscopes/, learn/, etc.)
-docs/oracle/                # Oracle system docs (01-14 series, ORACLE_EXPLAINED.md)
-```
+## Oracle Mental Model
 
-## Key Architecture
+- Main LLM action: `convex/oracle/llm.ts` (`invokeOracle`).
+- Sessions/messages/quota/settings live in `convex/oracle/sessions.ts`, `quota.ts`, and `settings.ts`.
+- Provider fallback/routing lives in `convex/oracle/providerRouter.ts` plus provider config from admin settings.
+- Prompt assembly is pipeline-driven inside `invokeOracle`; pipeline definitions live under `src/lib/oracle/pipelines/`.
+- Intent classification starts in `src/lib/oracle/intentRouter.ts`.
+- Feature definitions and gating live in `src/lib/oracle/features.ts` and `src/lib/oracle/featureContext.ts`.
+- Safety/crisis detection lives in `lib/oracle/safetyRules.ts` and `lib/oracle/responseSafety.ts`.
+- Birth chart, synastry, journal recall, and binaural beats are feature/pipeline concepts. Binaural beats can bypass the LLM path.
+- Birth data is pipeline-gated: inject it only when a pipeline declares it needs birth data.
+- Journal context is both pipeline-gated and consent-gated; enforce this on the server.
+- Synastry uses role/name-based language, not "Chart A" / "Chart B" in user-facing output.
+- Admin observability is split between the live Oracle debug panel and `/admin/oracle/debug`.
 
-### Convex Contexts
-- **Queries** (`ctx.db`): Sync reads, run in mutation context
-- **Mutations** (`ctx.db`): Sync writes, transactional
-- **Actions** (`ctx.runQuery/runMutation`): Async, can call external APIs, NO `ctx.db` direct access
-- Auth `authorize` runs in **action context** — must use `ctx.runMutation`, NOT `ctx.db`
+## Convex Rules
 
-### Oracle (AI Chat)
-- Multi-provider LLM routing: request → intentRouter → providerRouter → stream
-- Pipeline: promptBuilder assembles system prompt from soul + birth chart + journal context + safety
-- Quota per user tier (free/popular/premium)
-- Session-based chat with message history in Convex
+- Queries and mutations can use `ctx.db`.
+- Actions cannot use `ctx.db` directly.
+- Auth `authorize` runs in action context; use `ctx.runMutation`, not `ctx.db`.
+- Convex index names must match schema exactly. Auth lookups use `providerAndAccountId`, not `provider_accountId`.
+- Keep server-authoritative checks on the server: quota, safety, journal consent, admin authorization, and prompt assembly.
 
-### Horoscope Generation
-- Cron at 02:00 UTC queues all 12 signs (30s stagger)
-- Pipeline: computeDailyContext (planetary positions) → prompt → generateForSign → store
-- Manual trigger: `triggerDailyGeneration` action in Convex dashboard
+## Build And Deploy Notes
 
-### Cosmic Weather
-- Cron at 00:05 UTC computes planetary positions via astronomy-engine
-- Cron at 00:10 UTC generates "felt language" prose from positions
+- Standard Next build: `pnpm build`.
+- Cloudflare build/deploy path: `opennextjs-cloudflare build` / `pnpm deploy`.
+- Cloudflare deploys need OpenNext output, not only a plain Next build.
+- Production config is split between `.env.local` for local development and `wrangler.jsonc` vars for Worker deploys.
 
-### Auth
-- @convex-dev/auth with Google One Tap + email
-- One Tap `authorize` is an **action** (no `ctx.db`), uses `ctx.runMutation` for user creation
-- Index for auth lookups: `providerAndAccountId` (NOT `provider_accountId`)
+## Repo Conventions
 
-## Deployment
+- TypeScript strict; avoid `any` unless there is a narrow reason.
+- shadcn-ui primitives live in `src/components/ui/`.
+- Page-local React pieces should go in route-local `_components/` folders when the route already uses that pattern.
+- Shared frontend/client logic goes in `lib/`.
+- Shared Convex/server logic goes in `convex/lib/`.
+- Keep large architecture explanations in `docs/`; keep this file short and navigational.
 
-- Live: **stars.guide** on Cloudflare Workers
-- Convex: `convex.stars.guide` (backend), `convex-site.stars.guide` (HTTP)
-- Build for CF: `opennextjs-cloudflare build` (NOT `next build` alone)
-- Env vars in `.env.local` (dev) + wrangler.jsonc `vars` (prod)
+## Known Pitfalls
 
-## Conventions
-
-- TypeScript strict, no `any` unless unavoidable
-- shadcn-ui components in `src/components/ui/`
-- Convex functions: one file per domain, helpers in same dir or `lib/`
-- Routes use App Router conventions: `_components/` for page-local components
-- `lib/` = shared client logic, `convex/lib/` = shared server logic
-
-## Pitfalls
-
-- `convex/` actions cannot use `ctx.db` — always `ctx.runQuery`/`ctx.runMutation`
-- Google One Tap GIS API: `isNotDisplayed()` (NOT `isNotDisplayedMoment()`)
-- CF deploy needs opennextjs-cloudflare build, not plain `next build`
-- Convex index names must match schema exactly (e.g., `providerAndAccountId`)
-- `pnpm` only — no npm/yarn
+- Google One Tap GIS uses `isNotDisplayed()`, not `isNotDisplayedMoment()`.
+- The README is still mostly Cloudflare starter text; prefer this file, `package.json`, and `docs/` for project-specific guidance.
+- Some older Oracle docs may reference pre-route-group paths or `src/lib/oracle`; verify against current files before editing.

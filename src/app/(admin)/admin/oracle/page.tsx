@@ -28,7 +28,6 @@ export default function OracleOverviewPage() {
   const getSetting = (key: string) => settings.find((setting) => setting.key === key)?.value;
   const oracleEnabled = getSetting("kill_switch") !== "true";
   const maxResponseTokens = getSetting("max_response_tokens") ?? "1000";
-  const modelA = getSetting("model_a") ?? "google/gemini-2.5-flash";
   const soulDoc = getSetting("oracle_soul");
   const soulUpdateSetting = settings.find((s) => s.key === "oracle_soul");
 
@@ -40,7 +39,7 @@ export default function OracleOverviewPage() {
           <div>
             <h1 className="text-2xl font-serif font-bold">Oracle CMS</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Manage the Oracle soul document, runtime controls, and provider configuration.
+              Manage the Oracle soul document, runtime controls, safety copy, and quotas.
             </p>
           </div>
         </div>
@@ -66,7 +65,7 @@ export default function OracleOverviewPage() {
           <CardContent>
             <div className="text-3xl font-bold">{maxResponseTokens}</div>
             <p className="mt-1 text-xs text-muted-foreground">
-              max tokens on {modelA.split("/").pop()}
+              max response tokens
             </p>
           </CardContent>
         </Card>
@@ -135,7 +134,7 @@ export default function OracleOverviewPage() {
                 href: "/admin/oracle/settings",
                 icon: Settings,
                 title: "Settings",
-                copy: "Soul document, providers, model, limits, quotas, and ops.",
+                copy: "Soul document, limits, quotas, safety copy, and ops.",
               },
             ].map((item) => (
               <Link key={item.href} href={item.href} className="group">

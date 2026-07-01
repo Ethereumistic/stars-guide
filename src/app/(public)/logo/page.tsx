@@ -1,9 +1,10 @@
-import { GiStarSwirl } from "react-icons/gi";
+import { Logo } from "@/components/ui/logo-gradient";
 
 export default function LogoPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background relative z-10">
-      <GiStarSwirl className="text-primary text-[666px]" />
+      <Logo variant="logomark" className="[&_svg:not(:first-child)]:!text-[666px]" />
     </div>
   );
 }
+

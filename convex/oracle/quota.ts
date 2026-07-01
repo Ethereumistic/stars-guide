@@ -21,7 +21,8 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { api, internal } from "../_generated/api";
+
+const { internal } = require("../_generated/api") as any;
 
 // ─── Default burst budgets (microdollars) ─────────────────────────────────────
 const DEFAULT_BURST_BUDGETS: Record<string, number> = {

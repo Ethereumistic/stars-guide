@@ -11,13 +11,14 @@
  */
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
 import { render } from "@react-email/render";
 import React from "react";
 import { WelcomeEmail } from "../../emails/WelcomeEmail";
 import { DailyHoroscopeEmail } from "../../emails/DailyHoroscopeEmail";
 import { WeeklyCosmicEmail } from "../../emails/WeeklyCosmicEmail";
 import { ReengagementEmail } from "../../emails/ReengagementEmail";
+
+const { internal } = require("../_generated/api") as any;
 
 // ─── Internal Queries ─────────────────────────────────────────────────────────
 

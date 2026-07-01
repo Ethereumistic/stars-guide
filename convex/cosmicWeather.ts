@@ -8,9 +8,26 @@
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { query, action } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+import { makeFunctionReference } from "convex/server";
 import { computeSnapshot, getMoonPhaseFrame } from "./lib/astronomyEngine";
 import { requireAdmin } from "./lib/adminGuard";
+
+const { internal } = require("./_generated/api") as any;
+const invokeAIGatewayRef = makeFunctionReference<"action", {
+    feature: string;
+    mode?: "chat" | "json" | "stream" | "embedding" | "image";
+    messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+    overrides?: {
+        temperature?: number;
+        maxTokens?: number;
+        thinkingMode?: "auto" | "disabled" | "low" | "medium" | "high";
+    };
+}, {
+    content: string;
+    providerId: string;
+    model: string;
+    tier: string;
+}>("aiGateway/runtime:invokeAIGateway");
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INTERNAL FUNCTIONS (used by cron + AI generation action)
@@ -143,18 +160,6 @@ export const generateFeltLanguage = internalAction({
             return;
         }
 
-        // Resolve provider from oracle_settings (fallback to OpenRouter)
-        const providersRaw = (await ctx.runQuery(internal.aiQueries.getOracleProvidersConfig, {})) ?? undefined;
-        const { parseProvidersConfig, resolveProvider, callLLMEndpoint } = await import("./lib/llmProvider");
-        const providers = parseProvidersConfig(providersRaw);
-        const provider = resolveProvider(providers);
-
-        const apiKey = process.env[provider.apiKeyEnvVar];
-        if (!apiKey && provider.type !== "ollama") {
-            console.error(`API key ${provider.apiKeyEnvVar} not set, cannot generate felt language.`);
-            return;
-        }
-
         // Build the translation prompt
         const moonFrame = getMoonPhaseFrame(snapshot.moonPhase.name);
 
@@ -170,9 +175,9 @@ export const generateFeltLanguage = internalAction({
             : "No exact aspects today.";
 
         try {
-            const { content } = await callLLMEndpoint({
-                provider,
-                model: "google/gemini-2.5-flash-lite",
+            const { content, providerId, model } = await ctx.runAction(invokeAIGatewayRef, {
+                feature: "cosmic_weather_felt_language",
+                mode: "chat",
                 messages: [
                     {
                         role: "system",
@@ -197,16 +202,18 @@ Retrogrades: ${retroLine}
 Moon Phase Frame: ${moonFrame}`,
                     },
                 ],
-                temperature: 0.4,
-                maxTokens: 300,
-                title: "Stars.Guide Felt Language",
+                overrides: {
+                    temperature: 0.4,
+                    maxTokens: 300,
+                    thinkingMode: "disabled",
+                },
             });
 
             await ctx.runMutation(internal.cosmicWeather.storeFeltLanguage, {
                 date,
                 feltLanguage: (content ?? "").trim(),
             });
-            console.log(`Felt language generated for ${date} via ${provider.name}`);
+            console.log(`Felt language generated for ${date} via ${providerId}/${model}`);
         } catch (err) {
             console.error(`Failed to generate felt language for ${date}:`, err);
         }

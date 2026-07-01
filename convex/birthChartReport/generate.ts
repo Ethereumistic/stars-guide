@@ -2,7 +2,6 @@
 
 import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { internal } from "../_generated/api";
 import { callLLMEndpoint } from "../lib/llmProvider";
 import { selectProvider, releaseProvider } from "../oracle/providerRouter";
 import {
@@ -16,6 +15,8 @@ import {
   renderBirthChartReportMarkdown,
   validateBirthChartReportV2,
 } from "./v2";
+
+const { internal } = require("../_generated/api") as any;
 
 export async function generateAndSaveReport(ctx: ActionCtx, userId: Id<"users">) {
   const user = await ctx.runQuery(internal.birthChartReport.mutations.getUserForReport, { userId });

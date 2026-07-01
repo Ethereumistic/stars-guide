@@ -21,7 +21,6 @@
 
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
 import { z } from "zod";
 import {
     parseProvidersConfig,
@@ -32,6 +31,8 @@ import {
     type ProviderType,
 } from "../lib/llmProvider";
 import { buildHoroscopePrompt, VERSION as PROMPT_VERSION, type DailyAstrologyContext } from "./prompt";
+
+const { internal } = require("../_generated/api") as any;
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 

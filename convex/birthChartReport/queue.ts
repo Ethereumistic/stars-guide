@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 import { action, internalMutation, internalQuery, mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { internal } from "../_generated/api";
+
+const { internal } = require("../_generated/api") as any;
 
 const profilingAnswersValidator = v.object({
   // Legacy v1 fields kept so existing reports/documents remain valid.

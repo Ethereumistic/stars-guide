@@ -14,10 +14,11 @@
  */
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
 import { computeSnapshot, buildRetrogradeContext, type RetrogradePlanetDetail } from "../lib/astronomyEngine";
 import { buildContext } from "../lib/astrology/contextBuilder";
 import * as Astronomy from "astronomy-engine";
+
+const { internal } = require("../_generated/api") as any;
 
 // ─── Internal Query — fetch raw cosmic weather ──────────────────────────────
 
@@ -361,7 +362,13 @@ export const computeDailyContext = internalAction({
         const cachedWindows = await ctx.runQuery(
             internal.horoscopes.computeDailyContext.getCachedRetrogradeWindows,
             { computedForDate: date },
-        );
+        ) as Array<{
+            planet: string;
+            windowType: "current" | "next";
+            startDate: string;
+            endDate: string;
+            totalDays: number;
+        }>;
 
         let retrogradePlanets: RetrogradePlanetDetail[];
         let retroContext: { current: string[]; upcoming: string[]; recentDirect: string[] };

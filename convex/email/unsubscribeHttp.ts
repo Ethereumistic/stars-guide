@@ -9,8 +9,11 @@
  * Registered in convex/http.ts.
  */
 import { httpAction } from "../_generated/server";
-import { internal } from "../_generated/api";
-import { api } from "../_generated/api";
+import { makeFunctionReference } from "convex/server";
+
+const verifyAndUnsubscribeRef = makeFunctionReference<"action", { token: string }, any>(
+    "email/unsubscribeActions:verifyAndUnsubscribe",
+);
 
 export const unsubscribeHandler = httpAction(async (ctx, request) => {
     const url = new URL(request.url);
@@ -50,7 +53,7 @@ export const unsubscribeHandler = httpAction(async (ctx, request) => {
         }
 
         try {
-            const result: any = await ctx.runAction(api.email.unsubscribeActions.verifyAndUnsubscribe, {
+            const result: any = await ctx.runAction(verifyAndUnsubscribeRef, {
                 token: finalToken!,
             });
 

@@ -6,7 +6,8 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAdmin } from "../lib/adminGuard";
-import { internal } from "../_generated/api";
+
+const { internal } = require("../_generated/api") as any;
 
 // ─── QUERIES ──────────────────────────────────────────────────────────────
 
