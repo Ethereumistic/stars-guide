@@ -47,7 +47,7 @@ export default function OracleSettingsPage() {
   const settings = useQuery(api.oracle.settings.listAllSettings);
   const upsertSetting = useMutation(api.oracle.settings.upsertSetting);
 
-  const [soulDoc, setSoulDoc] = React.useState(DEFAULT_ORACLE_SOUL);
+  const [soulDoc, setSoulDoc] = React.useState<string>(DEFAULT_ORACLE_SOUL);
   const [maxResponseTokens, setMaxResponseTokens] = React.useState(MAX_RESPONSE_TOKENS_DEFAULT);
   const [maxContextMessages, setMaxContextMessages] = React.useState(MAX_CONTEXT_MESSAGES_DEFAULT);
   const [fallbackResponse, setFallbackResponse] = React.useState("");

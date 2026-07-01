@@ -92,7 +92,10 @@ export function AIModelPicker({
   layout = "grid",
 }: AIModelPickerProps) {
   // ── Load providers from oracle_settings ──
-  const settings = useQuery(api.oracle.settings.listAllSettings);
+  // @ts-ignore - TS2589: Convex generated type instantiation is excessively deep
+  const settings = useQuery(api.oracle.settings.listAllSettings) as
+    | Array<{ key: string; value: string }>
+    | undefined;
 
   const providers: ProviderConfig[] = React.useMemo(() => {
     if (providerSource === "explicit") {

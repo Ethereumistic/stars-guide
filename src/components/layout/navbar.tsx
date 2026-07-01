@@ -113,12 +113,14 @@ const notificationTypeLabels: Record<string, string> = {
 };
 
 function UserMenuNotifications() {
+  // @ts-ignore - TS2589: Convex generated type instantiation is excessively deep
   const notifications = useQuery(api.notifications.queries.list);
   const markRead = useMutation(api.notifications.queries.markRead);
   const markAllRead = useMutation(api.notifications.queries.markAllRead);
   const dismissNotification = useMutation(
     api.notifications.queries.dismissNotification,
   );
+  // @ts-ignore - TS2589: Convex generated type instantiation is excessively deep
   const unreadCount = useQuery(api.notifications.queries.unreadCount) ?? 0;
   const hasNotifications = notifications && notifications.length > 0;
   const [open, setOpen] = React.useState(false);
@@ -233,12 +235,14 @@ function UserMenuNotifications() {
 
 function MobileNotifications() {
   const [open, setOpen] = React.useState(false);
+  // @ts-ignore - TS2589: Convex generated type instantiation is excessively deep
   const notifications = useQuery(api.notifications.queries.list);
   const markRead = useMutation(api.notifications.queries.markRead);
   const markAllRead = useMutation(api.notifications.queries.markAllRead);
   const dismissNotification = useMutation(
     api.notifications.queries.dismissNotification,
   );
+  // @ts-ignore - TS2589: Convex generated type instantiation is excessively deep
   const unreadCount = useQuery(api.notifications.queries.unreadCount) ?? 0;
   const hasNotifications = notifications && notifications.length > 0;
 
@@ -374,6 +378,7 @@ export function Navbar() {
   const { user: currentUser } = useUserStore();
   const isAuthenticated = isAuthConvex && !!currentUser;
   const hasBirthData = !!currentUser?.birthData;
+  // @ts-ignore - TS2589: Convex generated type instantiation is excessively deep
   const unreadCount = useQuery(api.notifications.queries.unreadCount) ?? 0;
 
   // CTA logic based on auth and birthData
