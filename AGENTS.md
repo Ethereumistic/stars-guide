@@ -15,7 +15,7 @@ Astrology education web app at stars.guide. The main product surface is the Orac
 
 - Next.js App Router, React 19, Tailwind v4, shadcn/Radix, motion.
 - Convex for backend, database, auth, actions, crons, and HTTP endpoints.
-- `@convex-dev/auth` with email and Google One Tap.
+- `@convex-dev/auth` with email and Google One Tap, X OAuth and Facebook OAuth.
 - Astrology calculations use `astronomy-engine` plus local astrology modules.
 - Cloudflare Workers deploy through `@opennextjs/cloudflare`.
 - Oracle LLM routing is multi-provider, configured through Convex/admin settings.

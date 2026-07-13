@@ -1,7 +1,3 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { Redirect } from "@/components/redirect";
-
-export default function JournalCalendarPage() {
-    return <Redirect to="/journal?tab=calendar" />;
-}
+export default function JournalCalendarPage() { redirect("/journal?tab=calendar"); }

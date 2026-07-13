@@ -1,5 +1,7 @@
 # Horoscope Generation Pipeline — Full End-to-End Guide
 
+> Routing status, 2026-07-10: horoscope generation uses the `horoscope_generation` AI Gateway profile. Any later references to `oracle_settings.providers_config` describe the retired implementation and are retained only as historical context.
+
 ## Overview
 
 The Stars.Guide daily horoscope pipeline is a fully automated, astronomy-engine–driven system that generates personalized, jargon-free horoscope content for all 12 zodiac signs every day. No manual gates are required — the system computes, generates, stores, and serves content via Convex cron jobs and actions.

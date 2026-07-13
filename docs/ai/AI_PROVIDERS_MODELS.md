@@ -1,5 +1,7 @@
 # AI Providers & Models — Architecture Guide
 
+> Current status, 2026-07-10: `/admin/ai` and the AI Gateway tables are the only active source of provider/model routing. Oracle chat uses gateway streaming. Legacy `oracle_settings` provider/model keys are migration or read-only debug data only; no active feature reads them. The older implementation notes below are retained solely as historical migration context.
+
 > This document is the single source of truth for understanding how AI providers
 > and models are configured, stored, resolved, and used across the application.
 > If you are an AI agent modifying anything related to LLM calls, provider

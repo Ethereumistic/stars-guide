@@ -43,7 +43,7 @@ export function HoroscopeModelSelector({
       showProvider={showProvider}
       showWarnings={true}
       disabled={disabled}
-      providerSource="oracle_settings"
+      providerSource="explicit"
     />
   );
 }

@@ -86,8 +86,8 @@ export const updateBirthData = mutation({
             throw new Error("Not authenticated");
         }
 
-        await ctx.db.patch(userId, {
-            birthData: {
+        const userBeforeUpdate = await ctx.db.get(userId);
+        const birthData = {
                 date: args.date,
                 time: args.time,
                 timezone: args.timezone,
@@ -96,7 +96,18 @@ export const updateBirthData = mutation({
                 location: args.location,
                 placements: args.placements,
                 chart: args.chart,
-            },
+            };
+
+        await ctx.db.patch(userId, {
+            birthData,
+            ...(userBeforeUpdate?.birthChartReport ? {
+                birthChartReport: {
+                    status: "pending" as const,
+                    onboardingStep: "questionnaire" as const,
+                    profilingAnswers: userBeforeUpdate.birthChartReport.profilingAnswers,
+                    oracleSessionId: userBeforeUpdate.birthChartReport.oracleSessionId,
+                },
+            } : {}),
         });
 
         const pendingReferral = await ctx.db

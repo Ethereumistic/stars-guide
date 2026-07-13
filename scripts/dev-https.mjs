@@ -24,7 +24,7 @@
  *     → Authorized JavaScript origins: add https://<your-tunnel-url>
  */
 
-import { execSync, spawn } from "node:child_process";
+import { execFileSync, execSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,6 +35,8 @@ const ROOT = path.resolve(__dirname, "..");
 
 // ── Configuration ────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.PORT || "3001", 10);
+const TUNNEL_URL_ENV = "SITE_URL";
+const PRODUCTION_SITE_URL = "https://stars.guide";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -55,22 +57,20 @@ function checkCloudflared() {
 }
 
 /**
- * Parse Convex connection params (url + admin-key) from the project.
- *
- * Priority:
- *  1. CONVEX_SELF_HOSTED_URL + CONVEX_DEPLOY_KEY env vars
- *  2. .env.convex.commands reference file
- *  3. .env.local (CONVEX_DEPLOY_KEY env var)
+ * Resolve the hosted deployment to update. `convex env --prod` only works
+ * after `convex dev` has configured a checkout. The deployment name can be
+ * derived from NEXT_PUBLIC_CONVEX_URL for the normal hosted Convex setup.
  */
-function getConvexFlags() {
-  // Check env vars first (fastest path)
-  const envUrl = process.env.CONVEX_SELF_HOSTED_URL;
-  const envKey = process.env.CONVEX_DEPLOY_KEY;
-  if (envUrl && envKey) {
-    return { url: envUrl, adminKey: envKey };
+function getConvexTarget() {
+  if (process.env.CONVEX_SELF_HOSTED_URL && process.env.CONVEX_SELF_HOSTED_ADMIN_KEY) {
+    return {
+      type: "self-hosted",
+      url: process.env.CONVEX_SELF_HOSTED_URL,
+      adminKey: process.env.CONVEX_SELF_HOSTED_ADMIN_KEY,
+    };
   }
+  if (process.env.CONVEX_DEPLOYMENT) return { type: "hosted", deployment: process.env.CONVEX_DEPLOYMENT };
 
-  // Read from .env.local for env vars
   try {
     const envLocal = fs.readFileSync(path.join(ROOT, ".env.local"), "utf-8");
     const parsed = {};
@@ -78,63 +78,47 @@ function getConvexFlags() {
       const trimmed = line.trim();
       if (trimmed.startsWith("#") || !trimmed.includes("=")) continue;
       const match = trimmed.match(/^([A-Z_]+)\s*=\s*(.+)$/);
-      if (match) parsed[match[1]] = match[2].trim();
+      if (match) parsed[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, "");
     }
-    const url = parsed.CONVEX_SELF_HOSTED_URL;
-    const key = parsed.CONVEX_DEPLOY_KEY;
-    if (url && key) return { url, adminKey: key };
-  } catch { /* fall through */ }
+    if (parsed.CONVEX_SELF_HOSTED_URL && parsed.CONVEX_SELF_HOSTED_ADMIN_KEY) {
+      return { type: "self-hosted", url: parsed.CONVEX_SELF_HOSTED_URL, adminKey: parsed.CONVEX_SELF_HOSTED_ADMIN_KEY };
+    }
+    if (parsed.CONVEX_DEPLOYMENT) return { type: "hosted", deployment: parsed.CONVEX_DEPLOYMENT };
 
-  // Parse the reference file that the project set up
-  try {
-    const cmdFile = fs.readFileSync(
-      path.join(ROOT, ".env.convex.commands"),
-      "utf-8",
-    );
-    const urlMatch = cmdFile.match(/--url\s+(\S+)/);
-    const keyMatch = cmdFile.match(/--admin-key\s+("([^"]+)"|(\S+))/);
-    if (urlMatch && keyMatch) {
-      return {
-        url: urlMatch[1],
-        adminKey: keyMatch[2] || keyMatch[3],
-      };
-    }
+    const hostname = new URL(parsed.NEXT_PUBLIC_CONVEX_URL).hostname;
+    const match = hostname.match(/^([^.]+)\.convex\.cloud$/);
+    if (match) return { type: "hosted", deployment: match[1] };
   } catch { /* fall through */ }
 
   return null;
 }
 
-/**
- * Build the full `npx convex env <subcmd>` string with the right flags.
- */
-function convexEnvCmd(subcmd) {
-  const flags = getConvexFlags();
-  if (flags) {
-    return `npx convex env ${subcmd} --url "${flags.url}" --admin-key "${flags.adminKey}"`;
-  }
-  const isProd = isProdDeployment();
-  return `npx convex env ${subcmd}${isProd ? " --prod" : ""}`;
+function convexEnvArgs(subcmd, ...args) {
+  const target = getConvexTarget();
+  return ["env", subcmd, ...args, ...(target?.type === "hosted" ? ["--deployment-name", target.deployment] : [])];
 }
 
-/**
- * Detect whether the project uses a production Convex deployment.
- */
-function isProdDeployment() {
-  try {
-    const envLocal = fs.readFileSync(path.join(ROOT, ".env.local"), "utf-8");
-    const lines = envLocal.split("\n");
-    let convexUrl = "";
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith("#")) continue;
-      const match = trimmed.match(/^NEXT_PUBLIC_CONVEX_URL\s*=\s*(.+)$/);
-      if (match) convexUrl = match[1].trim();
-    }
-    if (!convexUrl) return false;
-    return !convexUrl.includes("127.0.0.1") && !convexUrl.includes("localhost");
-  } catch {
-    return false;
+function convexCommandText(args) {
+  return `node node_modules/convex/bin/main.js ${args.map((arg) => JSON.stringify(arg)).join(" ")}`;
+}
+
+function runConvexEnv(subcmd, ...args) {
+  const commandArgs = convexEnvArgs(subcmd, ...args);
+  const target = getConvexTarget();
+  if (!target) {
+    throw new Error(
+      "No Convex target configured. Set CONVEX_DEPLOYMENT for Convex Cloud, " +
+      "or CONVEX_SELF_HOSTED_URL and CONVEX_SELF_HOSTED_ADMIN_KEY for self-hosted Convex.",
+    );
   }
+  return execFileSync(process.execPath, ["node_modules/convex/bin/main.js", ...commandArgs], {
+    cwd: ROOT,
+    encoding: "utf-8",
+    stdio: ["ignore", "pipe", "pipe"],
+    env: target?.type === "self-hosted"
+      ? { ...process.env, CONVEX_SELF_HOSTED_URL: target.url, CONVEX_SELF_HOSTED_ADMIN_KEY: target.adminKey }
+      : process.env,
+  });
 }
 
 /**
@@ -173,18 +157,22 @@ async function getTunnelUrl(cloudflared) {
 /**
  * Set DEVELOPMENT_URL on the Convex deployment.
  */
-function setDevUrl(url) {
-  const cmd = convexEnvCmd(`set DEVELOPMENT_URL "${url}"`);
+function setTunnelSiteUrl(url) {
   try {
-    execSync(cmd, { stdio: "pipe", cwd: ROOT });
+    runConvexEnv("set", TUNNEL_URL_ENV, url);
     log("ok", `✓ Convex DEVELOPMENT_URL set to: ${url}`);
     return true;
   } catch (err) {
     log("err", "✗ Failed to set DEVELOPMENT_URL");
-    log("err", `  ${err.stderr?.toString().split("\n")[0] || err.message}`);
+    const details = [err.stdout, err.stderr, err.message]
+      .filter(Boolean)
+      .map((value) => value.toString().trim())
+      .filter(Boolean)
+      .join("\n");
+    log("err", `  ${details || "Convex CLI exited without an error message."}`);
     log("info", "");
     log("warn", "  Run manually:");
-    log("info", `    ${cmd}`);
+    log("info", `    ${convexCommandText(convexEnvArgs("set", TUNNEL_URL_ENV, url))}`);
     log("info", "");
     log("warn", "  Or set it via the Convex dashboard if the CLI doesn't connect.");
     return false;
@@ -194,10 +182,9 @@ function setDevUrl(url) {
 /**
  * Remove DEVELOPMENT_URL from the Convex deployment.
  */
-function removeDevUrl() {
-  const cmd = convexEnvCmd("rm DEVELOPMENT_URL");
+function restoreSiteUrl(previousValue) {
   try {
-    execSync(cmd, { stdio: "pipe", cwd: ROOT });
+    runConvexEnv("set", TUNNEL_URL_ENV, previousValue);
     log("ok", "✓ DEVELOPMENT_URL removed from Convex deployment");
   } catch {
     log("info", "  DEVELOPMENT_URL was not set (nothing to remove)");
@@ -266,19 +253,29 @@ async function main() {
   console.log();
 
   // ── Step 4: Set DEVELOPMENT_URL on Convex ───────────────────────────────
-  const convexFlags = getConvexFlags();
-  if (convexFlags) {
+  const convexTarget = getConvexTarget();
+  const convexFlags = convexTarget
+    ? { ...convexTarget, url: convexTarget.url ?? convexTarget.deployment }
+    : null;
+  if (convexFlags?.url) {
     log("ok", `✓ Using self-hosted Convex at: ${convexFlags.url}`);
   } else {
     log("warn", "⚠ Could not find Convex connection params.");
-    log("info", "  The script will try `npx convex env` with --prod.");
-    log("info", "  If that fails, set DEVELOPMENT_URL manually (see below).");
+    log("info", "  Add CONVEX_DEPLOYMENT for Convex Cloud, or CONVEX_SELF_HOSTED_URL");
+    log("info", "  and CONVEX_DEPLOY_KEY for your self-hosted Convex deployment.");
   }
 
-  log("info", "Setting DEVELOPMENT_URL on your Convex deployment...");
-  log("info", "(This tells Convex Auth to redirect OAuth callbacks to your tunnel)\n");
+  log("info", `Temporarily setting ${TUNNEL_URL_ENV} on your Convex deployment...`);
+  log("info", "(The original production URL will be restored when the tunnel stops)\n");
 
-  const didSet = setDevUrl(tunnelUrl);
+  const previousSiteUrl = PRODUCTION_SITE_URL;
+  let didSet = false;
+  try {
+    didSet = setTunnelSiteUrl(tunnelUrl);
+  } catch (err) {
+    log("err", `Could not update ${TUNNEL_URL_ENV}; the tunnel URL was not applied.`);
+    log("err", `  ${err.stderr?.toString().trim() || err.message}`);
+  }
 
   // ── Step 5: Print OAuth configuration instructions ──────────────────────
   console.log();
@@ -301,19 +298,15 @@ async function main() {
     log("warn", "  ⚠  Manual Step Required");
     log("warn", "═══════════════════════════════════════════════════════════");
     console.log();
-    log("warn", "  The script couldn't set DEVELOPMENT_URL automatically.");
+    log("warn", `  The script couldn't set ${TUNNEL_URL_ENV} automatically.`);
     log("warn", "  OAuth redirects will go to the production URL instead of");
     log("warn", "  your tunnel. Please set it manually:");
     console.log();
-    const cmd = convexFlags
-      ? `npx convex env set DEVELOPMENT_URL "${tunnelUrl}" --url "${convexFlags.url}" --admin-key "${convexFlags.adminKey}"`
-      : `npx convex env set DEVELOPMENT_URL "${tunnelUrl}" --prod`;
+    const cmd = convexCommandText(convexEnvArgs("set", TUNNEL_URL_ENV, tunnelUrl));
     log("info", `    ${cmd}`);
     console.log();
     log("warn", "  Don't forget to remove it when done:");
-    const rmCmd = convexFlags
-      ? `npx convex env rm DEVELOPMENT_URL --url "${convexFlags.url}" --admin-key "${convexFlags.adminKey}"`
-      : `npx convex env rm DEVELOPMENT_URL --prod`;
+    const rmCmd = `Restore ${TUNNEL_URL_ENV} to https://stars.guide in your Convex dashboard`;
     log("info", `    ${rmCmd}`);
     console.log();
   }
@@ -327,16 +320,12 @@ async function main() {
     log("warn", "Cleaning up...");
 
     if (didSet) {
-      log("info", "Removing DEVELOPMENT_URL from Convex deployment...");
-      removeDevUrl();
+      log("info", `Restoring ${TUNNEL_URL_ENV} on the Convex deployment...`);
+      restoreSiteUrl(previousSiteUrl);
     } else {
       log("info", "DEVELOPMENT_URL was not set automatically — if you set it");
       log("info", "manually, remember to remove it when done:");
-      if (convexFlags) {
-        log("info", `  npx convex env rm DEVELOPMENT_URL --url "${convexFlags.url}" --admin-key "${convexFlags.adminKey}"`);
-      } else {
-        log("info", "  npx convex env rm DEVELOPMENT_URL --prod");
-      }
+      log("info", `  Restore ${TUNNEL_URL_ENV} to ${previousSiteUrl || "https://stars.guide"}.`);
     }
 
     cloudflared.kill();
@@ -359,7 +348,10 @@ async function main() {
     // Start Next.js dev server directly
     log("info", "Starting Next.js dev server...");
     console.log();
-    const nextDev = spawn("npx", ["next", "dev", "-p", PORT.toString()], {
+    // Turbopack currently stalls indefinitely while compiling App Router
+    // routes in this workspace. Webpack is slower to start but reliably serves
+    // both local requests and the Cloudflare quick tunnel.
+    const nextDev = spawn("npx", ["next", "dev", "--webpack", "-p", PORT.toString()], {
       cwd: ROOT,
       stdio: "inherit",
       env: { ...process.env },

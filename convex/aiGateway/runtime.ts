@@ -14,6 +14,12 @@ const listEnabledProvidersInternal = makeFunctionReference<"query">(
 const logGatewayEventInternal = makeFunctionReference<"mutation">(
   "aiGateway/admin:logGatewayEventInternal",
 );
+const getProviderHealthInternal = makeFunctionReference<"query">(
+  "aiGateway/admin:getProviderHealthInternal",
+);
+const recordProviderHealthInternal = makeFunctionReference<"mutation">(
+  "aiGateway/admin:recordProviderHealthInternal",
+);
 
 type AIFeatureKey =
   | "oracle_chat"
@@ -109,6 +115,8 @@ export const invokeAIGateway = internalAction({
       role: v.union(v.literal("system"), v.literal("user"), v.literal("assistant")),
       content: v.string(),
     })),
+    // Diagnostic calls are logged but must not change live cooldown/health state.
+    diagnostic: v.optional(v.boolean()),
     overrides: v.optional(v.object({
       providerId: v.optional(v.string()),
       model: v.optional(v.string()),
@@ -133,6 +141,7 @@ export const invokeAIGateway = internalAction({
     tier: string;
     promptTokens?: number;
     completionTokens?: number;
+    durationMs?: number;
     raw?: unknown;
   }> => {
     const feature = args.feature as AIFeatureKey;
@@ -144,6 +153,8 @@ export const invokeAIGateway = internalAction({
       chainJson: string;
       temperature: number;
       maxTokens: number;
+      topP?: number;
+      timeoutMs: number;
       thinkingMode: ThinkingMode;
       label: string;
     } | null;
@@ -176,6 +187,16 @@ export const invokeAIGateway = internalAction({
       args.overrides?.providerId && args.overrides?.model
         ? [{ providerId: args.overrides.providerId, model: args.overrides.model }]
         : configuredChain;
+    const healthRows = await ctx.runQuery(getProviderHealthInternal, { featureKey: feature }) as Array<{
+      providerId: string;
+      model: string;
+      cooldownUntil?: number;
+    }>;
+    const cooldownByEntry = new Map(
+      healthRows
+        .filter((row) => row.cooldownUntil && row.cooldownUntil > Date.now())
+        .map((row) => [`${row.providerId}/${row.model}`, row.cooldownUntil as number]),
+    );
 
     if (chain.length === 0) {
       throw new Error(`AI feature profile "${feature}" has no valid model chain.`);
@@ -186,6 +207,21 @@ export const invokeAIGateway = internalAction({
       const entry = chain[index];
       const providerRow = providerById.get(entry.providerId);
       const tier = tierForIndex(index);
+      const cooldownUntil = cooldownByEntry.get(`${entry.providerId}/${entry.model}`);
+      if (cooldownUntil && !(args.overrides?.providerId && args.overrides?.model)) {
+        lastError = `Provider "${entry.providerId}" model "${entry.model}" is cooling down until ${new Date(cooldownUntil).toISOString()}.`;
+        await ctx.runMutation(logGatewayEventInternal, {
+          featureKey: feature,
+          mode,
+          providerId: entry.providerId,
+          model: entry.model,
+          tier,
+          status: "blocked",
+          errorType: "provider_cooldown",
+          errorMessage: lastError,
+        });
+        continue;
+      }
       if (!providerRow) {
         lastError = `Provider "${entry.providerId}" is missing or disabled.`;
         await ctx.runMutation(logGatewayEventInternal, {
@@ -209,7 +245,10 @@ export const invokeAIGateway = internalAction({
           model: entry.model,
           messages: args.messages as AIMessage[],
           temperature: args.overrides?.temperature ?? profile.temperature,
+          topP: args.overrides?.topP ?? profile.topP,
           maxTokens: args.overrides?.maxTokens ?? profile.maxTokens,
+          timeoutMs: args.overrides?.timeoutMs ?? profile.timeoutMs,
+          jsonMode: mode === "json",
           thinkingMode: (args.overrides?.thinkingMode ?? profile.thinkingMode) as ThinkingMode,
           title: `Stars.Guide ${profile.label}`,
         });
@@ -231,6 +270,14 @@ export const invokeAIGateway = internalAction({
           promptTokens: typeof promptTokens === "number" ? promptTokens : undefined,
           completionTokens: typeof completionTokens === "number" ? completionTokens : undefined,
         });
+        if (!args.diagnostic) {
+          await ctx.runMutation(recordProviderHealthInternal, {
+            featureKey: feature,
+            providerId: provider.id,
+            model: entry.model,
+            success: true,
+          });
+        }
         return {
           content,
           reasoning: result.reasoning,
@@ -239,6 +286,7 @@ export const invokeAIGateway = internalAction({
           tier,
           promptTokens: typeof promptTokens === "number" ? promptTokens : undefined,
           completionTokens: typeof completionTokens === "number" ? completionTokens : undefined,
+          durationMs,
           raw: result.raw,
         };
       } catch (error) {
@@ -256,6 +304,16 @@ export const invokeAIGateway = internalAction({
           errorMessage: classified.message.slice(0, 2000),
           durationMs,
         });
+        if (!args.diagnostic) {
+          await ctx.runMutation(recordProviderHealthInternal, {
+            featureKey: feature,
+            providerId: provider.id,
+            model: entry.model,
+            success: false,
+            errorType: classified.errorType,
+            errorMessage: classified.message,
+          });
+        }
         if (!classified.retryable) {
           break;
         }

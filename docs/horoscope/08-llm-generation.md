@@ -13,8 +13,8 @@ all 12 signs, but failure for one does not affect the others.
    └─ If missing, compute it now (fallback)
 3. Map DB record → DailyAstrologyContext type for prompt builder
 4. Build prompt via buildHoroscopePrompt({ sign, context })
-5. Resolve LLM provider from oracle_settings
-6. Call LLM with temperature=0.75, maxTokens=4096
+5. Invoke the `horoscope_generation` AI Gateway feature profile
+6. Let the gateway apply its configured model chain, health/cooldown, and telemetry
 7. Sanitize LLM output (strip markdown fences)
 8. Parse JSON
 9. Validate against HoroscopeContentSchema (Zod)
@@ -24,13 +24,7 @@ all 12 signs, but failure for one does not affect the others.
 
 ## LLM Provider Resolution
 
-1. Read `providers_config` from `oracle_settings` table
-2. Parse via `parseProvidersConfig()`
-3. **Prefer "ollama_cloud"** provider if available
-4. Fall back to first provider in the list
-5. Ultimate fallback: hardcode Ollama Cloud endpoint
-
-Default model: `"gemma3:27b"` (used regardless of provider)
+Provider selection, model order, fallback, health, cooldown, and attempt events are owned by the `horoscope_generation` profile in `/admin/ai`. Horoscope code supplies the prompt and validates/persists the result; it does not read Oracle provider settings.
 
 ## LLM Call Parameters
 

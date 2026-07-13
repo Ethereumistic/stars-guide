@@ -2,7 +2,6 @@ import { query, mutation, action, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { makeFunctionReference } from "convex/server";
 import { requireAdmin } from "./lib/adminGuard";
-import { callLLMEndpoint, type LLMProvider } from "./lib/llmProvider";
 
 const runGenerationJobRef = makeFunctionReference<"action", { jobId: string }, any>(
     "ai:runGenerationJob",
@@ -15,12 +14,6 @@ const synthesizeZeitgeistRef = makeFunctionReference<"action", { archetypes: str
 );
 const synthesizeEmotionalZeitgeistRef = makeFunctionReference<"action", { rawEvents: string; modelId: string; providerId?: string }, string>(
     "ai:synthesizeEmotionalZeitgeist",
-);
-const listEnabledProvidersRef = makeFunctionReference<"query">(
-    "aiGateway/admin:listEnabledProvidersInternal",
-);
-const logGatewayEventRef = makeFunctionReference<"mutation">(
-    "aiGateway/admin:logGatewayEventInternal",
 );
 const invokeAIGatewayRef = makeFunctionReference<"action">(
     "aiGateway/runtime:invokeAIGateway",
@@ -802,79 +795,38 @@ export const testLLMEndpointAction = action({
             throw new Error("UNAUTHORIZED: Admin access required");
         }
 
-        const providers = await ctx.runQuery(listEnabledProvidersRef, {}) as Array<{
-            providerId: string;
-            name: string;
-            type: string;
-            baseUrl: string;
-            apiKeyEnvVar: string;
-        }>;
-        const providerRow = providers.find((provider) => provider.providerId === args.providerId);
-        if (!providerRow) {
-            throw new Error(`Provider "${args.providerId}" is missing or disabled in AI Gateway.`);
-        }
-        const provider: LLMProvider = {
-            id: providerRow.providerId,
-            name: providerRow.name,
-            type: providerRow.type,
-            baseUrl: providerRow.baseUrl,
-            apiKeyEnvVar: providerRow.apiKeyEnvVar,
-        };
-
         const startTime = Date.now();
 
         try {
-            const { content, reasoning } = await callLLMEndpoint({
-                provider,
-                model: args.modelId,
-                messages: [
-                    { role: "user", content: args.prompt },
-                ],
-                temperature: 0.7,
-                maxTokens: 2048,
-                thinkingMode: args.thinkingMode as any,
-                title: "Stars.Guide AI Test",
-            });
+            const result = await ctx.runAction(invokeAIGatewayRef, {
+                feature: "ai_admin_test",
+                messages: [{ role: "user", content: args.prompt }],
+                overrides: {
+                    providerId: args.providerId,
+                    model: args.modelId,
+                    thinkingMode: args.thinkingMode,
+                },
+            }) as { content: string; reasoning?: string | null; providerId: string; model: string };
 
             const durationMs = Date.now() - startTime;
-            await ctx.runMutation(logGatewayEventRef, {
-                featureKey: "ai_admin_test",
-                mode: "chat",
-                providerId: provider.id,
-                model: args.modelId,
-                tier: "A",
-                status: "success",
-                durationMs,
-            });
 
             return {
                 success: true,
-                content,
-                reasoning,
+                content: result.content,
+                reasoning: result.reasoning,
                 error: null,
-                modelUsed: `${provider.id}/${args.modelId}`,
+                modelUsed: `${result.providerId}/${result.model}`,
                 thinkingModeUsed: args.thinkingMode,
                 durationMs,
             };
         } catch (error: any) {
             const durationMs = Date.now() - startTime;
-            await ctx.runMutation(logGatewayEventRef, {
-                featureKey: "ai_admin_test",
-                mode: "chat",
-                providerId: provider.id,
-                model: args.modelId,
-                tier: "A",
-                status: "failure",
-                errorType: "provider_error",
-                errorMessage: (error.message ?? String(error)).slice(0, 2000),
-                durationMs,
-            });
             return {
                 success: false,
                 content: null,
                 reasoning: null,
                 error: error.message ?? String(error),
-                modelUsed: `${provider.id}/${args.modelId}`,
+                modelUsed: `${args.providerId}/${args.modelId}`,
                 thinkingModeUsed: args.thinkingMode,
                 durationMs,
             };

@@ -22,7 +22,7 @@ Oracle, horoscope generation, cosmic weather felt-language generation, zeitgeist
 
 ## Current Status
 
-The gateway foundation exists, and admin control is now mostly centralized. Runtime migration is still incomplete.
+The gateway foundation exists, admin control is centralized, and non-streaming runtime migration is now mostly complete. Oracle chat still uses the existing Oracle streaming/persistence loop, but its runtime provider/model chain is now sourced from AI Gateway tables through `getPromptRuntimeSettingsInternal`.
 
 Implemented:
 
@@ -46,15 +46,9 @@ Implemented:
 
 Still incomplete:
 
-- Gateway streaming is not implemented.
-- Oracle chat streaming in `convex/oracle/llm.ts` still uses Oracle-owned provider/model fallback logic.
-- Birth chart report generation still uses Oracle runtime settings/model chains.
-- Zeitgeist synthesis and emotional translation/classification in `convex/ai.ts` still use legacy provider resolution and direct `callLLMEndpoint`.
-- Cosmic weather felt-language generation in `convex/cosmicWeather.ts` still uses legacy provider resolution and direct `callLLMEndpoint`.
-- New cron-based horoscope generation in `convex/horoscopes/generateForSign.ts` still resolves providers/models from `oracle_settings`, then runs its own fallback/backoff loop.
-- Old/admin horoscope generation code in `convex/ai.ts` appears to be legacy relative to the newer cron path, but it still contains live actions used by admin wrappers. Do not delete it until all call sites are verified.
-- `ai_provider_health` has not been added.
-- Legacy Oracle provider/model settings still exist for compatibility and some runtime paths.
+- Oracle chat now uses `streamAIGateway` callbacks. Oracle retains message persistence, prompt/title parsing, quota, safety scans, and user-facing recovery; the gateway owns provider/model selection, transport fallback, health, cooldown, and attempt telemetry.
+- Some debug/admin UI surfaces still display legacy Oracle provider/model settings for compatibility.
+- Legacy Oracle provider/model settings still exist as migration/debug fallback data.
 
 Update after migration slice on 2026-07-01:
 
@@ -63,6 +57,14 @@ Update after migration slice on 2026-07-01:
 - Migrated `synthesizeEmotionalZeitgeist` pass 1 to `emotional_translation` and pass 2 to `emotional_register_classification`.
 - Migrated `generateFeltLanguage` to `invokeAIGateway` with feature `cosmic_weather_felt_language`.
 - Updated the horoscope guide to reflect that the dedicated felt-language cron is disabled and felt language is consumed by `generateForSign` when present.
+- Added `ai_provider_health`, health recording, and cooldown-aware gateway routing.
+- Migrated active daily horoscope generation to `horoscope_generation`.
+- Migrated legacy/admin horoscope generation to `horoscope_generation`.
+- Migrated birth chart report generation and repair to `birth_chart_report`.
+- Migrated Oracle intent classification to `oracle_intent` with regex fallback preserved.
+- Added `streamAIGateway` helper for gateway-owned streaming selection, telemetry, health, and SSE parsing.
+- Updated Oracle runtime settings to prefer gateway providers/profiles for `oracle_chat`, `oracle_intent`, and `birth_chart_report`.
+- Redirected legacy `upsertProvidersConfig` to write `ai_providers` and the `oracle_chat` profile.
 
 ## Read First
 
@@ -138,16 +140,16 @@ The gateway currently calls `callLLMEndpoint` from this file. That is acceptable
   - `convex/horoscopes/queueDailyGenerations.ts`
   - `convex/crons.ts`
   - `docs/horoscope/HOROSCOPES_EXPLAINED.md`
-- Status: current lightweight cron-based generation path.
+- Status: current lightweight cron-based generation path. It now calls `invokeAIGateway` with feature `horoscope_generation`.
 - Important correction from older handoff: production daily horoscope generation is no longer best described as `convex/ai.ts`. The current doc says the daily cron queues `horoscopes/generateForSign:generateForSign`.
-- Current issue: `generateForSign.ts` still reads `oracle_settings.providers_config` and horoscope-specific Oracle settings, then builds its own fallback chain and retries.
+- Current issue: none for provider/model routing; `generateForSign.ts` no longer reads legacy provider/model settings.
 - Current improvement already present: `generateForSign.ts` now includes `cosmicWeather.feltLanguage` in the horoscope prompt when available, even though parts of the horoscope doc still describe it as stored but unused. Verify current code before changing the doc.
 
 ### Legacy/Admin Horoscope Path
 
 - File: `convex/ai.ts`
 - Status: legacy/admin generation job engine plus zeitgeist/emotional synthesis actions.
-- Contains older batch job code that reads providers from `oracle_settings` and calls `callLLMEndpoint` directly.
+- Provider/model routing for this path now goes through `horoscope_generation`.
 - Do not assume this path is dead. Verify call sites before removing or migrating.
 
 ### Zeitgeist And Emotional AI Paths
@@ -358,7 +360,7 @@ Acceptance:
 
 ### Phase D: Migrate New Horoscope Cron Generation
 
-Status: not done.
+Status: done in the 2026-07-01 migration slice.
 
 Files:
 
@@ -395,7 +397,7 @@ Acceptance:
 
 ### Phase E: Add Gateway Streaming
 
-Status: not done.
+Status: helper added in the 2026-07-01 migration slice; Oracle chat still needs full callback integration.
 
 Files:
 
@@ -424,7 +426,7 @@ Tasks:
 
 ### Phase F: Migrate Oracle Non-Chat Chains
 
-Status: not done.
+Status: done for Oracle intent and birth chart reports in the 2026-07-01 migration slice.
 
 Move these before full Oracle chat:
 
@@ -502,12 +504,6 @@ Keep a read-only migration/debug view temporarily if helpful.
 
 Best next implementation PR:
 
-1. Migrate `convex/horoscopes/generateForSign.ts` to `invokeAIGateway`.
-2. Preserve horoscope validation/recovery logic.
-3. Remove unused horoscope model/provider legacy helpers only after no call sites remain.
-
-Then:
-
-1. Implement gateway streaming robustly.
-2. Migrate Oracle non-chat chains.
-3. Migrate Oracle chat streaming last.
+1. Keep Oracle chat's `streamAIGateway` callback adapter narrow; do not move Oracle safety, persistence, quota, or prompt assembly into the gateway.
+2. Keep Oracle-owned safety, persistence, quota, refusal retry, output scan, title parsing, and timing behavior intact.
+3. Remove legacy Oracle provider/model debug surfaces once the streaming callback migration is verified.

@@ -12,6 +12,173 @@
 
 import type { SynastryPayload } from "./pipelineTypes";
 import { buildUniversalBirthContext } from "./featureContext";
+import type { StoredBirthData, StoredChartPlanet } from "../birth-chart/types";
+
+const CROSS_ASPECTS = [
+  { type: "conjunction", angle: 0, orb: 8 },
+  { type: "sextile", angle: 60, orb: 5 },
+  { type: "square", angle: 90, orb: 7 },
+  { type: "trine", angle: 120, orb: 7 },
+  { type: "opposition", angle: 180, orb: 8 },
+] as const;
+
+const PERSONAL_BODIES = new Set(["sun", "moon", "mercury", "venus", "mars", "ascendant"]);
+const ANGLES_AND_NODES = new Set(["ascendant", "north_node", "south_node"]);
+const TRADITIONAL_RULERS: Record<string, string> = {
+  aries: "mars", taurus: "venus", gemini: "mercury", cancer: "moon", leo: "sun", virgo: "mercury",
+  libra: "venus", scorpio: "mars", sagittarius: "jupiter", capricorn: "saturn", aquarius: "saturn", pisces: "jupiter",
+};
+
+function configuredOrb(defaultOrb: number, first: string, second: string): number {
+  if (ANGLES_AND_NODES.has(first) || ANGLES_AND_NODES.has(second)) return Math.min(defaultOrb, 5);
+  if (PERSONAL_BODIES.has(first) && PERSONAL_BODIES.has(second)) return defaultOrb;
+  if (PERSONAL_BODIES.has(first) || PERSONAL_BODIES.has(second)) return Math.min(defaultOrb, 6);
+  return Math.min(defaultOrb, 4);
+}
+
+function angularDistance(a: number, b: number): number {
+  const distance = Math.abs(a - b) % 360;
+  return Math.min(distance, 360 - distance);
+}
+
+function chartPoints(chart: StoredBirthData): Array<{ id: string; longitude: number }> {
+  const points = (chart.chart?.planets ?? [])
+    .filter((planet): planet is StoredChartPlanet => Number.isFinite(planet.longitude))
+    .map((planet) => ({ id: planet.id, longitude: planet.longitude }));
+  if (chart.chart?.ascendant && Number.isFinite(chart.chart.ascendant.longitude)) {
+    points.push({ id: "ascendant", longitude: chart.chart.ascendant.longitude });
+  }
+  return points;
+}
+
+function pointLabel(id: string): string {
+  return id.split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+}
+
+function chartRulerId(chart: StoredBirthData): string | null {
+  const risingSign = chart.chart?.ascendant?.signId;
+  return risingSign ? TRADITIONAL_RULERS[risingSign] ?? null : null;
+}
+
+function compositeMidpoint(a: number, b: number): number {
+  const delta = ((b - a + 540) % 360) - 180;
+  return (a + delta / 2 + 360) % 360;
+}
+
+function compositeLines(userChart: StoredBirthData, otherChart: StoredBirthData): string[] {
+  const signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
+  return ["sun", "moon", "venus", "mars"].flatMap((id) => {
+    const first = userChart.chart?.planets.find((planet) => planet.id === id);
+    const second = otherChart.chart?.planets.find((planet) => planet.id === id);
+    if (!first || !second || !Number.isFinite(first.longitude) || !Number.isFinite(second.longitude)) return [];
+    const longitude = compositeMidpoint(first.longitude, second.longitude);
+    return [`- Composite ${pointLabel(id)}: ${signs[Math.floor(longitude / 30)]} ${(longitude % 30).toFixed(2)}В° (shortest-arc midpoint)`];
+  });
+}
+
+function wholeSignOverlayLines(
+  userChart: StoredBirthData,
+  otherChart: StoredBirthData,
+  otherName: string,
+): string[] {
+  if (userChart.houseSystem !== "whole_sign" || otherChart.houseSystem !== "whole_sign") return [];
+  if (!userChart.chart?.houses.length || !otherChart.chart?.houses.length) return [];
+
+  const userHouseBySign = new Map(userChart.chart.houses.map((house) => [house.signId, house.id]));
+  const otherHouseBySign = new Map(otherChart.chart.houses.map((house) => [house.signId, house.id]));
+  const overlayBodies = new Set(["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn"]);
+  const lines: string[] = [];
+
+  for (const planet of otherChart.chart.planets.filter((item) => overlayBodies.has(item.id))) {
+    const house = userHouseBySign.get(planet.signId);
+    if (house) lines.push(`- ${otherName}'s ${pointLabel(planet.id)} falls in your House ${house}`);
+  }
+  for (const planet of userChart.chart.planets.filter((item) => overlayBodies.has(item.id))) {
+    const house = otherHouseBySign.get(planet.signId);
+    if (house) lines.push(`- Your ${pointLabel(planet.id)} falls in ${otherName}'s House ${house}`);
+  }
+  return lines;
+}
+
+/** Deterministic cross-chart evidence so the LLM never has to do aspect arithmetic. */
+export function buildSynastryComparisonContext(
+  userChart: StoredBirthData,
+  payload: SynastryPayload,
+): string | null {
+  const otherChart = payload.chartB as StoredBirthData | undefined;
+  if (!otherChart) return null;
+
+  const userPoints = chartPoints(userChart);
+  const otherPoints = chartPoints(otherChart);
+  if (!userPoints.length || !otherPoints.length) return null;
+
+  const connections: Array<{
+    user: string;
+    other: string;
+    aspect: string;
+    orb: number;
+    priority: number;
+    rulerContact: boolean;
+  }> = [];
+  const userRuler = chartRulerId(userChart);
+  const otherRuler = chartRulerId(otherChart);
+
+  for (const user of userPoints) {
+    for (const other of otherPoints) {
+      const separation = angularDistance(user.longitude, other.longitude);
+      for (const definition of CROSS_ASPECTS) {
+        const orb = Math.abs(separation - definition.angle);
+        if (orb <= configuredOrb(definition.orb, user.id, other.id)) {
+          const personalWeight = Number(PERSONAL_BODIES.has(user.id)) + Number(PERSONAL_BODIES.has(other.id));
+          const angleNodeWeight = Number(ANGLES_AND_NODES.has(user.id)) + Number(ANGLES_AND_NODES.has(other.id));
+          const rulerContact = user.id === userRuler || other.id === otherRuler;
+          connections.push({
+            user: user.id,
+            other: other.id,
+            aspect: definition.type,
+            orb,
+            priority: personalWeight * 10 + angleNodeWeight * 8 + Number(rulerContact) * 6 - orb,
+            rulerContact,
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  connections.sort((a, b) => b.priority - a.priority || a.orb - b.orb);
+  const name = payload.chartBName?.trim() || "the other person";
+  const lines = [
+    "[DETERMINISTIC SYNASTRY EVIDENCE]",
+    "These cross-chart aspects were calculated in code from canonical longitudes. Treat them as authoritative; do not calculate or invent additional cross-aspects.",
+  ];
+  if (!connections.length) {
+    lines.push("- No major cross-chart aspects were found within the configured orbs.");
+  } else {
+    lines.push(...connections.slice(0, 24).map((connection) =>
+      `- Your ${pointLabel(connection.user)} ${connection.aspect} ${name}'s ${pointLabel(connection.other)} (orb ${connection.orb.toFixed(2)}°)`,
+    ));
+  }
+  const overlays = wholeSignOverlayLines(userChart, otherChart, name);
+  if (overlays.length) {
+    lines.push("");
+    lines.push("Deterministic whole-sign house overlays:");
+    lines.push(...overlays);
+  }
+  if (userRuler || otherRuler) {
+    lines.push("");
+    lines.push(`Chart-ruler weighting: your ruler is ${userRuler ? pointLabel(userRuler) : "unavailable"}; ${name}'s ruler is ${otherRuler ? pointLabel(otherRuler) : "unavailable"}. Contacts involving either ruler are ranked higher.`);
+  }
+  const composite = compositeLines(userChart, otherChart);
+  if (composite.length) {
+    lines.push("", "Deterministic composite midpoint signatures (the relationship field, not either person's natal placement):", ...composite);
+  }
+  lines.push("Declination evidence: unavailable in the stored chart model. Do not claim parallels or contra-parallels.");
+  lines.push("Orb policy: luminary/personal contacts use the configured major-aspect defaults; Node/angle contacts are capped at 5 degrees, mixed contacts at 6 degrees, and outer-to-outer contacts at 4 degrees.");
+  lines.push("Evidence priority: lead with the tightest personal-planet or angle contacts, then repeated themes. Do not reduce the relationship to a compatibility score.");
+  lines.push("[END DETERMINISTIC SYNASTRY EVIDENCE]");
+  return lines.join("\n");
+}
 
 // ── Relationship label helpers ──────────────────────────────────────────────
 
@@ -130,10 +297,10 @@ export function getSynastryInstructions(
     `- For example, say "Your Sun conjuncts Alex's Moon" NOT "Chart A's Sun conjuncts Chart B's Moon".`,
     "",
     "APPROACH:",
-    "1. Compare planetary positions between charts — identify inter-chart aspects (e.g., the User's Sun conjunct their partner's Moon).",
+    "1. Use the supplied [DETERMINISTIC SYNASTRY EVIDENCE] for inter-chart aspects. Never perform approximate aspect arithmetic or invent an aspect from sign compatibility alone.",
     "2. Look at element and modality balance between the two charts.",
     "3. Identify areas of natural flow (trines, sextiles between charts) and friction (squares, oppositions).",
-    "4. Consider house overlays: where does each person's planets fall in the other's houses?",
+    "4. Discuss house overlays only when deterministic whole-sign overlays are explicitly supplied. Use them to describe which life area the connection activates; do not invent overlays from incomplete house data.",
     `5. The RELATIONSHIP TYPE is "${relationship}" (category: ${category ?? "general"}) — synastry reads differently for romantic partners vs. parent-child vs. business partners. Tailor your interpretation accordingly.`,
     "",
     "STRUCTURE YOUR RESPONSE AS:",
@@ -152,6 +319,9 @@ export function getSynastryInstructions(
     "### 4. The Relationship Dynamic",
     `*[How being "${relLabel}" colors these placements — e.g., a Sun-Moon conjunction means something different for siblings vs. lovers]*`,
     "",
+    "### 5. How to Work With This",
+    "*[Give 2-3 concrete practices: a communication move, a boundary or repair move, and a way to use the strongest supportive contact.]*",
+    "",
     "---",
     "### Connection at a Glance",
     `| Theme | You | ${personBRef} | Dynamic |`,
@@ -164,6 +334,8 @@ export function getSynastryInstructions(
     "- Treat all chart data as canonical truth. Do not invent placements.",
     "- When data is missing for a placement, say so plainly.",
     "- Be honest about friction — don't sugarcoat, but don't catastrophize.",
+    "- Separate chemistry, ease, durability, and growth potential; they are not the same thing.",
+    "- Never claim to know the other person's private thoughts, intentions, or future behavior from their chart.",
     "- Personalize based on the relationship type provided.",
     "- Keep the tone engaging, insightful, and empathetic.",
     `- Use "${chartBName || "the other person"}" and "you" — never "Chart A" or "Chart B".`,

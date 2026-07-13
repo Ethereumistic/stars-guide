@@ -46,6 +46,8 @@ interface OracleStore {
     quotaExhausted: boolean;
     timezone: string;
     synastryData: SynastryState | null;
+    usageOpen: boolean;
+    upgradeOpen: boolean;
 
     // ── Debug state ──
     debugOpen: boolean;
@@ -76,6 +78,8 @@ interface OracleStore {
     setSynastryRelationship: (relationship: string, category?: string) => void;
     clearSynastry: () => void;
     clearSynastryChartB: () => void;
+    setUsageOpen: (open: boolean) => void;
+    setUpgradeOpen: (open: boolean) => void;
 
     // ── Debug actions ──
     setDebugOpen: (open: boolean) => void;
@@ -103,6 +107,8 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
     quotaExhausted: false,
     timezone: typeof window !== "undefined" ? detectTimezone() : "UTC",
     synastryData: null,
+    usageOpen: false,
+    upgradeOpen: false,
 
     // ── Debug state defaults ──
     debugOpen: true,
@@ -183,6 +189,9 @@ export const useOracleStore = create<OracleStore>((set, get) => ({
                 ? { ...state.synastryData, chartB: null, chartBName: "", source: null, friendUserId: undefined }
                 : null,
         })),
+
+    setUsageOpen: (open) => set({ usageOpen: open }),
+    setUpgradeOpen: (open) => set({ upgradeOpen: open }),
 
     // ── Debug actions ──
     setDebugOpen: (open) => set({ debugOpen: open }),

@@ -56,6 +56,13 @@ function HeadingDecorator({ children }: { children: React.ReactNode }) {
 }
 
 export function BirthChartReportRenderer({ markdown }: { markdown: string }) {
+  // Older/best-effort reports may contain lines serialized from missing model
+  // fields. Never expose JavaScript sentinel values as report prose.
+  const safeMarkdown = markdown
+    .split("\n")
+    .filter((line) => !/\b(?:undefined|null)\b/i.test(line))
+    .join("\n");
+
   return (
     <article className="birth-chart-report max-w-none">
       <ReactMarkdown
@@ -183,7 +190,7 @@ export function BirthChartReportRenderer({ markdown }: { markdown: string }) {
           ),
         }}
       >
-        {markdown}
+        {safeMarkdown}
       </ReactMarkdown>
     </article>
   );

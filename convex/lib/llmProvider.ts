@@ -183,7 +183,9 @@ export async function callLLMEndpoint(opts: {
   model: string;
   messages: { role: string; content: string }[];
   temperature?: number;
+  topP?: number;
   maxTokens?: number;
+  timeoutMs?: number;
   jsonMode?: boolean;
   title?: string;
   /**
@@ -202,19 +204,18 @@ export async function callLLMEndpoint(opts: {
     model: opts.model,
     messages: opts.messages,
     temperature: opts.temperature ?? 0.7,
+    ...(typeof opts.topP === "number" ? { top_p: opts.topP } : {}),
     max_tokens: opts.maxTokens ?? 1024,
   };
-  // NOTE: response_format { type: "json_object" } is NOT sent.
-  // Many OpenAI-compatible providers (Ollama, many OpenRouter models)
-  // don't support it and silently return content: null, causing
-  // "Empty response" errors. The prompt already instructs JSON output
-  // and sanitizeLLMJson handles any markdown wrapping.
+  if (opts.jsonMode && opts.provider.type !== "ollama") {
+    payload.response_format = { type: "json_object" };
+  }
 
   // Apply thinking mode settings
   payload = applyThinkingMode(payload, opts.provider, opts.thinkingMode ?? "auto");
 
   const controller = new AbortController();
-  const timeoutMs = 120_000;
+  const timeoutMs = opts.timeoutMs ?? 120_000;
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   let response: Response;

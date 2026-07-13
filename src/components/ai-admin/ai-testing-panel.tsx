@@ -33,6 +33,7 @@ interface AITestingPanelProps {
 }
 
 export function AITestingPanel({ providers }: AITestingPanelProps) {
+  // @ts-ignore Convex's generated route type exceeds TypeScript's instantiation depth here.
   const testAction = useAction(api.admin.testLLMEndpointAction);
   const picker = useAIModelPicker({
     defaultProvider: providers[0]?.id ?? "openrouter",

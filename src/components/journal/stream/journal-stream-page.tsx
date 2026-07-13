@@ -1,410 +1,60 @@
 "use client";
 
 import * as React from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { QuickCapture } from "./quick-capture";
+import { useRouter, useSearchParams } from "next/navigation";
+import { BookOpen, CalendarDays, Search, Settings2 } from "lucide-react";
+import { useUserStore } from "@/store/use-user-store";
+import { SimpleJournalComposer } from "@/components/journal/simple-journal-composer";
 import { StreamTimeline } from "./stream-timeline";
-import { StreakIndicator } from "./streak-indicator";
-import { DailyPromptInline } from "./daily-prompt-inline";
-import { ModeBar, type JournalTab } from "./mode-bar";
 import { DetailPanel } from "@/components/journal/detail/detail-panel";
-import { ConsentBanner } from "@/components/journal/consent/consent-banner";
 import { CalendarTab } from "./calendar-tab";
 import { SearchTab } from "./search-tab";
-import { InsightsTab } from "./insights-tab";
-import { useUserStore } from "@/store/use-user-store";
-import {
-    detectTimezone,
-    getLocalHour,
-    getGreetingForHour,
-} from "@/lib/timezone";
-import { GiScrollUnfurled } from "react-icons/gi";
-
-/**
- * JournalStreamPage — the main unified journal page.
- * Everything lives in one view with tabs: Stream, Calendar, Search, Insights.
- * URL params control initial state: ?compose=true, ?tab=calendar, ?entry=xxx
- *
- * Detail panel opens via ?entry= param (slide-over from right).
- */
-export function JournalStreamPage({ className }: { className?: string }) {
-    const router = useRouter();
-    const searchParams = useSearchParams();
-    const { user } = useUserStore();
-
-    // Read URL params for initial state
-    const paramTab = searchParams.get("tab") as JournalTab | null;
-    const paramCompose = searchParams.get("compose") === "true";
-    const paramEntry = searchParams.get("entry");
-    const paramEdit = searchParams.get("edit") === "true";
-    const paramPrompt = searchParams.get("prompt") || searchParams.get("presetPrompt");
-    const paramType = searchParams.get("type");
-    const paramOracleSessionId = searchParams.get("oracleSessionId");
-
-    // Local state for active tab
-    const [activeTab, setActiveTab] = React.useState<JournalTab>(
-        paramTab || "stream"
-    );
-
-    // Timezone-aware greeting state
-    const [localHour, setLocalHour] = React.useState<number>(() =>
-        typeof window !== "undefined" ? getLocalHour(detectTimezone()) : 12,
-    );
-    const [timezone] = React.useState(detectTimezone);
-
-    React.useEffect(() => {
-        const sync = () => setLocalHour(getLocalHour(timezone));
-        const id = setInterval(sync, 60_000);
-        return () => clearInterval(id);
-    }, [timezone]);
-
-    const firstName = user?.username?.split(/[_\s]/)[0] ?? "Seeker";
-    const greeting = getGreetingForHour(localHour, firstName);
-
-    // Format current date: "Thursday, May 22"
-    const dateStr = React.useMemo(() => {
-        try {
-            return new Intl.DateTimeFormat("en-US", {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-            }).format(new Date());
-        } catch {
-            return "";
-        }
-    }, []);
-
-    // Detail panel state — driven by ?entry= URL param
-    const [activeEntryId, setActiveEntryId] = React.useState<string | null>(
-        paramEntry || null
-    );
-    const [isEditingEntry, setIsEditingEntry] = React.useState(
-        paramEdit || false
-    );
-
-    // QuickCapture ref for scroll/focus
-    const captureRef = React.useRef<HTMLDivElement>(null);
-
-    // Prompt text to pre-fill into QuickCapture (set when user clicks a prompt card)
-    const [promptContent, setPromptContent] = React.useState<string | undefined>();
-
-    // Handle tab change — update URL params
-    function handleTabChange(tab: JournalTab) {
-        setActiveTab(tab);
-        const url = new URL(window.location.href);
-        url.searchParams.set("tab", tab);
-        // Remove transient params when switching tabs
-        url.searchParams.delete("compose");
-        url.searchParams.delete("entry");
-        url.searchParams.delete("edit");
-        window.history.replaceState({}, "", url.toString());
-    }
-
-    // Handle "New Entry" button — scroll to QuickCapture and focus
-    function handleNewEntry() {
-        setActiveTab("stream");
-        setPromptContent(undefined);
-        captureRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-        setTimeout(() => {
-            const textarea = captureRef.current?.querySelector("textarea");
-            textarea?.focus();
-        }, 200);
-    }
-
-    // Handle "Use prompt" from DailyPromptInline — scroll to QuickCapture and pre-fill content
-    function handleUsePrompt(promptText: string) {
-        setActiveTab("stream");
-        setPromptContent(promptText);
-        captureRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-        setTimeout(() => {
-            const textarea = captureRef.current?.querySelector("textarea");
-            textarea?.focus();
-        }, 200);
-    }
-
-    // Handle "Ask Oracle about this" — navigate to Oracle with journal context
-    function handleAskOracle(entryId: string, contentPreview: string) {
-        const params = new URLSearchParams();
-        params.set("journalEntryId", entryId);
-        if (contentPreview) {
-            params.set("prompt", contentPreview);
-        }
-        router.push(`/oracle/new?${params.toString()}`);
-    }
-
-    // Handle entry click from timeline — open detail panel
-    function handleEntryClick(entryId: string) {
-        setActiveEntryId(entryId);
-        setIsEditingEntry(false);
-        // Update URL to reflect the open entry
-        const url = new URL(window.location.href);
-        url.searchParams.set("entry", entryId);
-        url.searchParams.delete("edit");
-        window.history.pushState({}, "", url.toString());
-    }
-
-    // Handle closing the detail panel
-    function handleCloseDetailPanel() {
-        setActiveEntryId(null);
-        setIsEditingEntry(false);
-        // Remove entry params from URL
-        const url = new URL(window.location.href);
-        url.searchParams.delete("entry");
-        url.searchParams.delete("edit");
-        window.history.replaceState({}, "", url.toString());
-    }
-
-    // Handle opening edit mode from detail panel
-    function handleEditEntry(entryId: string) {
-        setIsEditingEntry(true);
-        const url = new URL(window.location.href);
-        url.searchParams.set("entry", entryId);
-        url.searchParams.set("edit", "true");
-        window.history.replaceState({}, "", url.toString());
-    }
-
-    // Sync URL params with state on back/forward navigation
-    React.useEffect(() => {
-        const onPopState = () => {
-            const url = new URL(window.location.href);
-            const tab = url.searchParams.get("tab") as JournalTab | null;
-            const entry = url.searchParams.get("entry");
-            const edit = url.searchParams.get("edit") === "true";
-            if (tab) setActiveTab(tab);
-            setActiveEntryId(entry);
-            setIsEditingEntry(edit);
-        };
-        window.addEventListener("popstate", onPopState);
-        return () => window.removeEventListener("popstate", onPopState);
-    }, []);
-
-    // Initial compose: if ?compose=true was in URL, auto-focus
-    React.useEffect(() => {
-        if (paramCompose) {
-            handleNewEntry();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    return (
-        <div className={cn("flex flex-col h-full min-h-0", className)}>
-            {/* Main content area */}
-            <div className="flex-1 min-h-0 overflow-y-auto">
-                <div className="mx-auto w-full max-w-xl px-4 py-5 md:px-6">
-
-                    {/* ── Stream Tab ─────────────────────────────── */}
-                    {activeTab === "stream" && (
-                        <div className="space-y-6">
-                            {/* Header — warm, personalized greeting */}
-                            <div className="mb-2">
-                                <p className="text-2xl md:text-3xl font-serif font-bold text-[var(--journal-accent,#c8a45c)] tracking-wide leading-relaxed">
-                                    {greeting}
-                                </p>
-                                <p className="text-xs font-sans text-white/30 mt-1 tracking-wide">
-                                    {dateStr}
-                                </p>
-                            </div>
-
-                            {/* Consent banner */}
-                            <ConsentBanner />
-
-                            {/* Streak indicator */}
-                            <StreakIndicator />
-
-                            {/* Daily prompt (inline banner) */}
-                            <DailyPromptInline onUsePrompt={handleUsePrompt} />
-
-                            {/* QuickCapture — inline quick write */}
-                            <div ref={captureRef}>
-                                <QuickCapture
-                                    initialContent={promptContent ?? paramPrompt ?? undefined}
-                                    oracleSessionId={paramOracleSessionId || undefined}
-                                    oracleInspired={Boolean(paramPrompt)}
-                                    initialType={
-                                        paramType === "dream"
-                                            ? "dream"
-                                            : paramType === "gratitude"
-                                              ? "gratitude"
-                                              : undefined
-                                    }
-                                    onSave={() => {}}
-                                    onAskOracle={handleAskOracle}
-                                    showTopics={true}
-                                />
-                            </div>
-
-                            {/* Timeline */}
-                            <StreamTimeline onEntryClick={handleEntryClick} />
-                        </div>
-                    )}
-
-                    {/* ── Calendar Tab ────────────────────────────── */}
-                    {activeTab === "calendar" && (
-                        <div className="space-y-4">
-                            <div className="mb-4">
-                                <h2 className="text-xl font-serif font-bold text-white/90 tracking-wide">
-                                    Calendar
-                                </h2>
-                                <p className="mt-1 text-sm text-white/35 font-sans">
-                                    View entries by date
-                                </p>
-                            </div>
-                            <CalendarTab
-                                onEntryClick={(entryId) => handleEntryClick(entryId)}
-                            />
-                        </div>
-                    )}
-
-                    {/* ── Search Tab ─────────────────────────────── */}
-                    {activeTab === "search" && (
-                        <div className="space-y-4">
-                            <div className="mb-4">
-                                <h2 className="text-xl font-serif font-bold text-white/90 tracking-wide">
-                                    Search
-                                </h2>
-                                <p className="mt-1 text-sm text-white/35 font-sans">
-                                    Find entries by keyword, mood, or tag
-                                </p>
-                            </div>
-                            <SearchTab
-                                onEntryClick={(entryId) => handleEntryClick(entryId)}
-                            />
-                        </div>
-                    )}
-
-                    {/* ── Insights Tab ────────────────────────────── */}
-                    {activeTab === "insights" && (
-                        <div className="space-y-4">
-                            <div className="mb-6">
-                                <h2 className="text-xl font-serif font-bold text-white/90 tracking-wide">
-                                    Insights
-                                </h2>
-                                <p className="mt-1 text-sm text-white/35 font-sans">
-                                    Patterns, streaks, and cosmic correlations
-                                </p>
-                            </div>
-                            <InsightsTab />
-                        </div>
-                    )}
-
-                    {/* ── Settings Tab ─────────────────────────────── */}
-                    {activeTab === "settings" && (
-                        <div className="space-y-6">
-                            <div className="mb-6">
-                                <h2 className="text-xl font-serif font-bold text-white/90 tracking-wide">
-                                    Settings
-                                </h2>
-                                <p className="mt-1 text-sm text-white/35 font-sans">
-                                    Manage journal preferences
-                                </p>
-                            </div>
-                            <ConsentSettingsInline />
-                        </div>
-                    )}
-
-                </div>
-            </div>
-
-            {/* ── Mode bar — bottom tab bar ─────────────────────────── */}
-            <ModeBar activeTab={activeTab} onTabChange={handleTabChange} />
-
-            {/* ── FAB — floating new entry button ───────────────────── */}
-            {activeTab === "stream" && (
-                <button
-                    type="button"
-                    onClick={() => router.push("/journal/new")}
-                    title="New entry"
-                    className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-30 flex items-center justify-center w-14 h-14 rounded-full shadow-lg transition-all duration-300 hover:scale-105 active:scale-95"
-                    style={{
-                        background: "linear-gradient(135deg, var(--journal-accent, #c8a45c), var(--journal-accent2, #b87333))",
-                        boxShadow: "0 4px 24px rgba(200,164,92,0.4)",
-                    }}
-                >
-                    <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-6 w-6 text-white"
-                    >
-                        <line x1="12" x2="12" y1="5" y2="19" />
-                        <line x1="5" x2="19" y1="12" y2="12" />
-                    </svg>
-                </button>
-            )}
-
-            {/* ── Detail panel — slide-over from right ──────────────── */}
-            <DetailPanel
-                entryId={activeEntryId}
-                open={activeEntryId !== null}
-                onClose={handleCloseDetailPanel}
-                editMode={isEditingEntry}
-            />
-        </div>
-    );
-}
-
-/**
- * Inline consent settings for the Settings tab.
- * Reuses the existing ConsentSettings component in a non-modal layout.
- */
 import { ConsentSettings } from "@/components/journal/consent/consent-settings";
-import { useQuery as useConsentQuery } from "convex/react";
-import { api as consentApi } from "../../../../convex/_generated/api";
+import { useQuery } from "convex/react";
+import { cn } from "@/lib/utils";
 
-function ConsentSettingsInline() {
-    const consent = useConsentQuery(consentApi.journal.consent.getConsent);
+const { api: convexApi } = require("../../../../convex/_generated/api") as any;
 
-    if (consent === undefined) {
-        return (
-            <div className="space-y-6">
-                <div className="animate-pulse space-y-3">
-                    <div className="h-4 bg-white/5 rounded w-48" />
-                    <div className="h-20 bg-white/5 rounded" />
-                </div>
-            </div>
-        );
-    }
+type View = "journal" | "calendar" | "search" | "settings";
 
-    // No consent record — show prompt to enable
-    if (consent === null) {
-        return (
-            <div className="space-y-6">
-                <div>
-                    <h3 className="text-sm font-sans uppercase tracking-[0.15em] text-white/40 mb-3">
-                        Oracle Integration
-                    </h3>
-                    <p className="text-xs text-white/30 font-sans">
-                        Enable Oracle access from the banner at the top of your journal stream.
-                    </p>
-                </div>
-            </div>
-        );
-    }
+export function JournalStreamPage({ className }: { className?: string }) {
+  const router = useRouter();
+  const params = useSearchParams();
+  const { user } = useUserStore();
+  const requested = params.get("tab");
+  const view: View = requested === "calendar" || requested === "search" || requested === "settings" ? requested : "journal";
+  const [entryId, setEntryId] = React.useState<string | null>(params.get("entry"));
+  const consent = useQuery(convexApi.journal.consent.getConsent) as any;
+  const firstName = user?.username?.split(/[_\s]/)[0] || "there";
 
-    return (
-        <div className="space-y-6">
-            <div>
-                <h3 className="text-sm font-sans uppercase tracking-[0.15em] text-white/40 mb-3">
-                    Oracle Integration
-                </h3>
-                <p className="text-xs text-white/30 font-sans mb-4">
-                    Control what journal data Oracle can access for personalized readings.
-                </p>
-                <ConsentSettings consent={consent} />
-            </div>
+  function setView(next: View) {
+    router.replace(next === "journal" ? "/journal" : `/journal?tab=${next}`);
+  }
 
-            <div className="border-t border-white/[0.06] pt-6">
-                <h3 className="text-sm font-sans uppercase tracking-[0.15em] text-white/40 mb-3">
-                    Data
-                </h3>
-                <p className="text-xs text-white/30 font-sans">
-                    Export and manage your journal data coming soon.
-                </p>
-            </div>
-        </div>
-    );
+  return (
+    <div className={cn("h-full min-h-0 overflow-y-auto bg-[radial-gradient(circle_at_50%_-15%,rgba(130,102,235,0.16),transparent_38%)]", className)}>
+      <main className="mx-auto w-full max-w-4xl px-4 pb-24 pt-7 sm:px-7 sm:pt-10">
+        <header className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.24em] text-[#a999ed]">Your journal</p>
+            <h1 className="font-serif text-4xl leading-tight tracking-[-0.03em] text-white sm:text-5xl">A quiet place, {firstName}.</h1>
+            <p className="mt-2 text-sm text-white/40">Write freely. Everything else can wait.</p>
+          </div>
+          <nav aria-label="Journal views" className="flex w-fit rounded-full border border-white/10 bg-white/[0.035] p-1">
+            {([
+              ["journal", BookOpen, "Journal"], ["calendar", CalendarDays, "Calendar"], ["search", Search, "Search"], ["settings", Settings2, "Settings"],
+            ] as const).map(([key, Icon, label]) => (
+              <button key={key} type="button" aria-label={label} aria-current={view === key ? "page" : undefined} onClick={() => setView(key)} className={cn("flex h-9 items-center gap-2 rounded-full px-3 text-xs transition", view === key ? "bg-white/10 text-white" : "text-white/35 hover:text-white/70")}><Icon className="h-4 w-4" /><span className="hidden md:inline">{label}</span></button>
+            ))}
+          </nav>
+        </header>
+
+        {view === "journal" && <div className="space-y-12"><SimpleJournalComposer initialContent={params.get("prompt") || ""} autoFocus={params.get("compose") === "true"} /><section><div className="mb-5 flex items-center justify-between"><h2 className="font-serif text-2xl text-white/90">Past reflections</h2><button onClick={() => setView("search")} className="text-xs text-white/35 hover:text-white/70">Find an entry</button></div><StreamTimeline onEntryClick={setEntryId} /></section></div>}
+        {view === "calendar" && <CalendarTab onEntryClick={setEntryId} />}
+        {view === "search" && <SearchTab onEntryClick={setEntryId} />}
+        {view === "settings" && <section className="rounded-3xl border border-white/10 bg-white/[0.025] p-6 sm:p-8"><h2 className="mb-2 font-serif text-2xl text-white">Oracle access</h2><p className="mb-7 max-w-xl text-sm leading-6 text-white/40">Choose whether Oracle can use your reflections when you ask for guidance.</p>{consent ? <ConsentSettings consent={consent} /> : <p className="text-sm text-white/35">Oracle does not have access to your journal.</p>}</section>}
+      </main>
+      <DetailPanel entryId={entryId} open={entryId !== null} onClose={() => setEntryId(null)} editMode={params.get("edit") === "true"} />
+    </div>
+  );
 }

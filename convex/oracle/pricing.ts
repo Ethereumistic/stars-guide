@@ -76,7 +76,9 @@ export const BURST_MIN_COST_MICRO = 100;
  * @param promptTokens    - Number of prompt tokens (undefined = 0)
  * @param completionTokens - Number of completion tokens (undefined = 0)
  * @param pricingTable    - Optional override pricing table (defaults to DEFAULT_MODEL_PRICING)
- * @returns Cost in microdollars (integer). Returns 0 for free-suffix models.
+ * @returns Cost in microdollars (integer), with a small minimum for every
+ * successful Oracle generation so missing usage metadata and free models
+ * cannot bypass rate limits.
  */
 export function calculateCostMicro(
   modelUsed: string,
@@ -84,13 +86,20 @@ export function calculateCostMicro(
   completionTokens: number | undefined,
   pricingTable?: Record<string, { promptPer1M: number; completionPer1M: number }>,
 ): number {
-  // Zero out free-suffix models — they don't consume budget.
+  // Free models do not have a token cost, but still consume the minimum
+  // allowance unit so they cannot provide unlimited Oracle generations.
   if (modelUsed.endsWith(":free")) {
-    return 0;
+    return BURST_MIN_COST_MICRO;
   }
 
   const table = pricingTable ?? DEFAULT_MODEL_PRICING;
-  const pricing = table[modelUsed] ?? {
+  // Gateway model identifiers may be prefixed with the transport provider,
+  // for example "openrouter/google/gemini-2.5-flash". Prefer the exact key,
+  // then the provider-agnostic model key used by the pricing table.
+  const unprefixedModel = modelUsed.includes("/")
+    ? modelUsed.slice(modelUsed.indexOf("/") + 1)
+    : modelUsed;
+  const pricing = table[modelUsed] ?? table[unprefixedModel] ?? {
     promptPer1M: DEFAULT_UNKNOWN_PROMPT_PER_1M,
     completionPer1M: DEFAULT_UNKNOWN_COMPLETION_PER_1M,
   };
@@ -98,7 +107,7 @@ export function calculateCostMicro(
   const pt = promptTokens ?? 0;
   const ct = completionTokens ?? 0;
 
-  if (pt === 0 && ct === 0) return 0;
+  if (pt === 0 && ct === 0) return BURST_MIN_COST_MICRO;
 
   // Convert $/1M → microdollars directly:
   //   (promptPer1M dollars / 1M tokens) * promptTokens * 1e6 microdollars/dollar
@@ -107,5 +116,5 @@ export function calculateCostMicro(
   const promptMicro = pricing.promptPer1M * pt;
   const completionMicro = pricing.completionPer1M * ct;
 
-  return Math.round(promptMicro + completionMicro);
+  return Math.max(BURST_MIN_COST_MICRO, Math.round(promptMicro + completionMicro));
 }

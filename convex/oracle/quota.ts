@@ -63,7 +63,14 @@ async function getQuotaSetting(
 
 function resolveTier(user: any): string {
   if (user.role === "admin" || user.role === "moderator") return user.role;
-  return (user.tier as string) ?? "free";
+  if (user.tier === "popular" || user.tier === "premium") return user.tier;
+  return "free";
+}
+
+function parsePositiveSetting(raw: string | null, fallback: number): number {
+  if (raw === null) return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
 }
 
 // ─── MAIN QUERY ───────────────────────────────────────────────────────────────
@@ -99,9 +106,6 @@ export const checkQuota = query({
       };
     }
 
-    // Ensure quota settings exist (read-only check — no writes in query context)
-    const { seeded } = await ctx.runQuery(internal.oracle.seedOracleQuotaSettings.ensureQuotaSettings, {});
-
     const tier = resolveTier(user);
 
     // Read budget + window settings
@@ -113,22 +117,16 @@ export const checkQuota = query({
         getQuotaSetting(ctx, "quota_weekly_window_ms"),
       ]);
 
-    const burstTotal =
-      burstBudgetRaw !== null
-        ? parseInt(burstBudgetRaw, 10)
-        : (DEFAULT_BURST_BUDGETS[tier] ?? 0);
-    const weeklyTotal =
-      weeklyBudgetRaw !== null
-        ? parseInt(weeklyBudgetRaw, 10)
-        : (DEFAULT_WEEKLY_BUDGETS[tier] ?? 0);
-    const burstWindowMs =
-      burstWindowRaw !== null
-        ? parseInt(burstWindowRaw, 10)
-        : DEFAULT_BURST_WINDOW_MS;
-    const weeklyWindowMs =
-      weeklyWindowRaw !== null
-        ? parseInt(weeklyWindowRaw, 10)
-        : DEFAULT_WEEKLY_WINDOW_MS;
+    const burstTotal = parsePositiveSetting(
+      burstBudgetRaw,
+      DEFAULT_BURST_BUDGETS[tier] ?? DEFAULT_BURST_BUDGETS.free,
+    );
+    const weeklyTotal = parsePositiveSetting(
+      weeklyBudgetRaw,
+      DEFAULT_WEEKLY_BUDGETS[tier] ?? DEFAULT_WEEKLY_BUDGETS.free,
+    );
+    const burstWindowMs = parsePositiveSetting(burstWindowRaw, DEFAULT_BURST_WINDOW_MS);
+    const weeklyWindowMs = parsePositiveSetting(weeklyWindowRaw, DEFAULT_WEEKLY_WINDOW_MS);
 
     // Read usage record
     const usage = await ctx.db
@@ -192,6 +190,8 @@ export const checkQuota = query({
       weeklyRemaining,
       weeklyTotal,
       weeklyResetsAt,
+      burstWindowMs,
+      weeklyWindowMs,
     };
   },
 });

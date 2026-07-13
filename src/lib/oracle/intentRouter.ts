@@ -76,37 +76,6 @@ export function scoreIntents(params: {
 }): IntentRouterResult {
   const { question, hasBirthData, hasJournalConsent, currentFeatureKey } = params;
 
-  // ── Manual selection always wins ─────────────────────────────────────────
-  if (currentFeatureKey) {
-    const pipelineKey = featureKeyToPipelineKey(currentFeatureKey);
-    if (pipelineKey) {
-      const metadata: Record<string, unknown> = {};
-      if (currentFeatureKey === "birth_chart_full") {
-        metadata.depth = "full";
-      } else if (currentFeatureKey === "birth_chart_core") {
-        metadata.depth = "core";
-      }
-
-      return {
-        intents: [
-          {
-            pipelineKey,
-            confidence: 1.0,
-            reason: "manual_selection",
-            ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
-          },
-        ],
-        hasMatch: true,
-        primary: {
-          pipelineKey,
-          confidence: 1.0,
-          reason: "manual_selection",
-          ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
-        },
-      };
-    }
-  }
-
   // ── Score each pipeline independently ────────────────────────────────────
   const intents: ScoredIntent[] = [];
 
@@ -154,6 +123,21 @@ export function scoreIntents(params: {
 
   // ── Fallback to generic_chat ─────────────────────────────────────────────
   if (filtered.length === 0) {
+    const sessionPipeline = currentFeatureKey
+      ? featureKeyToPipelineKey(currentFeatureKey)
+      : null;
+    if (sessionPipeline) {
+      const metadata: Record<string, unknown> = {};
+      if (currentFeatureKey === "birth_chart_full") metadata.depth = "full";
+      if (currentFeatureKey === "birth_chart_core") metadata.depth = "core";
+      const fallbackIntent: ScoredIntent = {
+        pipelineKey: sessionPipeline,
+        confidence: 1,
+        reason: "session_feature_fallback",
+        ...(Object.keys(metadata).length ? { metadata } : {}),
+      };
+      return { intents: [fallbackIntent], hasMatch: true, primary: fallbackIntent };
+    }
     return {
       intents: [
         { pipelineKey: "generic_chat", confidence: 1.0, reason: "fallback_no_match" },
@@ -209,36 +193,6 @@ export async function scoreIntentsWithLLM(params: {
   modelChain: ModelChainEntry[];
 }): Promise<IntentRouterResult> {
   const { question, hasBirthData, hasJournalConsent, currentFeatureKey, providers, modelChain } = params;
-
-  // ── Manual selection always wins (no LLM call needed) ──────────────────
-  if (currentFeatureKey) {
-    const pipelineKey = featureKeyToPipelineKey(currentFeatureKey);
-    if (pipelineKey) {
-      const metadata: Record<string, unknown> = {};
-      if (currentFeatureKey === "birth_chart_full") {
-        metadata.depth = "full";
-      } else if (currentFeatureKey === "birth_chart_core") {
-        metadata.depth = "core";
-      }
-      return {
-        intents: [
-          {
-            pipelineKey,
-            confidence: 1.0,
-            reason: "manual_selection",
-            ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
-          },
-        ],
-        hasMatch: true,
-        primary: {
-          pipelineKey,
-          confidence: 1.0,
-          reason: "manual_selection",
-          ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
-        },
-      };
-    }
-  }
 
   // ── Try LLM-based classification ────────────────────────────────────────
   const llmResult = await callIntentRouterLLM(question, hasBirthData, hasJournalConsent, providers, modelChain);

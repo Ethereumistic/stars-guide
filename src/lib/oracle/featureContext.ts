@@ -289,7 +289,7 @@ function getFullDepthInstructions(): string {
   return [
     "[BIRTH CHART READING — FULL DEPTH]",
     "ROLE: You are generating a premium, evidence-first deep chart reading in conversation.",
-    "RULE: Use the same standard as the durable Birth Chart Report: chart-faithful, synthesis-led, emotionally memorable, practical, non-deterministic.",
+    "RULE: Be chart-faithful, synthesis-led, emotionally memorable, practical, and non-deterministic.",
     "RULE: Build from dominant signatures: chart ruler story, Sun/Moon/Ascendant relationship, clusters, tight aspects, angular planets, 10th-house emphasis, and nodal axis.",
     "RULE: Do not call a pattern a stellium unless explicitly defined. Prefer cluster/concentration.",
     "RULE: Do not invent MC data when only whole-sign 10th-house data is available. Say 10th-house emphasis.",
@@ -451,4 +451,75 @@ export function buildFeatureContext(
     return buildFullFeatureContext(birthData)
   }
   return ""
+}
+
+const BIRTH_ENTITY_IDS = [
+  "sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn",
+  "uranus", "neptune", "pluto", "chiron", "north_node", "south_node", "ascendant",
+] as const
+
+/**
+ * Select a compact canonical slice for a narrow chart question.
+ * Returns the full chart when no explicit entity is named or the question is broad.
+ */
+export function buildQuestionRelevantBirthContext(
+  question: string,
+  birthData: OracleBirthData,
+): { context: string; mode: "focused" | "full" } {
+  const normalized = question.toLowerCase().replace(/north\s+node/g, "north_node").replace(/south\s+node/g, "south_node")
+  const namedBodies = BIRTH_ENTITY_IDS.filter((id) => {
+    const aliases = id === "ascendant" ? ["ascendant", "rising"] : [id, id.replace(/_/g, " ")]
+    return aliases.some((alias) => new RegExp(`\\b${alias}\\b`, "i").test(normalized))
+  })
+  const namedSigns = compositionalSigns
+    .filter((sign) => new RegExp(`\\b${sign.id}\\b`, "i").test(normalized))
+    .map((sign) => sign.id)
+  const namedHouses = [...normalized.matchAll(/\b(?:house\s+(\d{1,2})|(\d{1,2})(?:st|nd|rd|th)\s+house)\b/g)]
+    .map((match) => Number(match[1] ?? match[2]))
+    .filter((house) => house >= 1 && house <= 12)
+  const explicitCount = namedBodies.length + namedSigns.length + namedHouses.length
+  const broadRequest = /\b(full|whole|overall|entire|complete|big three|chart overview|birth chart report|all placements|dominant themes|life purpose)\b/i.test(question)
+  if (explicitCount === 0 || explicitCount > 5 || broadRequest) {
+    return { context: buildUniversalBirthContext(birthData), mode: "full" }
+  }
+
+  const placements = getAllPlacements(birthData)
+  const selected = placements.filter((placement) => {
+    const bodyId = placement.body.toLowerCase().replace(/ /g, "_")
+    const signId = placement.sign.toLowerCase()
+    return namedBodies.includes(bodyId as typeof namedBodies[number])
+      || namedSigns.includes(signId)
+      || (placement.house !== null && namedHouses.includes(placement.house))
+  })
+  const selectedBodyIds = new Set(selected.map((placement) => placement.body.toLowerCase().replace(/ /g, "_")))
+  const aspects = (birthData.chart?.aspects ?? [])
+    .filter((aspect) => selectedBodyIds.has(aspect.planet1) || selectedBodyIds.has(aspect.planet2))
+    .sort((a, b) => a.orb - b.orb)
+  const houseSignatures = (birthData.chart?.houses ?? []).filter((house) => namedHouses.includes(house.id))
+  if (!selected.length && !houseSignatures.length) {
+    return { context: buildUniversalBirthContext(birthData), mode: "full" }
+  }
+
+  const lines = [
+    "Treat this focused slice of the stored chart as canonical truth. The durable report supplies broader context; do not invent omitted raw facts.",
+    ...formatBirthHeader(birthData),
+    "",
+    "Question-relevant placements:",
+    ...(selected.length ? selected.map(formatPlacementLine) : ["- No matching stored placement is available."]),
+  ]
+  if (houseSignatures.length) {
+    lines.push("", "Question-relevant house signatures:", ...houseSignatures.map((house) => `- H${house.id}: ${getSignName(house.signId)}`))
+  }
+  if (aspects.length) {
+    lines.push("", "Aspects touching the selected placements:", ...aspects.map(formatAspectLine))
+  }
+  const chartRuler = namedBodies.some((body) => body === "ascendant") ? formatChartRulerLine(birthData) : null
+  const nodalAxis = namedBodies.some((body) => body === "north_node" || body === "south_node") ? formatNodalAxisLine(birthData) : null
+  if (chartRuler || nodalAxis) {
+    lines.push("", "Deterministic helpers:")
+    if (chartRuler) lines.push(`- Chart ruler: ${chartRuler}`)
+    if (nodalAxis) lines.push(`- Nodal axis: ${nodalAxis}`)
+  }
+  lines.push("", "Evidence rule: cite only the focused raw facts above or the durable report. If another raw fact is needed, say it is not in the focused slice rather than inventing it.")
+  return { context: lines.join("\n"), mode: "focused" }
 }

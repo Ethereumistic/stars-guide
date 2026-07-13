@@ -5,24 +5,27 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { useQuery, useMutation, useAction } from "convex/react";
-import { api } from "@/../convex/_generated/api";
+import { makeFunctionReference } from "convex/server";
 import { Id } from "@/../convex/_generated/dataModel";
 import {
     Copy,
     Check,
     Loader2,
-    AlertTriangle,
-    ArrowUpRight,
     Clock,
     ThumbsUp,
     ThumbsDown,
     RotateCcw,
     Share2,
+    Bookmark,
+    CircleDot,
+    CircleHelp,
+    CircleX,
 } from "lucide-react";
 import { GiCursedStar, GiScrollUnfurled } from "react-icons/gi";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { OracleInput } from "@/components/oracle/input/oracle-input";
+import type { OracleQuotaSnapshot } from "@/components/oracle/quota-meter";
 import { BirthReportQuestionnaire } from "@/components/oracle/birth-report/BirthReportQuestionnaire";
 import { BinauralBeatHistoryCard } from "@/components/oracle/input/binaural-beat-history-card";
 import {
@@ -38,10 +41,50 @@ import { OracleChartBubble } from "@/components/oracle/input/oracle-chart-bubble
 import { SynastryChartBubble } from "@/components/oracle/input/synastry-chart-bubble";
 import { useUserStore } from "@/store/use-user-store";
 import { useLoadingMessage } from "@/hooks/use-loading-message";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+const getAudioUrlRef = makeFunctionReference<"query", { storageId: Id<"_storage"> }, string | null>("oracle/sessions:getAudioUrl");
+type OracleSessionMessage = {
+    _id: Id<"oracle_messages">;
+    role: "user" | "assistant";
+    content: string;
+    createdAt: number;
+    rating?: "positive" | "negative";
+    outcome?: "resonant" | "not_relevant" | "not_yet_known";
+    watchReviewAt?: number;
+    [key: string]: unknown;
+};
+type OracleSessionView = {
+    featureKey?: string;
+    status: "active" | "completed";
+    messages: OracleSessionMessage[];
+};
+const getSessionWithMessagesRef = makeFunctionReference<"query", { sessionId: Id<"oracle_sessions"> }, OracleSessionView | null>("oracle/sessions:getSessionWithMessages");
+const getCurrentUserRef = makeFunctionReference<"query", Record<string, never>, any>("users:current");
+const checkQuotaRef = makeFunctionReference<"query", Record<string, never>, OracleQuotaSnapshot>("oracle/quota:checkQuota");
+const setMessageOutcomeRef = makeFunctionReference<"mutation", { messageId: Id<"oracle_messages">; outcome?: "resonant" | "not_relevant" | "not_yet_known" }, null>("oracle/feedback:setMessageOutcome");
+const toggleWatchItemRef = makeFunctionReference<"mutation", { messageId: Id<"oracle_messages">; reviewInDays?: number }, { saved: boolean }>("oracle/feedback:toggleWatchItem");
+const addMessageRef = makeFunctionReference<"mutation", any, any>("oracle/sessions:addMessage");
+const updateSessionFeatureRef = makeFunctionReference<"mutation", any, any>("oracle/sessions:updateSessionFeature");
+const updateBirthChartDepthRef = makeFunctionReference<"mutation", any, any>("oracle/sessions:setSessionBirthChartDepth");
+const rateMessageRef = makeFunctionReference<"mutation", any, any>("oracle/sessions:rateMessage");
+const unrateMessageRef = makeFunctionReference<"mutation", any, any>("oracle/sessions:unrateMessage");
+const invokeOracleRef = makeFunctionReference<"action", any, any>("oracle/llm:invokeOracle");
+const submitBirthReportQuestionnaireRef = makeFunctionReference<"action", any, any>("birthChartReport/queue:submitReportQuestionnaire");
+const enqueueBirthReportRef = makeFunctionReference<"action", { priority?: number }, any>("birthChartReport/queue:enqueueMyReportGeneration");
+const ensureBirthReportOnboardingRef = makeFunctionReference<"mutation", { sessionId: Id<"oracle_sessions"> }, { repaired: boolean }>("birthChartReport/queue:ensureMyReportOnboarding");
 
 /** Component that resolves a Convex storage ID into a playable <audio> element */
 function AudioPlayer({ storageId }: { storageId: string }) {
-    const audioUrl = useQuery(api.oracle.sessions.getAudioUrl, { storageId: storageId as Id<"_storage"> });
+    // Keep this leaf query from forcing TypeScript to instantiate the entire large API graph.
+    const audioUrl = useQuery(getAudioUrlRef, { storageId: storageId as Id<"_storage"> });
     if (!audioUrl) {
         return (
             <div className="mt-3 flex items-center gap-2 text-xs text-white/40">
@@ -275,6 +318,7 @@ export default function OracleChatPage() {
     const { user } = useUserStore();
     const hasInvokedRef = useRef(false);
     const initialLoadDoneRef = useRef(false);
+    const reportOnboardingRepairStartedRef = useRef(false);
 
     const {
         state,
@@ -290,6 +334,8 @@ export default function OracleChatPage() {
         timezone,
         debugModelOverride,
         setDebugLastMetrics,
+        setUsageOpen,
+        setUpgradeOpen,
         setDebugDebugModelUsed,
         setDebugClientTiming,
         setDebugPromptTokens,
@@ -298,24 +344,41 @@ export default function OracleChatPage() {
 
     const loadingMessage = useLoadingMessage(isStreaming);
 
-    const sessionData = useQuery(api.oracle.sessions.getSessionWithMessages, { sessionId });
-    const currentUser = useQuery(api.users.current);
-    const quota = useQuery(api.oracle.quota.checkQuota);
+    const sessionData = useQuery(getSessionWithMessagesRef, { sessionId });
+    const currentUser = useQuery(getCurrentUserRef, {});
+    const quota = useQuery(checkQuotaRef, {});
     const quotaExhausted = quota && !quota.allowed;
 
-    const addMessageMutation = useMutation(api.oracle.sessions.addMessage);
-    const updateSessionFeatureMutation = useMutation(api.oracle.sessions.updateSessionFeature);
-    const updateBirthChartDepthMutation = useMutation(api.oracle.sessions.setSessionBirthChartDepth);
-    const rateMessageMutation = useMutation(api.oracle.sessions.rateMessage);
-    const unrateMessageMutation = useMutation(api.oracle.sessions.unrateMessage);
-    const invokeOracle = useAction(api.oracle.llm.invokeOracle);
-    const submitBirthReportQuestionnaire = useAction(api.birthChartReport.queue.submitReportQuestionnaire);
+    const addMessageMutation = useMutation(addMessageRef);
+    const updateSessionFeatureMutation = useMutation(updateSessionFeatureRef);
+    const updateBirthChartDepthMutation = useMutation(updateBirthChartDepthRef);
+    const rateMessageMutation = useMutation(rateMessageRef);
+    const unrateMessageMutation = useMutation(unrateMessageRef);
+    const setMessageOutcomeMutation = useMutation(setMessageOutcomeRef);
+    const toggleWatchItemMutation = useMutation(toggleWatchItemRef);
+    const ensureBirthReportOnboarding = useMutation(ensureBirthReportOnboardingRef);
+    const invokeOracle = useAction(invokeOracleRef);
+    const submitBirthReportQuestionnaire = useAction(submitBirthReportQuestionnaireRef);
+    const enqueueBirthReport = useAction(enqueueBirthReportRef);
 
     useEffect(() => {
         if (sessionData === null) {
             router.push("/oracle/new");
         }
     }, [sessionData, router]);
+
+    useEffect(() => {
+        if (!sessionData || !currentUser?.birthData || reportOnboardingRepairStartedRef.current) return;
+        const report = currentUser.birthChartReport;
+        const isDedicatedReportSession = sessionData.featureKey === "birth_chart_report"
+            || String(report?.oracleSessionId ?? "") === String(sessionId);
+        if (!isDedicatedReportSession || report?.status === "completed" || report?.onboardingStep) return;
+        reportOnboardingRepairStartedRef.current = true;
+        void ensureBirthReportOnboarding({ sessionId }).catch((error) => {
+            reportOnboardingRepairStartedRef.current = false;
+            console.error("Failed to repair Birth Chart Report onboarding:", error);
+        });
+    }, [sessionData, currentUser, sessionId, ensureBirthReportOnboarding]);
 
     useEffect(() => {
         if (!sessionData || !sessionData.messages) return;
@@ -363,8 +426,10 @@ export default function OracleChatPage() {
         if (!lastUserMessage) return;
 
         const assistantCount = sessionData.messages.filter((m) => m.role === "assistant").length;
+        const isDedicatedReportSession = sessionData.featureKey === "birth_chart_report"
+            || String(currentUser?.birthChartReport?.oracleSessionId ?? "") === String(sessionId);
         const reportOnboardingActive = Boolean(
-            currentUser?.birthData && currentUser.birthChartReport?.status !== "completed",
+            isDedicatedReportSession && currentUser?.birthData && currentUser.birthChartReport?.status !== "completed",
         );
         if (!reportOnboardingActive && assistantCount >= userMessages.length) {
             setConversationActive();
@@ -458,6 +523,18 @@ export default function OracleChatPage() {
             }
         }
     }, [sessionData, ratingOverrides, rateMessageMutation, unrateMessageMutation]);
+
+    const handleOutcome = useCallback(async (
+        messageId: Id<"oracle_messages">,
+        current: "resonant" | "not_relevant" | "not_yet_known" | undefined,
+        next: "resonant" | "not_relevant" | "not_yet_known",
+    ) => {
+        await setMessageOutcomeMutation({ messageId, outcome: current === next ? undefined : next });
+    }, [setMessageOutcomeMutation]);
+
+    const handleToggleWatch = useCallback(async (messageId: Id<"oracle_messages">) => {
+        await toggleWatchItemMutation({ messageId, reviewInDays: 7 });
+    }, [toggleWatchItemMutation]);
 
     const handleShare = useCallback(async (content: string, id: string) => {
         try {
@@ -617,8 +694,9 @@ export default function OracleChatPage() {
         isReportOriginSession && currentUser?.birthData && reportStatus !== "completed" && reportOnboardingStep === "questionnaire" && !onboardingWelcomeStillRevealing,
     );
     const reportGenerating = Boolean(
-        isReportOriginSession && currentUser?.birthData && reportStatus !== "completed" && (reportOnboardingStep === "queued" || reportStatus === "generating"),
+        isReportOriginSession && currentUser?.birthData && reportStatus !== "completed" && reportStatus !== "failed" && (reportOnboardingStep === "queued" || reportStatus === "generating"),
     );
+    const reportFailed = Boolean(isReportOriginSession && currentUser?.birthData && reportStatus === "failed");
     const showReportReadyCard = Boolean(
         isReportOriginSession && reportStatus === "completed" && dismissedReportReadyForSession !== String(sessionId),
     );
@@ -646,7 +724,7 @@ export default function OracleChatPage() {
         const hours = Math.floor(diff / 3_600_000);
         const minutes = Math.floor((diff % 3_600_000) / 60_000);
         return `${hours}h ${minutes}m`;
-    }, [quota]);
+    }, [quota, nowMs]);
 
     if (!sessionData) {
         return (
@@ -667,6 +745,8 @@ export default function OracleChatPage() {
         binauralParams: (m as any).binauralParams as (BinauralBeatParams & { rationale?: any }) | undefined,
         _id: m._id as Id<"oracle_messages">,
         rating: (m as any).rating as "positive" | "negative" | undefined,
+        outcome: (m as any).outcome as "resonant" | "not_relevant" | "not_yet_known" | undefined,
+        watchReviewAt: (m as any).watchReviewAt as number | undefined,
         journalPrompt: (m as any).journalPrompt as string | undefined,
         modelUsed: (m as any).modelUsed as string | undefined,
     }));
@@ -831,6 +911,8 @@ export default function OracleChatPage() {
                                     const msgId = msg._id;
                                     const override = msgId ? ratingOverrides[msgId] : undefined;
                                     const effectiveRating: "positive" | "negative" | undefined = override === "none" ? undefined : (override ?? msg.rating);
+                                    const isWatched = Boolean(msg.watchReviewAt);
+                                    const isReviewDue = Boolean(msg.watchReviewAt && msg.watchReviewAt <= nowMs && !msg.outcome);
 
                                     return (
                                         <div className="flex-1 min-w-0 py-2">
@@ -900,6 +982,53 @@ export default function OracleChatPage() {
                                                         >
                                                             <ThumbsDown className={effectiveRating === "negative" ? "w-3.5 h-3.5 fill-current" : "w-3.5 h-3.5"} />
                                                         </button>
+                                                    )}
+
+                                                    {/* Explicit, user-controlled retention: save a signal and review it later. */}
+                                                    {msgId && (
+                                                        <button
+                                                            onClick={() => handleToggleWatch(msgId)}
+                                                            className={isWatched ? "p-1 transition-colors text-galactic" : "p-1 transition-colors text-white/20 hover:text-white/50"}
+                                                            aria-label={isWatched ? "Remove from saved signals" : "Keep this signal for a seven-day review"}
+                                                            title={isWatched ? "Saved for review" : "Keep for 7 days"}
+                                                        >
+                                                            <Bookmark className={isWatched ? "w-3.5 h-3.5 fill-current" : "w-3.5 h-3.5"} />
+                                                        </button>
+                                                    )}
+
+                                                    {msgId && (
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <button
+                                                                    className={msg.outcome ? "p-1 transition-colors text-galactic" : "p-1 transition-colors text-white/20 hover:text-white/50"}
+                                                                    aria-label="Say whether this reading fits"
+                                                                    title="Did this fit?"
+                                                                >
+                                                                    <CircleDot className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="start" className="w-56 border-white/10 bg-[#11101a]/95 text-white shadow-xl backdrop-blur-xl">
+                                                                <DropdownMenuLabel className="text-xs font-normal text-white/45">Did this fit real life?</DropdownMenuLabel>
+                                                                <DropdownMenuSeparator className="bg-white/10" />
+                                                                <DropdownMenuItem onSelect={() => handleOutcome(msgId, msg.outcome, "resonant")} className="focus:bg-white/10 focus:text-white">
+                                                                    <CircleDot className="text-emerald-300" /> Resonant
+                                                                    {msg.outcome === "resonant" && <Check className="ml-auto text-galactic" />}
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onSelect={() => handleOutcome(msgId, msg.outcome, "not_yet_known")} className="focus:bg-white/10 focus:text-white">
+                                                                    <CircleHelp className="text-amber-200" /> Not yet known
+                                                                    {msg.outcome === "not_yet_known" && <Check className="ml-auto text-galactic" />}
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onSelect={() => handleOutcome(msgId, msg.outcome, "not_relevant")} className="focus:bg-white/10 focus:text-white">
+                                                                    <CircleX className="text-rose-300" /> Not relevant
+                                                                    {msg.outcome === "not_relevant" && <Check className="ml-auto text-galactic" />}
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    )}
+                                                    {isReviewDue && (
+                                                        <span className="ml-1 rounded-full border border-galactic/20 bg-galactic/5 px-2 py-0.5 text-[10px] tracking-wide text-galactic/80">
+                                                            Ready to review
+                                                        </span>
                                                     )}
 
                                                     {/* Share */}
@@ -993,54 +1122,55 @@ export default function OracleChatPage() {
             <div className="shrink-0 p-4 bg-linear-to-t from-background via-background/95 to-transparent">
                 <div className="max-w-3xl mx-auto">
                     {quotaExhausted ? (
-                        /* ─── Quota Exhausted Banner ─── */
+                        /* Calm, composer-sized quota state */
                         <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-amber-950/30 backdrop-blur-2xl p-5"
+                            className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#12111a]/90 px-4 py-3.5 shadow-xl shadow-black/20 backdrop-blur-2xl sm:px-5"
                         >
-                            <div className="absolute inset-0 bg-linear-to-br from-amber-500/5 to-transparent pointer-events-none" />
-                            <div className="relative flex items-start gap-4">
-                                <div className="shrink-0 w-10 h-10 rounded-full bg-amber-500/15 border border-amber-500/25 flex items-center justify-center">
-                                    <AlertTriangle className="w-5 h-5 text-amber-400" />
+                            <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-linear-to-r from-transparent via-galactic/60 to-transparent" />
+                            <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center">
+                                <div className="flex min-w-0 flex-1 items-center gap-3">
+                                    <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-galactic/20 bg-galactic/10">
+                                        <GiCursedStar className="size-4 text-galactic" aria-hidden="true" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="font-serif text-sm font-medium text-white/90">
+                                            {quota?.reason === "weekly_cap"
+                                                ? "Your weekly Oracle allowance is resting"
+                                                : "The Oracle is pausing between readings"}
+                                        </p>
+                                        <p className="mt-0.5 flex items-center gap-1.5 text-xs text-white/40">
+                                            <Clock className="size-3.5 text-galactic/70" aria-hidden="true" />
+                                            {quotaCountdown
+                                                ? `Available again in ${quotaCountdown}`
+                                                : "Your allowance will refresh automatically"}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    {quota?.reason === "burst_cap" || quota?.reason === "weekly_cap" ? (
-                                        <>
-                                            <p className="text-sm font-medium text-galactic/90 mb-1">
-                                                {quota.reason === "weekly_cap"
-                                                    ? "You've reached your weekly Oracle limit"
-                                                    : "You've reached your burst limit"}
-                                            </p>
-                                            <p className="text-xs text-galactic/50 leading-relaxed flex items-center gap-1.5">
-                                                <Clock className="w-3.5 h-3.5" />
-                                                Oracle returns in {quotaCountdown ?? "a few hours"}.
-                                                {quota.reason === "weekly_cap" && (
-                                                    <span className="ml-1">Upgrade for more.</span>
-                                                )}
-                                            </p>
-                                            {quota.reason === "weekly_cap" && (
-                                                <div className="flex gap-2 mt-3">
-                                                    <Button
-                                                        size="sm"
-                                                        className="bg-galactic hover:bg-galactic/80 text-white text-xs gap-1.5 rounded-xl"
-                                                        onClick={() => router.push("/pricing")}
-                                                    >
-                                                        <ArrowUpRight className="w-3.5 h-3.5" />
-                                                        Upgrade
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <>
-                                            <p className="text-sm font-medium text-amber-200/90 mb-1">
-                                                Quota reached
-                                            </p>
-                                            <p className="text-xs text-amber-200/50 leading-relaxed">
-                                                Try again later or upgrade your plan.
-                                            </p>
-                                        </>
+                                <div className="flex shrink-0 items-center gap-2 pl-12 sm:pl-0">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setUsageOpen(true)}
+                                        className="h-8 rounded-lg border border-white/10 bg-white/[0.035] px-3 font-serif text-xs text-white/60 hover:border-galactic/25 hover:bg-galactic/[0.07] hover:text-white"
+                                    >
+                                        View usage
+                                    </Button>
+                                    {user?.tier !== "premium" && (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setUpgradeOpen(true)}
+                                            className={`h-8 rounded-lg border px-3 font-serif text-xs ${user?.tier === "popular"
+                                                ? "border-galactic/20 bg-galactic/10 text-galactic hover:bg-galactic/15"
+                                                : "border-primary/20 bg-primary/10 text-primary hover:bg-primary/15"
+                                            }`}
+                                        >
+                                            Upgrade
+                                        </Button>
                                     )}
                                 </div>
                             </div>
@@ -1051,7 +1181,7 @@ export default function OracleChatPage() {
                             {reportQuestionnaireActive && (
                                 <div className="mb-3">
                                     <BirthReportQuestionnaire
-                                        disabled={isBusyOrQuotaBlocked}
+                                        disabled={isStreaming || state === "oracle_responding"}
                                         onSubmit={handleReportQuestionnaireSubmit}
                                     />
                                 </div>
@@ -1071,6 +1201,14 @@ export default function OracleChatPage() {
                                     </div>
                                 </motion.div>
                             )}
+                            {reportFailed && (
+                                <div className="mb-3 rounded-2xl border border-amber-300/20 bg-amber-300/[0.07] p-4 text-sm text-white/70 backdrop-blur-xl">
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <div><div className="font-serif text-white">The report did not pass its final checks.</div><div className="text-xs text-white/45">Your chart data is safe. Retry starts a fresh quality-checked pass.</div></div>
+                                        <Button size="sm" variant="outline" className="rounded-xl border-amber-200/20 bg-amber-200/[0.04]" onClick={() => void enqueueBirthReport({ priority: 2 })}><RotateCcw className="mr-2 size-3.5" /> Retry</Button>
+                                    </div>
+                                </div>
+                            )}
                             {showReportReadyCard && (
                                 <motion.div
                                     initial={{ opacity: 0, y: 10 }}
@@ -1080,7 +1218,7 @@ export default function OracleChatPage() {
                                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                         <div>
                                             <div className="font-serif text-white">Your Birth Chart Report is ready.</div>
-                                            <div className="text-xs text-white/45">We can continue chatting from this deeper chart context.</div>
+                                            <div className="text-xs text-white/45">Open your visual field guide, or continue with Oracle using the calculated chart.</div>
                                         </div>
                                         <div className="flex gap-2">
                                             <Button size="sm" variant="outline" className="rounded-xl border-primary/20 bg-primary/5" onClick={handleDismissReportReady}>Continue chatting</Button>

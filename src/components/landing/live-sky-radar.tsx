@@ -1,475 +1,655 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { getPlanetTelemetry, type PlanetTelemetry } from "@/lib/planets/telemetry";
-import { planetUIConfig } from "@/config/planet-ui";
+import Link from "next/link";
+import { TbArrowRight, TbTelescope } from "react-icons/tb";
+
 import { compositionalSigns } from "@/astrology/signs";
+import { planetUIConfig, type PlanetUIConfig } from "@/config/planet-ui";
 import { zodiacUIConfig } from "@/config/zodiac-ui";
-import { TbTelescope, TbArrowRight } from "react-icons/tb";
-import { GiOrbital } from "react-icons/gi";
+import {
+  getPlanetTelemetry,
+  type PlanetTelemetry,
+} from "@/lib/planets/telemetry";
 
-const PLANET_IDS = ["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune", "pluto"] as const;
-
-const ZODIAC_SIGNS = [
-    "aries", "taurus", "gemini", "cancer", "leo", "virgo",
-    "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces",
+const PLANET_IDS = [
+  "sun",
+  "moon",
+  "mercury",
+  "venus",
+  "mars",
+  "jupiter",
+  "saturn",
+  "uranus",
+  "neptune",
+  "pluto",
 ] as const;
 
-// Larger radii & sizes so planets and the zodiac wheel read clearly
+const ZODIAC_SIGNS = [
+  "aries",
+  "taurus",
+  "gemini",
+  "cancer",
+  "leo",
+  "virgo",
+  "libra",
+  "scorpio",
+  "sagittarius",
+  "capricorn",
+  "aquarius",
+  "pisces",
+] as const;
+
 const ORBIT_CONFIG: Record<string, { radius: number; size: number }> = {
-    mercury: { radius: 11, size: 46 },
-    venus: { radius: 16, size: 52 },
-    moon: { radius: 21, size: 48 },
-    mars: { radius: 26, size: 48 },
-    jupiter: { radius: 31, size: 64 },
-    saturn: { radius: 35, size: 58 },
-    uranus: { radius: 39, size: 52 },
-    neptune: { radius: 43, size: 52 },
-    pluto: { radius: 46, size: 40 },
+  mercury: { radius: 13.5, size: 38 },
+  venus: { radius: 18, size: 42 },
+  moon: { radius: 22.5, size: 40 },
+  mars: { radius: 27, size: 42 },
+  jupiter: { radius: 31.5, size: 54 },
+  saturn: { radius: 36, size: 52 },
+  uranus: { radius: 40, size: 46 },
+  neptune: { radius: 43.5, size: 46 },
+  pluto: { radius: 46, size: 35 },
 };
 
+const STAR_FIELD = [
+  [8, 19, 1], [14, 72, 2], [19, 42, 1], [25, 87, 1], [31, 12, 2],
+  [36, 64, 1], [43, 29, 1], [49, 78, 2], [55, 8, 1], [61, 92, 1],
+  [67, 36, 1], [73, 69, 2], [80, 17, 1], [86, 52, 1], [92, 82, 2],
+  [10, 91, 1], [22, 56, 1], [40, 94, 1], [58, 47, 1], [77, 95, 1],
+] as const;
+
 interface PlanetRadarEntry {
-    id: string;
-    name: string;
-    telemetry: PlanetTelemetry;
-    ui: typeof planetUIConfig[string];
-    signName: string;
-    signIcon: typeof zodiacUIConfig[string]["icon"];
+  id: string;
+  name: string;
+  telemetry: PlanetTelemetry;
+  ui: PlanetUIConfig;
+  signName: string;
 }
 
-/** 0° Aries at 12 o'clock, increasing counterclockwise (astronomically correct) */
-function longitudeToOffset(longitudeDeg: number, radiusPct: number): { left: string; top: string; topPct: number } {
-    const rad = (longitudeDeg * Math.PI) / 180;
-    const x = -Math.sin(rad) * radiusPct;
-    const y = -Math.cos(rad) * radiusPct;
-    return {
-        left: `${50 + x}%`,
-        top: `${50 + y}%`,
-        topPct: 50 + y,
-    };
+function longitudeToOffset(longitude: number, radius: number) {
+  const radians = (longitude * Math.PI) / 180;
+
+  return {
+    left: `${50 - Math.sin(radians) * radius}%`,
+    top: `${50 - Math.cos(radians) * radius}%`,
+  };
 }
 
-/** Zodiac sign for a given ecliptic longitude (0° = Aries start) */
-function longitudeToSignIndex(lon: number): number {
-    return Math.floor(((lon % 360 + 360) % 360) / 30);
+function formatDistance(distanceAu: number | null) {
+  if (distanceAu === null) return "Geocentric position";
+  if (distanceAu < 0.01) return `${Math.round(distanceAu * 149_597_870.7).toLocaleString()} km away`;
+  return `${distanceAu.toFixed(2)} AU away`;
+}
+
+function PlanetImage({
+  entry,
+  size,
+  priority = false,
+}: {
+  entry: PlanetRadarEntry;
+  size: number;
+  priority?: boolean;
+}) {
+  if (!entry.ui.imageUrl) {
+    return (
+      <span className="font-serif text-xl" style={{ color: entry.ui.themeColor }}>
+        {entry.ui.rulerSymbol}
+      </span>
+    );
+  }
+
+  return (
+    <Image
+      src={entry.ui.imageUrl}
+      alt=""
+      width={size}
+      height={size}
+      priority={priority}
+      className="h-full w-full object-contain"
+    />
+  );
 }
 
 export function LiveSkyRadar() {
-    const [entries, setEntries] = useState<PlanetRadarEntry[]>([]);
-    const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [entries, setEntries] = useState<PlanetRadarEntry[]>([]);
+  const [activeId, setActiveId] = useState<string>("sun");
+  const [capturedAt, setCapturedAt] = useState<Date | null>(null);
 
-    useEffect(() => {
-        const date = new Date();
-        const results: PlanetRadarEntry[] = [];
-        for (const id of PLANET_IDS) {
-            const t = getPlanetTelemetry(id, date);
-            const ui = planetUIConfig[id];
-            if (!t || !ui) continue;
-            const sign = compositionalSigns.find(s => s.id === t.signId);
-            const signUi = zodiacUIConfig[t.signId];
-            results.push({
-                id,
-                name: id.charAt(0).toUpperCase() + id.slice(1),
-                telemetry: t,
-                ui,
-                signName: sign?.name ?? t.signId,
-                signIcon: signUi?.icon ?? (() => null),
-            });
-        }
-        setEntries(results);
-        const retrograde = results.find(e => e.telemetry.retrograde);
-        if (retrograde) setHighlightedId(retrograde.id);
-    }, []);
+  useEffect(() => {
+    const now = new Date();
+    const nextEntries = PLANET_IDS.flatMap((id) => {
+      const telemetry = getPlanetTelemetry(id, now);
+      const ui = planetUIConfig[id];
+      if (!telemetry || !ui) return [];
 
-    const retrogradePlanets = useMemo(() => entries.filter(e => e.telemetry.retrograde), [entries]);
-    const orbitingPlanets = useMemo(() => entries.filter(e => e.id !== "sun"), [entries]);
-    const sunEntry = useMemo(() => entries.find(e => e.id === "sun"), [entries]);
+      const sign = compositionalSigns.find((item) => item.id === telemetry.signId);
+      return [{
+        id,
+        name: id.charAt(0).toUpperCase() + id.slice(1),
+        telemetry,
+        ui,
+        signName: sign?.name ?? telemetry.signId,
+      }];
+    });
 
-    // ── Collision avoidance: offset overlapping planets ──
-    const adjustedPlanets = useMemo(() => {
-        const sorted = [...orbitingPlanets];
-        const adjusted: typeof orbitingPlanets = [];
-        const MIN_ANGULAR_GAP = 6; // degrees
+    setEntries(nextEntries);
+    setCapturedAt(now);
+  }, []);
 
-        for (const planet of sorted) {
-            const cfg = ORBIT_CONFIG[planet.id];
-            if (!cfg) { adjusted.push(planet); continue; }
+  const sun = useMemo(() => entries.find((entry) => entry.id === "sun"), [entries]);
+  const orbitingPlanets = useMemo(
+    () => entries.filter((entry) => entry.id !== "sun"),
+    [entries],
+  );
+  const retrogradePlanets = useMemo(
+    () => entries.filter((entry) => entry.telemetry.retrograde),
+    [entries],
+  );
+  const activeEntry = entries.find((entry) => entry.id === activeId) ?? sun;
+  const ActiveSignIcon = activeEntry
+    ? zodiacUIConfig[activeEntry.telemetry.signId]?.icon
+    : null;
 
-            let lon = planet.telemetry.longitude;
-            let hasCollision = true;
-            let attempts = 0;
+  return (
+    <section className="relative isolate w-full" aria-labelledby="live-sky-heading">
+      <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[85%] w-[92%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(202,166,87,0.08),transparent_67%)] blur-3xl" />
 
-            while (hasCollision && attempts < 8) {
-                hasCollision = false;
-                for (const placed of adjusted) {
-                    const placedCfg = ORBIT_CONFIG[placed.id];
-                    if (!placedCfg) continue;
+      <header className="mx-auto mb-8 flex max-w-6xl flex-col gap-5 sm:mb-10 md:flex-row md:items-end md:justify-between">
+        <div className="max-w-2xl">
+          <div className="mb-4 flex items-center gap-3">
+            <span className="relative grid size-2.5 place-items-center">
+              <span className="absolute size-full animate-ping rounded-full bg-emerald-300/60 motion-reduce:animate-none" />
+              <span className="relative size-1.5 rounded-full bg-emerald-200 shadow-[0_0_10px_rgba(167,243,208,0.9)]" />
+            </span>
+            <span className="font-mono text-[9px] uppercase tracking-[0.34em] text-emerald-100/60 sm:text-[10px]">
+              Sky feed · live now
+            </span>
+          </div>
+          <h2
+            id="live-sky-heading"
+            className="max-w-xl font-serif text-[clamp(2.45rem,6vw,5.25rem)] leading-[0.88] tracking-[-0.045em] text-white"
+          >
+            The sky, <span className="italic text-primary">right now.</span>
+          </h2>
+          <p className="mt-5 max-w-lg text-sm leading-relaxed text-white/45 sm:text-base">
+            A live geocentric map of every planet moving through the zodiac.
+            Touch any world to read its current cosmic coordinates.
+          </p>
+        </div>
 
-                    // Only check collision if orbits are close (within 2 radius steps)
-                    const radiusDiff = Math.abs(cfg.radius - placedCfg.radius);
-                    if (radiusDiff > 8) continue;
+        <div className="flex items-center gap-3 self-start border-l border-white/10 pl-4 md:self-end">
+          <div>
+            <p className="font-mono text-[9px] uppercase tracking-[0.24em] text-white/30">Calculated</p>
+            <p className="mt-1 font-serif text-sm text-white/70">
+              {capturedAt
+                ? capturedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZoneName: "short" })
+                : "Reading the sky…"}
+            </p>
+          </div>
+        </div>
+      </header>
 
-                    let lonDiff = Math.abs(lon - placed.telemetry.longitude);
-                    if (lonDiff > 180) lonDiff = 360 - lonDiff;
+      <div className="relative mx-auto hidden max-w-6xl overflow-hidden rounded-[2rem] border border-white/[0.09] bg-[#070707] shadow-[0_40px_120px_rgba(0,0,0,0.52),inset_0_1px_0_rgba(255,255,255,0.035)] md:block">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_12%,rgba(212,175,55,0.08),transparent_28%),radial-gradient(circle_at_88%_88%,rgba(93,129,180,0.08),transparent_30%)]" />
+        <div className="pointer-events-none absolute inset-0 opacity-[0.035] [background-image:url('data:image/svg+xml,%3Csvg_viewBox=%220_0_180_180%22_xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter_id=%22n%22%3E%3CfeTurbulence_type=%22fractalNoise%22_baseFrequency=%220.8%22_numOctaves=%224%22_stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect_width=%22100%25%22_height=%22100%25%22_filter=%22url(%23n)%22_opacity=%22.7%22/%3E%3C/svg%3E')]" />
 
-                    if (lonDiff < MIN_ANGULAR_GAP && radiusDiff < 5) {
-                        // Nudge the planet's longitude slightly for display
-                        lon += MIN_ANGULAR_GAP - lonDiff + 1;
-                        lon = ((lon % 360) + 360) % 360;
-                        hasCollision = true;
-                        break;
-                    }
-                }
-                attempts++;
-            }
-
-            adjusted.push({ ...planet, _displayLongitude: lon } as PlanetRadarEntry & { _displayLongitude?: number });
-        }
-        return adjusted;
-    }, [orbitingPlanets]);
-
-    return (
-        <section className="relative w-full">
-            {/* Section Header */}
-            <div className="text-center mb-12 md:mb-16">
-                <div className="inline-flex items-center gap-2 mb-4">
-                    <span className="relative flex h-2.5 w-2.5 mr-4">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
-                    </span>
-                    {/* <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-green-400/80">Live Transmission</span> */}
-                    <h2 className="text-3xl md:text-5xl font-serif text-foreground tracking-tight">
-                        Live Planetary <span className="text-primary">Positions</span>
-                    </h2>
-                </div>
-
-
-
+        <div className="relative grid lg:grid-cols-[minmax(0,1fr)_19rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="relative flex min-h-[26rem] items-center justify-center overflow-hidden px-3 py-8 sm:min-h-[38rem] sm:p-8 lg:min-h-[47rem] lg:border-r lg:border-white/[0.07] xl:min-h-[52rem]">
+            <div className="pointer-events-none absolute left-5 top-5 flex items-center gap-2 font-mono text-[8px] uppercase tracking-[0.22em] text-white/20 sm:left-8 sm:top-8 sm:text-[9px]">
+              <span>Geocentric ecliptic</span>
+              <span className="h-px w-8 bg-white/10" />
+              <span>360°</span>
             </div>
 
-            {/* ═══════════════════════════════════════════════════════════════
-                DESKTOP: Bird's eye orbital view with zodiac wheel
-                Sun center, planets on orbits at live longitude angles
-            ═══════════════════════════════════════════════════════════════ */}
-            <div className="hidden md:block max-w-5xl mx-auto mb-12 md:mb-16">
-                {/*
-                    overflow-visible so tooltips escape freely.
-                    The zodiac ring is clipped internally via a separate wrapper.
-                */}
-                <div className="relative mx-auto aspect-square overflow-visible" style={{ maxWidth: 800 }}>
-                    {/* ── Zodiac Wheel (clipped to circular boundary so pie-slice tints stay inside the circle) ── */}
-                    <div className="absolute inset-0 pointer-events-none" style={{ clipPath: "circle(50%)" }}>
-                        {ZODIAC_SIGNS.map((signId, i) => {
-                            const startDeg = i * 30;
-                            const midDeg = startDeg + 15;
-                            const SignIcon = zodiacUIConfig[signId]?.icon;
-                            // Convert to CSS conic-gradient: 0° = 12 o'clock = top
-                            // Our longitude system: 0° Aries = 12 o'clock, increasing CCW
-                            // CSS conic-gradient: 0° = top, increasing CW
-                            // So we need to negate: CSS angle = -longitudeDeg
-                            const gradientStart = -startDeg - 30;
-                            const gradientEnd = -startDeg;
+            {STAR_FIELD.map(([left, top, size], index) => (
+              <i
+                key={`${left}-${top}`}
+                className="pointer-events-none absolute rounded-full bg-white"
+                style={{
+                  left: `${left}%`,
+                  top: `${top}%`,
+                  width: size,
+                  height: size,
+                  opacity: index % 3 === 0 ? 0.34 : 0.16,
+                }}
+              />
+            ))}
 
-                            // Position icon at midpoint of sign segment, on outer ring
-                            const midRad = ((midDeg) * Math.PI) / 180;
-                            const iconRadiusPct = 48;
-                            const iconX = -Math.sin(midRad) * iconRadiusPct;
-                            const iconY = -Math.cos(midRad) * iconRadiusPct;
+            <div className="sky-wheel relative aspect-square w-full max-w-[44rem] select-none">
+              <div className="absolute inset-[1.5%] rounded-full border border-primary/20 shadow-[0_0_80px_rgba(212,175,55,0.04),inset_0_0_70px_rgba(255,255,255,0.018)]" />
+              <div className="absolute inset-[3.2%] rounded-full border border-dashed border-white/[0.08] motion-safe:animate-[spin_180s_linear_infinite]" />
+              <div className="absolute inset-[7%] rounded-full border border-primary/[0.09]" />
+              <div className="absolute inset-[10.5%] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.025),transparent_64%),conic-gradient(from_0deg,rgba(212,175,55,0.025),transparent_10%,rgba(255,255,255,0.018)_20%,transparent_30%,rgba(212,175,55,0.025)_42%,transparent_52%,rgba(255,255,255,0.018)_66%,transparent_78%,rgba(212,175,55,0.025))]" />
+              <div className="absolute left-1/2 top-[4%] bottom-[4%] w-px -translate-x-1/2 bg-gradient-to-b from-primary/20 via-white/[0.025] to-primary/20" />
+              <div className="absolute bottom-1/2 left-[4%] right-[4%] h-px bg-gradient-to-r from-primary/20 via-white/[0.025] to-primary/20" />
 
-                            const isEven = i % 2 === 0;
+              {ZODIAC_SIGNS.map((signId, index) => {
+                const SignIcon = zodiacUIConfig[signId]?.icon;
+                const angle = index * 30 + 15;
+                const iconPosition = longitudeToOffset(angle, 47);
 
-                            return (
-                                <div key={signId + "-zodiac"}>
-                                    {/* Sign segment tint */}
-                                    <div
-                                        className="absolute inset-0"
-                                        style={{
-                                            background: `conic-gradient(from ${gradientStart}deg at 50% 50%, ${isEven ? "rgba(255,255,255,0.015)" : "transparent"} 0deg, ${isEven ? "rgba(255,255,255,0.015)" : "transparent"} 30deg, transparent 30deg)`,
-                                        }}
-                                    />
-                                    {/* Segment divider line */}
-                                    <div
-                                        className="absolute left-1/2 top-1/2 w-px origin-bottom"
-                                        style={{
-                                            height: "48%",
-                                            transform: `rotate(${-startDeg}deg)`,
-                                            background: "linear-gradient(to top, transparent 60%, rgba(255,255,255,0.06) 100%)",
-                                        }}
-                                    />
-                                    {/* Sign icon */}
-                                    {SignIcon && (
-                                        <div
-                                            className="absolute -translate-x-1/2 -translate-y-1/2"
-                                            style={{
-                                                left: `${50 + iconX}%`,
-                                                top: `${50 + iconY}%`,
-                                            }}
-                                        >
-                                            <SignIcon
-                                                className="text-white/25"
-                                                size={22}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
+                return (
+                  <div key={signId}>
+                    <div
+                      className="absolute left-1/2 top-1/2 h-[43%] w-px origin-top bg-gradient-to-b from-white/[0.035] to-white/[0.12]"
+                      style={{ transform: `rotate(${-index * 30}deg)` }}
+                    />
+                    {SignIcon && (
+                      <div
+                        className="absolute z-10 grid size-5 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-[#090909] text-white/35 sm:size-7"
+                        style={iconPosition}
+                        title={signId}
+                      >
+                        <SignIcon className="size-3 sm:size-4" aria-hidden="true" />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
 
-                    {/* Orbit rings — concentric circles scaled from center */}
-                    {Object.entries(ORBIT_CONFIG).map(([id, cfg]) => (
-                        <div
-                            key={id + "-orbit"}
-                            className="absolute inset-0 rounded-full border border-white/[0.04] pointer-events-none"
-                            style={{ transform: `scale(${cfg.radius * 2 / 100})` }}
-                        />
-                    ))}
+              {Object.entries(ORBIT_CONFIG).map(([id, orbit]) => (
+                <div
+                  key={`${id}-orbit`}
+                  className="absolute inset-0 rounded-full border border-white/[0.045]"
+                  style={{ transform: `scale(${orbit.radius / 50})` }}
+                />
+              ))}
 
-                    {/* ── Circular boundary rings ── */}
-                    <div className="absolute inset-0 rounded-full border-2 border-white/[0.06] pointer-events-none" />
-                    <div className="absolute inset-[2px] rounded-full border border-white/[0.03] pointer-events-none" />
-
-                    {/* ── Sun (dead center) ── */}
-                    <div className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-[z-index] duration-200 ${highlightedId === "sun" ? "z-50" : "z-10"}`}>
-                        <div className="relative">
-                            <div className="absolute -inset-14 rounded-full opacity-25 blur-3xl" style={{ background: "var(--sun)" }} />
-                            <Link href="/learn/planets/sun" className="relative block group" onMouseEnter={() => setHighlightedId("sun")} onMouseLeave={() => setHighlightedId(null)}>
-                                <img
-                                    src={planetUIConfig.sun.imageUrl}
-                                    alt="Sun"
-                                    className="w-24 h-24 object-contain transition-transform duration-300 group-hover:scale-110"
-                                    style={{ filter: "drop-shadow(0 0 20px rgba(212,175,55,0.4))" }}
-                                />
-                                {/* Sun tooltip */}
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
-                                    <div className="bg-black/95 border border-white/10 rounded-md px-3 py-2 text-center whitespace-nowrap backdrop-blur-sm">
-                                        <div className="text-xs font-serif text-white">Sun</div>
-                                        {sunEntry && (
-                                            <>
-                                                <div className="text-[10px] font-mono text-white/50">
-                                                    {sunEntry.signName} · {sunEntry.telemetry.longitude.toFixed(1)}°
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                    <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
-                                        <div className="w-2 h-2 bg-black/95 border-r border-b border-white/10 rotate-45" />
-                                    </div>
-                                </div>
-                            </Link>
-                        </div>
-                    </div>
-
-                    {/* ── Planets on orbits ── */}
-                    {adjustedPlanets.map((entry, i) => {
-                        const cfg = ORBIT_CONFIG[entry.id];
-                        if (!cfg) return null;
-
-                        const displayLon = (entry as PlanetRadarEntry & { _displayLongitude?: number })._displayLongitude ?? entry.telemetry.longitude;
-                        const offset = longitudeToOffset(displayLon, cfg.radius);
-                        const isHighlighted = entry.id === highlightedId;
-                        const isRetrograde = entry.telemetry.retrograde;
-                        const isInTopHalf = offset.topPct < 50;
-
-                        return (
-                            <div
-                                key={entry.id}
-                                className={`absolute -translate-x-1/2 -translate-y-1/2 transition-[z-index] duration-200 ${isHighlighted ? "z-50" : "z-10"}`}
-                                style={{ left: offset.left, top: offset.top }}
-                            >
-                                <Link
-                                    href={`/learn/planets/${entry.id}`}
-                                    className="relative group block"
-                                    onMouseEnter={() => setHighlightedId(entry.id)}
-                                    onMouseLeave={() => setHighlightedId(null)}
-                                >
-                                    {/* Retrograde pulse */}
-                                    {isRetrograde && (
-                                        <div className="absolute -inset-1.5 rounded-full bg-orange-500/25 animate-pulse" />
-                                    )}
-
-                                    {/* Highlight ring */}
-                                    <div
-                                        className="absolute -inset-2 rounded-full border transition-opacity duration-300 pointer-events-none"
-                                        style={{
-                                            borderColor: entry.ui.themeColor,
-                                            opacity: isHighlighted ? 0.4 : 0,
-                                            boxShadow: isHighlighted ? `0 0 20px ${entry.ui.themeColor}20` : "none",
-                                        }}
-                                    />
-
-                                    {/* Planet image */}
-                                    <img
-                                        src={entry.ui.imageUrl}
-                                        alt={entry.name}
-                                        className="object-contain transition-all duration-300 group-hover:scale-110"
-                                        style={{
-                                            width: cfg.size,
-                                            height: cfg.size,
-                                            filter: isHighlighted
-                                                ? `drop-shadow(0 0 8px ${entry.ui.themeColor}60)`
-                                                : `drop-shadow(0 0 4px ${entry.ui.themeColor}20)`,
-                                        }}
-                                    />
-
-                                    {/* Tooltip — flips below when planet is in top half */}
-                                    <div
-                                        className={`absolute left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 ${isInTopHalf
-                                            ? "top-full mt-3"
-                                            : "bottom-full mb-3"
-                                            }`}
-                                    >
-                                        <div className="bg-black/95 border border-white/10 rounded-md px-3 py-2 text-center whitespace-nowrap backdrop-blur-sm">
-                                            <div className="text-xs font-serif text-white">{entry.name}</div>
-                                            <div className="text-[10px] font-mono text-white/50">
-                                                {entry.signName} · {entry.telemetry.longitude.toFixed(1)}°
-                                            </div>
-                                            {isRetrograde && (
-                                                <div className="text-[10px] text-orange-400 font-mono">RETROGRADE</div>
-                                            )}
-                                        </div>
-                                        {/* Arrow — flips with tooltip */}
-                                        <div className={`absolute left-1/2 -translate-x-1/2 ${isInTopHalf
-                                            ? "bottom-full -mb-px"
-                                            : "top-full -mt-px"
-                                            }`}>
-                                            <div className={`w-2 h-2 bg-black/95 border-white/10 rotate-45 ${isInTopHalf
-                                                ? "border-l border-t"
-                                                : "border-r border-b"
-                                                }`} />
-                                        </div>
-                                    </div>
-                                </Link>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* ═══════════════════════════════════════════════════════════════
-                MOBILE: Horizontal ecliptic strip with zodiac reference
-                Planets positioned by longitude along a linear track
-            ═══════════════════════════════════════════════════════════════ */}
-            <div className="md:hidden max-w-full mx-auto mb-10">
-                <div className="border border-white/[0.06] bg-black/30 rounded-md overflow-hidden">
-                    <div className="relative px-4 py-10">
-                        {/* Ecliptic line */}
-                        <div className="absolute left-8 right-8 top-1/2 h-px bg-white/[0.06]" />
-
-                        {/* Zodiac sign tick marks along the strip */}
-                        {ZODIAC_SIGNS.map((signId, i) => {
-                            const SignIcon = zodiacUIConfig[signId]?.icon;
-                            const pct = (i * 30) / 360;
-                            return (
-                                <div
-                                    key={signId + "-tick"}
-                                    className="absolute top-1/2 -translate-x-1/2 pointer-events-none"
-                                    style={{ left: `${4 + pct * 92}%` }}
-                                >
-                                    <div className="h-3 w-px bg-white/[0.08] -translate-y-1/2" />
-                                    <div className="mt-2 -translate-x-1/2 left-1/2 relative">
-                                        {SignIcon && <SignIcon className="text-white/10" size={10} />}
-                                    </div>
-                                </div>
-                            );
-                        })}
-
-                        {/* Collision avoidance for mobile strip */}
-                        {(() => {
-                            type MobileEntry = PlanetRadarEntry & { _xPct?: number };
-                            const sorted: MobileEntry[] = [...entries].sort(
-                                (a, b) => a.telemetry.longitude - b.telemetry.longitude
-                            );
-                            const MIN_GAP = 7; // % of track width
-                            for (let j = 1; j < sorted.length; j++) {
-                                const prevPct = sorted[j - 1]._xPct ?? (4 + (sorted[j - 1].telemetry.longitude / 360) * 92);
-                                const rawPct = 4 + (sorted[j].telemetry.longitude / 360) * 92;
-                                if (rawPct - prevPct < MIN_GAP) {
-                                    sorted[j]._xPct = prevPct + MIN_GAP;
-                                } else {
-                                    sorted[j]._xPct = rawPct;
-                                }
-                            }
-
-                            return sorted.map((entry, i) => {
-                                const xPct = entry._xPct ?? (4 + (entry.telemetry.longitude / 360) * 92);
-                                const isRetrograde = entry.telemetry.retrograde;
-
-                                return (
-                                    <div
-                                        key={entry.id}
-                                        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-10"
-                                        style={{ left: `${xPct}%` }}
-                                    >
-                                        <Link href={`/learn/planets/${entry.id}`} className="relative group block">
-                                            {isRetrograde && (
-                                                <div className="absolute -inset-1 rounded-full bg-orange-500/20 animate-pulse" />
-                                            )}
-                                            <div className="w-9 h-9 rounded-full flex items-center justify-center border border-white/[0.08] bg-black/70 overflow-hidden">
-                                                {entry.ui.imageUrl ? (
-                                                    <Image src={entry.ui.imageUrl} alt={entry.name} width={24} height={24} className="w-6 h-6 object-contain" />
-                                                ) : (
-                                                    <span className="text-sm font-serif" style={{ color: entry.ui.themeColor }}>{entry.ui.rulerSymbol}</span>
-                                                )}
-                                            </div>
-                                            {/* Mobile tooltip on hover/tap */}
-                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
-                                                <div className="bg-black/95 border border-white/10 rounded-md px-2.5 py-1.5 text-center whitespace-nowrap backdrop-blur-sm">
-                                                    <div className="text-[10px] font-serif text-white">{entry.name}</div>
-                                                    <div className="text-[9px] font-mono text-white/40">{entry.signName} · {entry.telemetry.longitude.toFixed(0)}°</div>
-                                                </div>
-                                            </div>
-                                        </Link>
-                                    </div>
-                                );
-                            });
-                        })()}
-                    </div>
-                </div>
-            </div>
-
-            {/* Retrograde Alert */}
-            {retrogradePlanets.length > 0 && (
-                <div className="max-w-3xl mx-auto mb-10">
-                    <div className="border border-orange-500/20 bg-orange-500/5 rounded-md p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center gap-4">
-                        <div className="flex items-center gap-3 shrink-0">
-                            <GiOrbital className="w-5 h-5 text-orange-400" />
-                            <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-orange-400">Retrograde Alert</span>
-                        </div>
-                        <div className="flex flex-wrap gap-3">
-                            {retrogradePlanets.map(p => (
-                                <Link
-                                    key={p.id}
-                                    href={`/learn/planets/${p.id}`}
-                                    className="group flex items-center gap-2 px-3 py-1.5 bg-orange-500/10 border border-orange-500/20 rounded-sm hover:bg-orange-500/20 transition-colors"
-                                >
-                                    {p.ui.imageUrl ? (
-                                        <Image src={p.ui.imageUrl} alt={p.name} width={16} height={16} className="w-4 h-4 object-contain" />
-                                    ) : (
-                                        <span style={{ color: p.ui.themeColor }} className="font-serif text-sm">{p.ui.rulerSymbol}</span>
-                                    )}
-                                    <span className="text-xs font-sans text-orange-200/80 group-hover:text-white transition-colors">{p.name}</span>
-                                    <span className="text-[10px] text-white/40">in {p.signName}</span>
-                                </Link>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Explore link */}
-            <div className="text-center">
-                <Link
-                    href="/learn/planets"
-                    className="inline-flex items-center gap-2 text-sm font-serif text-primary/70 hover:text-primary transition-colors group"
+              {sun && (
+                <button
+                  type="button"
+                  className="group absolute left-1/2 top-1/2 z-30 size-[clamp(2.5rem,12vw,6.3rem)] -translate-x-1/2 -translate-y-1/2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
+                  onClick={() => setActiveId("sun")}
+                  aria-label={`Sun in ${sun.signName}`}
+                  aria-pressed={activeId === "sun"}
                 >
-                    <TbTelescope className="w-4 h-4" />
-                    <span>Explore all planetary bodies</span>
-                    <TbArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </Link>
+                  <span className="absolute -inset-7 rounded-full bg-[radial-gradient(circle,rgba(236,195,93,0.23),transparent_68%)] blur-md transition-transform duration-700 group-hover:scale-125" />
+                  <span className="absolute -inset-2 rounded-full border border-primary/20 opacity-70 motion-safe:animate-[ping_3.4s_ease-out_infinite]" />
+                  <span className="relative block h-full w-full transition-transform duration-500 group-hover:scale-110">
+                    <PlanetImage entry={sun} size={104} priority />
+                  </span>
+                </button>
+              )}
+
+              {orbitingPlanets.map((entry) => {
+                const orbit = ORBIT_CONFIG[entry.id];
+                if (!orbit) return null;
+                const isActive = entry.id === activeId;
+                const isRetrograde = entry.telemetry.retrograde;
+                const position = longitudeToOffset(entry.telemetry.longitude, orbit.radius);
+                const responsiveSize = `clamp(${Math.max(20, Math.round(orbit.size * 0.5))}px, ${Math.max(6, orbit.size / 6)}vw, ${orbit.size}px)`;
+
+                return (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onClick={() => setActiveId(entry.id)}
+                    className="group absolute z-20 -translate-x-1/2 -translate-y-1/2 rounded-full outline-none transition-[z-index] focus-visible:ring-2 focus-visible:ring-white/70"
+                    style={{
+                      ...position,
+                      width: responsiveSize,
+                      height: responsiveSize,
+                      zIndex: isActive ? 40 : 20,
+                    }}
+                    aria-label={`${entry.name} in ${entry.signName}${isRetrograde ? ", retrograde" : ""}`}
+                    aria-pressed={isActive}
+                  >
+                    <span
+                      className="absolute -inset-2.5 rounded-full border transition-all duration-500"
+                      style={{
+                        borderColor: isActive ? entry.ui.themeColor : "transparent",
+                        boxShadow: isActive ? `0 0 24px ${entry.ui.themeColor}` : "none",
+                        opacity: isActive ? 0.42 : 0,
+                      }}
+                    />
+                    {isRetrograde && (
+                      <span className="absolute -inset-1.5 rounded-full border border-dashed border-primary/45 motion-safe:animate-[spin_9s_linear_infinite_reverse]" />
+                    )}
+                    <span
+                      className="relative block h-full w-full transition-transform duration-500 group-hover:scale-125 group-focus-visible:scale-110"
+                      style={{ filter: `drop-shadow(0 0 ${isActive ? 10 : 4}px ${entry.ui.themeColor})` }}
+                    >
+                      <PlanetImage entry={entry} size={orbit.size} />
+                    </span>
+                    {isRetrograde && (
+                      <span className="absolute -right-2 -top-2 grid size-4 place-items-center rounded-full border border-primary/30 bg-[#0b0a08] font-serif text-[9px] text-primary shadow-[0_0_10px_rgba(212,175,55,0.16)] sm:size-5 sm:text-[10px]">
+                        ℞
+                      </span>
+                    )}
+                    <span
+                      className={`pointer-events-none absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap font-mono text-[7px] uppercase tracking-[0.16em] transition-opacity sm:text-[8px] ${
+                        isActive ? "opacity-100 text-white/70" : "opacity-0 text-white/40 group-hover:opacity-100"
+                      }`}
+                    >
+                      {entry.name}
+                    </span>
+                  </button>
+                );
+              })}
+
+              <span className="absolute left-1/2 top-[0.2%] -translate-x-1/2 font-mono text-[7px] tracking-[0.25em] text-primary/45 sm:text-[8px]">0° ARIES</span>
+              <span className="absolute bottom-[0.2%] left-1/2 -translate-x-1/2 font-mono text-[7px] tracking-[0.25em] text-white/20 sm:text-[8px]">180°</span>
             </div>
-        </section>
-    );
+          </div>
+
+          <aside className="relative border-t border-white/[0.07] lg:border-t-0" aria-live="polite">
+            <div className="p-5 sm:p-7 lg:flex lg:h-full lg:flex-col lg:p-6 xl:p-7">
+              <div className="flex items-center justify-between border-b border-white/[0.07] pb-4">
+                <span className="font-mono text-[9px] uppercase tracking-[0.26em] text-white/30">Selected body</span>
+                <span className="font-mono text-[9px] text-white/20">LIVE / J2000</span>
+              </div>
+
+              {activeEntry ? (
+                <div className="pt-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.22em] text-primary/60">
+                        {activeEntry.id === "sun" ? "The luminary" : "Current transit"}
+                      </p>
+                      <h3 className="font-serif text-4xl leading-none tracking-tight text-white sm:text-5xl lg:text-4xl xl:text-5xl">
+                        {activeEntry.name}
+                      </h3>
+                    </div>
+                    <div className="relative size-16 shrink-0 sm:size-20 lg:size-16 xl:size-20">
+                      <div className="absolute inset-0 rounded-full blur-xl" style={{ background: activeEntry.ui.themeColor, opacity: 0.12 }} />
+                      <div className="relative h-full w-full">
+                        <PlanetImage entry={activeEntry} size={80} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-7 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.07]">
+                    <div className="bg-[#0a0a0a]/95 p-4">
+                      <p className="font-mono text-[8px] uppercase tracking-[0.2em] text-white/25">Passing through</p>
+                      <div className="mt-2 flex items-center gap-2 font-serif text-lg text-white/85">
+                        {ActiveSignIcon && <ActiveSignIcon className="size-5 text-primary/75" aria-hidden="true" />}
+                        <span>{activeEntry.signName}</span>
+                      </div>
+                    </div>
+                    <div className="bg-[#0a0a0a]/95 p-4">
+                      <p className="font-mono text-[8px] uppercase tracking-[0.2em] text-white/25">Longitude</p>
+                      <p className="mt-2 font-serif text-lg tabular-nums text-white/85">
+                        {activeEntry.telemetry.longitude.toFixed(2)}°
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex min-h-7 items-center gap-2">
+                    {activeEntry.telemetry.retrograde ? (
+                      <>
+                        <span className="grid size-5 place-items-center rounded-full border border-primary/25 font-serif text-[11px] text-primary">℞</span>
+                        <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-primary/65">Moving retrograde</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="h-px w-5 bg-emerald-200/35" />
+                        <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-emerald-100/40">Direct motion</span>
+                      </>
+                    )}
+                  </div>
+                  <p className="mt-3 text-xs text-white/30">
+                    {formatDistance(activeEntry.telemetry.distanceAu)}
+                  </p>
+                </div>
+              ) : (
+                <div className="h-64 animate-pulse rounded-xl bg-white/[0.025]" />
+              )}
+
+              <div className="mt-7 lg:mt-auto lg:pt-8">
+                <p className="mb-3 font-mono text-[8px] uppercase tracking-[0.24em] text-white/20">Choose a planet</p>
+                <div className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:mx-0 lg:grid lg:grid-cols-5 lg:overflow-visible lg:px-0">
+                  {entries.map((entry) => {
+                    const isActive = activeId === entry.id;
+                    return (
+                      <button
+                        key={`${entry.id}-selector`}
+                        type="button"
+                        onClick={() => setActiveId(entry.id)}
+                        className={`relative grid size-12 shrink-0 snap-start place-items-center rounded-full border transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 sm:size-14 lg:size-10 xl:size-12 ${
+                          isActive
+                            ? "border-primary/35 bg-primary/[0.08]"
+                            : "border-white/[0.07] bg-white/[0.025] hover:border-white/20 hover:bg-white/[0.06]"
+                        }`}
+                        aria-label={`Select ${entry.name}`}
+                      >
+                        <span className="size-8 sm:size-9 lg:size-7 xl:size-8">
+                          <PlanetImage entry={entry} size={36} />
+                        </span>
+                        {entry.telemetry.retrograde && (
+                          <span className="absolute right-0 top-0 font-serif text-[9px] text-primary">℞</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <footer className="relative flex flex-col gap-4 border-t border-white/[0.07] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+          <div className="flex items-center gap-3">
+            {retrogradePlanets.length > 0 ? (
+              <>
+                <span className="grid size-7 shrink-0 place-items-center rounded-full border border-primary/20 font-serif text-xs text-primary/80">℞</span>
+                <p className="text-xs leading-relaxed text-white/35">
+                  <span className="text-white/65">Retrograde now:</span>{" "}
+                  {retrogradePlanets.map((planet) => planet.name).join(", ")}.
+                  <span className="hidden sm:inline"> Select a marked orbit to explore the reversal.</span>
+                </p>
+              </>
+            ) : (
+              <p className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/30">All visible planets are in direct motion</p>
+            )}
+          </div>
+          <Link
+            href="/learn/planets"
+            className="group inline-flex shrink-0 items-center gap-2 self-start font-serif text-sm text-primary/75 transition-colors hover:text-primary sm:self-auto"
+          >
+            <TbTelescope className="size-4" aria-hidden="true" />
+            <span>Explore the planets</span>
+            <TbArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
+          </Link>
+        </footer>
+      </div>
+
+      {/* Mobile has its own composition: no oversized orbital geometry. */}
+      <div className="relative min-w-0 overflow-hidden rounded-[1.4rem] border border-white/[0.09] bg-[#080807] shadow-[0_28px_80px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.04)] md:hidden">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(212,175,55,0.11),transparent_32%),radial-gradient(circle_at_100%_72%,rgba(92,123,169,0.07),transparent_38%)]" />
+        <div className="pointer-events-none absolute inset-0 opacity-[0.035] [background-image:url('data:image/svg+xml,%3Csvg_viewBox=%220_0_180_180%22_xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter_id=%22n%22%3E%3CfeTurbulence_type=%22fractalNoise%22_baseFrequency=%220.8%22_numOctaves=%224%22_stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect_width=%22100%25%22_height=%22100%25%22_filter=%22url(%23n)%22_opacity=%22.7%22/%3E%3C/svg%3E')]" />
+
+        <div className="relative flex items-center justify-between border-b border-white/[0.07] px-4 py-3.5">
+          <div className="flex items-center gap-2">
+            <span className="size-1.5 rounded-full bg-emerald-200 shadow-[0_0_8px_rgba(167,243,208,0.8)]" />
+            <span className="font-mono text-[8px] uppercase tracking-[0.24em] text-white/35">Planet receiver</span>
+          </div>
+          <span className="font-mono text-[8px] uppercase tracking-[0.18em] text-primary/45">Live · 360°</span>
+        </div>
+
+        {activeEntry ? (
+          <div className="relative overflow-hidden px-4 pb-5 pt-5" aria-live="polite">
+            {STAR_FIELD.slice(0, 10).map(([left, top, size], index) => (
+              <i
+                key={`mobile-${left}-${top}`}
+                className="pointer-events-none absolute rounded-full bg-white"
+                style={{
+                  left: `${left}%`,
+                  top: `${top}%`,
+                  width: size,
+                  height: size,
+                  opacity: index % 3 === 0 ? 0.24 : 0.1,
+                }}
+              />
+            ))}
+
+            <div className="relative min-h-[17rem] overflow-hidden rounded-[1.1rem] border border-white/[0.07] bg-black/25 px-4 pb-4 pt-4">
+              <div className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full border border-primary/[0.08]" />
+              <div className="pointer-events-none absolute -right-10 -top-10 size-44 rounded-full border border-dashed border-white/[0.07] motion-safe:animate-[spin_70s_linear_infinite]" />
+              <div className="pointer-events-none absolute -right-2 top-8 h-px w-36 -rotate-[28deg] bg-gradient-to-r from-transparent to-primary/15" />
+
+              {ActiveSignIcon && (
+                <ActiveSignIcon
+                  className="pointer-events-none absolute right-3 top-3 size-20 text-primary/[0.055]"
+                  aria-hidden="true"
+                />
+              )}
+
+              <div className="relative z-10 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-mono text-[8px] uppercase tracking-[0.22em] text-primary/55">
+                    {activeEntry.id === "sun" ? "Central luminary" : "Current transit"}
+                  </p>
+                  <h3 className="mt-1 truncate font-serif text-[clamp(2.2rem,12vw,3.35rem)] leading-none tracking-[-0.035em] text-white">
+                    {activeEntry.name}
+                  </h3>
+                  <div className="mt-2 flex items-center gap-2 text-white/55">
+                    {ActiveSignIcon && <ActiveSignIcon className="size-4 text-primary/70" aria-hidden="true" />}
+                    <span className="font-serif text-sm">in {activeEntry.signName}</span>
+                  </div>
+                </div>
+
+                <span className={`mt-0.5 flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 font-mono text-[7px] uppercase tracking-[0.16em] ${
+                  activeEntry.telemetry.retrograde
+                    ? "border-primary/20 bg-primary/[0.06] text-primary/70"
+                    : "border-emerald-200/10 bg-emerald-200/[0.025] text-emerald-100/45"
+                }`}>
+                  <span>{activeEntry.telemetry.retrograde ? "℞" : "→"}</span>
+                  <span>{activeEntry.telemetry.retrograde ? "Retrograde" : "Direct"}</span>
+                </span>
+              </div>
+
+              <div className="pointer-events-none absolute bottom-8 right-3 size-[8.5rem]">
+                <div
+                  className="absolute inset-4 rounded-full blur-2xl"
+                  style={{ background: activeEntry.ui.themeColor, opacity: 0.18 }}
+                />
+                <div className="relative h-full w-full drop-shadow-[0_10px_22px_rgba(0,0,0,0.45)]">
+                  <PlanetImage entry={activeEntry} size={136} />
+                </div>
+              </div>
+
+              <div className="absolute bottom-4 left-4 z-10 w-[calc(100%_-_9.5rem)] min-w-0">
+                <p className="font-mono text-[7px] uppercase tracking-[0.2em] text-white/25">Ecliptic longitude</p>
+                <p className="mt-1 font-serif text-2xl tabular-nums text-white/80">
+                  {activeEntry.telemetry.longitude.toFixed(2)}°
+                </p>
+                <p className="mt-1 truncate text-[9px] text-white/25">
+                  {formatDistance(activeEntry.telemetry.distanceAu)}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-white/[0.07] bg-white/[0.018] px-3.5 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-mono text-[7px] uppercase tracking-[0.2em] text-white/25">
+                  Through {activeEntry.signName}
+                </span>
+                <span className="font-mono text-[8px] tabular-nums text-primary/55">
+                  {(activeEntry.telemetry.longitude % 30).toFixed(1)}° / 30°
+                </span>
+              </div>
+              <div className="relative mt-2.5 h-px overflow-visible bg-white/[0.08]">
+                <span
+                  className="absolute left-0 top-0 h-px bg-gradient-to-r from-primary/35 to-primary shadow-[0_0_8px_rgba(212,175,55,0.5)] transition-[width] duration-700"
+                  style={{ width: `${((activeEntry.telemetry.longitude % 30) / 30) * 100}%` }}
+                />
+                <span
+                  className="absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/50 bg-[#0b0a08] shadow-[0_0_8px_rgba(212,175,55,0.45)] transition-[left] duration-700"
+                  style={{ left: `${((activeEntry.telemetry.longitude % 30) / 30) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="font-mono text-[8px] uppercase tracking-[0.23em] text-white/25">Tune to a planet</p>
+                <p className="font-mono text-[7px] uppercase tracking-[0.16em] text-white/15">Tap to inspect</p>
+              </div>
+              <div className="grid min-w-0 grid-cols-5 gap-x-1.5 gap-y-3">
+                {entries.map((entry) => {
+                  const isActive = entry.id === activeId;
+                  return (
+                    <button
+                      key={`${entry.id}-mobile-selector`}
+                      type="button"
+                      onClick={() => setActiveId(entry.id)}
+                      className="group min-w-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                      aria-label={`Select ${entry.name}`}
+                      aria-pressed={isActive}
+                    >
+                      <span className={`relative mx-auto grid aspect-square w-full max-w-12 place-items-center rounded-xl border transition-all duration-300 ${
+                        isActive
+                          ? "border-primary/35 bg-primary/[0.08] shadow-[0_0_18px_rgba(212,175,55,0.08)]"
+                          : "border-white/[0.065] bg-white/[0.02] group-active:scale-95"
+                      }`}>
+                        <span className="size-[68%]">
+                          <PlanetImage entry={entry} size={34} />
+                        </span>
+                        {entry.telemetry.retrograde && (
+                          <span className="absolute -right-0.5 -top-1 font-serif text-[9px] text-primary/80">℞</span>
+                        )}
+                      </span>
+                      <span className={`mt-1.5 block truncate font-mono text-[6.5px] uppercase tracking-[0.06em] transition-colors ${
+                        isActive ? "text-primary/70" : "text-white/25"
+                      }`}>
+                        {entry.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="relative h-[32rem] animate-pulse p-4">
+            <div className="h-full rounded-[1.1rem] bg-white/[0.025]" />
+          </div>
+        )}
+
+        <div className="relative flex flex-col gap-3 border-t border-white/[0.07] px-4 py-4 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between">
+          <p className="min-w-0 text-[10px] leading-relaxed text-white/30">
+            {retrogradePlanets.length > 0 ? (
+              <>
+                <span className="text-primary/70">℞</span>{" "}
+                {retrogradePlanets.map((planet) => planet.name).join(", ")} retrograde now
+              </>
+            ) : (
+              "Every visible planet is moving direct"
+            )}
+          </p>
+          <Link
+            href="/learn/planets"
+            className="group inline-flex shrink-0 items-center gap-1.5 self-start font-serif text-xs text-primary/75 min-[380px]:self-auto"
+          >
+            <TbTelescope className="size-3.5" aria-hidden="true" />
+            <span>Explore all</span>
+            <TbArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+          </Link>
+        </div>
+      </div>
+
+      <style jsx>{`
+        @media (prefers-reduced-motion: no-preference) {
+          .sky-wheel {
+            animation: sky-arrival 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+          }
+        }
+
+        @keyframes sky-arrival {
+          from {
+            opacity: 0;
+            transform: scale(0.94) rotate(1.5deg);
+            filter: blur(6px);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1) rotate(0);
+            filter: blur(0);
+          }
+        }
+      `}</style>
+    </section>
+  );
 }

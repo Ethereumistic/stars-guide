@@ -8,8 +8,9 @@ Use this folder as a compact navigation layer. The current source of truth is st
 - `00-MASTER-WIRING-GUIDE.md` - compact, current wiring map.
 - `ORACLE_ARCHITECTURE.md` - flow, server contracts, safety, quota, and provider path.
 - `ORACLE_FEATURES.md` - feature keys, pipelines, and data-gating matrix.
-- `BIRTH_CHART_REPORT.md` - report onboarding gate and report-grounded Oracle behavior.
+- `BIRTH_CHART_REPORT.md` - separate deterministic Oracle natal context and human report pipeline.
 - `OPERATIONS_AND_DEBUG.md` - admin settings, providers, quota, debug panels, and troubleshooting.
+- `ORACLE_EXPERIENCE_AUDIT.md` - product-quality audit of birth chart, report, cosmic weather, synastry, retention, and evaluation gaps.
 
 ## Source Of Truth
 
@@ -31,7 +32,7 @@ Use this folder as a compact navigation layer. The current source of truth is st
 ## Current Pipelines
 
 - `generic_chat` - no birth data; uses journal context if consented.
-- `birth_chart` - birth data/report, journal context if consented, timespace.
+- `birth_chart` - deterministic birth-data context, journal context if consented, timespace.
 - `journal_recall` - expanded journal context, no birth data by default.
 - `synastry` - user chart plus second chart/relationship payload, no journal context.
 - `binaural_beats` - deterministic beat params through the Oracle pipeline; playback is browser Web Audio.

@@ -535,9 +535,8 @@ export type CosmicWeatherSnapshot = {
  * @param utcDate - "YYYY-MM-DD" format
  * @returns CosmicWeatherSnapshot
  */
-export function computeSnapshot(utcDate: string): CosmicWeatherSnapshot {
-    // Use noon UTC on the target date for stability
-    const date = new Date(`${utcDate}T12:00:00Z`);
+export function computeSnapshotAt(date: Date): CosmicWeatherSnapshot {
+    if (Number.isNaN(date.getTime())) throw new Error("Invalid astronomical snapshot instant");
 
     // ── Planet positions + retrograde status ──
     const planetPositions = TRACKED_PLANETS.map((body) => {
@@ -580,6 +579,11 @@ export function computeSnapshot(utcDate: string): CosmicWeatherSnapshot {
     }
 
     return { planetPositions, moonPhase, activeAspects };
+}
+
+/** Compute a stable daily snapshot at noon UTC for date-based content. */
+export function computeSnapshot(utcDate: string): CosmicWeatherSnapshot {
+    return computeSnapshotAt(new Date(`${utcDate}T12:00:00Z`));
 }
 
 // ─── MOON PHASE NARRATIVE FRAMES ─────────────────────────────────────────

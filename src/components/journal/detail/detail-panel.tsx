@@ -2,486 +2,71 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
-import { cn } from "@/lib/utils";
+import { useMutation, useQuery } from "convex/react";
+import { ArrowLeft, Loader2, MoreHorizontal, Pencil, Pin, PinOff, Sparkles, Trash2 } from "lucide-react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-} from "@/components/ui/sheet";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
-import {
-    MOOD_ZONES,
-    ENTRY_TYPE_META,
-    type MoodZone,
-} from "@/lib/journal/constants";
-import { EmotionBadges } from "./emotion-badges";
-import { AstroContextStrip } from "../composer/astro-context-strip";
-import { QuickCapture } from "../stream/quick-capture";
-import {
-    Loader2,
-    ArrowLeft,
-    Pencil,
-    Trash2,
-    Pin,
-    PinOff,
-    MoreVertical,
-    Sparkles,
-} from "lucide-react";
+import { cn } from "@/lib/utils";
 
-interface DetailPanelProps {
-    entryId: string | null;
-    open: boolean;
-    onClose: () => void;
-    /** If true, open in edit mode */
-    editMode?: boolean;
-    className?: string;
-}
+const { api: convexApi } = require("../../../../convex/_generated/api") as any;
+const journalEntriesApi = convexApi.journal.entries;
 
-/**
- * DetailPanel — slide-over panel for viewing/editing a journal entry.
- * Desktop: 40% width from right. Mobile: full-screen.
- * Uses shadcn Sheet for the slide-over animation.
- */
-export function DetailPanel({
-    entryId,
-    open,
-    onClose,
-    editMode = false,
-    className,
-}: DetailPanelProps) {
-    const router = useRouter();
-    const [isEditing, setIsEditing] = React.useState(editMode);
-    const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
-    const [isDeleting, setIsDeleting] = React.useState(false);
+interface DetailPanelProps { entryId: string | null; open: boolean; onClose: () => void; editMode?: boolean; className?: string; }
 
-    // Reset edit mode when panel opens with a new entry
-    React.useEffect(() => {
-        if (open) {
-            setIsEditing(editMode);
-        }
-    }, [open, editMode]);
+export function DetailPanel({ entryId, open, onClose, editMode = false, className }: DetailPanelProps) {
+  const router = useRouter();
+  const entry = useQuery(journalEntriesApi.getEntry, entryId ? { entryId } : "skip") as any;
+  const updateEntry = useMutation(journalEntriesApi.updateEntry);
+  const deleteEntry = useMutation(journalEntriesApi.deleteEntry);
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+  const [editing, setEditing] = React.useState(editMode);
+  const [draft, setDraft] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+  React.useEffect(() => { if (open) setEditing(editMode); }, [open, editMode, entryId]);
+  React.useEffect(() => { if (entry?.content !== undefined) setDraft(entry.content); }, [entry?.content]);
+  if (!entryId) return null;
 
-    const entry = useQuery(
-        api.journal.entries.getEntry,
-        entryId ? { entryId: entryId as any } : "skip"
-    );
+  async function remove() {
+    if (!entryId) return;
+    setDeleting(true);
+    try { await deleteEntry({ entryId: entryId as any }); onClose(); }
+    finally { setDeleting(false); setConfirmDelete(false); }
+  }
 
-    const photoUrl = useQuery(
-        api.files.getUrl,
-        entry?.photoId ? { storageId: entry.photoId as any } : "skip"
-    );
+  async function saveEdit() {
+    if (!entryId || !draft.trim()) return;
+    setSaving(true);
+    try { await updateEntry({ entryId, content: draft.trim() }); setEditing(false); router.replace(`/journal?entry=${entryId}`); }
+    finally { setSaving(false); }
+  }
 
-    const updateEntry = useMutation(api.journal.entries.updateEntry);
-    const deleteEntry = useMutation(api.journal.entries.deleteEntry);
-
-    async function handleDelete() {
-        if (!entryId) return;
-        setIsDeleting(true);
-        try {
-            await deleteEntry({ entryId: entryId as any });
-            onClose();
-        } catch (e) {
-            console.error("Delete failed:", e);
-        } finally {
-            setIsDeleting(false);
-        }
-    }
-
-    async function handleTogglePin() {
-        if (!entry || !entryId) return;
-        await updateEntry({
-            entryId: entryId as any,
-            isPinned: !entry.isPinned,
-        });
-    }
-
-    function handleEdit() {
-        setIsEditing(true);
-    }
-
-    function handleCancelEdit() {
-        setIsEditing(false);
-    }
-
-    function handleSaveEdit() {
-        setIsEditing(false);
-        // QuickCapture's internal onSave will handle the mutation
-    }
-
-    function handleAskOracle() {
-        if (!entryId) return;
-        router.push(`/oracle/new?journalEntryId=${entryId}`);
-    }
-
-    // Don't render the panel if no entry selected
-    if (!entryId) return null;
-
-    const isLoading = entry === undefined;
-
-    return (
-        <>
-            <Sheet open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
-                <SheetContent
-                    side="right"
-                    className={cn(
-                        "w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl",
-                        "bg-[#0f1628] border-l border-white/[0.06]",
-                        "overflow-y-auto p-0",
-                        className
-                    )}
-                >
-                    {isLoading ? (
-                        <div className="flex justify-center py-20">
-                            <Loader2 className="h-5 w-5 animate-spin text-white/30" />
-                        </div>
-                    ) : !entry ? (
-                        <div className="flex flex-col items-center justify-center py-20 text-white/30">
-                            <p className="text-sm font-sans">Entry not found</p>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={onClose}
-                                className="mt-4 text-white/35 hover:text-white/60"
-                            >
-                                Go back
-                            </Button>
-                        </div>
-                    ) : isEditing ? (
-                        /* ── Edit mode: QuickCapture inside the panel ── */
-                        <div className="p-4 sm:p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-sm font-sans uppercase tracking-[0.15em] text-white/40">
-                                    Edit Entry
-                                </h2>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={handleCancelEdit}
-                                    className="text-white/35 hover:text-white/60"
-                                >
-                                    Cancel
-                                </Button>
-                            </div>
-                            <QuickCapture
-                                editEntry={entry}
-                                editEntryId={entryId}
-                                onSave={handleSaveEdit}
-                                onCancel={handleCancelEdit}
-                            />
-                        </div>
-                    ) : (
-                        /* ── Read mode: entry detail view ── */
-                        <div className="p-4 sm:p-6 space-y-5">
-                            {/* Header */}
-                            <div className="flex items-center justify-between">
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={onClose}
-                                    className="text-white/35 hover:text-white/60"
-                                >
-                                    <ArrowLeft className="h-4 w-4 mr-1" />
-                                    Back
-                                </Button>
-
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon-sm"
-                                            className="text-white/35 hover:text-white/60"
-                                        >
-                                            <MoreVertical className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={handleEdit}>
-                                            <Pencil className="h-4 w-4 mr-2" />
-                                            Edit
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={handleTogglePin}>
-                                            {entry.isPinned ? (
-                                                <>
-                                                    <PinOff className="h-4 w-4 mr-2" />
-                                                    Unpin
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Pin className="h-4 w-4 mr-2" />
-                                                    Pin
-                                                </>
-                                            )}
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={handleAskOracle}>
-                                            <Sparkles className="h-4 w-4 mr-2" />
-                                            Ask Oracle
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem
-                                            onClick={() => setShowDeleteDialog(true)}
-                                            className="text-red-400 focus:text-red-400"
-                                        >
-                                            <Trash2 className="h-4 w-4 mr-2" />
-                                            Delete
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-
-                            {/* Mood zone label */}
-                            {entry.moodZone && (() => {
-                                const zoneInfo = MOOD_ZONES.find(
-                                    (z) => z.key === (entry.moodZone as MoodZone)
-                                );
-                                return zoneInfo ? (
-                                    <div>
-                                        <span
-                                            className="text-2xl font-serif font-bold tracking-wide"
-                                            style={{ color: zoneInfo.color }}
-                                        >
-                                            {zoneInfo.emoji} {zoneInfo.label}
-                                        </span>
-                                    </div>
-                                ) : null;
-                            })()}
-
-                            {/* Time + date */}
-                            <div className="text-[11px] font-sans text-white/35">
-                                {new Date(entry.createdAt).toLocaleString("en-US", {
-                                    weekday: "short",
-                                    month: "short",
-                                    day: "numeric",
-                                    hour: "numeric",
-                                    minute: "2-digit",
-                                })}
-                            </div>
-
-                            {/* Astro context */}
-                            {entry.astroContext && (
-                                <AstroContextStrip astroContext={entry.astroContext} />
-                            )}
-
-                            {/* Divider */}
-                            <div className="border-t border-white/[0.06]" />
-
-                            {/* Content */}
-                            {entry.content && (
-                                <div className="whitespace-pre-wrap text-sm font-serif text-white/75 leading-relaxed">
-                                    {entry.content}
-                                </div>
-                            )}
-
-                            {/* Dream data */}
-                            {entry.dreamData && (
-                                <>
-                                    <div className="border-t border-white/[0.06]" />
-                                    <div className="space-y-2">
-                                        <h3 className="text-sm font-serif text-white/65">
-                                            🌙{" "}
-                                            {entry.dreamData.isLucid && "Lucid "}
-                                            Dream
-                                            {entry.dreamData.isRecurring && " · Recurring"}
-                                        </h3>
-                                        {entry.dreamData.dreamSigns &&
-                                            entry.dreamData.dreamSigns.length > 0 && (
-                                                <div className="text-xs text-white/40">
-                                                    Dream signs:{" "}
-                                                    {entry.dreamData.dreamSigns.join(", ")}
-                                                </div>
-                                            )}
-                                        {entry.dreamData.emotionalTone && (
-                                            <div className="text-xs text-white/40 capitalize">
-                                                Emotional tone:{" "}
-                                                {entry.dreamData.emotionalTone}
-                                            </div>
-                                        )}
-                                    </div>
-                                </>
-                            )}
-
-                            {/* Gratitude items */}
-                            {entry.gratitudeItems && entry.gratitudeItems.length > 0 && (
-                                <>
-                                    <div className="border-t border-white/[0.06]" />
-                                    <div className="space-y-1.5">
-                                        <h3 className="text-sm font-serif text-white/65">
-                                            🙏 Grateful for:
-                                        </h3>
-                                        <ul className="space-y-1">
-                                            {entry.gratitudeItems.map(
-                                                (item: string, i: number) => (
-                                                    <li
-                                                        key={i}
-                                                        className="text-sm font-sans text-white/60 flex items-start gap-2"
-                                                    >
-                                                        <span className="text-galactic/50 mt-0.5">
-                                                            ✦
-                                                        </span>
-                                                        {item}
-                                                    </li>
-                                                )
-                                            )}
-                                        </ul>
-                                    </div>
-                                </>
-                            )}
-
-                            {/* Divider */}
-                            <div className="border-t border-white/[0.06]" />
-
-                            {/* Context badges: emotions, energy, time, location, tags */}
-                            <div className="space-y-3">
-                                {entry.emotions && entry.emotions.length > 0 && (
-                                    <EmotionBadges
-                                        emotions={entry.emotions}
-                                        size="sm"
-                                    />
-                                )}
-
-                                <div className="flex gap-2 flex-wrap">
-                                    {entry.energyLevel && (
-                                        <span className="rounded-full border border-white/[0.06] bg-white/[0.02] px-2.5 py-0.5 text-[10px] font-sans uppercase tracking-[0.08em] text-white/40">
-                                            ⚡ Energy: {entry.energyLevel}/5
-                                        </span>
-                                    )}
-                                    {entry.timeOfDay && (
-                                        <span className="rounded-full border border-white/[0.06] bg-white/[0.02] px-2.5 py-0.5 text-[10px] font-sans uppercase tracking-[0.08em] text-white/40 capitalize">
-                                            {entry.timeOfDay === "morning" && "🌅"}
-                                            {entry.timeOfDay === "midday" && "☀️"}
-                                            {entry.timeOfDay === "evening" && "🌇"}
-                                            {entry.timeOfDay === "night" && "🌙"}{" "}
-                                            {entry.timeOfDay}
-                                        </span>
-                                    )}
-                                    {entry.location?.displayName && (
-                                        <span className="rounded-full border border-white/[0.06] bg-white/[0.02] px-2.5 py-0.5 text-[10px] font-sans uppercase tracking-[0.08em] text-white/40">
-                                            📍 {entry.location.displayName}
-                                        </span>
-                                    )}
-                                </div>
-
-                                {entry.tags && entry.tags.length > 0 && (
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {entry.tags.map((tag: string) => (
-                                            <span
-                                                key={tag}
-                                                className="text-[10px] rounded-full border border-galactic/25 bg-galactic/10 px-2 py-0.5 font-sans uppercase tracking-[0.08em] text-galactic"
-                                            >
-                                                #{tag}
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Photo */}
-                            {photoUrl && (
-                                <div className="relative overflow-hidden rounded-xl border border-border/30">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                        src={photoUrl}
-                                        alt={entry.photoCaption || "Entry photo"}
-                                        className="w-full max-h-96 object-cover"
-                                    />
-                                    {entry.photoCaption && (
-                                        <p className="text-[10px] font-sans uppercase tracking-[0.1em] text-white/30 px-4 py-2 border-t border-white/[0.04]">
-                                            {entry.photoCaption}
-                                        </p>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Voice transcript */}
-                            {entry.voiceTranscript && (
-                                <div className="relative overflow-hidden rounded-xl border border-border/30 p-4">
-                                    <h3 className="text-sm font-serif text-white/65 mb-1">
-                                        🎙️ Voice Transcript
-                                    </h3>
-                                    <p className="text-xs font-sans text-white/35">
-                                        {entry.voiceTranscript}
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Oracle CTA */}
-                            <div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleAskOracle}
-                                    className="text-galactic/60 border-galactic/20 hover:bg-galactic/10 hover:text-galactic/80"
-                                >
-                                    ✦ Ask Oracle about this
-                                </Button>
-                            </div>
-
-                            {/* Metadata */}
-                            <div className="pt-4 border-t border-white/[0.04] text-[10px] font-sans uppercase tracking-[0.1em] text-white/20 space-y-0.5">
-                                <p>
-                                    Created:{" "}
-                                    {new Date(entry.createdAt).toLocaleString()}
-                                </p>
-                                {entry.updatedAt !== entry.createdAt && (
-                                    <p>
-                                        Updated:{" "}
-                                        {new Date(entry.updatedAt).toLocaleString()}
-                                    </p>
-                                )}
-                                {entry.wordCount && <p>{entry.wordCount} words</p>}
-                            </div>
-                        </div>
-                    )}
-                </SheetContent>
-            </Sheet>
-
-            {/* Delete confirmation dialog */}
-            <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Delete this entry?</DialogTitle>
-                        <DialogDescription>
-                            This action can&apos;t be undone. The entry and any
-                            attached photo will be permanently deleted.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => setShowDeleteDialog(false)}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            onClick={handleDelete}
-                            disabled={isDeleting}
-                        >
-                            {isDeleting && (
-                                <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                            )}
-                            Delete
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </>
-    );
+  return <>
+    <Sheet open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <SheetContent side="right" className={cn("w-full overflow-y-auto border-l border-white/[0.08] bg-[#0b0e19] p-0 sm:max-w-xl", className)}>
+        {entry === undefined ? <div className="flex h-full items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-white/30" /></div> : !entry ? <div className="p-8 text-white/40">This reflection no longer exists.</div> : editing ? <div className="flex min-h-full flex-col">
+          <header className="flex h-16 shrink-0 items-center justify-between border-b border-white/[0.07] px-5"><button onClick={() => setEditing(false)} className="text-sm text-white/40 hover:text-white/80">Cancel</button><span className="font-serif text-sm text-white/70">Edit reflection</span><button onClick={() => void saveEdit()} disabled={!draft.trim() || saving} className="inline-flex h-9 items-center gap-2 rounded-full bg-[#b8a2ff] px-4 text-sm font-semibold text-[#171326] disabled:opacity-40">{saving && <Loader2 className="h-4 w-4 animate-spin" />}Save</button></header>
+          <div className="flex-1 bg-[#f2efe8] p-6 sm:p-10"><textarea autoFocus value={draft} onChange={(event) => setDraft(event.target.value)} className="min-h-[70vh] w-full resize-none bg-transparent font-serif text-lg leading-9 text-[#252238] outline-none" /></div>
+        </div> : <article>
+          <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-white/[0.07] bg-[#0b0e19]/90 px-5 backdrop-blur-xl">
+            <button onClick={onClose} className="flex items-center gap-2 text-sm text-white/40 hover:text-white/80"><ArrowLeft className="h-4 w-4" />Back</button>
+            <DropdownMenu><DropdownMenuTrigger asChild><button aria-label="Entry actions" className="grid h-9 w-9 place-items-center rounded-full text-white/40 hover:bg-white/5 hover:text-white"><MoreHorizontal className="h-5 w-5" /></button></DropdownMenuTrigger><DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setEditing(true)}><Pencil className="mr-2 h-4 w-4" />Edit</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => updateEntry({ entryId: entryId as any, isPinned: !entry.isPinned })}>{entry.isPinned ? <PinOff className="mr-2 h-4 w-4" /> : <Pin className="mr-2 h-4 w-4" />}{entry.isPinned ? "Unpin" : "Pin"}</DropdownMenuItem>
+              <DropdownMenuSeparator /><DropdownMenuItem className="text-red-400 focus:text-red-400" onClick={() => setConfirmDelete(true)}><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
+            </DropdownMenuContent></DropdownMenu>
+          </header>
+          <div className="px-6 py-9 sm:px-10 sm:py-12">
+            <time className="text-xs uppercase tracking-[0.16em] text-white/30">{new Date(entry.createdAt).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</time>
+            {entry.title && <h1 className="mt-5 font-serif text-3xl text-white">{entry.title}</h1>}
+            <div className="mt-7 whitespace-pre-wrap font-serif text-lg leading-9 text-white/75">{entry.content || entry.gratitudeItems?.join("\n")}</div>
+            <div className="mt-12 border-t border-white/[0.08] pt-6"><button onClick={() => router.push(`/oracle/new?journalEntryId=${entryId}`)} className="inline-flex h-10 items-center gap-2 rounded-full border border-[#a995f2]/25 px-4 text-sm text-[#b9aaf5] hover:bg-[#a995f2]/10"><Sparkles className="h-4 w-4" />Reflect with Oracle</button></div>
+          </div>
+        </article>}
+      </SheetContent>
+    </Sheet>
+    <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}><DialogContent><DialogHeader><DialogTitle>Delete this reflection?</DialogTitle><DialogDescription>This cannot be undone.</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" onClick={() => setConfirmDelete(false)}>Keep it</Button><Button variant="destructive" disabled={deleting} onClick={() => void remove()}>{deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Delete</Button></DialogFooter></DialogContent></Dialog>
+  </>;
 }

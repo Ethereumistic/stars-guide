@@ -4,14 +4,6 @@ import { internalAction } from "./_generated/server";
 import { v } from "convex/values";
 import { makeFunctionReference } from "convex/server";
 import { z } from "zod";
-import {
-    LLMProvider,
-    parseProvidersConfig,
-    resolveProvider,
-    callLLMEndpoint,
-    DEFAULT_PROVIDER,
-} from "./lib/llmProvider";
-
 const { internal } = require("./_generated/api") as any;
 const getZeitgeistInternalRef = makeFunctionReference<"query", { zeitgeistId: string }, any>(
     "aiQueries:getZeitgeistInternal",
@@ -130,12 +122,13 @@ Open the horoscope with this hook type. Do not copy the examples — use them as
  * Routes to the correct provider endpoint based on provider config.
  */
 async function generateHoroscope(
+    ctx: any,
     sign: string,
     date: string,
     emotionalZeitgeist: string,
     masterContext: string,
     modelId: string,
-    provider: LLMProvider,
+    providerId: string | undefined,
     cosmicWeatherText?: string,
     moonPhaseFrame?: string,
     hookText?: string,
@@ -152,9 +145,9 @@ async function generateHoroscope(
         ? `\n\n${hookText}`
         : "";
 
-    const { content } = await callLLMEndpoint({
-        provider,
-        model: modelId,
+    const { content } = await ctx.runAction(invokeAIGatewayRef, {
+        feature: "horoscope_generation",
+        mode: "json",
         messages: [
             {
                 role: "system",
@@ -177,11 +170,13 @@ Output ONLY valid JSON: { "sign": "${sign}", "date": "${date}", "content": "..."
 Content must be 330–460 characters.`,
             },
         ],
-        temperature: 0.75,
-        maxTokens: 4096,
-        jsonMode: true,
-        thinkingMode: "disabled", // Disable chain-of-thought for structured JSON generation
-        title: "Stars.Guide Horoscope Engine v4",
+        overrides: {
+            providerId,
+            model: modelId,
+            temperature: 0.75,
+            maxTokens: 4096,
+            thinkingMode: "disabled",
+        },
     });
 
     if (!content) throw new Error("Empty content from horoscope generation");
@@ -229,21 +224,7 @@ export const runGenerationJob = internalAction({
             return;
         }
 
-        // 4. Resolve LLM provider from oracle_settings
-        const providersRaw = (await ctx.runQuery(internal.aiQueries.getOracleProvidersConfig, {})) ?? undefined;
-        const providers = parseProvidersConfig(providersRaw);
-        const provider = resolveProvider(providers, (job as any).providerId);
-        console.log(`Using provider: ${provider.name} (${provider.baseUrl}) with model: ${job.modelId}`);
-
-        // Verify API key exists
-        const apiKey = process.env[provider.apiKeyEnvVar];
-        if (!apiKey && provider.type !== "ollama") {
-            await ctx.runMutation(internal.admin.failJob, {
-                jobId: args.jobId,
-                errors: [`API key ${provider.apiKeyEnvVar} not set in environment. Provider: ${provider.name}`],
-            });
-            return;
-        }
+        console.log(`Using AI Gateway horoscope_generation profile with model override: ${job.modelId}`);
 
         // 5. Date-first generation loop
         let completedCount = 0;
@@ -318,8 +299,9 @@ export const runGenerationJob = internalAction({
             for (const sign of job.targetSigns) {
                 try {
                     const result = await generateHoroscope(
+                        ctx,
                         sign, targetDate, emotionalZeitgeist, masterContext,
-                        job.modelId, provider,
+                        job.modelId, (job as any).providerId,
                         cosmicWeatherText, moonPhaseFrame, hookText
                     );
                     const validated = LLMResponseSchema.safeParse(result);
@@ -329,8 +311,9 @@ export const runGenerationJob = internalAction({
                         await sleep(RETRY_DELAY_MS);
 
                         const retryResult = await generateHoroscope(
+                            ctx,
                             sign, targetDate, emotionalZeitgeist, masterContext,
-                            job.modelId, provider,
+                            job.modelId, (job as any).providerId,
                             cosmicWeatherText, moonPhaseFrame, hookText
                         );
                         const retryValidated = LLMResponseSchema.safeParse(retryResult);
@@ -373,8 +356,9 @@ export const runGenerationJob = internalAction({
                     try {
                         await sleep(RETRY_DELAY_MS);
                         const retryResult = await generateHoroscope(
+                            ctx,
                             sign, targetDate, emotionalZeitgeist, masterContext,
-                            job.modelId, provider,
+                            job.modelId, (job as any).providerId,
                             cosmicWeatherText, moonPhaseFrame, hookText
                         );
                         const retryValidated = LLMResponseSchema.safeParse(retryResult);

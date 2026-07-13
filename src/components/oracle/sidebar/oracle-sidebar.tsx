@@ -55,6 +55,7 @@ interface OracleSidebarProps {
   tierLabel: string;
   shouldShowUpgrade: boolean;
   onSignOut: () => void;
+  onUsageOpen: () => void;
 }
 
 export function OracleSidebar({
@@ -74,6 +75,7 @@ export function OracleSidebar({
   tierLabel,
   shouldShowUpgrade,
   onSignOut,
+  onUsageOpen,
 }: OracleSidebarProps) {
   return (
     <Sidebar
@@ -165,6 +167,7 @@ export function OracleSidebar({
           { label: "Journal", href: "/journal", icon: GiScrollUnfurled },
         ]}
         showUpgrade={shouldShowUpgrade}
+        onUsage={onUsageOpen}
         onSignOut={onSignOut}
       />
     </Sidebar>

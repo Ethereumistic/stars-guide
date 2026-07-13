@@ -172,7 +172,11 @@ function UserMenuNotifications() {
             </div>
           )}
 
-          <ScrollArea className="max-h-[200px]">
+          <ScrollArea
+            className="max-h-[40vh] w-full pr-1"
+            style={{ height: hasNotifications ? Math.min(256, Math.max(64, notifications.length * 72)) : 64 }}
+            type="auto"
+          >
             {!hasNotifications ? (
               <div className="py-4 flex flex-col items-center gap-1.5 text-white/25">
                 <Bell className="size-4" />
@@ -299,7 +303,11 @@ function MobileNotifications() {
             </div>
           )}
 
-          <ScrollArea className="max-h-[200px]">
+          <ScrollArea
+            className="max-h-[40vh] w-full pr-1"
+            style={{ height: Math.min(256, Math.max(64, (notifications?.length ?? 0) * 72)) }}
+            type="auto"
+          >
             <div className="flex flex-col gap-1">
               <AnimatePresence>
                 {notifications?.map((n: any) => (
@@ -496,7 +504,7 @@ export function Navbar() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
-                  className="w-80 mt-1.5 border-white/10 bg-background/90 backdrop-blur-xl shadow-xl p-0"
+                  className="mt-1.5 max-h-[min(42rem,var(--radix-dropdown-menu-content-available-height))] w-80 overflow-hidden border-white/10 bg-background/90 p-0 shadow-xl backdrop-blur-xl"
                   align="end"
                   sideOffset={8}
                 >

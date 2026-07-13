@@ -25,23 +25,6 @@ import type { StoredBirthData } from "../../birth-chart/types";
 import { generateBinauralBeat } from "../../binaural-presets";
 import { getBinauralBeatContext } from "../featureContext";
 
-/**
- * Module-scoped storage for the last generated beat params within a request.
- *
- * buildPromptBlocks() stores the params here.
- * afterResponse() reads them and returns a PostResponseAction.
- *
- * CAVEAT: In Convex's Node runtime, concurrent actions share this module scope.
- * This works because within a single action invocation, buildPromptBlocks() is
- * always called before afterResponse(), and the storage is overwritten each time
- * — so the most recent call's params are always correct for that invocation's
- * afterResponse(). Concurrent actions that don't use binaural will never call
- * buildPromptBlocks, so they'll see null and return no action.
- */
-// Store the full output of generateBinauralBeat (params + rationale)
-// afterResponse() strips rationale and stores only the params part
-let lastGeneratedBeat: ReturnType<typeof generateBinauralBeat> | null = null;
-
 export const binauralBeatsPipeline: OraclePipeline = {
   key: "binaural_beats",
 
@@ -71,7 +54,6 @@ export const binauralBeatsPipeline: OraclePipeline = {
     // Deterministic beat generation from the user's question + birth data personalization
     const birthDataForPersonalization = (ctx.rawBirthData as StoredBirthData | null) ?? undefined;
     const beat = generateBinauralBeat(ctx.userQuestion, birthDataForPersonalization);
-    lastGeneratedBeat = beat;
 
     // Binaural beat context — tells the AI what beat was generated
     // DB injection overrides the deterministic context when present
@@ -105,19 +87,14 @@ export const binauralBeatsPipeline: OraclePipeline = {
     return { systemBlocks, userBlocks: [] };
   },
 
-  afterResponse(_response: string, _ctx: PipelineContext): PostResponseAction[] {
-    if (lastGeneratedBeat) {
-      const { rationale: _rationale, ...params } = lastGeneratedBeat;
-      const actions: PostResponseAction[] = [
-        {
-          type: "store_binaural_params",
-          payload: params,
-        },
-      ];
-      // Clear after reading — don't hold references across requests
-      lastGeneratedBeat = null;
-      return actions;
-    }
-    return [];
+  afterResponse(_response: string, ctx: PipelineContext): PostResponseAction[] {
+    // Regeneration is deterministic and avoids module-scoped state leaking between
+    // concurrent Convex action invocations.
+    const birthData = (ctx.rawBirthData as StoredBirthData | null) ?? undefined;
+    const { rationale: _rationale, ...params } = generateBinauralBeat(
+      ctx.userQuestion,
+      birthData,
+    );
+    return [{ type: "store_binaural_params", payload: params }];
   },
 };

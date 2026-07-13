@@ -7,14 +7,6 @@ import {
   MAX_RESPONSE_TOKENS_DEFAULT,
   MAX_CONTEXT_MESSAGES_DEFAULT,
 } from "../../lib/oracle/soul";
-import {
-  parseProvidersConfig,
-  parseModelChain,
-  DEFAULT_MODEL_CHAIN,
-  DEFAULT_INTENT_MODEL_CHAIN,
-  type ProviderConfig,
-  type ModelChainEntry,
-} from "../../lib/oracle/providers";
 
 function toSettingsMap(
   settings: Array<{ key: string; value: string }>,
@@ -93,7 +85,7 @@ export const getPromptRuntimeSettingsInternal = internalQuery({
 
 /** Shared logic for building prompt runtime settings (no auth guard). */
 async function _buildPromptRuntimeSettings(ctx: QueryCtx) {
-    const [soulSettings, modelSettings, tokenLimitSettings, providerSettings] = await Promise.all([
+    const [soulSettings, modelSettings, tokenLimitSettings] = await Promise.all([
       ctx.db
         .query("oracle_settings")
         .withIndex("by_group", (q) => q.eq("group", "soul"))
@@ -106,21 +98,11 @@ async function _buildPromptRuntimeSettings(ctx: QueryCtx) {
         .query("oracle_settings")
         .withIndex("by_group", (q) => q.eq("group", "token_limits"))
         .collect(),
-      ctx.db
-        .query("oracle_settings")
-        .withIndex("by_group", (q) => q.eq("group", "provider"))
-        .collect(),
     ]);
 
     const soulMap = toSettingsMap(soulSettings);
     const modelMap = toSettingsMap(modelSettings);
     const tokenLimitMap = toSettingsMap(tokenLimitSettings);
-    const providerMap = toSettingsMap(providerSettings);
-
-    const modelChain = parseModelChain(modelMap.model_chain);
-    const intentModelChain = parseModelChain(modelMap.intent_model_chain);
-    const birthChartReportModelChain = parseModelChain(modelMap.birth_chart_report_model_chain);
-    const providers = parseProvidersConfig(providerMap.providers_config);
 
   return {
     // Unified soul document: single string instead of 7 separate docs
@@ -133,10 +115,6 @@ async function _buildPromptRuntimeSettings(ctx: QueryCtx) {
       topP: Number.parseFloat(modelMap.top_p ?? "0.92"),
       streamEnabled: modelMap.stream_enabled !== "false",
     },
-    providers,
-    modelChain: modelChain.length > 0 ? modelChain : DEFAULT_MODEL_CHAIN,
-    intentModelChain: intentModelChain.length > 0 ? intentModelChain : DEFAULT_INTENT_MODEL_CHAIN,
-    birthChartReportModelChain: birthChartReportModelChain.length > 0 ? birthChartReportModelChain : (modelChain.length > 0 ? modelChain : DEFAULT_MODEL_CHAIN),
   };
 }
 

@@ -1,14 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import {
   type AIModelEntry,
   type ProviderConfig,
   type ProviderType,
   PROVIDER_TYPE_INFO,
-  parseProvidersConfig,
   getModelsForProvider,
   findModelMetaForProvider,
   getModelWarnings,
@@ -47,7 +44,7 @@ export interface AIModelPickerProps {
    * - "oracle_settings" (default): reads providers from the oracle_settings table.
    * - "explicit": pass providers directly via the `providers` prop.
    */
-  providerSource?: "oracle_settings" | "explicit";
+  providerSource?: "explicit";
   /** When providerSource="explicit", pass the provider list directly */
   providers?: ProviderConfig[];
   /** Optional label override */
@@ -86,25 +83,14 @@ export function AIModelPicker({
   showProvider = true,
   showWarnings = true,
   disabled = false,
-  providerSource = "oracle_settings",
   providers: explicitProviders,
   label,
   layout = "grid",
 }: AIModelPickerProps) {
   // ── Load providers from oracle_settings ──
-  // @ts-ignore - TS2589: Convex generated type instantiation is excessively deep
-  const settings = useQuery(api.oracle.settings.listAllSettings) as
-    | Array<{ key: string; value: string }>
-    | undefined;
-
   const providers: ProviderConfig[] = React.useMemo(() => {
-    if (providerSource === "explicit") {
-      return explicitProviders ?? [];
-    }
-    if (!settings) return [];
-    const raw = settings.find((s: { key: string; value: string }) => s.key === "providers_config")?.value;
-    return parseProvidersConfig(raw);
-  }, [providerSource, explicitProviders, settings]);
+    return explicitProviders ?? [];
+  }, [explicitProviders]);
 
   const effectiveProviderId = React.useMemo(() => {
     if (providers.length === 0) return "";
@@ -175,18 +161,6 @@ export function AIModelPicker({
     },
     [baseId, onModelChange]
   );
-
-  // ── Loading state ──
-  if (providerSource === "oracle_settings" && settings === undefined) {
-    return (
-      <div className="space-y-2">
-        <Label className="text-xs text-muted-foreground">
-          {label ?? "LLM Model"}
-        </Label>
-        <div className="h-10 rounded-md border border-border/30 bg-background/50 animate-pulse" />
-      </div>
-    );
-  }
 
   // ── No providers configured ──
   if (providers.length === 0) {

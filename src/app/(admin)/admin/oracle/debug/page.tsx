@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { useQuery } from "convex/react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useAction, useQuery } from "convex/react";
+import { makeFunctionReference } from "convex/server";
 import { api } from "@/../convex/_generated/api";
 import { Id } from "@/../convex/_generated/dataModel";
 import {
@@ -18,9 +20,13 @@ import {
   Database,
   Eye,
   ChevronRight,
+  ChevronLeft,
   Sparkles,
   Brain,
   AlertTriangle,
+  Search,
+  Copy,
+  Check,
 } from "lucide-react";
 import { GiCursedStar } from "react-icons/gi";
 
@@ -47,13 +53,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -94,6 +94,16 @@ import {
   DEFAULT_MODEL_CHAIN,
   DEFAULT_PROVIDERS,
 } from "@/lib/oracle/providers";
+
+type EvaluationRun = {
+  suiteVersion: string;
+  createdAt: number;
+  passed: boolean;
+  releaseThreshold: number;
+  tierSummaries: Array<{ tier: string; providerId: string; model: string; score: number; passed: boolean; casesPassed: number; casesTotal: number }>;
+};
+const runProductionEvaluationRef = makeFunctionReference<"action", Record<string, never>, EvaluationRun>("oracle/evaluation:runProductionEvaluation");
+const getLatestEvaluationRef = makeFunctionReference<"query", Record<string, never>, EvaluationRun | null>("oracle/evaluationStore:getLatestRun");
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -158,6 +168,7 @@ function tierColor(tier: string | undefined): string {
 function featureLabel(key: string | undefined | null): string {
   if (!key) return "None";
   if (key === "none") return "None";
+  if (key === "birth_chart_report") return "Birth Chart Report";
   const feature = ORACLE_FEATURES.find((f) => f.key === key);
   return feature?.label ?? key;
 }
@@ -380,16 +391,16 @@ function MetricCard({
   color?: string;
 }) {
   return (
-    <Card className="border-border/30 bg-card/40 min-w-0 shadow-sm">
-      <CardContent className="p-5">
-        <div className="flex items-center gap-2 mb-2">
+    <Card className="group min-w-0 overflow-hidden border-white/[0.07] bg-[#0d1018] shadow-none transition-colors hover:border-violet-400/20">
+      <CardContent className="p-4">
+        <div className="mb-3 flex items-center gap-2">
           {Icon && <Icon className="h-4 w-4 text-muted-foreground/60" />}
-          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/60">
+          <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/60">
             {label}
           </span>
         </div>
-        <div className={`text-2xl font-bold tracking-tight ${color}`}>{value}</div>
-        {sub && <p className="text-[11px] text-muted-foreground/70 mt-1.5 leading-relaxed">{sub}</p>}
+        <div className={`truncate text-xl font-semibold tracking-tight ${color}`} title={String(value)}>{value}</div>
+        {sub && <p className="mt-1.5 truncate text-[10px] leading-relaxed text-muted-foreground/60" title={sub}>{sub}</p>}
       </CardContent>
     </Card>
   );
@@ -658,19 +669,57 @@ function MessageRow({ message }: { message: any; index: number }) {
 // ── Main Page ──────────────────────────────────────────────────────────────
 
 export default function OracleDebugPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const routeParams = useParams<{ sessionId?: string }>();
+  const routeSessionId = routeParams.sessionId as Id<"oracle_sessions"> | undefined;
+  const sessionOnly = Boolean(routeSessionId);
+  const sessionIdFromUrl = routeSessionId ?? searchParams.get("sessionId") as Id<"oracle_sessions"> | null;
   const [selectedSessionId, setSelectedSessionId] = React.useState<
     Id<"oracle_sessions"> | null
-  >(null);
+  >(sessionIdFromUrl);
   const [sessionFilter, setSessionFilter] = React.useState("");
-  const [autoRefresh, setAutoRefresh] = React.useState(true);
+  const [queueFilter, setQueueFilter] = React.useState<"all" | "active" | "completed" | "fallback">("all");
+  const [modelFilter, setModelFilter] = React.useState("all");
+  const [featureFilter, setFeatureFilter] = React.useState("all");
+  const [queueSort, setQueueSort] = React.useState<"newest" | "oldest" | "az" | "za">("newest");
+  const [sessionPage, setSessionPage] = React.useState(1);
+  const deferredSessionFilter = React.useDeferredValue(sessionFilter.trim());
+  const [copiedSessionId, setCopiedSessionId] = React.useState(false);
+  const [evaluationRun, setEvaluationRun] = React.useState<EvaluationRun | null>(null);
+  const [evaluationError, setEvaluationError] = React.useState<string | null>(null);
+  const [evaluationRunning, setEvaluationRunning] = React.useState(false);
+  const runProductionEvaluation = useAction(runProductionEvaluationRef);
+
+  React.useEffect(() => {
+    setSelectedSessionId(sessionIdFromUrl);
+  }, [sessionIdFromUrl]);
+
+  const handleRunEvaluation = React.useCallback(async () => {
+    setEvaluationRunning(true);
+    setEvaluationError(null);
+    try {
+      setEvaluationRun(await runProductionEvaluation({}));
+    } catch (error) {
+      setEvaluationError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setEvaluationRunning(false);
+    }
+  }, [runProductionEvaluation]);
 
   // Queries
-  const sessions = useQuery(api.oracle.debug.adminListSessions, { limit: 100 });
+  // @ts-ignore Convex's generated route type exceeds TypeScript's instantiation depth here.
+  const sessions = useQuery(api.oracle.debug.adminListSessions, sessionOnly ? "skip" : {
+      limit: 100,
+      search: deferredSessionFilter || undefined,
+    });
   const sessionDetail = useQuery(
     api.oracle.debug.adminGetSessionDetail,
     selectedSessionId ? { sessionId: selectedSessionId } : "skip",
   );
-  const stats = useQuery(api.oracle.debug.adminGetOracleStats);
+  const stats = useQuery(api.oracle.debug.adminGetOracleStats, sessionOnly ? "skip" : {});
+  const latestEvaluationRun = useQuery(getLatestEvaluationRef, sessionOnly ? "skip" : {});
+  const displayedEvaluationRun = evaluationRun ?? latestEvaluationRun;
 
   // Prompt reconstruction
   const reconstructedPrompt = React.useMemo(() => {
@@ -685,21 +734,58 @@ export default function OracleDebugPage() {
     );
   }, [sessionDetail]);
 
-  // Filtered sessions for dropdown
-  const filteredSessions = React.useMemo(() => {
-    if (!sessions) return [];
-    const f = sessionFilter.toLowerCase();
-    return f
-      ? sessions.filter(
-        (s) =>
-          s.title?.toLowerCase().includes(f) ||
-          s.userEmail?.toLowerCase().includes(f) ||
-          s.username?.toLowerCase().includes(f) ||
-          s.primaryModelUsed?.toLowerCase().includes(f) ||
-          s.featureKey?.toLowerCase().includes(f),
-      )
-      : sessions;
-  }, [sessions, sessionFilter]);
+  const filteredSessions = sessions ?? [];
+  const modelOptions = React.useMemo(() => Array.from(new Set(filteredSessions.map((session) => session.primaryModelUsed?.split("/").pop()).filter((value): value is string => Boolean(value)))).sort(), [filteredSessions]);
+  const featureOptions = React.useMemo(() => Array.from(new Set(filteredSessions.map((session) => session.featureKey).filter((value): value is string => Boolean(value)))).sort(), [filteredSessions]);
+  const queueSessions = React.useMemo(() => {
+    const matching = filteredSessions.filter((session) => {
+      if (queueFilter === "fallback" && !session.usedFallback) return false;
+      if ((queueFilter === "active" || queueFilter === "completed") && session.status !== queueFilter) return false;
+      if (modelFilter !== "all" && session.primaryModelUsed?.split("/").pop() !== modelFilter) return false;
+      if (featureFilter !== "all" && session.featureKey !== featureFilter) return false;
+      return true;
+    });
+    return matching.sort((a, b) => {
+      if (queueSort === "oldest") return a.lastMessageAt - b.lastMessageAt;
+      if (queueSort === "az") return (a.title ?? "").localeCompare(b.title ?? "");
+      if (queueSort === "za") return (b.title ?? "").localeCompare(a.title ?? "");
+      return b.lastMessageAt - a.lastMessageAt;
+    });
+  }, [filteredSessions, queueFilter, modelFilter, featureFilter, queueSort]);
+  const sessionsPerPage = 12;
+  const sessionPageCount = Math.max(1, Math.ceil(queueSessions.length / sessionsPerPage));
+  const paginatedSessions = queueSessions.slice((sessionPage - 1) * sessionsPerPage, sessionPage * sessionsPerPage);
+
+  React.useEffect(() => {
+    setSessionPage(1);
+  }, [deferredSessionFilter, queueFilter, modelFilter, featureFilter, queueSort]);
+
+  React.useEffect(() => {
+    setSessionPage((page) => Math.min(page, sessionPageCount));
+  }, [sessionPageCount]);
+
+  const selectSession = React.useCallback((sessionId: Id<"oracle_sessions"> | null) => {
+    setSelectedSessionId(sessionId);
+    if (sessionId) {
+      router.push(`/admin/oracle/debug/session/${sessionId}`);
+      return;
+    }
+    if (sessionOnly) {
+      router.push("/admin/oracle/debug");
+      return;
+    }
+    const params = new URLSearchParams(searchParams.toString());
+    if (sessionId) params.set("sessionId", sessionId);
+    else params.delete("sessionId");
+    router.replace(params.size > 0 ? `?${params.toString()}` : "?", { scroll: false });
+  }, [router, searchParams, sessionOnly]);
+
+  const copySessionId = React.useCallback(async () => {
+    if (!selectedSessionId) return;
+    await navigator.clipboard.writeText(selectedSessionId);
+    setCopiedSessionId(true);
+    window.setTimeout(() => setCopiedSessionId(false), 1500);
+  }, [selectedSessionId]);
 
   // Compute total tokens and cost across messages
   const messageTokenSummary = React.useMemo(() => {
@@ -714,21 +800,36 @@ export default function OracleDebugPage() {
       if (m.promptTokens != null || m.completionTokens != null) messagesWithTokens++;
       if (m.costUsdMicro != null) totalCostMicro += m.costUsdMicro;
     }
+    const reportTelemetry = sessionDetail.user?.birthChartReport;
+    if (sessionDetail.session?.featureKey === "birth_chart_report" && reportTelemetry) {
+      if (reportTelemetry.promptTokens != null) totalPrompt += reportTelemetry.promptTokens;
+      if (reportTelemetry.completionTokens != null) totalCompletion += reportTelemetry.completionTokens;
+      if (reportTelemetry.promptTokens != null || reportTelemetry.completionTokens != null) messagesWithTokens++;
+    }
     return {
       totalPrompt,
       totalCompletion,
       total: totalPrompt + totalCompletion,
       messagesWithTokens,
       totalCostMicro,
+      hasTelemetry: messagesWithTokens > 0,
     };
   }, [sessionDetail]);
 
-  if (sessions === undefined) {
+  if (!sessionOnly && sessions === undefined) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
+  }
+
+  if (sessionOnly && sessionDetail === undefined) {
+    return <div className="grid min-h-[60vh] place-items-center"><div className="text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-violet-300" /><p className="mt-3 text-xs text-muted-foreground">Loading session evidence…</p></div></div>;
+  }
+
+  if (sessionOnly && sessionDetail === null) {
+    return <div className="grid min-h-[60vh] place-items-center"><div className="max-w-sm text-center"><AlertTriangle className="mx-auto h-6 w-6 text-amber-300" /><h1 className="mt-3 text-lg font-semibold">Session not found</h1><p className="mt-1 text-sm text-muted-foreground">This session ID is invalid, no longer exists, or is not available to this admin account.</p><Button className="mt-5" variant="outline" onClick={() => router.push("/admin/oracle/debug")}>Return to session queue</Button></div></div>;
   }
 
   const d = sessionDetail;
@@ -737,137 +838,173 @@ export default function OracleDebugPage() {
   const settingsMap = getSettingMap(d?.allSettings);
   const providers = parseProvidersConfig(settingsMap["providers_config"]);
   const modelChain = parseModelChain(settingsMap["model_chain"]);
+  const reportTelemetry = u?.birthChartReport;
+  const displayedModel = s?.featureKey === "birth_chart_report"
+    ? reportTelemetry?.generationModel ?? reportTelemetry?.configuredRoute?.model ?? null
+    : s?.primaryModelUsed?.split("/").pop() ?? null;
+  const displayedModelDetail = s?.featureKey === "birth_chart_report"
+    ? reportTelemetry?.telemetryRecorded
+      ? `${reportTelemetry.generationProviderId}/${reportTelemetry.generationModel} · recorded execution`
+      : reportTelemetry?.configuredRoute
+        ? `${reportTelemetry.configuredRoute.providerId}/${reportTelemetry.configuredRoute.model} · configured route; historical execution not recorded`
+        : "Historical execution telemetry was not recorded"
+    : s?.primaryModelUsed ?? "No model recorded";
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="max-w-[1600px] space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-4 flex-wrap pb-5 border-b border-border/15">
-          <div className="flex items-center gap-3.5">
-            <Bug className="h-8 w-8 text-galactic" />
+      <div className="mx-auto max-w-[1680px] space-y-5 pb-12">
+        {!sessionOnly && (
+          <>
+        {/* Observatory masthead */}
+        <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#090b11] px-5 py-5 sm:px-7">
+          <div className="pointer-events-none absolute -right-20 -top-28 h-64 w-64 rounded-full bg-violet-500/[0.08] blur-3xl" />
+          <div className="relative flex flex-wrap items-center justify-between gap-5">
+          <div className="flex items-center gap-4">
+            <div className="grid h-11 w-11 place-items-center rounded-xl border border-violet-400/20 bg-violet-400/[0.08]"><Bug className="h-5 w-5 text-violet-300" /></div>
             <div>
-              <h1 className="text-2xl font-serif font-bold">Oracle Debug</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Live transparent inspection of Oracle sessions, prompts, tokens, and pipeline state.
+              <div className="mb-1 flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_theme(colors.emerald.400)]" /><span className="text-[9px] font-semibold uppercase tracking-[0.22em] text-emerald-300/80">Live observability</span></div>
+              <h1 className="text-2xl font-semibold tracking-tight">Oracle observatory</h1>
+              <p className="mt-1 text-sm text-muted-foreground/75">
+                Trace conversations from intent to model response.
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2.5">
-            <Badge
-              variant="outline"
-              className="border-galactic/30 bg-galactic/10 text-galactic px-2.5 py-0.5"
-            >
-              <Activity className="mr-1.5 h-3 w-3" />
-              {stats ? `${stats.totalSessions} sessions` : "Loading..."}
-            </Badge>
-            <Badge
-              variant="outline"
-              className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 px-2.5 py-0.5"
-            >
-              {stats ? `${stats.totalMessages} messages` : "—"}
-            </Badge>
+            <div className="text-right"><p className="font-mono text-xl font-semibold tabular-nums">{stats?.totalSessions ?? "—"}</p><p className="text-[9px] uppercase tracking-widest text-muted-foreground">Sessions</p></div>
+            <Separator orientation="vertical" className="h-9" />
+            <div className="text-right"><p className="font-mono text-xl font-semibold tabular-nums">{stats?.totalMessages ?? "—"}</p><p className="text-[9px] uppercase tracking-widest text-muted-foreground">Messages</p></div>
+          </div>
           </div>
         </div>
 
-        {/* Session Selector */}
-        <Card className="border-border/30 bg-card/40">
+        {stats && (
+          <section aria-label="Oracle fleet health" className="grid gap-px overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.07] sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              { label: "Active sessions", value: stats.activeSessions, note: `${Math.round((stats.activeSessions / Math.max(stats.totalSessions, 1)) * 100)}% of fleet`, tone: "text-emerald-300" },
+              { label: "Fallback sessions", value: stats.usedFallback, note: `${Math.round((stats.usedFallback / Math.max(stats.totalSessions, 1)) * 100)}% routing rate`, tone: stats.usedFallback ? "text-amber-300" : "text-emerald-300" },
+              { label: "Tracked tokens", value: (stats.totalPromptTokens + stats.totalCompletionTokens).toLocaleString(), note: `${stats.messagesWithTokens} measured messages`, tone: "text-sky-300" },
+              { label: "Safety interventions", value: stats.crisisResponses + stats.killSwitchResponses, note: `${stats.crisisResponses} crisis · ${stats.killSwitchResponses} kill switch`, tone: stats.crisisResponses + stats.killSwitchResponses ? "text-rose-300" : "text-muted-foreground" },
+            ].map((metric) => (
+              <div key={metric.label} className="bg-[#0d1018] px-5 py-4">
+                <div className="flex items-end justify-between gap-3"><span className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/65">{metric.label}</span><Activity className={`h-3.5 w-3.5 ${metric.tone}`} /></div>
+                <p className={`mt-3 font-mono text-2xl font-semibold tabular-nums ${metric.tone}`}>{metric.value}</p>
+                <p className="mt-1 text-[10px] text-muted-foreground/60">{metric.note}</p>
+              </div>
+            ))}
+          </section>
+        )}
+
+        {/* Cross-tier production release gate */}
+        <Card className="overflow-hidden border-white/[0.07] bg-[#0d1018] shadow-none">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Eye className="h-4 w-4 text-galactic" />
-              Session Inspector
-            </CardTitle>
-            <CardDescription>
-              Select a session to inspect its complete pipeline state. Open Oracle in another tab, use the same session, and watch everything here in real-time.
-            </CardDescription>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-sm"><Shield className="h-4 w-4 text-violet-300" />Release readiness</CardTitle>
+                <CardDescription className="mt-1">Seven fixed evidence, usefulness, privacy, and safety checks across every configured tier.</CardDescription>
+              </div>
+              <Button onClick={handleRunEvaluation} disabled={evaluationRunning} size="sm">
+                {evaluationRunning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Shield className="mr-2 h-4 w-4" />}
+                {evaluationRunning ? "Evaluating all tiers…" : "Run release gate"}
+              </Button>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="flex gap-3 items-start flex-wrap">
-              <div className="flex-1 min-w-[300px]">
+          {(displayedEvaluationRun || evaluationError) && (
+            <CardContent className="space-y-3">
+              {evaluationError && <p className="text-xs text-red-400">{evaluationError}</p>}
+              {displayedEvaluationRun && (
+                <>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Badge className={displayedEvaluationRun.passed ? "bg-emerald-500/15 text-emerald-300" : "bg-red-500/15 text-red-300"}>{displayedEvaluationRun.passed ? "RELEASE PASS" : "RELEASE BLOCKED"}</Badge>
+                    <span className="text-xs text-muted-foreground">{displayedEvaluationRun.suiteVersion} · threshold {displayedEvaluationRun.releaseThreshold} · {formatRelativeTime(displayedEvaluationRun.createdAt)}</span>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    {displayedEvaluationRun.tierSummaries.map((tier) => (
+                      <div key={`${tier.providerId}/${tier.model}`} className="rounded-lg border border-white/10 bg-black/15 p-3 text-xs">
+                        <div className="flex items-center justify-between"><span className="font-medium">Tier {tier.tier}</span><span className={tier.passed ? "text-emerald-300" : "text-red-300"}>{tier.score}</span></div>
+                        <p className="mt-1 truncate text-muted-foreground" title={`${tier.providerId}/${tier.model}`}>{tier.providerId}/{tier.model}</p>
+                        <p className="mt-1 text-muted-foreground">{tier.casesPassed}/{tier.casesTotal} cases passed</p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          )}
+        </Card>
+
+        {/* Session ledger */}
+        <Card className="overflow-hidden border-white/[0.07] bg-[#0d1018] shadow-none">
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base"><Eye className="h-4 w-4 text-galactic" />Session queue</CardTitle>
+                <CardDescription className="mt-1">Triage recent conversations and open one case for full execution evidence.</CardDescription>
+              </div>
+              <div className="rounded-lg border border-white/[0.07] bg-black/20 px-3 py-2 text-right"><p className="font-mono text-sm font-semibold tabular-nums">{queueSessions.length}</p><p className="text-[9px] uppercase tracking-[0.16em] text-muted-foreground">matching cases</p></div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="flex flex-wrap items-center gap-3 border-y border-white/[0.06] bg-black/10 px-5 py-3">
+              <div className="relative min-w-[260px] flex-1">
+                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Filter sessions by title, user, model, or feature..."
+                  placeholder="Search cases by ID, user, title, message, feature, or model"
                   value={sessionFilter}
                   onChange={(e) => setSessionFilter(e.target.value)}
-                  className="mb-2"
+                  aria-label="Search Oracle sessions"
+                  className="h-9 border-white/[0.07] bg-[#090b11] pl-9 text-xs focus-visible:ring-violet-400/40"
                 />
-                <Select
-                  value={selectedSessionId ?? ""}
-                  onValueChange={(v) => setSelectedSessionId(v as Id<"oracle_sessions">)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a session to inspect..." />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[400px]">
-                    {filteredSessions.map((session) => (
-                      <SelectItem key={session._id} value={session._id}>
-                        <div className="flex items-center gap-2 text-xs">
-                          <Badge
-                            variant="outline"
-                            className={`text-[9px] px-1 py-0 ${session.status === "active"
-                                ? "border-emerald-500/30 text-emerald-400"
-                                : "border-muted text-muted-foreground"
-                              }`}
-                          >
-                            {session.status}
-                          </Badge>
-                          {session.featureKey && (
-                            <Badge
-                              variant="outline"
-                              className="text-[9px] px-1 py-0 border-galactic/30 text-galactic"
-                            >
-                              {session.featureKey}
-                            </Badge>
-                          )}
-                          <span className="truncate max-w-[200px]">
-                            {truncateMiddle(session.title ?? "Untitled", 50)}
-                          </span>
-                          <span className="text-muted-foreground">
-                            ({session.username})
-                          </span>
-                          <span className="text-muted-foreground/50">
-                            {formatRelativeTime(session.lastMessageAt)}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
-              {selectedSessionId && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedSessionId(null)}
-                >
-                  Clear
-                </Button>
-              )}
+              <div className="flex items-center gap-1 rounded-lg border border-white/[0.07] bg-[#090b11] p-1" aria-label="Filter session queue">
+                {(["all", "active", "completed", "fallback"] as const).map((filter) => <Button key={filter} variant="ghost" size="sm" onClick={() => setQueueFilter(filter)} aria-pressed={queueFilter === filter} className={`h-7 rounded-md px-2.5 text-[10px] capitalize ${queueFilter === filter ? "bg-white/[0.08] text-foreground" : "text-muted-foreground"}`}>{filter}</Button>)}
+              </div>
+              <Select value={modelFilter} onValueChange={setModelFilter}>
+                <SelectTrigger className="h-9 w-[170px] border-white/[0.07] bg-[#090b11] text-xs"><SelectValue placeholder="All models" /></SelectTrigger>
+                <SelectContent><SelectItem value="all">All models</SelectItem>{modelOptions.map((model) => <SelectItem key={model} value={model}>{model}</SelectItem>)}</SelectContent>
+              </Select>
+              <Select value={featureFilter} onValueChange={setFeatureFilter}>
+                <SelectTrigger className="h-9 w-[170px] border-white/[0.07] bg-[#090b11] text-xs"><SelectValue placeholder="All features" /></SelectTrigger>
+                <SelectContent><SelectItem value="all">All features</SelectItem>{featureOptions.map((feature) => <SelectItem key={feature} value={feature}>{featureLabel(feature)}</SelectItem>)}</SelectContent>
+              </Select>
+              <Select value={queueSort} onValueChange={(value) => setQueueSort(value as typeof queueSort)}>
+                <SelectTrigger className="h-9 w-[150px] border-white/[0.07] bg-[#090b11] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest first</SelectItem>
+                  <SelectItem value="oldest">Oldest first</SelectItem>
+                  <SelectItem value="az">Title A–Z</SelectItem>
+                  <SelectItem value="za">Title Z–A</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Quick session list table */}
-            {!selectedSessionId && filteredSessions.length > 0 && (
-              <div className="mt-5 rounded-lg border border-border/25 overflow-hidden">
-                <div className="max-h-[300px] overflow-y-auto">
+            {paginatedSessions.length > 0 && (
+              <div className="overflow-x-auto">
+                <div>
                   <Table>
                     <TableHeader>
-                      <TableRow className="hover:bg-transparent border-border/20">
-                        <TableHead className="text-[10px] h-9">Status</TableHead>
-                        <TableHead className="text-[10px]">Title</TableHead>
-                        <TableHead className="text-[10px]">User</TableHead>
-                        <TableHead className="text-[10px]">Feature</TableHead>
-                        <TableHead className="text-[10px]">Model</TableHead>
-                        <TableHead className="text-[10px]">Msgs</TableHead>
-                        <TableHead className="text-[10px]">Last Active</TableHead>
-                        <TableHead className="text-[10px]">Birth</TableHead>
+                      <TableRow className="border-white/[0.06] bg-black/10 hover:bg-black/10">
+                        <TableHead className="h-9 pl-5 text-[9px] uppercase tracking-wider">State</TableHead>
+                        <TableHead className="text-[9px] uppercase tracking-wider">Case</TableHead>
+                        <TableHead className="text-[9px] uppercase tracking-wider">User</TableHead>
+                        <TableHead className="text-[9px] uppercase tracking-wider">Capability</TableHead>
+                        <TableHead className="text-[9px] uppercase tracking-wider">Route</TableHead>
+                        <TableHead className="text-right text-[9px] uppercase tracking-wider">Turns</TableHead>
+                        <TableHead className="text-[9px] uppercase tracking-wider">Updated</TableHead>
+                        <TableHead className="text-[9px] uppercase tracking-wider">Context</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredSessions.slice(0, 50).map((session) => (
+                      {paginatedSessions.map((session) => (
                         <TableRow
                           key={session._id}
-                          className="cursor-pointer hover:bg-white/5 transition-colors"
-                          onClick={() => setSelectedSessionId(session._id)}
+                          tabIndex={0}
+                          role="button"
+                          onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectSession(session._id); } }}
+                          className="cursor-pointer border-white/[0.05] transition-colors hover:bg-white/[0.035] focus-visible:bg-violet-400/[0.08] focus-visible:outline-none data-[state=selected]:bg-violet-400/[0.09]"
+                          data-state={selectedSessionId === session._id ? "selected" : undefined}
+                          onClick={() => selectSession(session._id)}
                         >
-                          <TableCell>
+                          <TableCell className="pl-5">
                             <Badge
                               variant="outline"
                               className={`text-[9px] px-1 py-0 ${session.status === "active"
@@ -878,8 +1015,9 @@ export default function OracleDebugPage() {
                               {session.status}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-xs truncate max-w-[180px]">
-                            {truncateMiddle(session.title ?? "Untitled", 40)}
+                          <TableCell className="max-w-[300px] py-3">
+                            <p className="truncate text-xs font-medium">{session.title ?? "Untitled conversation"}</p>
+                            <p className="mt-0.5 truncate font-mono text-[9px] text-muted-foreground/60" title={session._id}>{session._id}</p>
                           </TableCell>
                           <TableCell className="text-xs">
                             {session.username}
@@ -890,7 +1028,7 @@ export default function OracleDebugPage() {
                                 variant="outline"
                                 className="text-[9px] px-1 py-0 border-galactic/30 text-galactic"
                               >
-                                {session.featureKey}
+                                {featureLabel(session.featureKey)}
                                 {session.birthChartDepth
                                   ? `/${session.birthChartDepth}`
                                   : ""}
@@ -900,9 +1038,9 @@ export default function OracleDebugPage() {
                             )}
                           </TableCell>
                           <TableCell className="text-[10px] font-mono">
-                            {(session.primaryModelUsed ?? "").split("/").pop() ?? "—"}
+                            {session.primaryModelUsed?.split("/").pop() ?? (session.featureKey === "birth_chart_report" ? "Not recorded" : "—")}
                           </TableCell>
-                          <TableCell className="text-xs text-center">
+                          <TableCell className="text-right font-mono text-xs tabular-nums">
                             {session.messageCount}
                           </TableCell>
                           <TableCell className="text-[10px] text-muted-foreground">
@@ -922,14 +1060,47 @@ export default function OracleDebugPage() {
                 </div>
               </div>
             )}
+            {queueSessions.length === 0 && (
+              <div className="grid min-h-48 place-items-center px-6 text-center">
+                <div>
+                  <Search className="mx-auto mb-3 h-5 w-5 text-muted-foreground/50" />
+                  <p className="text-sm font-medium">No matching sessions</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Try a shorter ID, username, model, feature, or phrase from a message.</p>
+                  {sessionFilter && <Button variant="ghost" size="sm" className="mt-3" onClick={() => setSessionFilter("")}>Clear search</Button>}
+                </div>
+              </div>
+            )}
+            {queueSessions.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] bg-black/10 px-5 py-3">
+                <p className="text-[10px] text-muted-foreground">Showing {(sessionPage - 1) * sessionsPerPage + 1}–{Math.min(sessionPage * sessionsPerPage, queueSessions.length)} of {queueSessions.length}</p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="h-8 px-2" disabled={sessionPage === 1} onClick={() => setSessionPage((page) => Math.max(1, page - 1))}><ChevronLeft className="h-3.5 w-3.5" /><span className="sr-only">Previous page</span></Button>
+                  <span className="min-w-16 text-center font-mono text-[10px] text-muted-foreground">{sessionPage} / {sessionPageCount}</span>
+                  <Button variant="outline" size="sm" className="h-8 px-2" disabled={sessionPage === sessionPageCount} onClick={() => setSessionPage((page) => Math.min(sessionPageCount, page + 1))}><ChevronRight className="h-3.5 w-3.5" /><span className="sr-only">Next page</span></Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* ── Selected Session Detail ──────────────────────────────────────── */}
+          </>
+        )}
         {d && s && (
           <div className="space-y-7">
+            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/[0.07] pb-4">
+              <div className="min-w-0">
+                <div className="mb-1 flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-violet-300" /><span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-violet-300">Open case</span></div>
+                <h2 className="truncate text-xl font-semibold tracking-tight">{s.title ?? "Untitled conversation"}</h2>
+                <div className="mt-1.5 flex items-center gap-2 text-[10px] text-muted-foreground"><span>{u?.username ?? "Unknown user"}</span><span>·</span><span>{formatRelativeTime(s.lastMessageAt)}</span><span>·</span><span>{featureLabel(s.featureKey)}</span></div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="h-8 gap-2 font-mono text-[10px]" onClick={copySessionId} aria-label="Copy session ID">{copiedSessionId ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}<span className="hidden max-w-48 truncate sm:block">{selectedSessionId}</span></Button>
+                <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => selectSession(null)}><ChevronLeft className="mr-1.5 h-3.5 w-3.5" />Back to queue</Button>
+              </div>
+            </div>
             {/* Top Stats Row */}
-            <div className="grid gap-4 grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
+            <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
               <MetricCard
                 label="Messages"
                 value={d.messages.length}
@@ -940,12 +1111,16 @@ export default function OracleDebugPage() {
                 label="Total Tokens"
                 value={
                   messageTokenSummary
-                    ? messageTokenSummary.total.toLocaleString()
+                    ? messageTokenSummary.hasTelemetry
+                      ? messageTokenSummary.total.toLocaleString()
+                      : "Not recorded"
                     : "—"
                 }
                 sub={
                   messageTokenSummary
-                    ? `${messageTokenSummary.totalPrompt.toLocaleString()} prompt · ${messageTokenSummary.totalCompletion.toLocaleString()} completion`
+                    ? messageTokenSummary.hasTelemetry
+                      ? `${messageTokenSummary.totalPrompt.toLocaleString()} prompt · ${messageTokenSummary.totalCompletion.toLocaleString()} completion`
+                      : "Token usage was not persisted for this session"
                     : "No token data"
                 }
                 icon={Zap}
@@ -966,8 +1141,8 @@ export default function OracleDebugPage() {
               />
               <MetricCard
                 label="Model"
-                value={(s.primaryModelUsed ?? "—").split("/").pop() ?? "—"}
-                sub={s.primaryModelUsed ?? "None"}
+                value={displayedModel ?? "Not recorded"}
+                sub={displayedModelDetail}
                 icon={Cpu}
                 color="text-amber-400"
               />
@@ -992,7 +1167,7 @@ export default function OracleDebugPage() {
 
             {/* Tabs */}
             <Tabs defaultValue="messages" className="space-y-5">
-              <TabsList className="w-full justify-start flex-wrap h-auto gap-1 bg-muted/30 p-1.5 rounded-lg border border-border/20">
+              <TabsList className="sticky top-3 z-20 h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl border border-white/[0.07] bg-[#0d1018]/95 p-1.5 shadow-xl shadow-black/20 backdrop-blur-xl">
                 <TabsTrigger value="messages" className="text-xs">
                   <MessageSquare className="h-3 w-3 mr-1.5" />
                   Messages
@@ -1024,6 +1199,38 @@ export default function OracleDebugPage() {
 
               {/* ── Messages Tab ─────────────────────────────────────── */}
               <TabsContent value="messages" className="space-y-5">
+                {d.analysis?.turns?.length > 0 && (
+                  <Card className="border-border/30 bg-card/40">
+                    <CardContent className="p-5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">Per-turn capability analysis</span>
+                        <Badge
+                          variant="outline"
+                          className={d.analysis.capabilityMismatches.length > 0
+                            ? "border-red-500/40 text-red-400"
+                            : "border-emerald-500/30 text-emerald-400"}
+                        >
+                          {d.analysis.capabilityMismatches.length} mismatches
+                        </Badge>
+                      </div>
+                      <div className="space-y-1.5">
+                        {d.analysis.turns.map((turn: any, index: number) => (
+                          <div key={turn.userMessageId} className="grid grid-cols-2 md:grid-cols-7 gap-2 rounded border border-border/20 px-3 py-2 text-[11px]">
+                            <span>Turn {index + 1}</span>
+                            <span className="font-mono text-galactic">{turn.expectedPipeline}</span>
+                            <span className="text-muted-foreground">{turn.routingReason}</span>
+                            <span className="font-mono">{turn.modelUsed ?? "no model"}</span>
+                            <span>TTFT {turn.ttftMs != null ? formatMs(turn.ttftMs) : "—"}</span>
+                            <span>Total {turn.totalMs != null ? formatMs(turn.totalMs) : "—"}</span>
+                            <span className={turn.capabilityMismatch ? "text-red-400" : "text-emerald-400"}>
+                              {turn.capabilityMismatch ? "Missing capability output" : "Output consistent"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
                 {/* Message token overview */}
                 {messageTokenSummary && (
                   <Card className="border-border/30 bg-card/40">
@@ -1679,14 +1886,14 @@ export default function OracleDebugPage() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <Cpu className="h-4 w-4" />
-                      Model Chain & Providers
+                      Legacy Routing Snapshot (Read Only)
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {/* Providers */}
                     <div>
                       <span className="text-xs text-muted-foreground uppercase tracking-wider">
-                        Configured Providers
+                        Migrated Provider Snapshot
                       </span>
                       <div className="mt-2 space-y-2">
                         {providers.map((p) => (

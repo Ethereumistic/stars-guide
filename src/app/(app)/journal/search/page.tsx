@@ -1,7 +1,3 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { Redirect } from "@/components/redirect";
-
-export default function JournalSearchPage() {
-    return <Redirect to="/journal?tab=search" />;
-}
+export default function JournalSearchPage() { redirect("/journal?tab=search"); }

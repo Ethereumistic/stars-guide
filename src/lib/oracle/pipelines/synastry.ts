@@ -23,7 +23,12 @@ import type {
 } from "../pipelineTypes";
 
 import { buildUniversalBirthContext } from "../featureContext";
-import { getSynastryInstructions, buildSynastryChartBContext } from "../synastryContext";
+import {
+  getSynastryInstructions,
+  buildSynastryChartBContext,
+  buildSynastryComparisonContext,
+} from "../synastryContext";
+import type { StoredBirthData } from "../../birth-chart/types";
 
 export const synastryPipeline: OraclePipeline = {
   key: "synastry",
@@ -111,6 +116,18 @@ export const synastryPipeline: OraclePipeline = {
         content: chartBContext,
         label: "chart_b_data",
       });
+      if (ctx.rawBirthData) {
+        const comparisonContext = buildSynastryComparisonContext(
+          ctx.rawBirthData as StoredBirthData,
+          ctx.synastryData,
+        );
+        if (comparisonContext) {
+          userBlocks.push({
+            content: comparisonContext,
+            label: "synastry_comparison_evidence",
+          });
+        }
+      }
     } else {
       // No chart B data — shouldn't happen if UI validation works, but handle gracefully
       systemBlocks.push({

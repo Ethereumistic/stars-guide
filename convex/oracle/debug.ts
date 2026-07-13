@@ -7,6 +7,7 @@ import {
   parseModelChain,
   tierForIndex,
 } from "../../lib/oracle/providers";
+import { scoreIntents } from "../../lib/oracle/intentRouter";
 
 /**
  * Oracle Debug Queries — Admin-only transparent inspection layer.
@@ -58,23 +59,55 @@ export const adminGetDebugProviders = query({
 export const adminListSessions = query({
   args: {
     limit: v.optional(v.number()),
+    search: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
 
     const limit = Math.min(args.limit ?? 100, 200);
 
-    const sessions = await ctx.db
+    const recentSessions = await ctx.db
       .query("oracle_sessions")
       .order("desc")
       .take(limit);
 
+    const search = args.search?.trim();
+    let sessions = recentSessions;
+    let matchingMessageSessionIds = new Set<Id<"oracle_sessions">>();
+    if (search) {
+      const normalizedId = ctx.db.normalizeId("oracle_sessions", search);
+      const exactSession = normalizedId ? await ctx.db.get(normalizedId) : null;
+      const matchingMessages = await ctx.db
+        .query("oracle_messages")
+        .withSearchIndex("search_content", (q) => q.search("content", search))
+        .take(50);
+      matchingMessageSessionIds = new Set(matchingMessages.map((message) => message.sessionId));
+      const candidateSessions = await ctx.db
+        .query("oracle_sessions")
+        .order("desc")
+        .take(500);
+      sessions = candidateSessions;
+      if (exactSession && !sessions.some((session) => session._id === exactSession._id)) {
+        sessions.unshift(exactSession);
+      }
+    }
+
     // Enrich with user info
-    const enriched = await Promise.all(
+    let enriched = await Promise.all(
       sessions.map(async (session) => {
         const user = await ctx.db.get(session.userId);
+        const isBirthChartReportSession =
+          user?.birthChartReport?.oracleSessionId === session._id ||
+          session.featureKey === "birth_chart_report" ||
+          session.primaryModelUsed === "birth_chart_report_onboarding";
+        const reportModel =
+          user?.birthChartReport?.generationProviderId && user.birthChartReport.generationModel
+            ? `${user.birthChartReport.generationProviderId}/${user.birthChartReport.generationModel}`
+            : undefined;
         return {
           ...session,
+          featureKey: isBirthChartReportSession ? "birth_chart_report" : session.featureKey,
+          primaryModelUsed: isBirthChartReportSession ? reportModel : session.primaryModelUsed,
           userEmail: user?.email ?? "unknown",
           username: user?.username ?? "unknown",
           userRole: user?.role ?? "user",
@@ -84,6 +117,19 @@ export const adminListSessions = query({
       }),
     );
 
+    if (search) {
+      const needle = search.toLowerCase();
+      enriched = enriched.filter((session) =>
+        session._id === search
+        || matchingMessageSessionIds.has(session._id)
+        || session.title.toLowerCase().includes(needle)
+        || session.userEmail.toLowerCase().includes(needle)
+        || session.username.toLowerCase().includes(needle)
+        || session.featureKey?.toLowerCase().includes(needle)
+        || session.primaryModelUsed?.toLowerCase().includes(needle)
+      ).slice(0, limit);
+    }
+
     return enriched;
   },
 });
@@ -92,11 +138,13 @@ export const adminListSessions = query({
 
 export const adminGetSessionDetail = query({
   args: {
-    sessionId: v.id("oracle_sessions"),
+    sessionId: v.string(),
   },
-  handler: async (ctx, { sessionId }) => {
+  handler: async (ctx, { sessionId: rawSessionId }) => {
     await requireAdmin(ctx);
 
+    const sessionId = ctx.db.normalizeId("oracle_sessions", rawSessionId);
+    if (!sessionId) return null;
     const session = await ctx.db.get(sessionId);
     if (!session) return null;
 
@@ -105,8 +153,84 @@ export const adminGetSessionDetail = query({
       .withIndex("by_session_created", (q) => q.eq("sessionId", sessionId))
       .order("asc")
       .collect();
+    const storedTraces = await ctx.db
+      .query("oracle_turn_traces")
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+      .order("asc")
+      .collect();
 
     const user = await ctx.db.get(session.userId);
+    const isBirthChartReportSession =
+      user?.birthChartReport?.oracleSessionId === sessionId ||
+      session.featureKey === "birth_chart_report" ||
+      session.primaryModelUsed === "birth_chart_report_onboarding";
+    const report = isBirthChartReportSession ? user?.birthChartReport : undefined;
+
+    // Older report sessions predate per-report execution telemetry. Expose the
+    // currently configured route as context, but never claim it was recorded.
+    const reportProfile = isBirthChartReportSession
+      ? await ctx.db
+          .query("ai_feature_profiles")
+          .withIndex("by_feature_key", (q) => q.eq("featureKey", "birth_chart_report"))
+          .first()
+      : null;
+    let configuredReportRoute: { providerId: string; model: string } | null = null;
+    if (reportProfile?.chainJson) {
+      try {
+        const chain = JSON.parse(reportProfile.chainJson) as Array<{ providerId?: string; model?: string }>;
+        const first = chain.find((entry) => entry.providerId && entry.model);
+        configuredReportRoute = first?.providerId && first.model
+          ? { providerId: first.providerId, model: first.model }
+          : null;
+      } catch {
+        configuredReportRoute = null;
+      }
+    }
+
+    const debugSession = isBirthChartReportSession
+      ? {
+          ...session,
+          featureKey: "birth_chart_report",
+          primaryModelUsed:
+            report?.generationProviderId && report.generationModel
+              ? `${report.generationProviderId}/${report.generationModel}`
+              : undefined,
+        }
+      : session;
+
+    const turns = messages
+      .filter((message) => message.role === "user")
+      .map((userMessage) => {
+        const assistantMessage = messages.find(
+          (candidate) =>
+            candidate.role === "assistant" &&
+            candidate.createdAt >= userMessage.createdAt,
+        );
+        const routing = scoreIntents({
+          question: userMessage.content,
+          hasBirthData: Boolean(user?.birthData),
+          hasJournalConsent: false,
+          // Debug the turn's explicit capability independently of sticky session state.
+          currentFeatureKey: null,
+        });
+        const expectedPipeline = routing.primary?.pipelineKey ?? "generic_chat";
+        return {
+          userMessageId: userMessage._id,
+          assistantMessageId: assistantMessage?._id ?? null,
+          expectedPipeline,
+          routingReason: routing.primary?.reason ?? "no_match",
+          modelUsed: assistantMessage?.modelUsed ?? null,
+          fallbackTierUsed: assistantMessage?.fallbackTierUsed ?? null,
+          ttftMs: assistantMessage?.timingTtftMs ?? null,
+          totalMs: assistantMessage?.timingTotalMs ?? null,
+          promptTokens: assistantMessage?.promptTokens ?? null,
+          completionTokens: assistantMessage?.completionTokens ?? null,
+          hasBinauralParams: Boolean(assistantMessage?.binauralParams),
+          capabilityMismatch:
+            expectedPipeline === "binaural_beats" &&
+            !assistantMessage?.binauralParams,
+        };
+      });
 
     // Quota info for this user
     const quotaUsage = await ctx.db
@@ -157,8 +281,12 @@ export const adminGetSessionDetail = query({
     }
 
     return {
-      session,
+      session: debugSession,
       messages,
+      traces: storedTraces.map((trace) => {
+        try { return { ...trace, trace: JSON.parse(trace.payload) }; }
+        catch { return { ...trace, trace: null }; }
+      }),
       user: user
         ? {
             _id: user._id,
@@ -168,6 +296,19 @@ export const adminGetSessionDetail = query({
             tier: user.tier,
             hasBirthData: Boolean(user.birthData),
             birthData: user.birthData ?? null,
+            birthChartReport: report
+              ? {
+                  status: report.status,
+                  generatedAt: report.generatedAt ?? null,
+                  generationProviderId: report.generationProviderId ?? null,
+                  generationModel: report.generationModel ?? null,
+                  generationTier: report.generationTier ?? null,
+                  promptTokens: report.promptTokens ?? null,
+                  completionTokens: report.completionTokens ?? null,
+                  configuredRoute: configuredReportRoute,
+                  telemetryRecorded: Boolean(report.generationProviderId && report.generationModel),
+                }
+              : null,
           }
         : null,
       quotaUsage,
@@ -175,6 +316,10 @@ export const adminGetSessionDetail = query({
       depthInjection,
       allSettings,
       journalConsent,
+      analysis: {
+        turns,
+        capabilityMismatches: turns.filter((turn) => turn.capabilityMismatch),
+      },
     };
   },
 });
@@ -264,14 +409,18 @@ export const adminGetOracleStats = query({
     // Model usage distribution
     const modelCounts: Record<string, number> = {};
     for (const s of sessions) {
-      const model = s.primaryModelUsed ?? "unknown";
+      const model = s.primaryModelUsed === "birth_chart_report_onboarding"
+        ? "not_recorded"
+        : s.primaryModelUsed ?? "unknown";
       modelCounts[model] = (modelCounts[model] ?? 0) + 1;
     }
 
     // Feature usage distribution
     const featureCounts: Record<string, number> = {};
     for (const s of sessions) {
-      const feature = s.featureKey ?? "none";
+      const feature = s.primaryModelUsed === "birth_chart_report_onboarding"
+        ? "birth_chart_report"
+        : s.featureKey ?? "none";
       featureCounts[feature] = (featureCounts[feature] ?? 0) + 1;
     }
 

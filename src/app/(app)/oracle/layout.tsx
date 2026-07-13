@@ -15,6 +15,8 @@ import { OracleDebugPanel } from "@/components/oracle/debug/oracle-debug-panel";
 import { useOracleSessions } from "@/components/oracle/sidebar/use-oracle-sessions";
 import { tierLabels } from "@/components/oracle/sidebar/utils";
 import { OracleChatSearchModal } from "@/components/oracle-chat-search-modal";
+import { OracleQuotaUsageDialog } from "@/components/oracle/quota-usage-dialog";
+import { UpgradeModal } from "@/components/pricing/upgrade-modal";
 
 export default function OracleLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
@@ -23,6 +25,10 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
     const resetToIdle = useOracleStore((s) => s.resetToIdle);
     const debugOpen = useOracleStore((s) => s.debugOpen);
     const setDebugOpen = useOracleStore((s) => s.setDebugOpen);
+    const usageOpen = useOracleStore((s) => s.usageOpen);
+    const setUsageOpen = useOracleStore((s) => s.setUsageOpen);
+    const upgradeOpen = useOracleStore((s) => s.upgradeOpen);
+    const setUpgradeOpen = useOracleStore((s) => s.setUpgradeOpen);
     const [showTopLogo, setShowTopLogo] = React.useState(false);
     const [searchOpen, setSearchOpen] = React.useState(false);
 
@@ -96,6 +102,7 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
                     tierLabel={tierLabel}
                     shouldShowUpgrade={shouldShowUpgrade}
                     onSignOut={() => signOut()}
+                    onUsageOpen={() => setUsageOpen(true)}
                 />
 
                 <SidebarInset className="relative flex h-full min-h-0! w-full flex-1 flex-col overflow-hidden bg-transparent">
@@ -115,6 +122,22 @@ export default function OracleLayout({ children }: { children: React.ReactNode }
                     lastMessageAt: s.lastMessageAt ?? s.updatedAt ?? s.createdAt,
                 }))}
                 onNewChat={handleNewDivination}
+            />
+
+            <OracleQuotaUsageDialog
+                open={usageOpen}
+                onOpenChange={setUsageOpen}
+                currentTier={plan as "free" | "popular" | "premium"}
+                onGetMoreUsage={() => {
+                    setUsageOpen(false);
+                    setUpgradeOpen(true);
+                }}
+            />
+
+            <UpgradeModal
+                userTier={plan as "free" | "popular" | "premium"}
+                isOpen={upgradeOpen}
+                onClose={() => setUpgradeOpen(false)}
             />
 
             {/* Debug panel — admin only */}

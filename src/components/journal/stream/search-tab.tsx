@@ -1,122 +1,28 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import {
-    type MoodZone,
-    type EntryType,
-} from "@/lib/journal/constants";
+import { Loader2, Search, X } from "lucide-react";
 import { StreamEntryCard } from "./stream-entry-card";
-import { SearchBar } from "@/components/journal/search/search-bar";
-import { SearchFilters } from "@/components/journal/search/search-filters";
-import { Loader2, Search } from "lucide-react";
 
-interface SearchTabProps {
-    onEntryClick?: (entryId: string) => void;
-}
+export function SearchTab({ onEntryClick }: { onEntryClick?: (entryId: string) => void }) {
+  const [query, setQuery] = React.useState("");
+  const [settledQuery, setSettledQuery] = React.useState("");
+  React.useEffect(() => { const timer = window.setTimeout(() => setSettledQuery(query.trim()), 250); return () => window.clearTimeout(timer); }, [query]);
+  const results = useQuery(api.journal.search.searchEntries, settledQuery ? { query: settledQuery } : "skip");
 
-/**
- * SearchTab wraps the search UI with its own state and data fetching.
- * Used inside the JournalStreamPage search tab.
- */
-export function SearchTab({ onEntryClick }: SearchTabProps) {
-    const router = useRouter();
-
-    const [query, setQuery] = React.useState("");
-    const [filters, setFilters] = React.useState<{
-        entryType?: EntryType;
-        moodZone?: MoodZone;
-        startDate?: string;
-        endDate?: string;
-        tags?: string[];
-        moonPhase?: string;
-    }>({});
-
-    const [searchQuery, setSearchQuery] = React.useState("");
-    const [searchFilters, setSearchFilters] = React.useState(filters);
-
-    // Debounce search
-    React.useEffect(() => {
-        const timeout = setTimeout(() => {
-            setSearchQuery(query);
-            setSearchFilters(filters);
-        }, 300);
-        return () => clearTimeout(timeout);
-    }, [query, filters]);
-
-    const results = useQuery(
-        api.journal.search.searchEntries,
-        searchQuery.trim().length > 0
-            ? {
-                  query: searchQuery,
-                  entryType: searchFilters.entryType,
-                  moodZone: searchFilters.moodZone,
-                  startDate: searchFilters.startDate,
-                  endDate: searchFilters.endDate,
-                  tags: searchFilters.tags,
-                  moonPhase: searchFilters.moonPhase,
-              }
-            : "skip",
-    );
-
-    const isSearching = searchQuery.trim().length > 0;
-    const hasResults = results && results.length > 0;
-
-    function handleEntryClick(entryId: string) {
-        if (onEntryClick) {
-            onEntryClick(entryId);
-        } else {
-            router.push(`/journal?entry=${entryId}`);
-        }
-    }
-
-    return (
-        <div className="space-y-4">
-            {/* Search bar */}
-            <SearchBar query={query} onQueryChange={setQuery} />
-
-            {/* Filters */}
-            <SearchFilters filters={filters} onFiltersChange={setFilters} />
-
-            {/* Results */}
-            {isSearching && !results && (
-                <div className="flex justify-center py-12">
-                    <Loader2 className="h-5 w-5 animate-spin text-white/30" />
-                </div>
-            )}
-
-            {isSearching && results && results.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <Search className="h-8 w-8 text-white/20 mb-3" />
-                    <p className="text-sm text-white/40">No entries match your search</p>
-                </div>
-            )}
-
-            {hasResults && (
-                <div className="space-y-2">
-                    <p className="text-xs text-white/30 mb-2">
-                        {results.length} results
-                    </p>
-                    {results.map((entry: any) => (
-                        <StreamEntryCard
-                            key={entry._id}
-                            entry={entry}
-                            onClick={() => handleEntryClick(entry._id)}
-                        />
-                    ))}
-                </div>
-            )}
-
-            {!isSearching && (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <Search className="h-8 w-8 text-white/20 mb-3" />
-                    <p className="text-sm text-white/40">
-                        Type a search to find entries
-                    </p>
-                </div>
-            )}
-        </div>
-    );
+  return <section>
+    <div className="relative">
+      <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/25" />
+      <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search your reflections…" className="h-14 w-full rounded-2xl border border-white/10 bg-white/[0.035] pl-12 pr-12 text-base text-white outline-none placeholder:text-white/25 focus:border-[#a995f2]/45" />
+      {query && <button aria-label="Clear search" onClick={() => setQuery("")} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white"><X className="h-4 w-4" /></button>}
+    </div>
+    <div className="mt-7">
+      {settledQuery && results === undefined && <div className="flex justify-center py-16"><Loader2 className="h-5 w-5 animate-spin text-white/30" /></div>}
+      {!settledQuery && <p className="py-16 text-center text-sm text-white/30">Search by a word or phrase you remember.</p>}
+      {results?.length === 0 && <p className="py-16 text-center text-sm text-white/30">No reflections found.</p>}
+      {results && results.length > 0 && <div className="space-y-1"><p className="mb-3 px-4 text-xs text-white/30">{results.length} {results.length === 1 ? "reflection" : "reflections"}</p>{results.map((entry: any) => <StreamEntryCard key={entry._id} entry={entry} onClick={() => onEntryClick?.(entry._id)} />)}</div>}
+    </div>
+  </section>;
 }

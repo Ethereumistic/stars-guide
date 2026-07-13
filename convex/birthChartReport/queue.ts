@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import { action, internalMutation, internalQuery, mutation, query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { BIRTH_CHART_REPORT_VERSION } from "./prompts";
+import { BIRTH_CHART_REPORT_WELCOME } from "./onboarding";
 
 const { internal } = require("../_generated/api") as any;
 
@@ -47,7 +49,11 @@ export const getMyReport = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
     const user = await ctx.db.get(userId);
-    return user?.birthChartReport ?? null;
+    if (!user) return null;
+    return {
+      report: user.birthChartReport ?? null,
+      birthData: user.birthData ?? null,
+    };
   },
 });
 
@@ -94,13 +100,14 @@ async function enqueueReportGenerationForUser(
   });
   if (existing) return { jobId: existing._id, alreadyQueued: true };
 
-  const jobId = await ctx.runMutation(internal.birthChartReport.queue.createJob, {
+  const created = await ctx.runMutation(internal.birthChartReport.queue.createJob, {
     userId: args.userId,
     priority: args.priority ?? 1,
   });
-
-  await ctx.scheduler.runAfter(0, internal.birthChartReport.worker.processNextJobs, { limit: 1 });
-  return { jobId, alreadyQueued: false };
+  if (created.created) {
+    await ctx.scheduler.runAfter(0, internal.birthChartReport.worker.processNextJobs, { limit: 1 });
+  }
+  return { jobId: created.jobId, alreadyQueued: !created.created };
 }
 
 export const submitReportQuestionnaire = action({
@@ -234,25 +241,15 @@ export const getActiveJobForUser = internalQuery({
   },
 });
 
-export const getQueuedJobs = internalQuery({
-  args: { limit: v.number() },
-  handler: async (ctx, args) => {
-    const jobs = await ctx.db
-      .query("birth_chart_report_jobs")
-      .withIndex("by_status", (q) => q.eq("status", "queued"))
-      .collect();
-    return jobs
-      .sort((a, b) => b.priority - a.priority || a._creationTime - b._creationTime)
-      .slice(0, args.limit);
-  },
-});
-
 export const createJob = internalMutation({
   args: { userId: v.id("users"), priority: v.number() },
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
     if (!user?.birthData) throw new Error("Missing birth data");
-    if (user.birthChartReport?.status === "completed") {
+    const existingJobs = await ctx.db.query("birth_chart_report_jobs").withIndex("by_user", (q) => q.eq("userId", args.userId)).collect();
+    const existing = existingJobs.find((job) => job.status === "queued" || job.status === "processing");
+    if (existing) return { jobId: existing._id, created: false };
+    if (user.birthChartReport?.status === "completed" && (user.birthChartReport.version ?? 0) >= BIRTH_CHART_REPORT_VERSION) {
       throw new Error("Birth chart report already completed");
     }
 
@@ -264,33 +261,103 @@ export const createJob = internalMutation({
       },
     });
 
-    return await ctx.db.insert("birth_chart_report_jobs", {
+    const jobId = await ctx.db.insert("birth_chart_report_jobs", {
       userId: args.userId,
       status: "queued",
       priority: args.priority,
       attempts: 0,
       maxAttempts: 3,
     });
+    return { jobId, created: true };
   },
 });
 
-export const markJobProcessing = internalMutation({
-  args: { jobId: v.id("birth_chart_report_jobs") },
+/** Atomically selects and claims one queued job inside a single mutation. */
+export const claimNextJob = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const processing = await ctx.db.query("birth_chart_report_jobs").withIndex("by_status", (q) => q.eq("status", "processing")).collect();
+    for (const stale of processing.filter((job) => (job.startedAt ?? job._creationTime) < now - 10 * 60_000)) {
+      const terminal = stale.attempts >= stale.maxAttempts;
+      await ctx.db.patch(stale._id, {
+        status: terminal ? "failed" : "queued",
+        error: "Worker lease expired before completion",
+        completedAt: terminal ? now : undefined,
+      });
+      if (terminal) {
+        const staleUser = await ctx.db.get(stale.userId);
+        if (staleUser) await ctx.db.patch(stale.userId, { birthChartReport: { ...(staleUser.birthChartReport ?? {}), status: "failed", errorMessage: "Report generation timed out. Retry to start a fresh pass." } });
+      }
+    }
+    const jobs = await ctx.db
+      .query("birth_chart_report_jobs")
+      .withIndex("by_status", (q) => q.eq("status", "queued"))
+      .collect();
+    const job = jobs.sort((a, b) => b.priority - a.priority || a._creationTime - b._creationTime)[0];
+    if (!job) return null;
+    await ctx.db.patch(job._id, { status: "processing", attempts: job.attempts + 1, startedAt: now });
+    const user = await ctx.db.get(job.userId);
+    if (user) {
+      await ctx.db.patch(job.userId, {
+        birthChartReport: {
+          ...(user.birthChartReport ?? {}),
+          status: "generating",
+          onboardingStep: "queued",
+          errorMessage: undefined,
+        },
+      });
+    }
+    return { ...job, status: "processing" as const, attempts: job.attempts + 1, startedAt: now };
+  },
+});
+
+/**
+ * Repairs legacy/bare pending report sessions and makes onboarding durable.
+ * This is intentionally deterministic and does not consume Oracle quota.
+ */
+export const ensureMyReportOnboarding = mutation({
+  args: { sessionId: v.id("oracle_sessions") },
   handler: async (ctx, args) => {
-    const job = await ctx.db.get(args.jobId);
-    if (!job) throw new Error("Job not found");
-    await ctx.db.patch(args.jobId, {
-      status: "processing",
-      attempts: job.attempts + 1,
-      startedAt: Date.now(),
-    });
-    await ctx.db.patch(job.userId, {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+    const [user, session] = await Promise.all([ctx.db.get(userId), ctx.db.get(args.sessionId)]);
+    if (!user?.birthData) throw new Error("Birth data is required before generating a report");
+    if (!session || session.userId !== userId) throw new Error("Report session not found");
+    const report = user.birthChartReport;
+    const isReportSession = session.featureKey === "birth_chart_report" || report?.oracleSessionId === args.sessionId;
+    if (!isReportSession) throw new Error("Session is not the user's Birth Chart Report session");
+    if (report?.status === "completed") return { repaired: false };
+
+    const messages = await ctx.db
+      .query("oracle_messages")
+      .withIndex("by_session_created", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+    if (!messages.some((message) => message.role === "assistant")) {
+      const now = Date.now();
+      await ctx.db.insert("oracle_messages", {
+        sessionId: args.sessionId,
+        role: "assistant",
+        content: BIRTH_CHART_REPORT_WELCOME,
+        createdAt: now,
+      });
+      await ctx.db.patch(args.sessionId, {
+        messageCount: session.messageCount + 1,
+        updatedAt: now,
+        lastMessageAt: now,
+      });
+    }
+    await ctx.db.patch(userId, {
       birthChartReport: {
-        ...((await ctx.db.get(job.userId))?.birthChartReport ?? {}),
-        status: "generating",
+        ...(report ?? {}),
+        status: "pending",
+        onboardingStep: "questionnaire",
+        profilingAnswers: report?.profilingAnswers ?? {},
+        oracleSessionId: args.sessionId,
         errorMessage: undefined,
       },
     });
+    return { repaired: true };
   },
 });
 
@@ -322,5 +389,6 @@ export const markJobFailed = internalMutation({
         },
       });
     }
+    return { retry: !terminal, attempt: job.attempts };
   },
 });

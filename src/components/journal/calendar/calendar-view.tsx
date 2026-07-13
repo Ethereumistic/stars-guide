@@ -2,9 +2,8 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { MOOD_ZONES, type MoodZone } from "@/lib/journal/constants";
 import { DayCell } from "./day-cell";
-import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface CalendarViewProps {
@@ -114,22 +113,19 @@ export function CalendarView({
     return (
         <div className={cn("space-y-4", className)}>
             {/* Month navigation */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-1">
                     <Button variant="ghost" size="icon-sm" onClick={onPrevMonth} className="text-white/40">
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    <h2 className="text-lg font-serif font-semibold text-white/80 min-w-[180px] text-center">
+                    <h2 className="min-w-[150px] text-center font-serif text-xl text-white/85 sm:min-w-[190px]">
                         {monthName}
                     </h2>
                     <Button variant="ghost" size="icon-sm" onClick={onNextMonth} className="text-white/40">
                         <ChevronRight className="h-4 w-4" />
                     </Button>
                 </div>
-                <Button variant="ghost" size="sm" onClick={onToday} className="text-white/40 gap-1.5">
-                    <RotateCcw className="h-3 w-3" />
-                    Today
-                </Button>
+                <Button variant="ghost" size="sm" onClick={onToday} className="text-white/40">Today</Button>
             </div>
 
             {/* Weekday headers */}
@@ -145,7 +141,7 @@ export function CalendarView({
             </div>
 
             {/* Calendar grid */}
-            <div className="grid grid-cols-7 gap-px rounded-xl border border-white/5 overflow-hidden">
+            <div className="grid grid-cols-7 gap-1 overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.02] p-2 sm:p-3">
                 {calendarDays.map((day, i) => (
                     <DayCell
                         key={i}
@@ -165,18 +161,6 @@ export function CalendarView({
                 ))}
             </div>
 
-            {/* Legend */}
-            <div className="flex items-center justify-center gap-4 text-[10px] text-white/30">
-                {MOOD_ZONES.map((zone) => (
-                    <div key={zone.key} className="flex items-center gap-1">
-                        <div
-                            className="h-2 w-2 rounded-full"
-                            style={{ backgroundColor: zone.color }}
-                        />
-                        <span>{zone.label}</span>
-                    </div>
-                ))}
-            </div>
         </div>
     );
 }

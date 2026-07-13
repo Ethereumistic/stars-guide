@@ -30,7 +30,7 @@
 	--color-foreground: var(--foreground);
 	--font-sans: Inter, ui-sans-serif, sans-serif, system-ui;
 	--font-mono: Space Mono, ui-monospace, monospace;
-	--font-serif: Cinzel, ui-serif, serif;
+	--font-serif: var(--font-cinzel), Cinzel, ui-serif, serif;
 	--radius: 0.5rem;
 	--tracking-tighter: calc(var(--tracking-normal) - 0.05em);
 	--tracking-tight: calc(var(--tracking-normal) - 0.025em);
@@ -173,7 +173,7 @@
 	--sidebar-border: oklch(0.8883 0.0084 91.4908);
 	--sidebar-ring: oklch(0.6501 0.0881 84.8629);
 	--font-sans: Inter, ui-sans-serif, sans-serif, system-ui;
-	--font-serif: Cinzel, ui-serif, serif;
+	--font-serif: var(--font-cinzel), Cinzel, ui-serif, serif;
 	--font-mono: Space Mono, ui-monospace, monospace;
 	--radius: 0.5rem;
 	--shadow-x: 0px;
@@ -301,7 +301,7 @@
 	--sidebar-border: oklch(0.2698 0.0356 265.6420);
 	--sidebar-ring: oklch(0.7838 0.0891 83.5770);
 	--font-sans: Inter, ui-sans-serif, sans-serif, system-ui;
-	--font-serif: Cinzel, ui-serif, serif;
+	--font-serif: var(--font-cinzel), Cinzel, ui-serif, serif;
 	--font-mono: Space Mono, ui-monospace, monospace;
 	--radius: 0.5rem;
 	--shadow-x: 0px;

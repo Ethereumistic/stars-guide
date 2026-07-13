@@ -21,10 +21,6 @@ Important `oracle_settings` keys include:
 - `kill_switch`
 - `crisis_response_text`
 - `fallback_response_text`
-- `providers_config`
-- `model_chain`
-- `intent_model_chain`
-- `birth_chart_report_model_chain`
 - `temperature`
 - `top_p`
 - `stream_enabled`
@@ -37,9 +33,11 @@ Important `oracle_settings` keys include:
 
 Provider API keys are not stored in settings. Provider config stores environment variable names used by server code to read secrets.
 
+Provider definitions and feature model chains live in `ai_providers` and `ai_feature_profiles` and are edited only at `/admin/ai`. The removed provider/model keys may still appear in migrated databases or read-only debug snapshots, but they are not runtime inputs.
+
 ## Provider Routing
 
-The main Oracle action reads providers and model chain from settings. `selectProvider` walks the chain in order and reserves a provider slot if it is under `maxConcurrent`. Each provider call must release the slot in `finally`.
+The main Oracle action delegates provider/model selection and streaming transport to the `oracle_chat` AI Gateway profile. The gateway records attempts and owns fallback, cooldown, and provider health. Oracle retains prompt assembly, hardcoded safety, quota, consent gates, message persistence, and output scanning. Legacy provider/model settings shown in debug output are read-only migration context.
 
 The debug panel can pass `debugModelOverride` to `invokeOracle`. This override is local to that request/session path and is not written back to Oracle settings.
 
@@ -71,9 +69,12 @@ Use `/admin/oracle/safety` when testing `scanResponse` behavior against candidat
 | --- | --- |
 | Oracle returns offline copy | `kill_switch` and `fallback_response_text` |
 | User gets crisis copy | crisis regexes in `convex/oracle/llm.ts` and `crisis_response_text` |
-| No LLM call for user with birth data | Birth Chart Report status and onboarding step |
+| Dedicated report session stays pending | Report `onboardingStep`, origin session ownership, and questionnaire submission/job state |
 | Quota blocks too early | burst/weekly budget settings and `oracle_quota_usage` cost fields |
 | Unexpected model | model chain, provider config, debug override, and provider concurrency |
 | Missing journal context | pipeline requirements plus server-side journal consent |
 | Missing birth context | active pipeline data requirements |
 | Binaural playback issue | stored/generated beat params and browser Web Audio path |
+## Production Evaluation Gate
+
+Run `oracle/evaluation:runProductionEvaluation` as an authenticated admin before changing the Oracle soul, safety-adjacent prompt behavior, or the production model chain. The action runs the versioned fixed suite against every configured `oracle_chat` tier and stores the complete latest result in the `evaluation_latest` Oracle setting. Release only when the returned top-level `passed` value is `true`; provider errors are failures, not skipped cases.

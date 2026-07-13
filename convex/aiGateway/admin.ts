@@ -397,3 +397,71 @@ export const logGatewayEventInternal = internalMutation({
     });
   },
 });
+
+export const getProviderHealthInternal = internalQuery({
+  args: { featureKey: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("ai_provider_health")
+      .withIndex("by_feature_status", (q) => q.eq("featureKey", args.featureKey))
+      .collect();
+  },
+});
+
+export const recordProviderHealthInternal = internalMutation({
+  args: {
+    featureKey: v.string(),
+    providerId: v.string(),
+    model: v.string(),
+    success: v.boolean(),
+    errorType: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("ai_provider_health")
+      .withIndex("by_provider_model_feature", (q) =>
+        q
+          .eq("providerId", args.providerId)
+          .eq("model", args.model)
+          .eq("featureKey", args.featureKey),
+      )
+      .first();
+
+    const consecutiveFailures = args.success ? 0 : (existing?.consecutiveFailures ?? 0) + 1;
+    const cooldownUntil = !args.success && consecutiveFailures >= 3
+      ? now + Math.min(15 * 60_000, consecutiveFailures * 60_000)
+      : undefined;
+    const status = args.success
+      ? "healthy"
+      : cooldownUntil && cooldownUntil > now
+        ? "cooldown"
+        : "degraded";
+
+    const patch = {
+      status: status as "healthy" | "degraded" | "cooldown",
+      successCount: (existing?.successCount ?? 0) + (args.success ? 1 : 0),
+      failureCount: (existing?.failureCount ?? 0) + (args.success ? 0 : 1),
+      consecutiveFailures,
+      lastSuccessAt: args.success ? now : existing?.lastSuccessAt,
+      lastFailureAt: args.success ? existing?.lastFailureAt : now,
+      cooldownUntil,
+      lastErrorType: args.success ? undefined : args.errorType,
+      lastErrorMessage: args.success ? undefined : args.errorMessage?.slice(0, 2000),
+      updatedAt: now,
+    };
+
+    if (existing) {
+      await ctx.db.patch(existing._id, patch);
+      return existing._id;
+    }
+
+    return await ctx.db.insert("ai_provider_health", {
+      providerId: args.providerId,
+      model: args.model,
+      featureKey: args.featureKey,
+      ...patch,
+    });
+  },
+});

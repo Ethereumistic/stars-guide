@@ -19,7 +19,7 @@ const inter = Inter({
 });
 
 const cinzel = Cinzel({
-  variable: "--font-serif",
+  variable: "--font-cinzel",
   subsets: ["latin"],
   display: "optional", // CWV: avoid FOIT→FOUT layout shifts
 });

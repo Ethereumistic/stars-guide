@@ -21,22 +21,31 @@
 
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
+import { makeFunctionReference } from "convex/server";
 import { z } from "zod";
-import {
-    parseProvidersConfig,
-    callLLMEndpoint,
-    resolveProvider,
-    getDefaultFallbackModel,
-    type LLMProvider,
-    type ProviderType,
-} from "../lib/llmProvider";
 import { buildHoroscopePrompt, VERSION as PROMPT_VERSION, type DailyAstrologyContext } from "./prompt";
 
 const { internal } = require("../_generated/api") as any;
+const invokeAIGatewayRef = makeFunctionReference<"action", {
+    feature: string;
+    mode?: "chat" | "json" | "stream" | "embedding" | "image";
+    messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+    overrides?: {
+        providerId?: string;
+        model?: string;
+        temperature?: number;
+        maxTokens?: number;
+        timeoutMs?: number;
+        thinkingMode?: "auto" | "disabled" | "low" | "medium" | "high";
+    };
+}, {
+    content: string;
+    providerId: string;
+    model: string;
+    tier: string;
+}>("aiGateway/runtime:invokeAIGateway");
 
 // ─── Constants ─────────────────────────────────────────────────────────────
-
-const RETRY_DELAYS = [3000, 10000, 30000]; // exponential backoff: 3s, 10s, 30s
 
 // ─── Zod Schemas ────────────────────────────────────────────────────────────
 
@@ -73,57 +82,6 @@ function sanitizeLLMJson(raw: string): unknown {
     const cleaned = raw.replace(/```json\n?|```/g, "").trim();
     return JSON.parse(cleaned);
 }
-
-function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// ─── Internal Query — resolve providers_config from oracle_settings ─────────
-
-export const getOracleProvidersConfig = internalQuery({
-    args: {},
-    handler: async (ctx) => {
-        const row = await ctx.db
-            .query("oracle_settings")
-            .withIndex("by_key", (q) => q.eq("key", "providers_config"))
-            .first();
-        return row?.value ?? undefined;
-    },
-});
-
-// ─── Internal Query — resolve horoscope-specific model settings ───────────
-
-export const getHoroscopeModelSettings = internalQuery({
-    args: {},
-    handler: async (ctx) => {
-        const [providerRow, modelRow, fallbackProviderRow, fallbackModelRow] = await Promise.all([
-            ctx.db
-                .query("oracle_settings")
-                .withIndex("by_key", (q) => q.eq("key", "horoscope_provider"))
-                .first(),
-            ctx.db
-                .query("oracle_settings")
-                .withIndex("by_key", (q) => q.eq("key", "horoscope_model"))
-                .first(),
-            ctx.db
-                .query("oracle_settings")
-                .withIndex("by_key", (q) => q.eq("key", "horoscope_fallback_provider"))
-                .first(),
-            ctx.db
-                .query("oracle_settings")
-                .withIndex("by_key", (q) => q.eq("key", "horoscope_fallback_model"))
-                .first(),
-        ]);
-        return {
-            providerId: providerRow?.value ?? undefined,
-            modelId: modelRow?.value ?? undefined,
-            fallbackProviderId: fallbackProviderRow?.value ?? undefined,
-            fallbackModelId: fallbackModelRow?.value ?? undefined,
-        };
-    },
-});
-
-// ─── Internal Query — get cosmic weather for felt language ──────────────────
 
 export const getCosmicWeatherForFelt = internalQuery({
     args: { date: v.string() },
@@ -340,135 +298,39 @@ export const generateForSign = internalAction({
         // ── 3. Build prompt ────────────────────────────────────────────────
         const { system, user } = buildHoroscopePrompt({ sign, context });
 
-        // ── 4. Resolve LLM provider + model ─────────────────────────────────────────
-        const rawConfig = await ctx.runQuery(
-            internal.horoscopes.generateForSign.getOracleProvidersConfig,
-            {},
-        );
-        const providers = parseProvidersConfig(rawConfig ?? undefined);
-        const modelSettings = await ctx.runQuery(
-            internal.horoscopes.generateForSign.getHoroscopeModelSettings,
-            {},
-        );
-
-        // Build provider chain: primary first, then admin-configured fallback,
-        // then smart defaults from remaining providers, then ultimate fallback.
-        // Each entry uses a model appropriate for its provider type.
-        const overrideProviderId = args.providerId ?? modelSettings.providerId;
-        const overrideModelId = args.modelId ?? modelSettings.modelId;
-        const fallbackProviderId = modelSettings.fallbackProviderId;
-        const fallbackModelId = modelSettings.fallbackModelId;
-
-        const providerChain: { provider: LLMProvider; model: string }[] = [];
-        const usedProviderIds = new Set<string>();
-
-        // 1. Primary: admin-configured or arg-passed provider+model
-        if (overrideProviderId && overrideModelId) {
-            const p = resolveProvider(providers, overrideProviderId);
-            providerChain.push({ provider: p, model: overrideModelId });
-            usedProviderIds.add(p.id);
-        }
-
-        // 2. Admin-configured fallback (explicitly chosen by admin)
-        if (fallbackProviderId && fallbackModelId) {
-            const p = resolveProvider(providers, fallbackProviderId);
-            if (!usedProviderIds.has(p.id) || providerChain.length === 0) {
-                providerChain.push({ provider: p, model: fallbackModelId });
-                usedProviderIds.add(p.id);
-            }
-        }
-
-        // 3. Smart defaults: use remaining configured providers with per-type
-        //    default models (avoids putting OpenRouter model IDs on Ollama providers)
-        for (const prov of providers) {
-            if (usedProviderIds.has(prov.id)) continue;
-            const defaultModel = getDefaultFallbackModel(prov.type as ProviderType);
-            providerChain.push({ provider: prov, model: defaultModel });
-            usedProviderIds.add(prov.id);
-        }
-
-        // 4. Ultimate fallback: if no providers configured at all
-        if (providerChain.length === 0) {
-            providerChain.push({
-                provider: {
-                    id: "openrouter",
-                    name: "OpenRouter (fallback)",
-                    type: "openrouter",
-                    baseUrl: "https://openrouter.ai/api/v1",
-                    apiKeyEnvVar: "OPENROUTER_API_KEY",
-                },
-                model: "google/gemini-2.5-flash",
-            });
-        }
-
-        // ── 5. Call LLM with exponential backoff + provider fallback ─────────
+        // Gateway owns provider/model selection and provider fallback.
         const startTime = Date.now();
-        let rawOutput: string | undefined = undefined;
-        let modelUsed = providerChain[0].model;
-        let usedProvider = providerChain[0].provider;
-        let lastError = "";
-
-        let attempt = 0;
-        let providerIndex = 0;
-        let hasOutput = false;
-
-        while (attempt < RETRY_DELAYS.length && providerIndex < providerChain.length) {
-            const chainEntry = providerChain[providerIndex];
-            try {
-                const result = await callLLMEndpoint({
-                    provider: chainEntry.provider,
-                    model: chainEntry.model,
-                    messages: [
-                        { role: "system", content: system },
-                        { role: "user", content: user },
-                    ],
+        let rawOutput: string;
+        let modelUsed: string;
+        let usedProviderId: string;
+        try {
+            const result = await ctx.runAction(invokeAIGatewayRef, {
+                feature: "horoscope_generation",
+                mode: "json",
+                messages: [
+                    { role: "system", content: system },
+                    { role: "user", content: user },
+                ],
+                overrides: {
+                    providerId: args.providerId,
+                    model: args.modelId,
                     temperature: 0.75,
                     maxTokens: 4096,
+                    timeoutMs: 120000,
                     thinkingMode: "disabled",
-                    title: "Stars.Guide Horoscope Generator v2",
-                });
-
-                if (!result.content) {
-                    throw new Error("Empty response from LLM");
-                }
-
-                rawOutput = result.content;
-                hasOutput = true;
-                if (result.raw?.model) {
-                    modelUsed = result.raw.model;
-                } else {
-                    modelUsed = chainEntry.model;
-                }
-                usedProvider = chainEntry.provider;
-                break;
-            } catch (err) {
-                const errorDetail = err instanceof Error ? err.message : String(err);
-                lastError = errorDetail;
-                console.error(`[generateForSign] LLM call failed for ${sign} ${date} (provider=${chainEntry.provider.id}, model=${chainEntry.model}, attempt=${attempt}):`, errorDetail);
-
-                attempt++;
-                if (attempt < RETRY_DELAYS.length) {
-                    // Retry same provider with exponential backoff
-                    // Use attempt - 1 because we already incremented: first retry uses delay[0]
-                    await sleep(RETRY_DELAYS[attempt - 1]);
-                } else {
-                    // Move to next provider in chain
-                    attempt = 0;
-                    providerIndex++;
-                    if (providerIndex < providerChain.length) {
-                        console.log(`[generateForSign] Falling back to provider ${providerChain[providerIndex].provider.id} / ${providerChain[providerIndex].model}`);
-                    }
-                }
-            }
-        }
-
-        if (!hasOutput || !rawOutput) {
-            console.error(`[generateForSign] All providers exhausted for ${sign} ${date}`);
+                },
+            });
+            rawOutput = result.content;
+            modelUsed = result.model;
+            usedProviderId = result.providerId;
+        } catch (err) {
+            const errorDetail = err instanceof Error ? err.message : String(err);
+            console.error(`[generateForSign] Gateway generation failed for ${sign} ${date}:`, errorDetail);
             await ctx.runMutation(internal.horoscopes.generateForSign.upsertHoroscope, {
                 date,
                 sign,
                 status: "failed",
-                errors: [`All providers failed. Last error: ${lastError}`],
+                errors: [`Gateway generation failed: ${errorDetail}`],
                 promptVersion: PROMPT_VERSION,
             });
             return;
@@ -532,7 +394,7 @@ export const generateForSign = internalAction({
                 sign,
                 status: "generated",
                 content: recovered,
-                modelUsed: `${usedProvider.id}/${modelUsed}`,
+                modelUsed: `${usedProviderId}/${modelUsed}`,
                 promptVersion: PROMPT_VERSION,
                 generationDurationMs,
                 contextSnapshotId: ctxRecord._id,
@@ -562,13 +424,13 @@ export const generateForSign = internalAction({
             sign,
             status: "generated",
             content: validatedContent,
-            modelUsed: `${usedProvider.id}/${modelUsed}`,
+            modelUsed: `${usedProviderId}/${modelUsed}`,
             promptVersion: PROMPT_VERSION,
             generationDurationMs,
             contextSnapshotId: ctxRecord._id,
         });
 
-        console.log(`[generateForSign] Generated ${sign} for ${date} (${generationDurationMs}ms, model=${usedProvider.id}/${modelUsed}, chars=${validatedContent.hook.length + validatedContent.bodyText.length})`);
+        console.log(`[generateForSign] Generated ${sign} for ${date} (${generationDurationMs}ms, model=${usedProviderId}/${modelUsed}, chars=${validatedContent.hook.length + validatedContent.bodyText.length})`);
     },
 });
 

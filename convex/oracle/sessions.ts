@@ -1,7 +1,8 @@
-import { query, mutation, internalMutation } from "../_generated/server";
+import { query, mutation, internalMutation, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "../_generated/api";
+import { BIRTH_CHART_REPORT_WELCOME } from "../birthChartReport/onboarding";
 
 /** 
  * Resolve a Convex file-storage ID to a playback URL for an audio file.
@@ -102,10 +103,43 @@ export const createBirthChartReportSession = mutation({
         if (!userId) throw new Error("Not authenticated");
 
         const user = await ctx.db.get(userId);
+        if (!user?.birthData) throw new Error("Birth data is required before creating a Birth Chart Report session");
         const existingSessionId = user?.birthChartReport?.oracleSessionId;
         if (existingSessionId) {
             const existing = await ctx.db.get(existingSessionId);
-            if (existing && existing.userId === userId) return existingSessionId;
+            if (existing && existing.userId === userId) {
+                const existingReport = user.birthChartReport;
+                if (existingReport && existingReport.status !== "completed" && !existingReport.onboardingStep) {
+                    const messages = await ctx.db
+                        .query("oracle_messages")
+                        .withIndex("by_session_created", (q) => q.eq("sessionId", existingSessionId))
+                        .collect();
+                    const hasAssistant = messages.some((message) => message.role === "assistant");
+                    if (!hasAssistant) {
+                        await ctx.db.insert("oracle_messages", {
+                            sessionId: existingSessionId,
+                            role: "assistant",
+                            content: BIRTH_CHART_REPORT_WELCOME,
+                            createdAt: Date.now(),
+                        });
+                        await ctx.db.patch(existingSessionId, {
+                            messageCount: existing.messageCount + 1,
+                            updatedAt: Date.now(),
+                            lastMessageAt: Date.now(),
+                        });
+                    }
+                    await ctx.db.patch(userId, {
+                        birthChartReport: {
+                            ...existingReport,
+                            status: "pending",
+                            onboardingStep: "questionnaire",
+                            profilingAnswers: existingReport.profilingAnswers ?? {},
+                            errorMessage: undefined,
+                        },
+                    });
+                }
+                return existingSessionId;
+            }
         }
 
         const now = Date.now();
@@ -113,9 +147,9 @@ export const createBirthChartReportSession = mutation({
             userId,
             title: "Birth Chart Report",
             titleGenerated: true,
-            featureKey: "birth_chart",
+            featureKey: "birth_chart_report",
             status: "active",
-            messageCount: 1,
+            messageCount: 2,
             createdAt: now,
             updatedAt: now,
             lastMessageAt: now,
@@ -128,10 +162,21 @@ export const createBirthChartReportSession = mutation({
             createdAt: now,
         });
 
+        await ctx.db.insert("oracle_messages", {
+            sessionId,
+            role: "assistant",
+            content: BIRTH_CHART_REPORT_WELCOME,
+            createdAt: now + 1,
+        });
+
         await ctx.db.patch(userId, {
             birthChartReport: {
                 ...(user?.birthChartReport ?? { status: "pending" as const }),
+                status: "pending",
+                onboardingStep: "questionnaire",
+                profilingAnswers: user?.birthChartReport?.profilingAnswers ?? {},
                 oracleSessionId: sessionId,
+                errorMessage: undefined,
             },
         });
 
@@ -578,5 +623,18 @@ export const deleteSession = mutation({
         }
 
         await ctx.db.delete(args.sessionId);
+    },
+});
+
+/** Previous Oracle activity for deterministic "change since last visit" context. */
+export const getPreviousOracleVisit = internalQuery({
+    args: { userId: v.id("users"), currentSessionId: v.id("oracle_sessions") },
+    handler: async (ctx, args) => {
+        const sessions = await ctx.db.query("oracle_sessions")
+            .withIndex("by_user_updated", (q) => q.eq("userId", args.userId))
+            .order("desc")
+            .take(10);
+        const previous = sessions.find((session) => session._id !== args.currentSessionId);
+        return previous?.lastMessageAt ?? previous?.updatedAt ?? null;
     },
 });

@@ -90,8 +90,9 @@ export default defineSchema({
             notifications: v.optional(v.boolean()),
         })),
 
-        // --- Durable Birth Chart Report ---
-        // One generated, reusable report used as canonical Oracle chart context.
+        // --- Human-facing Birth Chart Report ---
+        // This generated reading is a product artifact for the user. Oracle
+        // context is translated directly from birthData and never reads this.
         birthChartReport: v.optional(v.object({
             status: v.union(
                 v.literal("pending"),
@@ -125,8 +126,14 @@ export default defineSchema({
             )),
             generatedAt: v.optional(v.number()),
             oracleSessionId: v.optional(v.id("oracle_sessions")),
+            generationProviderId: v.optional(v.string()),
+            generationModel: v.optional(v.string()),
+            generationTier: v.optional(v.string()),
+            promptTokens: v.optional(v.number()),
+            completionTokens: v.optional(v.number()),
             errorMessage: v.optional(v.string()),
             version: v.optional(v.number()),
+            sourceChartFingerprint: v.optional(v.string()),
         })),
 
         // --- The "Static Core" (Astronomical Data) ---
@@ -687,6 +694,29 @@ export default defineSchema({
         .index("by_provider_created", ["providerId", "createdAt"])
         .index("by_status_created", ["status", "createdAt"]),
 
+    ai_provider_health: defineTable({
+        providerId: v.string(),
+        model: v.string(),
+        featureKey: v.string(),
+        status: v.union(
+            v.literal("healthy"),
+            v.literal("degraded"),
+            v.literal("cooldown"),
+        ),
+        successCount: v.number(),
+        failureCount: v.number(),
+        consecutiveFailures: v.number(),
+        lastSuccessAt: v.optional(v.number()),
+        lastFailureAt: v.optional(v.number()),
+        cooldownUntil: v.optional(v.number()),
+        lastErrorType: v.optional(v.string()),
+        lastErrorMessage: v.optional(v.string()),
+        updatedAt: v.number(),
+    })
+        .index("by_provider_model_feature", ["providerId", "model", "featureKey"])
+        .index("by_feature_status", ["featureKey", "status"])
+        .index("by_cooldown", ["cooldownUntil"]),
+
     // 13. ORACLE QUOTA USAGE (Cost-based quota tracking — microdollars)
     oracle_quota_usage: defineTable({
         userId: v.id("users"),
@@ -729,9 +759,13 @@ export default defineSchema({
         createdAt: v.number(),
         updatedAt: v.number(),
         lastMessageAt: v.number(),
+        isSimulation: v.optional(v.boolean()),
+        simulationRunId: v.optional(v.string()),
+        simulationExpiresAt: v.optional(v.number()),
     })
         .index("by_user", ["userId"])
-        .index("by_user_updated", ["userId", "updatedAt"]),
+        .index("by_user_updated", ["userId", "updatedAt"])
+        .index("by_simulation_run", ["simulationRunId"]),
     // ═══════════════════════════════════════════════════════════════════════════
     // JOURNAL MVP v1 — Emotional Self-Reflection + Oracle Context
     // ═══════════════════════════════════════════════════════════════════════════
@@ -962,12 +996,36 @@ export default defineSchema({
         binauralParams: v.optional(v.any()), // BinauralBeatParams & { rationale?: BinauralRationale }
         // User feedback on assistant messages
         rating: v.optional(v.union(v.literal("positive"), v.literal("negative"))),
+        // Validated to the three allowed values by oracle/feedback mutations.
+        outcome: v.optional(v.string()),
+        watchReviewAt: v.optional(v.number()),
         // V2: Cost tracking (micro USD)
         costUsdMicro: v.optional(v.number()),
         createdAt: v.number(),
+        isSimulation: v.optional(v.boolean()),
+        simulationRunId: v.optional(v.string()),
     })
         .index("by_session", ["sessionId"])
-        .index("by_session_created", ["sessionId", "createdAt"]),
+        .index("by_session_created", ["sessionId", "createdAt"])
+        .searchIndex("search_content", {
+            searchField: "content",
+            filterFields: ["role"],
+        }),
+
+    oracle_turn_traces: defineTable({
+        sessionId: v.id("oracle_sessions"),
+        messageId: v.id("oracle_messages"),
+        userId: v.id("users"),
+        version: v.string(),
+        payload: v.string(),
+        isSimulation: v.optional(v.boolean()),
+        simulationRunId: v.optional(v.string()),
+        createdAt: v.number(),
+    })
+        .index("by_session", ["sessionId", "createdAt"])
+        .index("by_message", ["messageId"])
+        .index("by_simulation_run", ["simulationRunId"]),
+
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ADMIN NOTIFICATIONS — Broadcast & Scheduled Campaign System

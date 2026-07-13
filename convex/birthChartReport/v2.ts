@@ -48,6 +48,10 @@ export interface SignatureCard {
   gift: string;
   watchFor: string;
   practice: string;
+  recognitionCue?: string;
+  failureMode?: string;
+  decisionRule?: string;
+  experiment?: string;
   relatedPlanetIds: string[];
   relatedSignIds: string[];
   relatedHouseIds: number[];
@@ -119,6 +123,53 @@ function requireArray(record: Record<string, unknown>, key: string, min = 1, pat
   if (!Array.isArray(record[key]) || (record[key] as unknown[]).length < min) throw new Error(`Structured report missing ${path}`);
 }
 
+function requireObjectItems(
+  value: unknown,
+  path: string,
+  requiredStrings: readonly string[],
+  options?: { requireEvidence?: boolean },
+) {
+  if (!Array.isArray(value)) throw new Error(`Structured report missing ${path}`);
+  for (const [index, originalItem] of value.entries()) {
+    let item = originalItem;
+    if (typeof item === "string" && item.trim()) {
+      const text = item.trim();
+      if (requiredStrings.includes("title") && requiredStrings.includes("body")) {
+        item = { title: "Insight", body: text, evidence: [] };
+      } else if (requiredStrings.includes("title") && requiredStrings.includes("instruction")) {
+        item = { title: "Practice", instruction: text, evidence: [] };
+      } else if (requiredStrings.includes("label") && requiredStrings.includes("prompt")) {
+        item = { label: "Explore this theme", prompt: text };
+      } else if (requiredStrings.includes("prompt")) {
+        item = { prompt: text, evidence: [] };
+      }
+      value[index] = item;
+    }
+    const record = asRecord(item);
+    if (requiredStrings.includes("title") && typeof record.title !== "string") {
+      record.title = typeof record.label === "string" ? record.label : typeof record.name === "string" ? record.name : undefined;
+    }
+    if (requiredStrings.includes("body") && typeof record.body !== "string") {
+      record.body = typeof record.description === "string" ? record.description : typeof record.text === "string" ? record.text : undefined;
+    }
+    if (requiredStrings.includes("instruction") && typeof record.instruction !== "string") {
+      record.instruction = typeof record.action === "string" ? record.action : typeof record.body === "string" ? record.body : typeof record.description === "string" ? record.description : undefined;
+    }
+    if (requiredStrings.includes("prompt") && typeof record.prompt !== "string") {
+      record.prompt = typeof record.question === "string" ? record.question : typeof record.body === "string" ? record.body : undefined;
+    }
+    if (requiredStrings.includes("label") && typeof record.label !== "string") {
+      record.label = typeof record.title === "string" ? record.title : "Explore this theme";
+    }
+    for (const key of requiredStrings) {
+      requireString(record, key, `${path}[${index}].${key}`);
+    }
+    if (options?.requireEvidence) {
+      requireArray(record, "evidence", 1, `${path}[${index}].evidence`);
+    }
+  }
+}
+
 function evidenceFrom(value: Record<string, unknown>): unknown[] {
   for (const key of ["evidence", "evidenceRefs", "chartEvidence"] as const) {
     if (Array.isArray(value[key])) return value[key] as unknown[];
@@ -181,7 +232,7 @@ export function extractStructuredReportJson(content: string): unknown {
   }
 }
 
-export function validateBirthChartReportV2(value: unknown): BirthChartReportV2 {
+export function validateBirthChartReportV2(value: unknown, options?: { requireOperatingFields?: boolean }): BirthChartReportV2 {
   const report = asRecord(normalizeEvidenceAliases(value));
   fillLifeAreaEvidence(report);
   const meta = asRecord(report.meta);
@@ -192,13 +243,19 @@ export function validateBirthChartReportV2(value: unknown): BirthChartReportV2 {
   const overview = asRecord(report.overview);
   for (const key of ["motto", "chartAtGlance", "oneSentence", "coreMyth"] as const) requireString(overview, key, `overview.${key}`);
   requireArray(overview, "topThemes", 3, "overview.topThemes");
+  requireObjectItems(overview.topThemes, "overview.topThemes", ["title", "body"]);
 
   requireArray(report, "signatures", 3, "signatures");
+  if ((report.signatures as unknown[]).length > 5) {
+    report.signatures = (report.signatures as unknown[]).slice(0, 5);
+  }
   const signatures = report.signatures as unknown[];
-  if (signatures.length > 5) throw new Error("Structured report must include no more than 5 signatures");
   for (const [index, signature] of signatures.entries()) {
     const card = asRecord(signature);
     for (const key of ["id", "title", "shortSummary", "livedExperience", "gift", "watchFor", "practice", "oraclePrompt"] as const) requireString(card, key, `signatures[${index}].${key}`);
+    if (options?.requireOperatingFields) {
+      for (const key of ["recognitionCue", "failureMode", "decisionRule", "experiment"] as const) requireString(card, key, `signatures[${index}].${key}`);
+    }
     requireArray(card, "evidence", 1, `signatures[${index}].evidence`);
   }
 
@@ -209,6 +266,10 @@ export function validateBirthChartReportV2(value: unknown): BirthChartReportV2 {
     requireString(section, "summary", `lifeAreas.${key}.summary`);
     requireArray(section, "keyInsights", 1, `lifeAreas.${key}.keyInsights`);
     requireArray(section, "evidence", 1, `lifeAreas.${key}.evidence`);
+    requireObjectItems(section.keyInsights, `lifeAreas.${key}.keyInsights`, ["title", "body"]);
+    if (section.practices !== undefined) {
+      requireObjectItems(section.practices, `lifeAreas.${key}.practices`, ["title", "instruction"]);
+    }
   }
 
   const integration = asRecord(report.integration);
@@ -217,6 +278,11 @@ export function validateBirthChartReportV2(value: unknown): BirthChartReportV2 {
   requireArray(integration, "practices", 5, "integration.practices");
   requireArray(integration, "reflectionPrompts", 5, "integration.reflectionPrompts");
   requireArray(report, "oracleFollowUps", 5, "oracleFollowUps");
+  requireObjectItems(integration.gifts, "integration.gifts", ["title", "body"]);
+  requireObjectItems(integration.growthEdges, "integration.growthEdges", ["title", "body"]);
+  requireObjectItems(integration.practices, "integration.practices", ["title", "instruction"]);
+  requireObjectItems(integration.reflectionPrompts, "integration.reflectionPrompts", ["prompt"]);
+  requireObjectItems(report.oracleFollowUps, "oracleFollowUps", ["label", "prompt"]);
 
   return report as unknown as BirthChartReportV2;
 }
@@ -260,6 +326,10 @@ export function renderBirthChartReportMarkdown(report: BirthChartReportV2): stri
       `**Lived experience:** ${signature.livedExperience}`,
       `**Gift:** ${signature.gift}`,
       `**Watch for:** ${signature.watchFor}`,
+      ...(signature.recognitionCue ? [`**Recognition cue:** ${signature.recognitionCue}`] : []),
+      ...(signature.failureMode ? [`**Failure mode:** ${signature.failureMode}`] : []),
+      ...(signature.decisionRule ? [`**Decision rule:** ${signature.decisionRule}`] : []),
+      ...(signature.experiment ? [`**Small experiment:** ${signature.experiment}`] : []),
       `**Practice:** ${signature.practice}`,
       "",
     ]),
@@ -307,7 +377,7 @@ export function compactStructuredReportForOracle(report: BirthChartReportV2): st
     `One sentence: ${report.overview.oneSentence}`,
     `Top themes: ${report.overview.topThemes.map((theme) => `${theme.title} (${evidenceText(theme.evidence)})`).join("; ")}`,
     "Dominant signatures:",
-    ...report.signatures.map((signature) => `- ${signature.title}: ${signature.shortSummary} Evidence: ${evidenceText(signature.evidence)} Gift: ${signature.gift} Watch-for: ${signature.watchFor} Practice: ${signature.practice}`),
+    ...report.signatures.map((signature) => `- ${signature.title}: ${signature.shortSummary} Evidence: ${evidenceText(signature.evidence)} Gift: ${signature.gift} Watch-for: ${signature.watchFor}${signature.recognitionCue ? ` Recognition cue: ${signature.recognitionCue}` : ""}${signature.failureMode ? ` Failure mode: ${signature.failureMode}` : ""}${signature.decisionRule ? ` Decision rule: ${signature.decisionRule}` : ""}${signature.experiment ? ` Experiment: ${signature.experiment}` : ""} Practice: ${signature.practice}`),
     "Life areas:",
     ...Object.values(report.lifeAreas).map((section) => `- ${section.title}: ${section.summary}`),
     "[END BIRTH CHART REPORT SUMMARY]",

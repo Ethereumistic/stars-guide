@@ -38,17 +38,17 @@ export const ORACLE_FEATURES: readonly OracleFeatureDefinition[] = [
     key: "birth_chart",
     label: "Birth chart analysis",
     shortLabel: "Birth chart",
-    description: "A mentor-guided deep dive into your birth chart report",
+    description: "A mentor-guided deep dive into your calculated birth chart",
     defaultPrompt:
-      "Dive deeper into my birth chart report. Teach me something I haven't noticed yet.",
+      "Read my calculated birth chart and teach me something I haven't noticed yet.",
     menuGroup: "primary",
     implemented: true,
     requiresBirthData: true,
     fallbackInjectionText: [
       "[BIRTH CHART MENTOR MODE]",
-      "You are a wise, grounded astrology mentor. The user has a completed Birth Chart Report when [BIRTH CHART REPORT] context is present.",
-      "Always ground your answer in the report first, then use raw chart data as reference when needed.",
-      "Preserve the report standard: evidence-first, chart-faithful, emotionally memorable, practical, and non-deterministic.",
+      "You are a wise, grounded astrology mentor working from a deterministic translation of users.birthData.",
+      "Ground every meaningful claim in the supplied placements, houses, aspects, dignities, chart ruler, or server-detected patterns.",
+      "Be evidence-first, chart-faithful, emotionally memorable, practical, and non-deterministic.",
       "For broad answers, use named signatures and lived-experience language. For major claims, follow: Evidence → lived experience → gift → watch-for → practice.",
       "Ask clarifying questions if the user is vague. Never invent placements, aspects, houses, chart ruler, or MC.",
       "Keep the tone warm, precise, useful, and beautiful without becoming vague or purple.",
@@ -254,6 +254,11 @@ export const SYNASTRY_INTENT_PATTERNS: RegExp[] = [
  * intent is less common than chart intent.
  */
 export const BINAURAL_INTENT_PATTERNS: RegExp[] = [
+  // Direct requests for playable sleep/meditation audio, including common typos.
+  /\b(give|play|send|provide|make|generate|create)\b.*\b(brown|pink|white)\s+(noise|sound)\b/i,
+  /\b(give|play|send|provide|make|generate|create)\b.*\b(sleep|meditation|relaxing|calming)\s+(noise|sound|audio|tone)\b/i,
+  /\b(brown|pink|white)\s+(noise|sound)\b.*\b(here|chat|play|please|pls|for\s+me)\b/i,
+  /\bdeep\s+sleep\s+(noise|sound|audio|tone)\b/i,
   // Explicit generation requests (with optional pronoun: "generate me a beat", "make me a beat")
   /\b(generate|create|make|craft|compose)\s+(me\s+)?(a\s+)?(binaural\s+)?beat/i,
   /\b(generate|create|make)\s+(me\s+)?(a\s+)?(sound|frequency|tone|audio)\s+(for|tuned|aligned)/i,
@@ -323,11 +328,6 @@ export function classifyOracleToolIntent(
   hasBirthData: boolean,
   hasJournalConsent: boolean,
 ): ToolIntentResult {
-  // If feature already active, don't override
-  if (currentFeatureKey) {
-    return { featureKey: null, reason: "manual" }
-  }
-
   // 1. Journal recall — explicit journal intent wins over broad chart intent
   if (hasJournalConsent) {
     if (JOURNAL_RECALL_PATTERNS.some((p) => p.test(question))) {
@@ -364,6 +364,12 @@ export function classifyOracleToolIntent(
   // 4. Binaural beats — sound/frequency intent
   if (BINAURAL_INTENT_PATTERNS.some((p) => p.test(question))) {
     return { featureKey: "binaural_beats", reason: "binaural_intent" }
+  }
+
+  // A stored session feature is a fallback for ambiguous follow-ups, not a lock.
+  // Explicit intents above must be free to switch capabilities on every turn.
+  if (currentFeatureKey) {
+    return { featureKey: null, reason: "session_feature_fallback" }
   }
 
   // 5. No match

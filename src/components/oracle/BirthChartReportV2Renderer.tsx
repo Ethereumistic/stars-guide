@@ -6,6 +6,8 @@ import { zodiacUIConfig } from "@/config/zodiac-ui";
 import { planetUIConfig } from "@/config/planet-ui";
 import { elementUIConfig } from "@/config/elements-ui";
 import { aspectUIConfig } from "@/config/aspects-ui";
+import { useRouter } from "next/navigation";
+import { useOracleStore } from "@/store/use-oracle-store";
 
 type EvidenceRef = {
   type: string;
@@ -28,6 +30,10 @@ type SignatureCard = {
   gift: string;
   watchFor: string;
   practice: string;
+  recognitionCue?: string;
+  failureMode?: string;
+  decisionRule?: string;
+  experiment?: string;
 };
 
 type BirthChartReportV2 = {
@@ -354,13 +360,16 @@ function SignatureCardBlock({
             <div className="h-px flex-1 bg-white/[0.07]" />
           </div>
 
-          {/* Gift / Watch / Practice grid */}
-          <div className="grid sm:grid-cols-3 gap-4">
+          {/* Operating-manual grid */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
               { label: "Gift", value: signature.gift },
+              { label: "Recognition Cue", value: signature.recognitionCue },
               { label: "Watch For", value: signature.watchFor },
-              { label: "Practice", value: signature.practice },
-            ].map(({ label, value }) => (
+              { label: "Failure Mode", value: signature.failureMode },
+              { label: "Decision Rule", value: signature.decisionRule },
+              { label: "Small Experiment", value: signature.experiment ?? signature.practice },
+            ].filter((item): item is { label: string; value: string } => Boolean(item.value)).map(({ label, value }) => (
               <div key={label} className="space-y-1.5">
                 <div
                   className="text-[9px] font-mono uppercase tracking-[0.4em]"
@@ -399,6 +408,14 @@ export function BirthChartReportV2Renderer({
   report: BirthChartReportV2;
   markdown: string;
 }) {
+  const router = useRouter();
+  const setPendingQuestion = useOracleStore((state) => state.setPendingQuestion);
+
+  const askOracle = (prompt: string) => {
+    setPendingQuestion(prompt);
+    router.push("/oracle/new");
+  };
+
   const element      = report.visualIdentity.dominantElement
     ? elementUIConfig[report.visualIdentity.dominantElement]
     : null;
@@ -587,13 +604,15 @@ export function BirthChartReportV2Renderer({
           <h2 className="font-serif text-2xl text-white mb-5">Ask the Oracle next</h2>
           <div className="flex flex-wrap gap-2.5">
             {report.oracleFollowUps.map((item) => (
-              <span
+              <button
+                type="button"
                 key={item.label}
                 title={item.prompt}
-                className="rounded-full border border-galactic/20 bg-galactic/[0.06] px-4 py-2 text-sm text-white/65 hover:bg-galactic/[0.12] hover:text-white/90 transition-colors cursor-default"
+                onClick={() => askOracle(item.prompt)}
+                className="rounded-full border border-galactic/20 bg-galactic/[0.06] px-4 py-2 text-sm text-white/65 hover:bg-galactic/[0.12] hover:text-white/90 hover:border-galactic/40 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-galactic/60"
               >
                 {item.label}
-              </span>
+              </button>
             ))}
           </div>
         </motion.section>
