@@ -703,7 +703,7 @@ export default function OracleChatPage() {
 
     const handleReportQuestionnaireSubmit = useCallback(async (answers: any) => {
         if (isStreaming || state === "oracle_responding") return;
-        const content = "I answered the Birth Chart Report questions. Please create my report.";
+        const content = "I’m ready — show me what stands out in my chart.";
         setPendingUserMessage(content);
         await addMessageMutation({ sessionId, role: "user", content });
         await submitBirthReportQuestionnaire({ answers, sessionId, priority: 2 });

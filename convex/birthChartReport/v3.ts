@@ -135,6 +135,12 @@ function visualIdentity(context: BirthChartContextArtifact) {
   };
 }
 
+export function buildPersonalBirthChartReportTitle(preferredName: string) {
+  const name = preferredName.trim().slice(0, 80);
+  if (!name || name.toLowerCase() === "seeker") return "Your Birth Chart";
+  return `${name}${name.toLowerCase().endsWith("s") ? "’" : "’s"} Birth Chart`;
+}
+
 export function validateAndHydrateBirthChartReportV3(
   value: unknown,
   context: BirthChartContextArtifact,
@@ -185,7 +191,9 @@ export function validateAndHydrateBirthChartReportV3(
   const report: BirthChartReportV3 = {
     meta: {
       version: 3,
-      reportTitle: text(meta.reportTitle, "meta.reportTitle", 5, 80),
+      // Product/internal prompt labels must never become the user's title.
+      // The model does not own identity metadata; the server does.
+      reportTitle: buildPersonalBirthChartReportTitle(preferredName),
       preferredName: preferredName.trim().slice(0, 80) || "Seeker",
       generatedAt: Date.now(),
       sourceChartFingerprint: context.sourceFingerprint,

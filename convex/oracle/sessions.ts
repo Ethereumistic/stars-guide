@@ -158,7 +158,7 @@ export const createBirthChartReportSession = mutation({
         await ctx.db.insert("oracle_messages", {
             sessionId,
             role: "user",
-            content: "Birth Chart Report",
+            content: "Show me the shape of my birth chart.",
             createdAt: now,
         });
 

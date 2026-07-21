@@ -75,6 +75,7 @@ describe("deterministic birth chart context", () => {
 
     const report = validateAndHydrateBirthChartReportV3(raw, context, "Ari");
 
+    expect(report.meta.reportTitle).toBe("Ari’s Birth Chart");
     expect(report.identity.orientation).toBe("Use this as a field guide.");
     expect(report.identity.orientation.length).toBeLessThan(40);
     expect(report.identity.oneSentence.length).toBeLessThanOrEqual(280);

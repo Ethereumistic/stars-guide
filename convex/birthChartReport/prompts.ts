@@ -19,7 +19,7 @@ export function buildReportSystemPrompt(profiling?: BirthChartReportProfiling): 
     "",
     "Required top-level shape:",
     "{ meta, identity, chartSignature, themes, compass, toolkit, oraclePrompts }",
-    "meta: { version: 3, reportTitle }",
+    "meta: { version: 3 }. The server creates the personal report title; do not supply product names or titles.",
     "identity: { anchorPhrase, oneSentence, orientation }",
     "chartSignature: { patternId, meaning, gift, watchFor, practice } using exactly one supplied patternId.",
     "themes: exactly 3 distinct objects { id, title, summary, gift, watchFor, practice, evidenceIds }.",

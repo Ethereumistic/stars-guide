@@ -243,7 +243,7 @@ export const invokeOracle = action({
       await addAssistant(
         step === "queued"
           ? "I’m still crafting your Birth Chart Report — gathering the chart into something you can return to. Once it’s ready, we’ll continue from the report itself."
-          : "Take your time with the Birth Chart Report questions below. Once you submit them, I’ll begin crafting the report.",
+          : "Choose one place for your chart to meet you, then the voice that feels right. Or let the chart lead — either way, I’ll begin as soon as you’re ready.",
       );
       return { content: "", modelUsed: "not_applicable", fallbackTier: "D" };
     }

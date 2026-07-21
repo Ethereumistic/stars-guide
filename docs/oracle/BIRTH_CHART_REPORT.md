@@ -59,6 +59,8 @@ The Oracle path has these guarantees:
 
 The dedicated report session is the only session that activates report onboarding. This keeps the questionnaire in the familiar Oracle UI without turning it into a global product gate.
 
+The questionnaire is intentionally a two-touch personalization lens, not an intake form. The user may choose one place for the chart to meet them and one preferred voice, or skip both and generate directly from canonical chart data. Names come from the existing profile; the flow does not ask for pronouns, personal disclosures, custom context, or a review step. Legacy profiling fields remain readable for existing records.
+
 When a signed-in user reaches `/oracle/new` with canonical birth data and no report/onboarding record, the client automatically creates or reuses this dedicated session and redirects to its questionnaire. A bare legacy `pending` record also enters this repair path. Once the questionnaire step exists, ordinary `/oracle/new` conversations are no longer redirected.
 
 ## Pattern detection
@@ -123,6 +125,8 @@ Stored `version` is pipeline version `5`; structured `meta.version` is contract 
 ## Visual experience
 
 `BirthChartReportExperience.tsx` renders v3 as a dark observatory field guide instead of a Markdown document. Its signature element is a **pattern seal**: actual planetary longitudes form the wheel, while planets participating in the primary pattern are connected and illustrated with existing planet assets.
+
+The opening headline is the report's chart-specific anchor phrase. The user name appears only as quiet ownership metadata. Model-authored product labels are ignored, and the server deterministically stores `Your Birth Chart` or `<name>’s Birth Chart` as the archival title.
 
 The report also includes a visual Big Three strip, one high-value chart-signature card, three concise evidence-backed theme cards, a four-direction life compass, three practical interventions, four direct Oracle continuations, and a collapsed deterministic placements table. It supports responsive layout, visible keyboard focus, reduced motion, and print.
 

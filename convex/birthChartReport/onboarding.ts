@@ -1,7 +1,7 @@
 export const BIRTH_CHART_REPORT_WELCOME = [
-  "Welcome — this space is for creating your personal Birth Chart Report.",
+  "Your chart is already here — every placement, house, aspect, and pattern calculated.",
   "",
-  "I’ll use your calculated placements, houses, aspects, and chart patterns, then shape a concise visual guide around a few details only you can give me: the season you’re in, what you want help with, and the kind of language that lands.",
+  "Before I shape it into something you can keep, choose where you’d like it to meet you first, then how you want it to speak. Two small choices; nothing personal to explain.",
   "",
-  "The report is yours to read and use. Oracle conversations remain available separately and always work from your calculated chart data.",
+  "Or skip both and let the chart lead.",
 ].join("\n");
