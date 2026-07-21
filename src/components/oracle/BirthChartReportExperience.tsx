@@ -618,7 +618,7 @@ function ThemeCard({ theme, index, accent }: { theme: ReportTheme; index: number
       aria-label={`${flipped ? "Show summary" : "Reveal gift, shadow, and practice"}: ${theme.title}`}
       onClick={flip}
       onKeyDown={(event) => handleFlipKey(event, flip)}
-      className="group h-[34rem] cursor-pointer focus-visible:outline-none sm:h-[32rem] md:h-[34rem] xl:h-[36rem] 2xl:h-[32rem]"
+      className="group h-[680px] cursor-pointer focus-visible:outline-none sm:h-[660px] lg:h-[700px] xl:h-[680px]"
       style={{ perspective: "1500px" }}
     >
       <motion.div
@@ -630,14 +630,24 @@ function ThemeCard({ theme, index, accent }: { theme: ReportTheme; index: number
         <div className={`absolute inset-0 ${flipped ? "pointer-events-none" : ""}`} style={{ backfaceVisibility: "hidden" }}>
           <ArtNouveauBorder color={color} animateOnHover className="h-full overflow-hidden rounded-2xl">
             <article className="relative flex size-full flex-col overflow-y-auto rounded-2xl border border-white/[0.08] bg-[#0a0d16] p-6 sm:p-7">
-              <div className="absolute inset-0 opacity-60" style={{ background: `radial-gradient(circle at 78% 18%, ${color}18, transparent 31%)` }} />
-              <div className="relative flex items-start justify-between">
+              <div className="absolute inset-0 opacity-60" style={{ background: `radial-gradient(circle at 50% 32%, ${color}1c, transparent 34%)` }} />
+              <div className="relative flex items-center justify-between">
                 <span className="font-mono text-[9px] uppercase tracking-[0.27em] text-white/32">Theme 0{index + 1}</span>
-                <div className="grid size-20 place-items-center transition-transform duration-700 group-hover:scale-110 group-hover:-rotate-6">
-                  {evidencePlanet ? <PlanetImage id={evidencePlanet} size={64} /> : <Sparkles className="size-7" style={{ color }} />}
+                <span className="font-serif text-xl opacity-40" style={{ color }} aria-hidden="true">{bodySymbol(evidencePlanet)}</span>
+              </div>
+              <div className="relative flex min-h-0 flex-1 items-center justify-center py-5 sm:py-7">
+                <div className="relative grid size-40 place-items-center sm:size-44">
+                  <div className="absolute inset-0 rounded-full border border-white/[0.07] transition-transform duration-[1600ms] group-hover:rotate-12" />
+                  <div className="absolute inset-4 rounded-full border border-dashed border-white/[0.08] transition-transform duration-[1800ms] group-hover:-rotate-45" />
+                  <div className="absolute inset-9 rounded-full border border-white/[0.05]" />
+                  <span className="absolute left-0 top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 16px ${color}` }} />
+                  <span className="absolute right-[13%] top-[8%] size-1 rounded-full bg-white/35" />
+                  <div className="relative grid size-32 place-items-center transition-transform duration-700 group-hover:scale-110 group-hover:-rotate-6">
+                    {evidencePlanet ? <PlanetImage id={evidencePlanet} size={112} /> : <Sparkles className="size-10" style={{ color }} />}
+                  </div>
                 </div>
               </div>
-              <div className="relative mt-auto">
+              <div className="relative">
                 <h3 className="max-w-[15ch] font-serif text-3xl leading-[1.05] tracking-[-0.02em] text-white">{theme.title}</h3>
                 <p className="mt-5 text-sm leading-6 text-white/55">{theme.summary}</p>
                 <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.08] pt-5">
@@ -660,7 +670,7 @@ function ThemeCard({ theme, index, accent }: { theme: ReportTheme; index: number
                 <p className="font-mono text-[9px] uppercase tracking-[0.25em]" style={{ color }}>{theme.title}</p>
                 <FlipHint flipped />
               </div>
-              <div className="mt-6 space-y-5">
+              <div className="mt-6 flex flex-1 flex-col justify-between gap-5">
                 <div>
                   <p className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.2em] text-emerald-200/60"><Gift className="size-3.5" /> Your gift</p>
                   <p className="mt-2 text-[13px] leading-5 text-white/66">{theme.gift}</p>
@@ -669,11 +679,11 @@ function ThemeCard({ theme, index, accent }: { theme: ReportTheme; index: number
                   <p className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.2em] text-amber-200/60"><Eye className="size-3.5" /> Watch for</p>
                   <p className="mt-2 text-[13px] leading-5 text-white/66">{theme.watchFor}</p>
                 </div>
-                <div className="rounded-xl border border-violet-300/10 bg-violet-300/[0.035] p-4">
+                <div className="rounded-xl border border-violet-300/10 bg-violet-300/[0.035] p-4 sm:p-5">
                   <PracticeLine item={theme.practice} compact />
                 </div>
+                <Evidence items={theme.evidence} className="pt-1" />
               </div>
-              <Evidence items={theme.evidence} className="mt-auto pt-6" />
             </div>
           </article>
         </div>
