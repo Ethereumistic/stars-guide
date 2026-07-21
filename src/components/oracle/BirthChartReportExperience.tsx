@@ -618,7 +618,7 @@ function ThemeCard({ theme, index, accent }: { theme: ReportTheme; index: number
       aria-label={`${flipped ? "Show summary" : "Reveal gift, shadow, and practice"}: ${theme.title}`}
       onClick={flip}
       onKeyDown={(event) => handleFlipKey(event, flip)}
-      className="group h-[680px] cursor-pointer focus-visible:outline-none sm:h-[660px] lg:h-[700px] xl:h-[680px]"
+      className="group h-[34rem] cursor-pointer focus-visible:outline-none sm:h-[32rem] md:h-[34rem] xl:h-[36rem] 2xl:h-[32rem]"
       style={{ perspective: "1500px" }}
     >
       <motion.div
@@ -640,7 +640,7 @@ function ThemeCard({ theme, index, accent }: { theme: ReportTheme; index: number
               <div className="relative mt-auto">
                 <h3 className="max-w-[15ch] font-serif text-3xl leading-[1.05] tracking-[-0.02em] text-white">{theme.title}</h3>
                 <p className="mt-5 text-sm leading-6 text-white/55">{theme.summary}</p>
-                <div className="mt-6 flex items-center justify-between border-t border-white/[0.08] pt-5">
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.08] pt-5">
                   <div className="flex items-center gap-3 text-[10px] text-white/38">
                     <span className="inline-flex items-center gap-1.5"><Gift className="size-3 text-emerald-200/60" /> Gift</span>
                     <span className="inline-flex items-center gap-1.5"><Eye className="size-3 text-amber-200/60" /> Shadow</span>
@@ -656,7 +656,7 @@ function ThemeCard({ theme, index, accent }: { theme: ReportTheme; index: number
           <article className="relative size-full overflow-y-auto rounded-2xl border border-white/[0.1] bg-[#0c101a] p-5 shadow-[inset_0_0_50px_rgba(255,255,255,.015)] sm:p-6">
             <div className="absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, ${color}, transparent 80%)` }} />
             <div className="relative flex min-h-full flex-col">
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="font-mono text-[9px] uppercase tracking-[0.25em]" style={{ color }}>{theme.title}</p>
                 <FlipHint flipped />
               </div>
@@ -746,7 +746,7 @@ export function BirthChartReportExperience({ report, birthData }: { report: Birt
             <h2 className="mt-3 font-serif text-3xl text-white sm:text-4xl">Three themes worth remembering</h2>
             <p className="mt-4 text-sm leading-6 text-white/42">The front is the signal. Turn each card when you want the gift, shadow, and practical response.</p>
           </div>
-          <div className="grid gap-5 lg:grid-cols-3">
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {report.themes.map((theme, index) => (
               <motion.div
                 key={theme.id}
