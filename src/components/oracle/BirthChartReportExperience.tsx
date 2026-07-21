@@ -670,19 +670,25 @@ function ThemeCard({ theme, index, accent }: { theme: ReportTheme; index: number
                 <p className="font-mono text-[9px] uppercase tracking-[0.25em]" style={{ color }}>{theme.title}</p>
                 <FlipHint flipped />
               </div>
-              <div className="mt-6 flex flex-1 flex-col justify-between gap-5">
-                <div>
-                  <p className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.2em] text-emerald-200/60"><Gift className="size-3.5" /> Your gift</p>
-                  <p className="mt-2 text-[13px] leading-5 text-white/66">{theme.gift}</p>
+              <div className="mt-5 grid flex-1 grid-rows-[1fr_1fr_auto_auto] gap-3">
+                <div className="relative flex flex-col justify-center overflow-hidden rounded-xl border border-emerald-300/10 bg-emerald-300/[0.025] p-5 sm:p-6">
+                  <Gift className="pointer-events-none absolute -bottom-5 -right-4 size-24 text-emerald-100/[0.035]" strokeWidth={0.8} aria-hidden="true" />
+                  <p className="relative flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.22em] text-emerald-200/60"><Gift className="size-3.5" /> Your gift</p>
+                  <p className="relative mt-4 max-w-[32ch] font-serif text-xl leading-[1.3] tracking-[-0.01em] text-white/78 sm:text-[1.35rem]">{theme.gift}</p>
                 </div>
-                <div className="border-t border-white/[0.07] pt-5">
-                  <p className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.2em] text-amber-200/60"><Eye className="size-3.5" /> Watch for</p>
-                  <p className="mt-2 text-[13px] leading-5 text-white/66">{theme.watchFor}</p>
+                <div className="relative flex flex-col justify-center overflow-hidden rounded-xl border border-amber-300/10 bg-amber-300/[0.025] p-5 sm:p-6">
+                  <Eye className="pointer-events-none absolute -bottom-5 -right-4 size-24 text-amber-100/[0.035]" strokeWidth={0.8} aria-hidden="true" />
+                  <p className="relative flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-200/60"><Eye className="size-3.5" /> Watch for</p>
+                  <p className="relative mt-4 max-w-[32ch] font-serif text-xl leading-[1.3] tracking-[-0.01em] text-white/78 sm:text-[1.35rem]">{theme.watchFor}</p>
                 </div>
-                <div className="rounded-xl border border-violet-300/10 bg-violet-300/[0.035] p-4 sm:p-5">
-                  <PracticeLine item={theme.practice} compact />
+                <div className="rounded-xl border border-violet-300/10 bg-violet-300/[0.04] px-5 py-4 sm:px-6 sm:py-5">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.24em] text-violet-200/50">Try · {theme.practice.cadence.replace("_", " ")}</p>
+                  <p className="mt-3 text-[15px] leading-6 text-white/68">{theme.practice.instruction}</p>
                 </div>
-                <Evidence items={theme.evidence} className="pt-1" />
+                <div className="pt-1">
+                  <p className="font-mono text-[8px] uppercase tracking-[0.24em] text-white/28">Written in the chart</p>
+                  <Evidence items={theme.evidence} className="mt-2.5" />
+                </div>
               </div>
             </div>
           </article>
