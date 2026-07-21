@@ -663,31 +663,31 @@ function ThemeCard({ theme, index, accent }: { theme: ReportTheme; index: number
         </div>
 
         <div className={`absolute inset-0 ${!flipped ? "pointer-events-none" : ""}`} style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
-          <article className="relative size-full overflow-y-auto rounded-2xl border border-white/[0.1] bg-[#0c101a] p-5 shadow-[inset_0_0_50px_rgba(255,255,255,.015)] sm:p-6">
+          <article className="relative size-full overflow-hidden rounded-2xl border border-white/[0.1] bg-[#0c101a] p-5 shadow-[inset_0_0_50px_rgba(255,255,255,.015)] sm:p-6">
             <div className="absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, ${color}, transparent 80%)` }} />
             <div className="relative flex min-h-full flex-col">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="font-mono text-[9px] uppercase tracking-[0.25em]" style={{ color }}>{theme.title}</p>
                 <FlipHint flipped />
               </div>
-              <div className="mt-5 grid flex-1 grid-rows-[1fr_1fr_auto_auto] gap-3">
-                <div className="relative flex flex-col justify-center overflow-hidden rounded-xl border border-emerald-300/10 bg-emerald-300/[0.025] p-5 sm:p-6">
-                  <Gift className="pointer-events-none absolute -bottom-5 -right-4 size-24 text-emerald-100/[0.035]" strokeWidth={0.8} aria-hidden="true" />
+              <div className="mt-4 grid min-h-0 flex-1 grid-rows-[1fr_1fr_auto_auto] gap-2.5">
+                <div className="relative flex flex-col justify-center overflow-hidden rounded-xl border border-emerald-300/10 bg-emerald-300/[0.025] p-4 sm:p-5">
+                  <Gift className="pointer-events-none absolute -bottom-4 -right-3 size-20 text-emerald-100/[0.035]" strokeWidth={0.8} aria-hidden="true" />
                   <p className="relative flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.22em] text-emerald-200/60"><Gift className="size-3.5" /> Your gift</p>
-                  <p className="relative mt-4 max-w-[32ch] font-serif text-xl leading-[1.3] tracking-[-0.01em] text-white/78 sm:text-[1.35rem]">{theme.gift}</p>
+                  <p className="relative mt-3 max-w-[38ch] text-[13px] leading-5 text-white/68 sm:text-sm sm:leading-6">{theme.gift}</p>
                 </div>
-                <div className="relative flex flex-col justify-center overflow-hidden rounded-xl border border-amber-300/10 bg-amber-300/[0.025] p-5 sm:p-6">
-                  <Eye className="pointer-events-none absolute -bottom-5 -right-4 size-24 text-amber-100/[0.035]" strokeWidth={0.8} aria-hidden="true" />
+                <div className="relative flex flex-col justify-center overflow-hidden rounded-xl border border-amber-300/10 bg-amber-300/[0.025] p-4 sm:p-5">
+                  <Eye className="pointer-events-none absolute -bottom-4 -right-3 size-20 text-amber-100/[0.035]" strokeWidth={0.8} aria-hidden="true" />
                   <p className="relative flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-200/60"><Eye className="size-3.5" /> Watch for</p>
-                  <p className="relative mt-4 max-w-[32ch] font-serif text-xl leading-[1.3] tracking-[-0.01em] text-white/78 sm:text-[1.35rem]">{theme.watchFor}</p>
+                  <p className="relative mt-3 max-w-[38ch] text-[13px] leading-5 text-white/68 sm:text-sm sm:leading-6">{theme.watchFor}</p>
                 </div>
-                <div className="rounded-xl border border-violet-300/10 bg-violet-300/[0.04] px-5 py-4 sm:px-6 sm:py-5">
+                <div className="rounded-xl border border-violet-300/10 bg-violet-300/[0.04] px-4 py-3.5 sm:px-5 sm:py-4">
                   <p className="font-mono text-[9px] uppercase tracking-[0.24em] text-violet-200/50">Try · {theme.practice.cadence.replace("_", " ")}</p>
-                  <p className="mt-3 text-[15px] leading-6 text-white/68">{theme.practice.instruction}</p>
+                  <p className="mt-2.5 text-[13px] leading-5 text-white/68 sm:text-sm sm:leading-6">{theme.practice.instruction}</p>
                 </div>
                 <div className="pt-1">
                   <p className="font-mono text-[8px] uppercase tracking-[0.24em] text-white/28">Written in the chart</p>
-                  <Evidence items={theme.evidence} className="mt-2.5" />
+                  <Evidence items={theme.evidence} className="mt-2" />
                 </div>
               </div>
             </div>
