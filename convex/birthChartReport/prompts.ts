@@ -2,7 +2,7 @@ import type { Doc } from "../_generated/dataModel";
 import { buildBirthChartContextArtifact } from "../../src/lib/birth-chart/report-context";
 
 /** Persistence/pipeline version. The human-facing JSON contract is meta.version 3. */
-export const BIRTH_CHART_REPORT_VERSION = 5;
+export const BIRTH_CHART_REPORT_VERSION = 6;
 
 export type BirthChartReportProfiling = NonNullable<
   NonNullable<Doc<"users">["birthChartReport"]>["profilingAnswers"]
@@ -28,7 +28,7 @@ export function buildReportSystemPrompt(profiling?: BirthChartReportProfiling): 
     "oraclePrompts: exactly 4 objects { label, prompt, evidenceIds }.",
     "A practice is { title, instruction, cadence }, where cadence is once, daily, weekly, or as_needed.",
     "Use only evidence IDs listed in APPROVED EVIDENCE. Use 1-3 evidence IDs per interpretive section and 1-2 per Oracle prompt.",
-    "Copy budgets (the server will safely trim small overruns): titles <= 70 characters; oneSentence <= 280; orientation <= 320; pattern meaning and theme summaries <= 360; compass summaries <= 260; gift/watchFor <= 180; practice instructions and Oracle prompts <= 220.",
+    "Copy budgets are hard writing targets: titles <= 70 characters; oneSentence <= 280; orientation <= 320; pattern meaning and theme summaries <= 360; compass summaries <= 260; gift/watchFor <= 180; practice instructions and Oracle prompts <= 220. Finish every thought within its budget; the server preserves complete fields and never truncates them.",
     "",
     "Product writing constraints:",
     "- Each field does one job. Do not repeat the same interpretation in multiple sections.",

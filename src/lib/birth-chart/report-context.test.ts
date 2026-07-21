@@ -69,7 +69,7 @@ describe("deterministic birth chart context", () => {
     expect(() => validateAndHydrateBirthChartReportV3(raw, context, "Ari")).toThrow(/approved evidence ID/);
   });
 
-  it("accepts concise prose below an editorial target and clamps copy overruns", () => {
+  it("accepts concise prose and preserves complete over-budget fields", () => {
     const { context, raw } = makeRawReport();
     raw.identity.oneSentence = "This sentence deliberately runs past the server copy budget. ".repeat(8);
 
@@ -78,8 +78,8 @@ describe("deterministic birth chart context", () => {
     expect(report.meta.reportTitle).toBe("Ari’s Birth Chart");
     expect(report.identity.orientation).toBe("Use this as a field guide.");
     expect(report.identity.orientation.length).toBeLessThan(40);
-    expect(report.identity.oneSentence.length).toBeLessThanOrEqual(280);
-    expect(report.identity.oneSentence.endsWith("\u2026")).toBe(true);
+    expect(report.identity.oneSentence).toBe(raw.identity.oneSentence.trim());
+    expect(report.identity.oneSentence.endsWith("\u2026")).toBe(false);
   });
 
   it("recognizes common imperative verbs without treating the heuristic as chart validation", () => {

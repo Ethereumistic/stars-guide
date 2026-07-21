@@ -72,32 +72,19 @@ function record(value: unknown, path: string): UnknownRecord {
   return value as UnknownRecord;
 }
 
-function clampCopyBudget(value: string, max: number) {
-  if (value.length <= max) return value;
-
-  const candidate = value.slice(0, max).trimEnd();
-  const wordBoundary = candidate.lastIndexOf(" ");
-  const cutAt = wordBoundary >= Math.floor(max * 0.7) ? wordBoundary : candidate.length;
-  const truncated = candidate
-    .slice(0, cutAt)
-    .trimEnd()
-    .replace(/[,:;\-\u2013\u2014]+$/u, "");
-  return `${truncated.slice(0, max - 1).trimEnd()}\u2026`;
-}
-
 /**
- * Prose ranges are editorial targets, not persistence schema boundaries. Keep a
- * small structural floor so blank or token-like output still fails closed, and
- * normalize over-budget copy without spending another model call.
+ * Prose ranges are editorial targets, not persistence schema boundaries. Never
+ * cut a generated interpretation after it has been written: silent shortening
+ * can remove the clause that makes an astrological statement useful or safe.
  */
-function text(value: unknown, path: string, min: number, max: number) {
+function text(value: unknown, path: string, min: number, _max: number) {
   if (typeof value !== "string") throw new Error(`${path} must be a string`);
   const normalized = value.trim();
   const structuralMinimum = Math.min(min, 8);
   if (normalized.length < structuralMinimum) {
     throw new Error(`${path} must contain at least ${structuralMinimum} meaningful characters`);
   }
-  return clampCopyBudget(normalized, max);
+  return normalized;
 }
 
 function exactArray(value: unknown, path: string, count: number) {

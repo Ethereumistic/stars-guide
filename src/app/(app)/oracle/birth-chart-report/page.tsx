@@ -23,6 +23,8 @@ type ReportRecord = {
 };
 type ReportEnvelope = { report: ReportRecord | null; birthData: StoredBirthData | null };
 
+const CURRENT_REPORT_PIPELINE_VERSION = 6;
+
 const getMyBirthChartReportRef = makeFunctionReference<"query", Record<string, never>, ReportEnvelope | null>("birthChartReport/queue:getMyReport");
 const createReportSessionRef = makeFunctionReference<"mutation", Record<string, never>, string>("oracle/sessions:createBirthChartReportSession");
 const enqueueReportRef = makeFunctionReference<"action", { priority?: number }, { jobId: string; alreadyQueued: boolean }>("birthChartReport/queue:enqueueMyReportGeneration");
@@ -79,10 +81,11 @@ export default function BirthChartReportPage() {
 
   const structured = report.structured;
   const legacy = !isV3(structured);
+  const needsCopyRefresh = (report.version ?? 0) < CURRENT_REPORT_PIPELINE_VERSION;
   return (
     <main className="flex-1 overflow-y-auto bg-transparent text-white print:bg-white print:text-black">
       <style>{`@media print { .no-print { display: none !important; } .birth-chart-report { color: #111 !important; box-shadow: none !important; } .birth-chart-report * { border-color: #ddd !important; } main { background: white !important; } }`}</style>
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10 print:px-0 print:py-0">
+      <div className="mx-auto w-full max-w-[1480px] px-3 py-6 sm:px-5 sm:py-8 xl:px-6 xl:py-10 print:px-0 print:py-0">
         {isV3(structured) && birthData ? (
           <BirthChartReportExperience report={structured} birthData={birthData} />
         ) : structured ? (
@@ -91,7 +94,7 @@ export default function BirthChartReportPage() {
           <BirthChartReportRenderer markdown={report.markdown} />
         ) : null}
         <div className="no-print mt-8 flex flex-wrap justify-center gap-3 border-t border-white/8 pt-8">
-          {legacy && <Button onClick={() => void enqueueReport({ priority: 2 })} variant="outline" className="gap-2 rounded-xl border-violet-300/20 bg-violet-300/[0.04] text-violet-100/70"><RefreshCw className="size-4" /> Upgrade visual report</Button>}
+          {(legacy || needsCopyRefresh) && <Button onClick={() => void enqueueReport({ priority: 2 })} variant="outline" className="gap-2 rounded-xl border-violet-300/20 bg-violet-300/[0.04] text-violet-100/70"><RefreshCw className="size-4" /> {legacy ? "Upgrade visual report" : "Refresh full report copy"}</Button>}
           <Button onClick={() => window.print()} variant="outline" className="gap-2 rounded-xl border-white/15 bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white"><Printer className="size-4" /> Save as PDF</Button>
         </div>
       </div>

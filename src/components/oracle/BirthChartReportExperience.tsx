@@ -119,10 +119,10 @@ function PlanetImage({
       src={planet.imageUrl}
       alt={decorative ? "" : title(id)}
       draggable={false}
-      className="select-none object-contain"
+      className="h-auto max-w-full select-none object-contain"
       style={{
         width: size * (planet.imageScale ?? 1),
-        height: size * (planet.imageScale ?? 1),
+        maxHeight: size * (planet.imageScale ?? 1),
         filter: `drop-shadow(0 0 ${Math.round(size / 3)}px ${planet.themeColor})`,
       }}
     />
@@ -155,7 +155,7 @@ function CelestialMedallion({
   const color = planet?.themeColor ?? "#d8c275";
 
   return (
-    <div className={`group absolute ${className}`}>
+    <div className={`group absolute ${className}`} data-celestial-medallion={planetId}>
       <div
         className="relative aspect-square rounded-full border border-white/10 bg-[#080b13]/90 shadow-[0_26px_80px_rgba(0,0,0,.55)] transition-transform duration-700 group-hover:-translate-y-1"
         style={{ boxShadow: `0 30px 90px rgba(0,0,0,.58), inset 0 0 60px ${color}0d` }}
@@ -180,7 +180,7 @@ function CelestialMedallion({
           )}
         </div>
 
-        <div className="absolute inset-x-[12%] -bottom-5 z-10 rounded-full border border-white/10 bg-[#0b0e17]/95 px-3 py-2 text-center shadow-2xl backdrop-blur-xl">
+        <div className="absolute inset-x-[10%] -bottom-5 z-30 rounded-full border border-white/10 bg-[#0b0e17]/95 px-3 py-2 text-center shadow-2xl backdrop-blur-xl" data-celestial-label={planetId}>
           <p className="font-mono text-[7px] uppercase tracking-[0.23em] text-white/35">{label}</p>
           <div className="mt-1 flex items-center justify-center gap-1.5 text-white">
             <SignMark id={signId} className="size-3.5" />
@@ -194,7 +194,7 @@ function CelestialMedallion({
 
 function CelestialTrinity({ report }: { report: BirthChartReportV3 }) {
   return (
-    <div className="relative mx-auto min-h-[410px] w-full max-w-[520px] sm:min-h-[500px] lg:min-h-[560px]" aria-label="Your Sun, Moon, and rising sign">
+    <div className="relative mx-auto min-h-[430px] w-full max-w-[620px] sm:min-h-[520px] lg:min-h-[560px] xl:min-h-[590px]" aria-label="Your Sun, Moon, and rising sign">
       <div className="absolute left-[4%] top-[8%] size-[78%] rounded-full border border-white/[0.045]" />
       <div className="absolute left-[13%] top-[17%] size-[60%] rounded-full border border-dashed border-white/[0.055]" />
       <svg className="absolute inset-0 size-full" viewBox="0 0 520 560" aria-hidden="true">
@@ -203,7 +203,7 @@ function CelestialTrinity({ report }: { report: BirthChartReportV3 }) {
         <circle cx="91" cy="315" r="3" fill="rgba(216,194,117,.7)" />
         <circle cx="455" cy="278" r="2" fill="rgba(255,255,255,.4)" />
       </svg>
-      <div className="absolute left-[42%] top-[45%] z-30 grid size-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-amber-100/15 bg-[#0a0d15] shadow-[0_0_50px_rgba(216,194,117,.12)]">
+      <div className="absolute left-[42%] top-[49%] z-30 grid size-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-amber-100/15 bg-[#0a0d15] shadow-[0_0_50px_rgba(216,194,117,.12)]">
         <Sparkles className="size-4 text-amber-100/55" strokeWidth={1.2} />
       </div>
       <CelestialMedallion
@@ -212,21 +212,21 @@ function CelestialTrinity({ report }: { report: BirthChartReportV3 }) {
         signId={report.visualIdentity.sunSignId}
         index={1}
         primary
-        className="left-[1%] top-[18%] z-20 w-[55%]"
+        className="left-[2%] top-[24%] z-20 w-[52%]"
       />
       <CelestialMedallion
         label="Lunar instinct"
         planetId="moon"
         signId={report.visualIdentity.moonSignId}
         index={2}
-        className="right-[3%] top-[2%] z-10 w-[39%]"
+        className="right-[2%] top-[1%] z-30 w-[34%]"
       />
       <CelestialMedallion
         label="Rising presence"
         planetId="rising"
         signId={report.visualIdentity.risingSignId}
         index={3}
-        className="bottom-[4%] right-[1%] z-20 w-[42%]"
+        className="bottom-[7%] right-0 z-20 w-[36%]"
       />
       <p className="absolute bottom-5 left-1 font-mono text-[7px] uppercase tracking-[0.28em] text-white/20">The celestial trinity</p>
     </div>
@@ -247,9 +247,9 @@ function ReportHero({
   const location = [birthData.location.city, birthData.location.country].filter(Boolean).join(", ");
 
   return (
-    <header className="relative p-3 sm:p-4 lg:p-5">
+    <header className="relative p-1.5 sm:p-3 lg:p-4">
       <ArtNouveauBorder color={accent} className="overflow-hidden rounded-[1.65rem]">
-        <div className="relative min-h-[820px] overflow-hidden rounded-[1.65rem] border border-white/[0.055] bg-[#080b13] px-6 pb-10 pt-8 sm:px-10 sm:pb-12 sm:pt-10 lg:min-h-[760px] lg:px-14 lg:pb-12 lg:pt-12">
+        <div className="relative overflow-hidden rounded-[1.65rem] border border-white/[0.055] bg-[#080b13] px-5 pb-8 pt-7 sm:px-9 sm:pb-10 sm:pt-9 lg:px-12 lg:pb-11 lg:pt-11 xl:px-14">
           <div
             className="pointer-events-none absolute inset-0 opacity-80"
             style={{
@@ -257,7 +257,7 @@ function ReportHero({
             }}
           />
           <div className="pointer-events-none absolute inset-0 opacity-[0.035] [background-image:linear-gradient(rgba(255,255,255,.5)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.5)_1px,transparent_1px)] [background-size:80px_80px]" />
-          <div className="pointer-events-none absolute left-[48%] top-0 h-full w-px bg-gradient-to-b from-transparent via-white/[0.06] to-transparent" />
+          <div className="pointer-events-none absolute left-[62%] top-[34%] h-[48%] w-px bg-gradient-to-b from-transparent via-white/[0.06] to-transparent" />
 
           <div className="relative flex flex-wrap items-center justify-between gap-4 border-b border-white/[0.07] pb-5">
             <div className="flex items-center gap-3 font-mono text-[8px] uppercase tracking-[0.3em] text-white/38">
@@ -271,36 +271,37 @@ function ReportHero({
             </div>
           </div>
 
-          <div className="relative grid gap-7 pt-8 lg:grid-cols-[1.02fr_.98fr] lg:items-center lg:gap-4 lg:pt-6">
-            <div className="relative z-20 pb-4 lg:py-10">
-              <div className="mb-6 flex items-center gap-3">
-                <span className="grid size-9 place-items-center rounded-full border border-white/10 bg-white/[0.025] font-serif text-sm" style={{ color: accent }}>I</span>
-                <p className="font-mono text-[8px] uppercase tracking-[0.3em] text-white/32">The central axis of your chart</p>
-              </div>
-              <h1 className="max-w-[11ch] font-serif text-5xl leading-[.94] tracking-[-0.045em] text-white sm:text-6xl lg:text-[4.6rem]">
-                {report.identity.anchorPhrase}
-              </h1>
-              <div className="mt-7 flex max-w-xl gap-4">
-                <span className="font-serif text-5xl leading-none text-white/12">“</span>
+          <div className="relative pt-8 sm:pt-10 lg:pt-12">
+            <div className="mb-5 flex items-center gap-3 sm:mb-7">
+              <span className="grid size-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.025] font-serif text-sm" style={{ color: accent }}>I</span>
+              <p className="font-mono text-[8px] uppercase tracking-[0.3em] text-white/32">The central axis of your chart</p>
+            </div>
+            <h1 className="w-full text-balance font-serif text-[clamp(2.75rem,5.15vw,5.75rem)] leading-[.9] tracking-[-0.045em] text-white">
+              {report.identity.anchorPhrase}
+            </h1>
+
+            <div className="mt-8 grid items-center gap-3 sm:mt-10 xl:grid-cols-[minmax(17rem,.78fr)_minmax(31rem,1.22fr)] xl:gap-8">
+              <div className="relative z-20 flex max-w-2xl gap-4 self-center xl:py-8">
+                <span className="font-serif text-5xl leading-none text-white/12" aria-hidden="true">&ldquo;</span>
                 <p className="pt-1 font-serif text-lg italic leading-8 text-white/62 sm:text-xl">{report.identity.oneSentence}</p>
               </div>
-            </div>
-            <div className="relative z-10 lg:-ml-5">
-              <CelestialTrinity report={report} />
+              <div className="relative z-10">
+                <CelestialTrinity report={report} />
+              </div>
             </div>
           </div>
 
-          <div className="relative mt-4 grid overflow-hidden rounded-2xl border border-white/[0.08] bg-black/20 backdrop-blur-xl lg:grid-cols-[.3fr_1.7fr]">
-            <div className="flex items-center gap-4 border-b border-white/[0.07] p-5 lg:border-b-0 lg:border-r">
+          <div className="relative mt-5 grid overflow-hidden rounded-2xl border border-white/[0.08] bg-black/20 backdrop-blur-xl xl:grid-cols-[20rem_minmax(0,1fr)]">
+            <div className="flex items-center gap-3 border-b border-white/[0.07] p-4 sm:gap-4 sm:p-5 sm:px-6 xl:border-b-0 xl:border-r">
               <span className="grid size-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.025]">
                 <Compass className="size-4 text-white/45" strokeWidth={1.3} />
               </span>
-              <div>
+              <div className="min-w-0">
                 <p className="font-mono text-[8px] uppercase tracking-[0.25em] text-white/32">Opening note</p>
-                <p className="mt-1 font-serif text-sm text-white/70">How to enter this chart</p>
+                <p className="mt-1 whitespace-nowrap font-serif text-sm leading-5 text-white/70 sm:text-[15px]">How to enter this chart</p>
               </div>
             </div>
-            <p className="p-5 text-sm leading-6 text-white/52 sm:px-6">{report.identity.orientation}</p>
+            <p className="p-4 text-sm leading-6 text-white/52 sm:p-5 sm:px-6 xl:px-8 xl:py-6">{report.identity.orientation}</p>
           </div>
 
           <div className="relative mt-6 flex items-center justify-between font-mono text-[7px] uppercase tracking-[0.28em] text-white/20">
@@ -617,7 +618,7 @@ function ThemeCard({ theme, index, accent }: { theme: ReportTheme; index: number
       aria-label={`${flipped ? "Show summary" : "Reveal gift, shadow, and practice"}: ${theme.title}`}
       onClick={flip}
       onKeyDown={(event) => handleFlipKey(event, flip)}
-      className="group h-[640px] cursor-pointer focus-visible:outline-none sm:h-[620px] lg:h-[640px] xl:h-[620px]"
+      className="group h-[680px] cursor-pointer focus-visible:outline-none sm:h-[660px] lg:h-[700px] xl:h-[680px]"
       style={{ perspective: "1500px" }}
     >
       <motion.div
@@ -628,7 +629,7 @@ function ThemeCard({ theme, index, accent }: { theme: ReportTheme; index: number
       >
         <div className={`absolute inset-0 ${flipped ? "pointer-events-none" : ""}`} style={{ backfaceVisibility: "hidden" }}>
           <ArtNouveauBorder color={color} animateOnHover className="h-full overflow-hidden rounded-2xl">
-            <article className="relative flex size-full flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a0d16] p-6 sm:p-7">
+            <article className="relative flex size-full flex-col overflow-y-auto rounded-2xl border border-white/[0.08] bg-[#0a0d16] p-6 sm:p-7">
               <div className="absolute inset-0 opacity-60" style={{ background: `radial-gradient(circle at 78% 18%, ${color}18, transparent 31%)` }} />
               <div className="relative flex items-start justify-between">
                 <span className="font-mono text-[9px] uppercase tracking-[0.27em] text-white/32">Theme 0{index + 1}</span>
@@ -638,7 +639,7 @@ function ThemeCard({ theme, index, accent }: { theme: ReportTheme; index: number
               </div>
               <div className="relative mt-auto">
                 <h3 className="max-w-[15ch] font-serif text-3xl leading-[1.05] tracking-[-0.02em] text-white">{theme.title}</h3>
-                <p className="mt-5 line-clamp-5 text-sm leading-6 text-white/55">{theme.summary}</p>
+                <p className="mt-5 text-sm leading-6 text-white/55">{theme.summary}</p>
                 <div className="mt-6 flex items-center justify-between border-t border-white/[0.08] pt-5">
                   <div className="flex items-center gap-3 text-[10px] text-white/38">
                     <span className="inline-flex items-center gap-1.5"><Gift className="size-3 text-emerald-200/60" /> Gift</span>
@@ -735,7 +736,6 @@ export function BirthChartReportExperience({ report, birthData }: { report: Birt
               <p className="font-mono text-[9px] uppercase tracking-[0.3em] text-white/35">The singular pattern</p>
               <h2 className="mt-3 font-serif text-3xl text-white sm:text-4xl">The mark that makes this chart yours</h2>
             </div>
-            <p className="hidden max-w-xs text-right text-xs leading-5 text-white/35 sm:block">Turn the card to move from celestial geometry into lived meaning.</p>
           </div>
           <SignatureCard report={report} birthData={birthData} />
         </motion.section>
@@ -832,7 +832,7 @@ export function BirthChartReportExperience({ report, birthData }: { report: Birt
                 <span className="absolute right-5 top-4 font-mono text-[8px] tracking-[0.22em] text-white/20">0{index + 1}</span>
                 <span>
                   <span className="block font-serif text-lg text-white/85">{item.label}</span>
-                  <span className="mt-2 block line-clamp-2 text-xs leading-5 text-white/42">{item.prompt}</span>
+                  <span className="mt-2 block text-xs leading-5 text-white/42">{item.prompt}</span>
                 </span>
                 <span className="grid size-9 shrink-0 place-items-center rounded-full border border-white/10 transition group-hover:border-violet-200/25 group-hover:bg-violet-200/[0.05]">
                   <ArrowUpRight className="size-4 text-white/30 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-violet-200/75" />
