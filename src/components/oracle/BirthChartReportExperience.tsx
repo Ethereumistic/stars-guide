@@ -7,7 +7,6 @@ import {
   BriefcaseBusiness,
   ChevronRight,
   Compass,
-  Eye,
   Gift,
   Heart,
   MoonStar,
@@ -16,6 +15,8 @@ import {
   Sparkles,
   TrendingUp,
 } from "lucide-react";
+import { GiShadowGrasp } from "react-icons/gi";
+
 import { useRouter } from "next/navigation";
 import { planetUIConfig } from "@/config/planet-ui";
 import { zodiacUIConfig } from "@/config/zodiac-ui";
@@ -587,7 +588,7 @@ function SignatureCard({ report, birthData }: { report: BirthChartReportV3; birt
                     <p className="mt-3 text-sm leading-6 text-white/62">{report.chartSignature.gift}</p>
                   </div>
                   <div className="rounded-2xl border border-amber-300/10 bg-amber-300/[0.035] p-5">
-                    <p className="flex items-center gap-2 text-xs text-amber-200/70"><Eye className="size-3.5" /> The shadow</p>
+                    <p className="flex items-center gap-2 text-xs text-amber-200/70"><GiShadowGrasp className="size-3.5" /> The shadow</p>
                     <p className="mt-3 text-sm leading-6 text-white/62">{report.chartSignature.watchFor}</p>
                   </div>
                   <div className="rounded-2xl border border-violet-300/10 bg-violet-300/[0.035] p-5 sm:col-span-2">
@@ -653,7 +654,7 @@ function ThemeCard({ theme, index, accent }: { theme: ReportTheme; index: number
                 <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.08] pt-5">
                   <div className="flex items-center gap-3 text-[10px] text-white/38">
                     <span className="inline-flex items-center gap-1.5"><Gift className="size-3 text-emerald-200/60" /> Gift</span>
-                    <span className="inline-flex items-center gap-1.5"><Eye className="size-3 text-amber-200/60" /> Shadow</span>
+                    <span className="inline-flex items-center gap-1.5"><GiShadowGrasp className="size-3 text-amber-200/60" /> Shadow</span>
                   </div>
                   <FlipHint flipped={false} />
                 </div>
@@ -671,18 +672,18 @@ function ThemeCard({ theme, index, accent }: { theme: ReportTheme; index: number
                 <FlipHint flipped />
               </div>
               <div className="mt-4 grid min-h-0 flex-1 grid-rows-[1fr_1fr_auto_auto] gap-2.5">
-                <div className="relative flex flex-col justify-center overflow-hidden rounded-xl border border-emerald-300/10 bg-emerald-300/[0.025] p-4 sm:p-5">
+                <div className="relative flex flex-col justify-center overflow-hidden rounded-xl border border-primary/10 bg-primary/[0.025] p-4 sm:p-5">
                   <Gift className="pointer-events-none absolute -bottom-4 -right-3 size-20 text-emerald-100/[0.035]" strokeWidth={0.8} aria-hidden="true" />
                   <p className="relative flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.22em] text-emerald-200/60"><Gift className="size-3.5" /> Your gift</p>
                   <p className="relative mt-3 max-w-[38ch] text-[13px] leading-5 text-white/68 sm:text-sm sm:leading-6">{theme.gift}</p>
                 </div>
-                <div className="relative flex flex-col justify-center overflow-hidden rounded-xl border border-amber-300/10 bg-amber-300/[0.025] p-4 sm:p-5">
-                  <Eye className="pointer-events-none absolute -bottom-4 -right-3 size-20 text-amber-100/[0.035]" strokeWidth={0.8} aria-hidden="true" />
-                  <p className="relative flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-200/60"><Eye className="size-3.5" /> Watch for</p>
+                <div className="relative flex flex-col justify-center overflow-hidden rounded-xl border border-galactic/10 bg-galactic/[0.025] p-4 sm:p-5">
+                  <GiShadowGrasp className="pointer-events-none absolute -bottom-4 -right-3 size-20 text-amber-100/[0.035]" strokeWidth={0.8} aria-hidden="true" />
+                  <p className="relative flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.22em] text-amber-200/60"><GiShadowGrasp className="size-3.5" /> Watch for</p>
                   <p className="relative mt-3 max-w-[38ch] text-[13px] leading-5 text-white/68 sm:text-sm sm:leading-6">{theme.watchFor}</p>
                 </div>
-                <div className="rounded-xl border border-violet-300/10 bg-violet-300/[0.04] px-4 py-3.5 sm:px-5 sm:py-4">
-                  <p className="font-mono text-[9px] uppercase tracking-[0.24em] text-violet-200/50">Try · {theme.practice.cadence.replace("_", " ")}</p>
+                <div className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3.5 sm:px-5 sm:py-4">
+                  <p className="font-mono text-[9px] uppercase tracking-[0.24em] text-white/50">Try · {theme.practice.cadence.replace("_", " ")}</p>
                   <p className="mt-2.5 text-[13px] leading-5 text-white/68 sm:text-sm sm:leading-6">{theme.practice.instruction}</p>
                 </div>
                 <div className="pt-1">

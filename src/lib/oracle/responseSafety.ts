@@ -27,6 +27,16 @@ export interface SafetyScanResult {
   flags: SafetyFlag[];
   /** Human-readable reason for the block (logged for admin review) */
   reason?: string;
+  /** Exact scanner rules that matched, for admin-only diagnostics. */
+  matches: SafetyMatch[];
+}
+
+export interface SafetyMatch {
+  flag: Exclude<SafetyFlag, "refusal">;
+  ruleId: string;
+  description: string;
+  /** The short matched fragment, never included in user-facing copy or logs. */
+  matchedText: string;
 }
 
 export type SafetyFlag =
@@ -53,8 +63,9 @@ export interface RefusalCheckResult {
 // We're intentionally narrow: we catch explicit dosage/medication/treatment
 // recommendations, not casual lifestyle advice like "meditation might help."
 
-export const MEDICAL_ADVICE_PATTERNS: { pattern: RegExp; description: string }[] = [
+export const MEDICAL_ADVICE_PATTERNS: { id: string; pattern: RegExp; description: string }[] = [
   {
+    id: "medical_specific_dosage",
     // Specific dosage: "take 500mg of", "taking 500mg", "3 mg of", "2 capsules of"
     // Catches both base form (take) and gerund (taking, starting, using)
     pattern:
@@ -62,33 +73,41 @@ export const MEDICAL_ADVICE_PATTERNS: { pattern: RegExp; description: string }[]
     description: "specific dosage recommendation",
   },
   {
-    // "You should take/try/start [supplement/medication]"
+    id: "medical_direct_recommendation",
+    // Direct recommendation must name a medical intervention. The previous
+    // `\w+` target also blocked benign phrases such as "take time".
     pattern:
-      /\byou\s+should\s+(take|start|try|use|begin|supplement)\s+\w+/i,
+      /\byou\s+should\s+(?:take|start|try|use|begin|supplement(?:\s+with)?)\s+(?:an?\s+|the\s+)?(?:prescription|medications?|medicines?|drugs?|antibiotics?|antidepressants?|painkillers?|supplements?|vitamins?|hormones?|insulin|melatonin|magnesium|ashwagandha|ibuprofen|acetaminophen|paracetamol|aspirin)\b/i,
     description: "direct medical recommendation",
   },
   {
-    // Diagnosis: "You likely have X", "You probably have X condition"
+    id: "medical_diagnosis",
+    // Diagnosis language must name a condition or diagnostic category. The
+    // previous `\w+` target also blocked "you likely have a gift...".
     pattern:
-      /\byou\s+(likely|probably|almost\s+certainly)\s+have\s+\w+/i,
+      /\byou\s+(?:likely|probably|almost\s+certainly)\s+have\s+(?:an?\s+)?(?:adhd|anxiety|depression|bipolar(?:\s+disorder)?|autism|ptsd|ocd|cancer|diabetes|an?\s+\w+\s+(?:condition|disorder|disease|infection|syndrome))\b/i,
     description: "diagnosis",
   },
   {
-    // Treatment recommendation: "This can be treated with X"
+    id: "medical_treatment_recommendation",
+    // A treatment claim must point to a clinical treatment, not ordinary
+    // language such as "this can be managed with patience".
     pattern:
-      /\bcan\s+be\s+(treated|cured|managed|helped)\s+with\s+/i,
+      /\bcan\s+be\s+(?:treated|cured|managed|helped)\s+with\s+(?:an?\s+|the\s+)?(?:therapy|counseling|medications?|medicines?|drugs?|antibiotics?|antidepressants?|prescriptions?|supplements?|vitamins?|surgery|chemotherapy|radiation|insulin|melatonin|magnesium|ashwagandha|ibuprofen|acetaminophen|paracetamol|aspirin|cognitive\s+behavio(?:u)?ral\s+therapy)\b/i,
     description: "treatment recommendation",
   },
   {
+    id: "medical_explicit_recommendation",
     // "I recommend taking/using/supplementing with X"
     pattern:
-      /\bi\s+recommend\s+(taking|using|supplementing|starting)\b/i,
+      /\bi\s+recommend\s+(?:taking|using|starting|supplementing(?:\s+with)?)\s+(?:an?\s+|the\s+)?(?:prescription|medications?|medicines?|drugs?|antibiotics?|antidepressants?|painkillers?|supplements?|vitamins?|hormones?|insulin|melatonin|magnesium|ashwagandha|ibuprofen|acetaminophen|paracetamol|aspirin)\b/i,
     description: "explicit supplement recommendation",
   },
   {
+    id: "medical_explicit_suggestion",
     // "I suggest taking/starting X supplement/medication"
     pattern:
-      /\bi\s+suggest\s+(taking|using|starting|trying)\b/i,
+      /\bi\s+suggest\s+(?:taking|using|starting|trying)\s+(?:an?\s+|the\s+)?(?:prescription|medications?|medicines?|drugs?|antibiotics?|antidepressants?|painkillers?|supplements?|vitamins?|hormones?|therapy|insulin|melatonin|magnesium|ashwagandha|ibuprofen|acetaminophen|paracetamol|aspirin)\b/i,
     description: "explicit supplement suggestion",
   },
 ];
@@ -98,19 +117,22 @@ export const MEDICAL_ADVICE_PATTERNS: { pattern: RegExp; description: string }[]
 // These are EXTREMELY serious. Any match triggers an immediate block.
 // The model should NEVER output self-harm encouragement, but we check anyway.
 
-export const SELF_HARM_ENCOURAGEMENT_PATTERNS: { pattern: RegExp; description: string }[] =
+export const SELF_HARM_ENCOURAGEMENT_PATTERNS: { id: string; pattern: RegExp; description: string }[] =
   [
     {
+      id: "self_harm_encouragement",
       pattern:
         /\b(harm\s+yourself|cut\s+yourself|end\s+your\s+life|kill\s+yourself|hurt\s+yourself)\s+(is|would\s+be|could\s+be|might\s+be)\b/i,
       description: "self-harm encouragement",
     },
     {
+      id: "self_harm_methods",
       pattern:
         /\b(methods?\s+(to|for)\s+(self[-\s]?harm|suicide|ending\s+your\s+life))\b/i,
       description: "self-harm methods",
     },
     {
+      id: "self_harm_how_to",
       pattern:
         /\b(how\s+to)\s+(kill\s+yourself|commit\s+suicide|end\s+your\s+life|self[-\s]?harm)\b/i,
       description: "self-harm how-to",
@@ -131,18 +153,21 @@ const JOURNAL_LEAK_MIN_LENGTH = 50;
 // These detect when the model reveals its underlying model provider identity,
 // which violates the Oracle's safety rules.
 
-export const IDENTITY_LEAK_PATTERNS: { pattern: RegExp; description: string }[] = [
+export const IDENTITY_LEAK_PATTERNS: { id: string; pattern: RegExp; description: string }[] = [
   {
+    id: "identity_provider_claim",
     pattern:
       /\bI\s+am\s+(an?\s+)?(Anthropic|OpenAI|Google|Gemini|GPT|Claude|Grok)\b/i,
     description: "model provider identity leak",
   },
   {
+    id: "identity_provider_attribution",
     pattern:
       /\bmade\s+by\s+(Anthropic|OpenAI|Google)\b/i,
     description: "model provider attribution leak",
   },
   {
+    id: "identity_llm_self_description",
     pattern:
       /\b(as\s+a)\s+(language\s+model|AI\s+model|large\s+language)\s+developed\s+by\b/i,
     description: "LLM self-description leak",
@@ -223,7 +248,7 @@ while providing the astrological interpretation they seek.
 // by the output safety scanner. It replaces the LLM response entirely.
 
 export const OUTPUT_SAFETY_BLOCK_MESSAGE =
-  "The stars carried a message that needs recalibration. Please try again — your question is welcome here. ->";
+  "The stars carried a message that needs recalibration. Please try again — your question is welcome here.";
 
 // ─── Scanner Functions ──────────────────────────────────────────────────────
 
@@ -247,21 +272,26 @@ export function scanResponse(
 ): SafetyScanResult {
   const flags: SafetyFlag[] = [];
   const reasons: string[] = [];
+  const matches: SafetyMatch[] = [];
 
   // ── 1. Self-harm encouragement (most serious — check first) ────────
-  for (const { pattern, description } of SELF_HARM_ENCOURAGEMENT_PATTERNS) {
-    if (pattern.test(response)) {
+  for (const { id, pattern, description } of SELF_HARM_ENCOURAGEMENT_PATTERNS) {
+    const match = response.match(pattern);
+    if (match) {
       flags.push("self_harm_encouragement");
-      reasons.push(`Self-harm encouragement detected: ${description}`);
+      reasons.push(`Self-harm encouragement detected by ${id}: ${description}`);
+      matches.push({ flag: "self_harm_encouragement", ruleId: id, description, matchedText: match[0] });
       break; // One match is enough
     }
   }
 
   // ── 2. Medical advice violations ────────────────────────────────────
-  for (const { pattern, description } of MEDICAL_ADVICE_PATTERNS) {
-    if (pattern.test(response)) {
+  for (const { id, pattern, description } of MEDICAL_ADVICE_PATTERNS) {
+    const match = response.match(pattern);
+    if (match) {
       flags.push("medical_advice");
-      reasons.push(`Medical advice violation: ${description}`);
+      reasons.push(`Medical advice violation detected by ${id}: ${description}`);
+      matches.push({ flag: "medical_advice", ruleId: id, description, matchedText: match[0] });
       break; // One match is enough
     }
   }
@@ -273,14 +303,39 @@ export function scanResponse(
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line.length > JOURNAL_LEAK_MIN_LENGTH);
+    const perspectiveNormalizedResponse = normalizeJournalPerspective(response);
 
     for (const line of journalLines) {
       if (response.includes(line)) {
         flags.push("journal_leak");
+        matches.push({
+          flag: "journal_leak",
+          ruleId: "journal_verbatim_line",
+          description: "long verbatim journal line",
+          matchedText: line,
+        });
         reasons.push(
           `Journal content leak detected: ${line.length}-char verbatim match`,
         );
         break; // One match is enough
+      }
+
+      const perspectiveNormalizedLine = normalizeJournalPerspective(line);
+      if (
+        perspectiveNormalizedLine.length > JOURNAL_LEAK_MIN_LENGTH &&
+        perspectiveNormalizedResponse.includes(perspectiveNormalizedLine)
+      ) {
+        flags.push("journal_leak");
+        matches.push({
+          flag: "journal_leak",
+          ruleId: "journal_perspective_echo",
+          description: "near-verbatim journal line with perspective changes",
+          matchedText: line,
+        });
+        reasons.push(
+          `Journal content leak detected: ${line.length}-char perspective-normalized match`,
+        );
+        break;
       }
     }
 
@@ -288,15 +343,20 @@ export function scanResponse(
     // in journal but wouldn't appear in normal astrological interpretation)
     // This catches cases where the model paraphrases but echoes specific phrases
     const journalPhrases = extractDistinctPhrases(journalContext);
-    let phraseLeakCount = 0;
-    for (const phrase of journalPhrases) {
-      if (response.toLowerCase().includes(phrase.toLowerCase())) {
-        phraseLeakCount++;
-      }
-    }
+    const distinctPhraseMatches = findNonOverlappingPhraseMatches(
+      response,
+      journalPhrases,
+    );
+    const phraseLeakCount = distinctPhraseMatches.length;
     // If 3+ distinct journal phrases appear in the response, it's likely a leak
     if (phraseLeakCount >= 3 && !flags.includes("journal_leak")) {
       flags.push("journal_leak");
+      matches.push({
+        flag: "journal_leak",
+        ruleId: "journal_distinct_phrases",
+        description: "three or more journal phrases echoed",
+        matchedText: distinctPhraseMatches.slice(0, 3).join(" … "),
+      });
       reasons.push(
         `Journal content leak detected: ${phraseLeakCount} distinct phrases echoed`,
       );
@@ -304,10 +364,12 @@ export function scanResponse(
   }
 
   // ── 4. Identity leaks ──────────────────────────────────────────────
-  for (const { pattern, description } of IDENTITY_LEAK_PATTERNS) {
-    if (pattern.test(response)) {
+  for (const { id, pattern, description } of IDENTITY_LEAK_PATTERNS) {
+    const match = response.match(pattern);
+    if (match) {
       flags.push("identity_leak");
-      reasons.push(`Identity leak: ${description}`);
+      reasons.push(`Identity leak detected by ${id}: ${description}`);
+      matches.push({ flag: "identity_leak", ruleId: id, description, matchedText: match[0] });
       break;
     }
   }
@@ -318,6 +380,7 @@ export function scanResponse(
     blocked,
     flags,
     reason: blocked ? reasons.join("; ") : undefined,
+    matches,
   };
 }
 
@@ -398,4 +461,51 @@ function extractDistinctPhrases(journalContext: string): string[] {
   }
 
   return phrases;
+}
+
+function normalizeJournalPerspective(content: string): string {
+  return content
+    .toLowerCase()
+    .replace(/\b(?:i['’]ve|you['’]ve)\b/g, "person have")
+    .replace(/\b(?:i['’]m|you['’]re)\b/g, "person am")
+    .replace(/\b(?:i['’]d|you['’]d)\b/g, "person would")
+    .replace(/\b(?:i['’]ll|you['’]ll)\b/g, "person will")
+    .replace(/\b(?:my|your|mine|yours|me|you|i)\b/g, "person")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * Select phrase matches that occupy separate spans in the response. Without
+ * this de-duplication, one six-word overlap produced many 3–6 word matches and
+ * incorrectly satisfied the "three distinct phrases" threshold by itself.
+ */
+function findNonOverlappingPhraseMatches(
+  response: string,
+  phrases: string[],
+): string[] {
+  const normalizedResponse = response.toLowerCase();
+  const occupied: Array<{ start: number; end: number }> = [];
+  const selected: string[] = [];
+  const uniquePhrases = [...new Set(phrases)]
+    .sort((left, right) => right.length - left.length);
+
+  for (const phrase of uniquePhrases) {
+    const normalizedPhrase = phrase.toLowerCase();
+    let start = normalizedResponse.indexOf(normalizedPhrase);
+    while (start !== -1) {
+      const end = start + normalizedPhrase.length;
+      const overlaps = occupied.some(
+        (range) => start < range.end && end > range.start,
+      );
+      if (!overlaps) {
+        occupied.push({ start, end });
+        selected.push(phrase);
+        break;
+      }
+      start = normalizedResponse.indexOf(normalizedPhrase, start + 1);
+    }
+  }
+
+  return selected;
 }

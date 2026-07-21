@@ -849,6 +849,9 @@ export default function OracleDebugPage() {
         ? `${reportTelemetry.configuredRoute.providerId}/${reportTelemetry.configuredRoute.model} · configured route; historical execution not recorded`
         : "Historical execution telemetry was not recorded"
     : s?.primaryModelUsed ?? "No model recorded";
+  const blockedSafetyTraces = (d?.traces ?? []).filter(
+    (storedTrace) => storedTrace.trace?.safetyScan?.blocked,
+  );
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -1199,6 +1202,65 @@ export default function OracleDebugPage() {
 
               {/* ── Messages Tab ─────────────────────────────────────── */}
               <TabsContent value="messages" className="space-y-5">
+                {blockedSafetyTraces.length > 0 && (
+                  <Card className="border-rose-500/30 bg-rose-500/[0.05]">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2 text-sm text-rose-200">
+                        <AlertTriangle className="h-4 w-4" />
+                        Output safety evidence
+                      </CardTitle>
+                      <CardDescription>
+                        Admin-only quarantine records. The user saw safe fallback copy; the original model output is retained here for diagnosis.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {blockedSafetyTraces.map((storedTrace) => {
+                        const scan = storedTrace.trace?.safetyScan;
+                        if (!scan) return null;
+                        return (
+                          <div key={storedTrace._id} className="rounded-lg border border-rose-500/20 bg-black/20 p-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex flex-wrap gap-1.5">
+                                {scan.flags.map((flag: string) => (
+                                  <Badge key={flag} className="bg-rose-500/15 text-rose-200">
+                                    {flag}
+                                  </Badge>
+                                ))}
+                              </div>
+                              <span className="font-mono text-[10px] text-muted-foreground">
+                                {formatTimestamp(storedTrace.createdAt)}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-xs text-rose-100/85">{scan.reason ?? "Blocked without a recorded reason"}</p>
+                            {scan.matches?.length > 0 && (
+                              <div className="mt-3 space-y-1.5">
+                                {scan.matches.map((match: { ruleId: string; description: string; matchedText: string }, index: number) => (
+                                  <div key={`${match.ruleId}-${index}`} className="rounded border border-white/[0.06] bg-black/15 px-2.5 py-2 text-[11px]">
+                                    <span className="font-mono text-amber-300">{match.ruleId}</span>
+                                    <span className="ml-2 text-muted-foreground">{match.description}</span>
+                                    <p className="mt-1 break-words font-mono text-white/70">Matched: {match.matchedText}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <Accordion type="single" collapsible className="mt-2">
+                              <AccordionItem value="blocked-response">
+                                <AccordionTrigger className="text-xs text-rose-100">
+                                  View quarantined model response
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                  <pre className="max-h-96 overflow-y-auto whitespace-pre-wrap break-words rounded bg-black/30 p-3 font-mono text-[11px] leading-relaxed text-white/70">
+                                    {scan.blockedResponse ?? "Original response was not retained for this older trace."}
+                                  </pre>
+                                </AccordionContent>
+                              </AccordionItem>
+                            </Accordion>
+                          </div>
+                        );
+                      })}
+                    </CardContent>
+                  </Card>
+                )}
                 {d.analysis?.turns?.length > 0 && (
                   <Card className="border-border/30 bg-card/40">
                     <CardContent className="p-5 space-y-3">

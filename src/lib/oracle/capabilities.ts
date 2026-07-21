@@ -59,5 +59,21 @@ export interface OracleTurnTrace {
   providerAttempts: Array<{ provider?: string; model?: string; tier?: string; durationMs?: number; outcome: string }>;
   violations: OracleResponseViolation[];
   repaired: boolean;
+  /**
+   * Output scanner evidence. Raw blocked text is retained only in this
+   * admin-authorized trace so a safety intervention can be diagnosed.
+   */
+  safetyScan?: {
+    blocked: boolean;
+    flags: string[];
+    reason?: string;
+    matches: Array<{
+      flag: string;
+      ruleId: string;
+      description: string;
+      matchedText: string;
+    }>;
+    blockedResponse?: string;
+  };
   createdAt: number;
 }

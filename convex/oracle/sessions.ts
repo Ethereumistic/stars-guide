@@ -3,6 +3,15 @@ import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internal } from "../_generated/api";
 import { BIRTH_CHART_REPORT_WELCOME } from "../birthChartReport/onboarding";
+import { resolveOracleRouteForUser } from "../aiGateway/userModelOptions";
+
+const reasoningEffort = v.union(
+    v.literal("auto"),
+    v.literal("disabled"),
+    v.literal("low"),
+    v.literal("medium"),
+    v.literal("high"),
+);
 
 /** 
  * Resolve a Convex file-storage ID to a playback URL for an audio file.
@@ -55,6 +64,8 @@ export const createSession = mutation({
     args: {
         featureKey: v.optional(v.string()),
         questionText: v.string(),
+        modelOptionKey: v.optional(v.string()),
+        reasoningEffort: v.optional(reasoningEffort),
         synastryPayload: v.optional(v.object({
             chartB: v.any(), // StoredBirthData shape
             source: v.union(v.literal("friend"), v.literal("custom")),
@@ -67,6 +78,14 @@ export const createSession = mutation({
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);
         if (!userId) throw new Error("Not authenticated");
+        const user = await ctx.db.get(userId);
+        if (!user) throw new Error("User not found");
+        const route = await resolveOracleRouteForUser(
+            ctx,
+            user,
+            args.modelOptionKey,
+            args.reasoningEffort,
+        );
 
         const now = Date.now();
         const title = args.questionText.length > 40
@@ -77,6 +96,9 @@ export const createSession = mutation({
             userId,
             title,
             featureKey: args.featureKey,
+            modelOptionKey: route.optionKey,
+            modelRouteFallbackReason: route.fallbackReason,
+            reasoningEffort: route.reasoningEffort,
             status: "active",
             messageCount: 1,
             synastryPayload: args.synastryPayload,
@@ -89,6 +111,8 @@ export const createSession = mutation({
             sessionId,
             role: "user",
             content: args.questionText,
+            requestedModelOptionKey: args.modelOptionKey,
+            requestedReasoningEffort: args.reasoningEffort,
             createdAt: now,
         });
 
@@ -205,6 +229,8 @@ export const addMessage = mutation({
         audioData: v.optional(v.string()),
         audioStorageId: v.optional(v.id("_storage")),
         audioUrl: v.optional(v.string()),
+        modelOptionKey: v.optional(v.string()),
+        reasoningEffort: v.optional(reasoningEffort),
     },
     handler: async (ctx, args) => {
         const userId = await getAuthUserId(ctx);
@@ -216,8 +242,19 @@ export const addMessage = mutation({
         }
 
         const now = Date.now();
+        const currentUser = await ctx.db.get(userId);
+        if (!currentUser) throw new Error("User not found");
 
-        await ctx.db.insert("oracle_messages", {
+        const route = args.role === "user"
+            ? await resolveOracleRouteForUser(
+                ctx,
+                currentUser,
+                args.modelOptionKey ?? session.modelOptionKey,
+                args.reasoningEffort ?? session.reasoningEffort,
+            )
+            : null;
+
+        const messageId = await ctx.db.insert("oracle_messages", {
             sessionId: args.sessionId,
             role: args.role,
             content: args.content,
@@ -229,6 +266,8 @@ export const addMessage = mutation({
             audioData: args.audioData,
             audioStorageId: args.audioStorageId,
             audioUrl: args.audioUrl,
+            requestedModelOptionKey: args.modelOptionKey,
+            requestedReasoningEffort: args.reasoningEffort,
             createdAt: now,
         });
 
@@ -242,6 +281,30 @@ export const addMessage = mutation({
             ...(args.fallbackTierUsed && args.fallbackTierUsed !== "A"
                 ? { usedFallback: true }
                 : {}),
+            ...(route
+                ? {
+                    modelOptionKey: route.optionKey,
+                    modelRouteFallbackReason: route.fallbackReason,
+                    reasoningEffort: route.reasoningEffort,
+                }
+                : {}),
+        });
+        return messageId;
+    },
+});
+
+export const patchModelRouteResolution = internalMutation({
+    args: {
+        sessionId: v.id("oracle_sessions"),
+        modelOptionKey: v.optional(v.string()),
+        reasoningEffort,
+        fallbackReason: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        await ctx.db.patch(args.sessionId, {
+            modelOptionKey: args.modelOptionKey,
+            reasoningEffort: args.reasoningEffort,
+            modelRouteFallbackReason: args.fallbackReason,
         });
     },
 });
@@ -353,6 +416,36 @@ export const updateStreamingContent = internalMutation({
     },
     handler: async (ctx, { messageId, content }) => {
         await ctx.db.patch(messageId, { content });
+    },
+});
+
+/**
+ * Atomically quarantine a streamed response that failed the output scanner.
+ * Keeping the message ID avoids a delete/insert race in the chat UI while the
+ * original candidate remains available only in the admin-authorized turn trace.
+ */
+export const replaceStreamingMessageWithSafetyFallback = internalMutation({
+    args: {
+        messageId: v.id("oracle_messages"),
+        sessionId: v.id("oracle_sessions"),
+        content: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const message = await ctx.db.get(args.messageId);
+        if (!message || message.sessionId !== args.sessionId) {
+            throw new Error("Streaming message not found for session");
+        }
+
+        await ctx.db.patch(args.messageId, {
+            content: args.content,
+            fallbackTierUsed: "D" as const,
+            journalPrompt: undefined,
+        });
+        await ctx.db.patch(args.sessionId, {
+            usedFallback: true,
+            status: "active" as const,
+            updatedAt: Date.now(),
+        });
     },
 });
 

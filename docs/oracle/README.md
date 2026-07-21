@@ -11,6 +11,7 @@ Use this folder as a compact navigation layer. The current source of truth is st
 - `BIRTH_CHART_REPORT.md` - separate deterministic Oracle natal context and human report pipeline.
 - `OPERATIONS_AND_DEBUG.md` - admin settings, providers, quota, debug panels, and troubleshooting.
 - `ORACLE_EXPERIENCE_AUDIT.md` - product-quality audit of birth chart, report, cosmic weather, synastry, retention, and evaluation gaps.
+- `ORACLE_COMPOSER_REDESIGN_PLAN.md` - implementation plan for the expanding composer, model/effort access, dictation, and `/admin/ai` routing controls.
 
 ## Source Of Truth
 

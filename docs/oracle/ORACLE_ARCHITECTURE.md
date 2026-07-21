@@ -8,11 +8,13 @@ This is the current implementation map for Oracle. Treat code as source of truth
 | --- | --- |
 | New session UI | `src/app/(app)/oracle/new/page.tsx` |
 | Chat UI | `src/app/(app)/oracle/chat/[sessionId]/page.tsx` |
+| Composer | `src/components/oracle/input/` |
 | Layout, sidebar, admin debug panel | `src/app/(app)/oracle/layout.tsx`, `src/components/oracle/` |
 | Main LLM action | `convex/oracle/llm.ts` |
 | Sessions and messages | `convex/oracle/sessions.ts` |
 | Settings and providers | `convex/oracle/settings.ts`, `convex/oracle/upsertProviders.ts`, `src/lib/oracle/providers.ts` |
 | Provider routing | `convex/oracle/providerRouter.ts` |
+| User model policy | `convex/aiGateway/userModelOptions.ts`, `src/lib/ai/inference-preferences.ts` |
 | Quota and pricing | `convex/oracle/quota.ts`, `convex/oracle/pricing.ts` |
 | Pipeline definitions | `src/lib/oracle/pipelines/` |
 | Shared pipeline types | `src/lib/oracle/pipelineTypes.ts` |
@@ -23,8 +25,8 @@ Root `lib/oracle/*` is partly compatibility re-exports for Convex imports. The r
 
 ## User Flow
 
-1. `/oracle/new` checks quota and kill-switch state, then creates an Oracle session.
-2. `convex/oracle/sessions.ts` writes `oracle_sessions` and the first user `oracle_messages` row.
+1. `/oracle/new` checks quota and kill-switch state, then creates an Oracle session with the composer's opaque model-option key and reasoning effort.
+2. `convex/oracle/sessions.ts` resolves access from the authenticated user's current tier, stores the effective preference and fallback reason on the session, and writes the raw per-turn request metadata to the first user message.
 3. The app navigates to `/oracle/chat/[sessionId]`.
 4. The chat page calls `api.oracle.llm.invokeOracle` unless the path is metadata-only, such as storing a generated binaural beat message.
 5. Convex reactive queries stream message state back into the chat UI.
@@ -50,10 +52,11 @@ Root `lib/oracle/*` is partly compatibility re-exports for Convex imports. The r
 14. Prepend hardcoded safety rules, sort system blocks by priority, and add title/journal directives when needed.
 15. Sanitize the user question before adding it to the prompt.
 16. Run server-side quota pre-check before main model calls.
-17. Build history, model settings, and provider/model chain order.
-18. Stream through provider tiers until success.
-19. Scan accepted output and retry once on benign refusal if another tier remains.
-20. On success, compute cost, update the message, increment quota on first assistant response, update title/timing/session state, and run pipeline `afterResponse` hooks.
+17. Build history and model settings, then re-resolve the session preference against the current user tier.
+18. Select the resolved user-option chain or the feature-profile fallback chain; an authorized admin debug override remains highest priority.
+19. Stream through provider tiers until success.
+20. Scan accepted output. A blocked stream is atomically replaced with safe copy, while its original output and exact rule matches are quarantined in the admin-only turn trace. Trace writes are best-effort and cannot force a user-facing fallback.
+21. On success, compute cost, update the message, increment quota on first assistant response, update title/timing/session state, and run pipeline `afterResponse` hooks.
 
 ## Pipeline Contract
 
@@ -69,9 +72,11 @@ The important rule is that pipelines declare data needs up front. Do not add glo
 
 ## Provider Path
 
-Provider configuration lives in `oracle_settings` as serialized provider and model-chain settings. API keys are referenced by environment variable name, not stored in the database.
+Provider configuration and feature profiles live in `ai_providers` and `ai_feature_profiles`. API keys are referenced by environment variable name, not stored in the database.
 
-`convex/oracle/providerRouter.ts` walks the configured model chain in order, checks provider concurrency, reserves a slot, and releases it in `finally`. Admin debug overrides can force a provider/model for a local session, but they are not persisted to global settings.
+For Oracle, `ai_user_model_options` can expose curated choices to selected subscription tiers. The client receives labels, access state, and allowed reasoning efforts only. `convex/aiGateway/userModelOptions.ts` validates the opaque selection server-side and returns the private provider chain to server code. Disabled rollout, invalid choices, downgrades, and missing defaults fail safely to the `oracle_chat` feature profile.
+
+The AI Gateway walks the resolved chain in order, applies provider health/cooldown behavior, and records route telemetry. Admin debug overrides can force a provider/model for a request, but the server rejects them for non-admin users and never persists them globally.
 
 ## Quota Path
 
@@ -85,6 +90,7 @@ Quota is checked before main LLM calls and incremented after a successful first 
 - `ORACLE_SAFETY_RULES` is prepended before all pipeline blocks.
 - User text is sanitized before prompt insertion.
 - Output safety scanning runs before a response is accepted.
+- Blocked output evidence is retained only in admin-authorized turn traces; the user-visible message is replaced in place with safe copy.
 - Admin settings can alter copy, soul, providers, models, and quota values, but must not weaken server-enforced safety behavior.
 - Journal context requires both pipeline demand and server-side consent.
 - Birth data is included only when an active pipeline requests it.

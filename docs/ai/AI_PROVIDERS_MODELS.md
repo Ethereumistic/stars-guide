@@ -78,6 +78,9 @@
 | `src/components/ai-admin/model-registry.tsx` | Browse/search/filter model registry with capability badges and warnings. | Frontend |
 | `src/components/ai-admin/ai-testing-panel.tsx` | Live LLM endpoint tester with thinking mode controls. | Frontend |
 | `src/components/ai-admin/ai-settings-panel.tsx` | Global AI settings (thinking defaults, tokens, timeouts). | Frontend |
+| `src/components/ai-admin/user-model-options-panel.tsx` | Configure Oracle model choices, tier access, defaults, and reasoning policy. | Frontend |
+| `src/components/ai-admin/model-chain-builder.tsx` | Structured ordered provider/model fallback-chain editor. | Frontend |
+| `src/lib/ai/inference-preferences.ts` | Shared model-option and reasoning types plus the pure access-policy resolver. | Shared |
 | `src/lib/ai/registry.ts` | **Single source of truth.** Provider types, model definitions, capability badges. | Frontend |
 | `src/components/ai/ai-model-picker.tsx` | **Reusable UI component.** Provider + model + variant selector. | Frontend |
 | `src/components/ai/model-combobox.tsx` | Model dropdown with capability badges, tooltips, and warnings. | Frontend |
@@ -87,6 +90,7 @@
 | `convex/lib/llmProvider.ts` | Server-side runtime. Types, resolveProvider(), callLLMEndpoint() **with thinkingMode**. | Convex (Node.js) |
 | `convex/ai.ts` | Horoscope generation engine. Calls callLLMEndpoint() with `thinkingMode: "disabled"`. | Convex (Node.js) |
 | `convex/admin.ts` | Admin actions including `testLLMEndpointAction`. | Convex |
+| `convex/aiGateway/userModelOptions.ts` | Sanitized composer capabilities, admin mutations, and server-authoritative Oracle route resolution. | Convex |
 
 ### Why are there two provider type files?
 
@@ -101,7 +105,17 @@ Both define the same core shape. Keep them in sync when adding new provider type
 
 ## Admin Page: /admin/ai
 
-The new centralized AI Infrastructure admin page at `/admin/ai` has four tabs:
+The centralized AI Infrastructure admin page at `/admin/ai` has six tabs: Providers, Profiles, User models, Models, Testing, and Settings.
+
+### User Models Tab
+
+- Configures curated Oracle choices without exposing provider IDs or fallback chains to users.
+- Accepts an optional public HTTPS CDN logo for each choice; the composer keeps its built-in icon as the load/error fallback.
+- Assigns availability and exactly one default for each of `free`, `popular`, and `premium`.
+- Restricts the reasoning efforts each choice supports and defines its default effort.
+- Uses a structured ordered chain builder backed by existing provider configurations.
+- Saves the complete configuration atomically, validates it server-side, and enables user selection with a separate rollout switch.
+- Can seed an initial `Automatic` option from the existing `oracle_chat` feature profile.
 
 ### Providers Tab
 - Add, edit (inline), and delete provider configurations
@@ -247,7 +261,8 @@ type ThinkingMode = "auto" | "disabled" | "low" | "medium" | "high";
 - Always sends `thinkingMode: "disabled"` — structured JSON output doesn't benefit from chain-of-thought
 
 **Oracle Chat** (`convex/oracle/llm.ts`):
-- Uses `thinkingMode: "auto"` (default) — Oracle streaming handles thinking gracefully
+- Uses the server-resolved reasoning effort for the selected user option.
+- Falls back to the `oracle_chat` profile's thinking mode when user selection is disabled or unavailable.
 
 **Zeitgeist Synthesis** (`convex/ai.ts`):
 - Uses `thinkingMode: "auto"` — short text outputs, thinking not a problem
@@ -418,17 +433,19 @@ for structured output tasks.
 ### Oracle
 
 **Admin configures:**
-1. Providers in `/admin/ai` → Providers tab (stored as `providers_config`)
-2. Ordered model fallback chain in Oracle Settings → Model tab (stored as `model_chain`)
-3. Temperature, top_p, streaming, etc. in Oracle Settings
+1. Providers in `/admin/ai` → Providers.
+2. The default Oracle chain and thinking mode in `/admin/ai` → Profiles.
+3. Optional tier-gated user choices in `/admin/ai` → User models.
+4. Temperature, top_p, streaming, and related runtime settings in Oracle Settings.
 
 **Runtime:**
 - `invokeOracle` reads all settings via `loadRuntimeSettings()`
-- Iterates the model chain: Tier A → B → C → ... until one succeeds
+- Revalidates the opaque session option against the authenticated user's current tier.
+- Iterates the resolved option chain until one succeeds, or uses the feature-profile chain as a safe fallback.
 - Uses streaming for token-by-token delivery
-- `thinkingMode: "auto"` — Oracle handles thinking content gracefully via streaming
+- Applies the resolved reasoning effort to the gateway request.
 
-**Files:** `convex/oracle/llm.ts`, `src/app/admin/oracle/settings/page.tsx`
+**Files:** `convex/oracle/llm.ts`, `convex/aiGateway/userModelOptions.ts`, `src/app/(admin)/admin/ai/page.tsx`
 
 ### Horoscope — Generation Desk
 
@@ -576,3 +593,5 @@ If you need a fundamentally new provider type (not just a new instance of an exi
 | 10 | **Both `ollama` and `openai_compatible` model lists should match.** | Ollama Cloud endpoints are typically configured as `openai_compatible`. |
 | 11 | **Oracle Settings Providers tab is now read-only.** | Provider management moved to `/admin/ai`. Oracle Settings shows current providers with a link to the AI admin page. |
 | 12 | **The `/admin/ai` Testing tab uses the same code path as production.** | Tests go through `callLLMEndpoint()` — results are representative of actual behavior. |
+| 13 | **User model access is server-authoritative.** | The client sends only an option key and effort. The backend rechecks tier access and keeps provider chains private. |
+| 14 | **Every enabled rollout needs exactly one default per tier.** | Invalid, missing, or downgraded selections fall back safely to the feature profile instead of trusting stale client state. |

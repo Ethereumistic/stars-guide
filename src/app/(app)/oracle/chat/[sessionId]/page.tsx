@@ -25,6 +25,8 @@ import { GiCursedStar, GiScrollUnfurled } from "react-icons/gi";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { OracleInput } from "@/components/oracle/input/oracle-input";
+import { useOracleComposerPreferences } from "@/components/oracle/input/use-oracle-composer-preferences";
+import type { ReasoningEffort } from "@/lib/ai/inference-preferences";
 import type { OracleQuotaSnapshot } from "@/components/oracle/quota-meter";
 import { BirthReportQuestionnaire } from "@/components/oracle/birth-report/BirthReportQuestionnaire";
 import { BinauralBeatHistoryCard } from "@/components/oracle/input/binaural-beat-history-card";
@@ -63,6 +65,8 @@ type OracleSessionMessage = {
 };
 type OracleSessionView = {
     featureKey?: string;
+    modelOptionKey?: string;
+    reasoningEffort?: ReasoningEffort;
     status: "active" | "completed";
     messages: OracleSessionMessage[];
 };
@@ -307,7 +311,7 @@ export default function OracleChatPage() {
     const router = useRouter();
     const sessionId = params.sessionId as Id<"oracle_sessions">;
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
+    const inputRef = useRef<HTMLTextAreaElement>(null);
     const [inputValue, setInputValue] = useState("");
     const [copied, setCopied] = useState<string | null>(null);
     const [shared, setShared] = useState<string | null>(null);
@@ -345,6 +349,10 @@ export default function OracleChatPage() {
     const loadingMessage = useLoadingMessage(isStreaming);
 
     const sessionData = useQuery(getSessionWithMessagesRef, { sessionId });
+    const composerPreferences = useOracleComposerPreferences({
+        modelOptionKey: sessionData?.modelOptionKey,
+        reasoningEffort: sessionData?.reasoningEffort,
+    });
     const currentUser = useQuery(getCurrentUserRef, {});
     const quota = useQuery(checkQuotaRef, {});
     const quotaExhausted = quota && !quota.allowed;
@@ -646,6 +654,8 @@ export default function OracleChatPage() {
             sessionId,
             role: "user",
             content,
+            modelOptionKey: composerPreferences.modelOptionKey,
+            reasoningEffort: composerPreferences.reasoningEffort,
         });
 
         setIsStreaming(true);
@@ -676,7 +686,7 @@ export default function OracleChatPage() {
         } finally {
             setIsStreaming(false);
         }
-    }, [inputValue, selectedFeatureKey, isStreaming, sessionId, addMessageMutation, invokeOracle, setIsStreaming, debugModelOverride, setDebugLastMetrics, setDebugDebugModelUsed, setDebugClientTiming, clearSelectedFeature]);
+    }, [inputValue, selectedFeatureKey, isStreaming, sessionId, addMessageMutation, invokeOracle, setIsStreaming, debugModelOverride, setDebugLastMetrics, setDebugDebugModelUsed, setDebugClientTiming, clearSelectedFeature, composerPreferences.modelOptionKey, composerPreferences.reasoningEffort]);
 
     const reportStatus = currentUser?.birthChartReport?.status;
     const reportOnboardingStep = currentUser?.birthChartReport?.onboardingStep;
@@ -1243,6 +1253,12 @@ export default function OracleChatPage() {
                                 onBinauralGenerate={handleBinauralGenerate}
                                 birthChartDepth={birthChartDepth}
                                 onBirthChartDepthChange={handleBirthChartDepthChange}
+                                modelOptions={composerPreferences.options}
+                                modelOptionKey={composerPreferences.modelOptionKey}
+                                onModelOptionChange={composerPreferences.setModelOptionKey}
+                                reasoningEffort={composerPreferences.reasoningEffort}
+                                onReasoningEffortChange={composerPreferences.setReasoningEffort}
+                                onUpgrade={() => setUpgradeOpen(true)}
                             />
 
                             {/* Quota indicator */}

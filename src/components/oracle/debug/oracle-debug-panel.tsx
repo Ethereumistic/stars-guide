@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+import { makeFunctionReference } from "convex/server";
 import {
   Bug,
   ChevronDown,
@@ -45,6 +45,48 @@ import {
   KNOWN_MODELS_PER_PROVIDER_TYPE,
   type ProviderType,
 } from "@/lib/oracle/providers";
+
+type DebugSessionMessage = {
+  role: string;
+  modelUsed?: string;
+  fallbackTierUsed?: string;
+  promptTokens?: number;
+  completionTokens?: number;
+  systemPromptHash?: string;
+  timingPromptBuildMs?: number;
+  timingRequestQueueMs?: number;
+  timingTtftMs?: number;
+  timingInitialDecodeMs?: number;
+  timingTotalMs?: number;
+  debugModelUsed?: string;
+  requestedModelOptionKey?: string;
+  requestedReasoningEffort?: string;
+};
+
+type DebugSessionData = {
+  featureKey?: string;
+  birthChartDepth?: string;
+  status: string;
+  modelOptionKey?: string;
+  modelRouteFallbackReason?: string;
+  reasoningEffort?: string;
+  messages: DebugSessionMessage[];
+};
+
+const getDebugSessionRef = makeFunctionReference<
+  "query",
+  { sessionId: string },
+  DebugSessionData | null
+>("oracle/sessions:getSessionWithMessages");
+
+const getDebugProvidersRef = makeFunctionReference<
+  "query",
+  Record<string, never>,
+  {
+    providers: Array<{ id: string; name: string; type: string; baseUrl: string }>;
+    modelChain: Array<{ providerId: string; model: string; tier: string }>;
+  }
+>("oracle/debug:adminGetDebugProviders");
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -139,12 +181,12 @@ export function OracleDebugPanel() {
 
   // Fetch current session messages for token data
   const sessionData = useQuery(
-    api.oracle.sessions.getSessionWithMessages,
+    getDebugSessionRef,
     sessionId ? { sessionId } : "skip",
   );
 
   // Fetch providers/model chain for model override
-  const debugProviders = useQuery(api.oracle.debug.adminGetDebugProviders);
+  const debugProviders = useQuery(getDebugProvidersRef, {});
 
   // Token data and timing from the last assistant message
   const lastAssistantMsg = React.useMemo(() => {
@@ -153,6 +195,12 @@ export function OracleDebugPanel() {
       (m: any) => m.role === "assistant",
     );
     return msgs.length > 0 ? msgs[msgs.length - 1] : null;
+  }, [sessionData?.messages]);
+
+  const lastUserMsg = React.useMemo(() => {
+    if (!sessionData?.messages) return null;
+    const messages = sessionData.messages.filter((message: any) => message.role === "user");
+    return messages.length > 0 ? messages[messages.length - 1] : null;
   }, [sessionData?.messages]);
 
   // Primary source: message document fields; fallback: Zustand store from action result
@@ -692,7 +740,39 @@ export function OracleDebugPanel() {
                       {sessionData.status}
                     </p>
                   </div>
+                  <div>
+                    <span className="text-muted-foreground">Requested choice</span>
+                    <p className="font-mono text-white/70 truncate">
+                      {lastUserMsg?.requestedModelOptionKey ?? "feature default"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Effective choice</span>
+                    <p className="font-mono text-white/70 truncate">
+                      {sessionData.modelOptionKey ?? "feature default"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Requested reasoning</span>
+                    <p className="font-mono text-white/70">
+                      {lastUserMsg?.requestedReasoningEffort ?? "auto"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Effective reasoning</span>
+                    <p className="font-mono text-white/70">
+                      {sessionData.reasoningEffort ?? "auto"}
+                    </p>
+                  </div>
                 </div>
+                {sessionData.modelRouteFallbackReason && (
+                  <div className="mt-1">
+                    <span className="text-muted-foreground">Route fallback</span>
+                    <p className="font-mono text-amber-300/75">
+                      {sessionData.modelRouteFallbackReason}
+                    </p>
+                  </div>
+                )}
                 {lastAssistantMsg && (
                   <div className="mt-1">
                     <span className="text-muted-foreground">

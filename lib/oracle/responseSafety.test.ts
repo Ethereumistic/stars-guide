@@ -70,6 +70,21 @@ describe("scanResponse — medical advice detection", () => {
     assert.equal(result.blocked, false);
   });
 
+  it("should ALLOW ordinary recommendations that use medical-rule verbs", () => {
+    const responses = [
+      "You should take time to reflect before making a decision.",
+      "I recommend taking a measured approach to this transit.",
+      "I suggest trying journaling while Mercury is retrograde.",
+      "You likely have a gift for reading the emotional atmosphere.",
+      "This tension can be managed with patience and clearer boundaries.",
+    ];
+
+    for (const response of responses) {
+      const result = scanResponse(response);
+      assert.equal(result.blocked, false, `Unexpected block for: ${response}`);
+    }
+  });
+
   it("should ALLOW astrological health references", () => {
     const result = scanResponse(
       "Your Mars in the 6th house points to vitality and physical energy. This placement suggests you approach health matters with determination."
@@ -121,6 +136,23 @@ describe("scanResponse — journal content leakage", () => {
       "It sounds like you're having a good day with this energy. Let me explain more about your chart.";
     const result = scanResponse(response, journalContext);
     assert.equal(result.blocked, false);
+  });
+
+  it("should count one overlapping journal phrase as one match", () => {
+    const journalContext =
+      "I kept staring at the blue folder on the desk while waiting for the difficult meeting to begin.";
+    const response =
+      "The blue folder on the desk may stand out because the whole meeting carried emotional weight.";
+    const result = scanResponse(response, journalContext);
+    assert.equal(result.blocked, false);
+  });
+
+  it("should expose the exact matched rule for admin diagnostics", () => {
+    const result = scanResponse(
+      "You should take melatonin before bed to improve your sleep."
+    );
+    assert.equal(result.matches[0]?.ruleId, "medical_direct_recommendation");
+    assert.match(result.matches[0]?.matchedText ?? "", /melatonin/i);
   });
 });
 

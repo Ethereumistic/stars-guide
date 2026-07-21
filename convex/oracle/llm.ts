@@ -208,6 +208,12 @@ export const invokeOracle = action({
     );
 
     const user = await ctx.runQuery(apiRef.users.current, {});
+    if (args.debugModelOverride && user?.role !== "admin") {
+      throw new Error("Admin access is required for a debug model override");
+    }
+    const effectiveDebugModelOverride = user?.role === "admin"
+      ? args.debugModelOverride
+      : undefined;
     const directCurrentSkyQuestion = isDirectCurrentSkyQuestion(args.userQuestion);
 
     // ── Birth Chart Report conversational onboarding gate ────────────────
@@ -660,11 +666,25 @@ export const invokeOracle = action({
       stream: config.modelSettings.streamEnabled,
     };
 
+    const resolvedRoute = await ctx.runQuery(
+      internalRef.aiGateway.userModelOptions.resolveOracleRouteInternal,
+      {
+        requestedOptionKey: session.modelOptionKey,
+        requestedReasoningEffort: session.reasoningEffort,
+      },
+    );
+    await ctx.runMutation(internalRef.oracle.sessions.patchModelRouteResolution, {
+      sessionId: args.sessionId,
+      modelOptionKey: resolvedRoute.optionKey,
+      reasoningEffort: resolvedRoute.reasoningEffort,
+      fallbackReason: resolvedRoute.fallbackReason,
+    });
+
     let debugModelUsed: string | null = null;
 
     // If debug model override is specified, prepend it to the chain
-    if (args.debugModelOverride) {
-      debugModelUsed = `${args.debugModelOverride.providerId}/${args.debugModelOverride.model}`;
+    if (effectiveDebugModelOverride) {
+      debugModelUsed = `${effectiveDebugModelOverride.providerId}/${effectiveDebugModelOverride.model}`;
     }
 
     // ── Build ordered provider attempt list ─────────────────────────────────
@@ -685,7 +705,8 @@ export const invokeOracle = action({
           args.sessionId,
           systemPromptHash,
           { actionStartTime, promptBuildEndTime },
-          args.debugModelOverride,
+          resolvedRoute,
+          effectiveDebugModelOverride,
         );
 
         if (!attemptResult) {
@@ -719,7 +740,8 @@ export const invokeOracle = action({
             args.sessionId,
             simpleHash(repairSystemPrompt),
             { actionStartTime, promptBuildEndTime },
-            args.debugModelOverride,
+            resolvedRoute,
+            effectiveDebugModelOverride,
           );
           const repairedViolations = repaired ? validateOracleResponse(repaired.contentWithoutTitle, requestPlan, evidenceBundle) : repairableViolations;
           if (repaired && repairedViolations.some((item) => item.severity === "error") && repaired.messageId) {
@@ -748,9 +770,6 @@ export const invokeOracle = action({
           repaired: responseRepaired,
           createdAt: Date.now(),
         };
-        if (attemptResult.messageId) {
-          await ctx.runMutation(internalRef.oracle.traces.storeTrace, { sessionId: args.sessionId, messageId: attemptResult.messageId, payload: JSON.stringify(turnTrace) });
-        }
 
         const provider = { id: attemptResult.providerId };
         const entry = { model: attemptResult.model };
@@ -763,38 +782,65 @@ export const invokeOracle = action({
         // After every successful response, scan for safety violations.
         // ════════════════════════════════════════════════════════════════════
         const safetyResult = scanResponse(attemptResult.contentWithoutTitle, journalContext);
+        turnTrace.safetyScan = {
+          blocked: safetyResult.blocked,
+          flags: safetyResult.flags,
+          reason: safetyResult.reason,
+          matches: safetyResult.matches,
+          ...(safetyResult.blocked
+            ? { blockedResponse: attemptResult.contentWithoutTitle }
+            : {}),
+        };
         if (safetyResult.blocked) {
           console.error(`[Oracle] OUTPUT SAFETY BLOCK on tier ${tier} (${provider.id}/${entry.model}): ${safetyResult.reason}`);
 
-          // Delete the LLM response message that was created during streaming
+          const safetyFallbackMsg = OUTPUT_SAFETY_BLOCK_MESSAGE;
+          let traceMessageId = attemptResult.messageId;
+
+          // Replace the already-streamed candidate atomically so the client
+          // does not observe a delete/insert race. The raw candidate is kept
+          // only in the admin-authorized trace above.
           if (attemptResult.messageId) {
-            try {
-              await ctx.runMutation(internalRef.oracle.sessions.deleteMessage, {
+            await ctx.runMutation(
+              internalRef.oracle.sessions.replaceStreamingMessageWithSafetyFallback,
+              {
                 messageId: attemptResult.messageId,
-              });
-            } catch (e) {
-              console.error("[Oracle] Failed to delete blocked safety message:", e);
-            }
+                sessionId: args.sessionId,
+                content: safetyFallbackMsg,
+              },
+            );
+          } else {
+            traceMessageId = await ctx.runMutation(apiRef.oracle.sessions.addMessage, {
+              sessionId: args.sessionId,
+              role: "assistant",
+              content: safetyFallbackMsg,
+              fallbackTierUsed: "D",
+            });
           }
 
-          // Persist the safe fallback message and return
-          const safetyFallbackMsg = OUTPUT_SAFETY_BLOCK_MESSAGE;
-          await ctx.runMutation(apiRef.oracle.sessions.addMessage, {
-            sessionId: args.sessionId,
-            role: "assistant",
-            content: safetyFallbackMsg,
-            fallbackTierUsed: "D",
-          });
-          await ctx.runMutation(apiRef.oracle.sessions.updateSessionStatus, {
-            sessionId: args.sessionId,
-            status: "active",
-          });
+          if (traceMessageId) {
+            await storeOracleTraceBestEffort(
+              ctx,
+              args.sessionId,
+              traceMessageId,
+              turnTrace,
+            );
+          }
 
           return {
             content: safetyFallbackMsg,
             modelUsed: "safety_blocked",
             fallbackTier: "D",
           };
+        }
+
+        if (attemptResult.messageId) {
+          await storeOracleTraceBestEffort(
+            ctx,
+            args.sessionId,
+            attemptResult.messageId,
+            turnTrace,
+          );
         }
 
         // ════════════════════════════════════════════════════════════════════
@@ -860,7 +906,7 @@ export const invokeOracle = action({
     if (isFirstResponse) {
       // Compute the model string — use debug override if active, otherwise the actual provider/model
       const costModelUsed =
-        debugModelUsed && usedProviderId === args.debugModelOverride?.providerId
+        debugModelUsed && usedProviderId === effectiveDebugModelOverride?.providerId
           ? debugModelUsed
           : `${usedProviderId ?? "unknown"}/${usedModel ?? "unknown"}`;
 
@@ -923,7 +969,7 @@ export const invokeOracle = action({
 
     // Determine actual model used (check if debug override was used)
     const actualModelUsed =
-      debugModelUsed && usedProviderId === args.debugModelOverride?.providerId
+      debugModelUsed && usedProviderId === effectiveDebugModelOverride?.providerId
         ? debugModelUsed
         : `${usedProviderId}/${usedModel}`;
 
@@ -936,7 +982,7 @@ export const invokeOracle = action({
         timingTtftMs: timingMetrics.ttftMs,
         timingInitialDecodeMs: timingMetrics.initialDecodeMs,
         timingTotalMs: timingMetrics.totalMs,
-        debugModelUsed: debugModelUsed && usedProviderId === args.debugModelOverride?.providerId
+        debugModelUsed: debugModelUsed && usedProviderId === effectiveDebugModelOverride?.providerId
           ? debugModelUsed
           : undefined,
       });
@@ -974,7 +1020,7 @@ export const invokeOracle = action({
       promptTokens: result.promptTokens,
       completionTokens: result.completionTokens,
       timingMetrics,
-      debugModelUsed: debugModelUsed && usedProviderId === args.debugModelOverride?.providerId
+      debugModelUsed: debugModelUsed && usedProviderId === effectiveDebugModelOverride?.providerId
         ? debugModelUsed
         : null,
     };
@@ -996,6 +1042,25 @@ type OracleStreamResult = {
   messageId?: Id<"oracle_messages">;
 };
 
+async function storeOracleTraceBestEffort(
+  ctx: any,
+  sessionId: Id<"oracle_sessions">,
+  messageId: Id<"oracle_messages">,
+  trace: OracleTurnTrace,
+): Promise<void> {
+  try {
+    await ctx.runMutation(internalRef.oracle.traces.storeTrace, {
+      sessionId,
+      messageId,
+      payload: JSON.stringify(trace),
+    });
+  } catch (error) {
+    // Observability must never turn an otherwise valid Oracle response into a
+    // fallback or bypass the output scanner.
+    console.error("[Oracle] Failed to persist turn trace:", error);
+  }
+}
+
 async function callGatewayStreaming(
   ctx: any,
   prompt: { systemPrompt: string; userMessage: string },
@@ -1004,6 +1069,12 @@ async function callGatewayStreaming(
   sessionId: Id<"oracle_sessions">,
   systemPromptHash?: string,
   timingContext?: { actionStartTime: number; promptBuildEndTime: number },
+  route?: {
+    chain: Array<{ providerId: string; model: string }>;
+    optionKey?: string;
+    reasoningEffort: "auto" | "disabled" | "low" | "medium" | "high";
+    effectiveTier: string;
+  },
   debugOverride?: { providerId: string; model: string },
 ): Promise<OracleStreamResult | null> {
   let messageId: Id<"oracle_messages"> | undefined;
@@ -1025,6 +1096,12 @@ async function callGatewayStreaming(
     const gatewayResult = await streamAIGateway(ctx, {
       feature: "oracle_chat",
       messages,
+      route: route ? {
+        chain: route.chain,
+        optionKey: route.optionKey,
+        reasoningEffort: route.reasoningEffort,
+        effectiveUserTier: route.effectiveTier,
+      } : undefined,
       overrides: {
         ...(debugOverride ?? {}),
         temperature: config.temperature,

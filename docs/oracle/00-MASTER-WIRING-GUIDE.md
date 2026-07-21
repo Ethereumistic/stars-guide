@@ -10,12 +10,14 @@ For details, inspect code first. Older long-form docs were moved to `archive/` a
 | --- | --- |
 | New Oracle session | `src/app/(app)/oracle/new/page.tsx` |
 | Chat UI | `src/app/(app)/oracle/chat/[sessionId]/page.tsx` |
+| Composer and preferences | `src/components/oracle/input/`, `src/lib/ai/inference-preferences.ts` |
 | Oracle layout/sidebar/debug panel | `src/app/(app)/oracle/layout.tsx`, `src/components/oracle/` |
 | Main Convex action | `convex/oracle/llm.ts` (`invokeOracle`) |
 | Sessions/messages | `convex/oracle/sessions.ts` |
 | Settings/providers | `convex/oracle/settings.ts`, `convex/oracle/upsertProviders.ts`, `src/lib/oracle/providers.ts` |
 | Quota | `convex/oracle/quota.ts`, `convex/oracle/pricing.ts` |
 | Provider selection | `convex/oracle/providerRouter.ts` |
+| User model access/routing | `convex/aiGateway/userModelOptions.ts` |
 | Pipelines | `src/lib/oracle/pipelines/` |
 | Pipeline types | `src/lib/oracle/pipelineTypes.ts` |
 | Intent routing | `src/lib/oracle/intentRouter.ts`, `src/lib/oracle/intentRouterPrompt.ts` |
@@ -32,8 +34,8 @@ Note: files under root `lib/oracle/` are partly compatibility re-exports for Con
 
 1. User opens `/oracle/new`.
 2. The page checks quota and optional kill switch state.
-3. User submits a question or chooses a feature.
-4. `createSession` writes an `oracle_sessions` row and the first user `oracle_messages` row.
+3. User submits a question or chooses a feature. The composer sends only an opaque model-option key and reasoning effort; it never receives provider chains.
+4. `createSession` resolves those preferences against the authenticated user's tier, writes the effective choice to `oracle_sessions`, and writes the first user `oracle_messages` row.
 5. The app navigates to `/oracle/chat/[sessionId]`.
 6. The chat page calls `api.oracle.llm.invokeOracle` unless the interaction is metadata-only, such as manually storing a generated binaural beat message.
 7. Streaming message updates arrive through Convex reactive queries.
@@ -61,12 +63,13 @@ The actual implementation is in `convex/oracle/llm.ts`.
 16. Sanitize the user question and append it after user data blocks.
 17. Run server-side quota pre-check before any main LLM call.
 18. Build conversation history and model config.
-19. Select provider/model chain order, including optional admin debug override.
-20. Stream through model tiers until success.
-21. After each successful streamed response, run output safety scanning.
-22. If the model refused a benign answer and more tiers remain, delete that refusal and retry with a recovery block.
-23. If all tiers fail, add hardcoded fallback assistant message and return.
-24. On success, compute cost, patch message cost, increment quota on first response, update title on first response, patch timing metrics, run pipeline `afterResponse` hooks, and mark the session active.
+19. Resolve the session's model option and reasoning effort against the current user tier. Fall back to the `oracle_chat` feature profile if selection is disabled, unavailable, or invalid.
+20. Select provider/model chain order; an authorized admin debug override takes precedence.
+21. Stream through model tiers until success.
+22. After each successful streamed response, run output safety scanning. If blocked, atomically replace that message with safe fallback copy and retain the scanner rule matches plus quarantined candidate only in the admin-authorized turn trace. Trace persistence is best-effort and cannot change response behavior.
+23. If the model refused a benign answer and more tiers remain, delete that refusal and retry with a recovery block.
+24. If all tiers fail, add hardcoded fallback assistant message and return.
+25. On success, compute cost, patch message cost, increment quota on first response, update title on first response, patch timing metrics, run pipeline `afterResponse` hooks, and mark the session active.
 
 ## Current Pipelines
 
@@ -87,8 +90,11 @@ Primary Oracle tables are in `convex/schema.ts`:
 - `oracle_feature_injections`
 - `oracle_settings`
 - `oracle_quota_usage`
-- `oracle_sessions`
-- `oracle_messages`
+- `oracle_sessions` (effective model option, reasoning effort, and route fallback reason)
+- `oracle_messages` (raw per-turn requested option/effort for diagnostics)
+- `oracle_turn_traces` (admin-only planner, contract, provider, and output-safety evidence; blocked traces retain quarantined output)
+- `ai_feature_profiles` (feature default chain and the user-selection rollout switch)
+- `ai_user_model_options` (admin-defined, tier-gated model choices and reasoning policy)
 
 Related tables/systems:
 
@@ -106,8 +112,9 @@ Related tables/systems:
 - Birth data is included only when at least one active pipeline requests it.
 - User question text is sanitized before entering the final prompt.
 - Output is scanned before being accepted.
+- A blocked streamed message is replaced in place; its original output and exact scanner rule are visible only to admins through `/admin/oracle/debug`.
 - Provider API keys are not stored in the DB; provider config stores env var names.
-- Admin debug model override is client-side/session-local and is not persisted to Oracle settings.
+- Admin debug model override is request-local, server-authorized, and never persisted to Oracle settings. Non-admin overrides are rejected.
 
 ## Current Known Documentation Drift
 

@@ -1,161 +1,244 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { Plus, Send, Sparkles, X } from "lucide-react"
-import { useQuery } from "convex/react"
-import { api } from "../../../../convex/_generated/api"
-import { GiMazeCornea, GiMusicalNotes, GiScrollUnfurled, GiLinkedRings } from "react-icons/gi"
+import * as React from "react";
+import { ArrowUp, Sparkles, X } from "lucide-react";
+import { useQuery } from "convex/react";
+import { makeFunctionReference } from "convex/server";
+import { OracleChartPreview } from "@/components/oracle/input/oracle-chart-preview";
+import { SynastryCard } from "@/components/oracle/input/synastry-card";
+import { BinauralBeatsCard } from "@/components/oracle/input/binaural-beats-card";
+import { OracleFeatureMenu } from "@/components/oracle/input/oracle-feature-menu";
+import { OracleModelMenu } from "@/components/oracle/input/oracle-model-menu";
+import { OracleReasoningMenu } from "@/components/oracle/input/oracle-reasoning-menu";
+import {
+  OracleDictationButton,
+  type OracleDictationHandle,
+} from "@/components/oracle/input/oracle-dictation-button";
+import { useAutosizeTextarea } from "@/components/oracle/input/use-autosize-textarea";
+import { Button } from "@/components/ui/button";
+import type { OracleBirthData } from "@/lib/oracle/featureContext";
+import {
+  type OracleFeatureDefinition,
+  type OracleFeatureKey,
+  type BirthChartDepth,
+  getOracleFeature,
+  isBirthChartFeature,
+  isSynastryFeature,
+} from "@/lib/oracle/features";
+import type { BinauralBeatParams } from "@/lib/binaural-presets";
+import type { SynastryState } from "@/store/use-oracle-store";
+import type { StoredBirthData } from "@/lib/birth-chart/types";
+import type { OracleModelOption, ReasoningEffort } from "@/lib/ai/inference-preferences";
 
-import { OracleChartPreview } from "@/components/oracle/input/oracle-chart-preview"
-import { SynastryCard } from "@/components/oracle/input/synastry-card"
-import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
-import type { OracleBirthData } from "@/lib/oracle/featureContext"
-import { ORACLE_FEATURES, type OracleFeatureKey, type BirthChartDepth, getOracleFeature, isBirthChartFeature, isSynastryFeature } from "@/lib/oracle/features"
-import { BinauralBeatsCard } from "@/components/oracle/input/binaural-beats-card"
-import type { BinauralBeatParams } from "@/lib/binaural-presets"
-import type { SynastryState } from "@/store/use-oracle-store"
-import type { StoredBirthData } from "@/lib/birth-chart/types"
+const getJournalConsentRef = makeFunctionReference<
+  "query",
+  Record<string, never>,
+  { oracleCanReadJournal: boolean } | null
+>("journal/consent:getConsent");
 
 interface OracleInputProps {
-  value: string
-  onValueChange: (value: string) => void
-  onSubmit: () => void
-  placeholder: string
-  disabled?: boolean
-  canSubmit?: boolean
-  inputRef?: React.RefObject<HTMLInputElement | null>
-  featureKey?: OracleFeatureKey | null
-  onFeatureSelect: (featureKey: OracleFeatureKey) => void
-  onFeatureClear: () => void
-  birthData?: OracleBirthData | null
-  username?: string | null
-  onBinauralGenerate?: (params: BinauralBeatParams) => void
-  birthChartDepth?: BirthChartDepth
-  onBirthChartDepthChange?: (depth: BirthChartDepth) => void
-  synastryState?: SynastryState | null
-  onSetSynastryChartB?: (data: StoredBirthData, name: string, source: "friend" | "custom", friendUserId?: string) => void
-  onSetSynastryRelationship?: (relationship: string, category?: string) => void
-  onClearSynastry?: () => void
-  onClearSynastryChartB?: () => void
+  value: string;
+  onValueChange: (value: string) => void;
+  onSubmit: () => void;
+  placeholder: string;
+  disabled?: boolean;
+  canSubmit?: boolean;
+  inputRef?: React.RefObject<HTMLTextAreaElement | null>;
+  featureKey?: OracleFeatureKey | null;
+  onFeatureSelect: (featureKey: OracleFeatureKey) => void;
+  onFeatureClear: () => void;
+  birthData?: OracleBirthData | null;
+  username?: string | null;
+  onBinauralGenerate?: (params: BinauralBeatParams) => void;
+  birthChartDepth?: BirthChartDepth;
+  onBirthChartDepthChange?: (depth: BirthChartDepth) => void;
+  synastryState?: SynastryState | null;
+  onSetSynastryChartB?: (data: StoredBirthData, name: string, source: "friend" | "custom", friendUserId?: string) => void;
+  onSetSynastryRelationship?: (relationship: string, category?: string) => void;
+  onClearSynastry?: () => void;
+  onClearSynastryChartB?: () => void;
+  modelOptions?: OracleModelOption[];
+  modelOptionKey?: string;
+  onModelOptionChange?: (optionKey: string) => void;
+  reasoningEffort?: ReasoningEffort;
+  onReasoningEffortChange?: (effort: ReasoningEffort) => void;
+  onUpgrade?: () => void;
 }
 
 export function OracleInput({
-  value, onValueChange, onSubmit, placeholder, disabled = false, canSubmit = false, inputRef,
-  featureKey, onFeatureSelect, onFeatureClear, birthData, username,
-  onBinauralGenerate, birthChartDepth = "core", onBirthChartDepthChange,
-  synastryState, onSetSynastryChartB, onSetSynastryRelationship, onClearSynastry, onClearSynastryChartB,
+  value,
+  onValueChange,
+  onSubmit,
+  placeholder,
+  disabled = false,
+  canSubmit = false,
+  inputRef,
+  featureKey,
+  onFeatureSelect,
+  onFeatureClear,
+  birthData,
+  username,
+  onBinauralGenerate,
+  birthChartDepth = "core",
+  onBirthChartDepthChange,
+  synastryState,
+  onSetSynastryChartB,
+  onSetSynastryRelationship,
+  onClearSynastryChartB,
+  modelOptions = [],
+  modelOptionKey = "automatic",
+  onModelOptionChange,
+  reasoningEffort = "auto",
+  onReasoningEffortChange,
+  onUpgrade,
 }: OracleInputProps) {
-  const activeFeature = getOracleFeature(featureKey)
-  const showBirthPreview = isBirthChartFeature(featureKey)
-  const showBinauralBeats = featureKey === "binaural_beats"
-  const showSynastry = isSynastryFeature(featureKey)
-  const showFeatureBadge = activeFeature && !showBirthPreview && !showSynastry && !showBinauralBeats
+  const textareaRef = React.useRef<HTMLTextAreaElement | null>(null);
+  const dictationRef = React.useRef<OracleDictationHandle | null>(null);
+  useAutosizeTextarea(textareaRef, value);
 
-  const consent = useQuery(api.journal.consent.getConsent)
+  const setTextareaRef = React.useCallback((node: HTMLTextAreaElement | null) => {
+    textareaRef.current = node;
+    if (inputRef) inputRef.current = node;
+  }, [inputRef]);
 
-  function isFeatureDisabled(feat: typeof ORACLE_FEATURES[number]): boolean {
-    if (!feat.implemented) return true
-    if (feat.requiresJournalConsent) {
-      if (consent === undefined || consent === null || !consent.oracleCanReadJournal) return true
+  const activeFeature = getOracleFeature(featureKey);
+  const showBirthPreview = isBirthChartFeature(featureKey);
+  const showBinauralBeats = featureKey === "binaural_beats";
+  const showSynastry = isSynastryFeature(featureKey);
+  const showFeatureBadge = activeFeature && !showBirthPreview && !showSynastry && !showBinauralBeats;
+  const consent = useQuery(getJournalConsentRef, {});
+  const selectedModel = modelOptions.find((option) => option.optionKey === modelOptionKey)
+    ?? modelOptions.find((option) => option.available);
+  const allowedEfforts = selectedModel?.allowedReasoningEfforts ?? [reasoningEffort];
+
+  const isFeatureDisabled = (feature: OracleFeatureDefinition): boolean => {
+    if (!feature.implemented) return true;
+    if (feature.requiresJournalConsent) {
+      return consent === undefined || consent === null || !consent.oracleCanReadJournal;
     }
-    return false
-  }
+    return false;
+  };
 
-  function getFeatureDisabledReason(feat: typeof ORACLE_FEATURES[number]): string | null {
-    if (!feat.implemented) return "Coming soon"
-    if (feat.requiresJournalConsent) {
-      if (consent === undefined) return "Loading…"
-      if (consent === null || !consent?.oracleCanReadJournal) return "Requires journal access — enable in Journal Settings"
+  const getFeatureDisabledReason = (feature: OracleFeatureDefinition): string | null => {
+    if (!feature.implemented) return "Coming soon";
+    if (feature.requiresJournalConsent) {
+      if (consent === undefined) return "Checking journal access…";
+      if (consent === null || !consent.oracleCanReadJournal) return "Enable Oracle access in Journal settings";
     }
-    return null
-  }
+    return null;
+  };
 
-  function getFeatureIcon(key: OracleFeatureKey) {
-    switch (key) {
-      case "birth_chart": return <GiMazeCornea className="w-4 h-4 text-galactic" />
-      case "binaural_beats": return <GiMusicalNotes className="w-4 h-4 text-galactic" />
-      case "journal_recall": return <GiScrollUnfurled className="w-4 h-4 text-galactic" />
-      case "synastry": return <GiLinkedRings className="w-4 h-4 text-galactic" />
-      default: return <Sparkles className="w-4 h-4 text-galactic" />
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing &&
+      canSubmit &&
+      !disabled
+    ) {
+      event.preventDefault();
+      dictationRef.current?.stop();
+      onSubmit();
     }
-  }
+  };
 
-  const primaryFeatureItems = ORACLE_FEATURES.filter((feature) => feature.menuGroup === "primary")
+  const handleSubmit = () => {
+    dictationRef.current?.stop();
+    onSubmit();
+  };
 
   return (
     <div className="space-y-3">
-      {showFeatureBadge ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center gap-2 rounded-full border border-galactic/35 bg-galactic/12 px-3 py-1.5 text-xs text-white/80 backdrop-blur-xl">
-            <Sparkles className="size-3.5 text-galactic" />
-            <span className="tracking-wide">{activeFeature.shortLabel}</span>
-            <button type="button" onClick={onFeatureClear} className="rounded-full p-0.5 text-white/45 transition hover:bg-white/10 hover:text-white" aria-label={`Clear ${activeFeature.shortLabel}`}>
-              <X className="size-3.5" />
-            </button>
-          </div>
-          <span className="text-[11px] uppercase tracking-[0.24em] text-white/35">Feature mode</span>
-        </div>
-      ) : null}
-
-      {showBirthPreview ? (
+      {showBirthPreview && (
         <OracleChartPreview birthData={birthData} username={username} depth={birthChartDepth} onDepthChange={onBirthChartDepthChange} onDismiss={onFeatureClear} />
-      ) : null}
+      )}
 
-      {showSynastry ? (
+      {showSynastry && (
         <SynastryCard
           birthData={birthData}
           username={username}
           synastryData={synastryState ?? null}
           onSetChartB={onSetSynastryChartB ?? (() => {})}
-          onSetRelationship={onSetSynastryRelationship ?? ((_r: string, _c?: string) => {}) }
+          onSetRelationship={onSetSynastryRelationship ?? (() => {})}
           onDismiss={onFeatureClear}
           onClearChartB={onClearSynastryChartB}
         />
-      ) : null}
+      )}
 
-      {showBinauralBeats ? (
+      {showBinauralBeats && (
         <BinauralBeatsCard onDismiss={onFeatureClear} onGenerate={onBinauralGenerate} />
-      ) : null}
+      )}
 
-      <div className="relative group">
-        <div className="absolute -inset-1 bg-linear-to-r from-galactic/20 via-primary/10 to-galactic/20 rounded-2xl blur opacity-30 group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
-        <div className="relative flex items-center bg-background/90 backdrop-blur-2xl border border-white/10 focus-within:border-galactic/50 rounded-2xl p-1.5 shadow-xl transition-all h-14 gap-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button type="button" variant="ghost" size="icon" className="shrink-0 text-white/40 hover:text-white hover:bg-white/10 focus-visible:ring-0 transition-colors h-10 w-10 rounded-xl" aria-label="Open Oracle feature menu">
-                <Plus className="w-5 h-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-64 border-galactic/20 bg-background/95 backdrop-blur-xl" align="start">
-              {primaryFeatureItems.map((feature) => {
-                const disabled = isFeatureDisabled(feature)
-                const reason = getFeatureDisabledReason(feature)
-                return (
-                  <DropdownMenuItem key={feature.key} disabled={disabled} className="gap-2.5 cursor-pointer text-white/80 hover:text-white focus:text-white" onSelect={() => !disabled && onFeatureSelect(feature.key)}>
-                    {getFeatureIcon(feature.key)}
-                    <span className="text-sm">{feature.label}</span>
-                    {reason && <span className="ml-auto text-[10px] text-white/30">{reason}</span>}
-                  </DropdownMenuItem>
-                )
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
+      <div className="group relative overflow-hidden rounded-[1.65rem] border border-white/[0.11] bg-[#12111a]/94 shadow-[0_22px_70px_-28px_rgba(0,0,0,0.9)] backdrop-blur-2xl transition-colors duration-300 focus-within:border-white/[0.18]">
+        <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-linear-to-r from-transparent via-galactic/85 to-primary/75 opacity-35 transition-opacity duration-300 group-focus-within:opacity-100" />
+        <div className="px-4 pt-3.5 sm:px-5 sm:pt-4">
+          {showFeatureBadge && activeFeature && (
+            <div className="mb-2.5 flex items-center gap-2">
+              <div className="inline-flex items-center gap-2 rounded-full border border-galactic/25 bg-galactic/10 px-2.5 py-1 text-[11px] text-white/75">
+                <Sparkles className="size-3 text-galactic" />
+                <span>{activeFeature.shortLabel}</span>
+                <button type="button" onClick={onFeatureClear} className="rounded-full p-0.5 text-white/40 transition hover:bg-white/10 hover:text-white" aria-label={`Clear ${activeFeature.shortLabel}`}>
+                  <X className="size-3" />
+                </button>
+              </div>
+            </div>
+          )}
 
-          <Input ref={inputRef} type="text" value={value} onChange={(event) => onValueChange(event.target.value)}
-            onKeyDown={(event) => { if (event.key === "Enter" && canSubmit && !disabled) onSubmit() }}
-            placeholder={placeholder} disabled={disabled}
-            className="flex-1 bg-transparent border-none outline-none hover:bg-transparent hover:border-0 hover:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-white placeholder:text-white/30 text-sm md:text-base font-sans px-2 shadow-none disabled:opacity-50"
-            aria-label="Oracle message input" />
+          <textarea
+            ref={setTextareaRef}
+            rows={1}
+            value={value}
+            maxLength={2000}
+            onChange={(event) => onValueChange(event.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            disabled={disabled}
+            aria-label="Oracle message input"
+            className="block min-h-8 w-full resize-none overflow-y-hidden bg-transparent py-1 text-[15px] leading-6 text-white outline-none placeholder:text-white/30 disabled:cursor-not-allowed disabled:opacity-50 sm:text-base"
+          />
+          {value.length >= 1800 && (
+            <div className="mt-1 text-right font-mono text-[9px] text-white/30" aria-live="polite">{value.length}/2000</div>
+          )}
+        </div>
 
-          <Button type="button" size="icon" onClick={onSubmit} disabled={!canSubmit || disabled}
-            className={`shrink-0 rounded-xl transition-all h-10 w-10 ${canSubmit && !disabled ? "bg-galactic text-white shadow-[0_0_15px_rgba(157,78,221,0.5)] hover:bg-galactic/90" : "bg-white/10 text-white/30 hover:bg-white/20 hover:text-white/50"}`}
-            aria-label="Send message">
-            <Send className="w-4 h-4 ml-0.5" />
+        <div className="flex min-h-14 items-center gap-0.5 px-2.5 pb-2 pt-1.5 sm:px-3">
+          <OracleFeatureMenu
+            disabled={disabled}
+            isFeatureDisabled={isFeatureDisabled}
+            getFeatureDisabledReason={getFeatureDisabledReason}
+            onFeatureSelect={onFeatureSelect}
+          />
+          <div className="min-w-1 flex-1" />
+          {modelOptions.length > 0 && onModelOptionChange && (
+            <OracleModelMenu
+              options={modelOptions}
+              selectedOptionKey={modelOptionKey}
+              onSelect={onModelOptionChange}
+              onUpgrade={onUpgrade}
+              disabled={disabled}
+            />
+          )}
+          {onReasoningEffortChange && (
+            <OracleReasoningMenu
+              allowed={allowedEfforts}
+              value={reasoningEffort}
+              onChange={onReasoningEffortChange}
+              disabled={disabled}
+            />
+          )}
+          <OracleDictationButton ref={dictationRef} value={value} onValueChange={onValueChange} disabled={disabled} />
+          <Button
+            type="button"
+            size="icon"
+            onClick={handleSubmit}
+            disabled={!canSubmit || disabled}
+            className={`size-10 shrink-0 rounded-full transition-all duration-200 ${canSubmit && !disabled ? "bg-galactic text-white shadow-[0_0_20px_rgba(157,78,221,0.3)] hover:bg-galactic/90" : "bg-white/[0.07] text-white/25 hover:bg-white/[0.07]"}`}
+            aria-label="Send message"
+          >
+            <ArrowUp className="size-[18px]" />
           </Button>
         </div>
       </div>
     </div>
-  )
+  );
 }

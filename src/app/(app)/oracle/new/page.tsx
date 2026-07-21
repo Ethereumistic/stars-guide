@@ -8,6 +8,8 @@ import { useQuery, useMutation } from "convex/react";
 import { makeFunctionReference } from "convex/server";
 import type { Id } from "@/../convex/_generated/dataModel";
 import { OracleInput } from "@/components/oracle/input/oracle-input";
+import { useOracleComposerPreferences } from "@/components/oracle/input/use-oracle-composer-preferences";
+import type { ReasoningEffort } from "@/lib/ai/inference-preferences";
 import {
   getFeatureDefaultPrompt,
   type OracleFeatureKey,
@@ -70,6 +72,8 @@ const getOracleSettingRef = makeFunctionReference<
 type CreateOracleSessionArgs = Record<string, unknown> & {
   featureKey?: string;
   questionText: string;
+  modelOptionKey?: string;
+  reasoningEffort?: ReasoningEffort;
   synastryPayload?: {
     chartB: OracleBirthData;
     source: "friend" | "custom";
@@ -156,7 +160,7 @@ function PlanBadge({
 
 export default function OracleNewPage() {
   const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const reportBootstrapStartedRef = useRef(false);
   const { user } = useUserStore();
   const [isStartingBirthReport, setIsStartingBirthReport] = useState(false);
@@ -180,6 +184,8 @@ export default function OracleNewPage() {
     setUsageOpen,
     setUpgradeOpen,
   } = useOracleStore();
+
+  const composerPreferences = useOracleComposerPreferences();
 
   const quota = useQuery(checkOracleQuotaRef);
   const currentUserForReportBootstrap = useQuery(getCurrentUserForReportBootstrapRef, {});
@@ -285,6 +291,8 @@ export default function OracleNewPage() {
       const sessionId = await createSession({
         featureKey: selectedFeatureKey ?? undefined,
         questionText,
+        modelOptionKey: composerPreferences.modelOptionKey,
+        reasoningEffort: composerPreferences.reasoningEffort,
         synastryPayload: isSynastryFeature(selectedFeatureKey) && synastryData?.chartB && synastryData?.relationship
           ? {
               chartB: synastryData.chartB,
@@ -317,6 +325,8 @@ export default function OracleNewPage() {
     setOracleResponding,
     router,
     clearSelectedFeature,
+    composerPreferences.modelOptionKey,
+    composerPreferences.reasoningEffort,
   ]);
 
   const currentTier = (user?.tier ?? "free") as "free" | "popular" | "premium";
@@ -435,6 +445,12 @@ export default function OracleNewPage() {
                 onSetSynastryRelationship={setSynastryRelationship}
                 onClearSynastry={clearSynastry}
                 onClearSynastryChartB={clearSynastryChartB}
+                modelOptions={composerPreferences.options}
+                modelOptionKey={composerPreferences.modelOptionKey}
+                onModelOptionChange={composerPreferences.setModelOptionKey}
+                reasoningEffort={composerPreferences.reasoningEffort}
+                onReasoningEffortChange={composerPreferences.setReasoningEffort}
+                onUpgrade={() => setUpgradeOpen(true)}
                 />
               </div>
 

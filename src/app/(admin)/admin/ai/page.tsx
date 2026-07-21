@@ -10,6 +10,7 @@ import { ModelRegistry } from "@/components/ai-admin/model-registry";
 import { AITestingPanel } from "@/components/ai-admin/ai-testing-panel";
 import { AISettingsPanel } from "@/components/ai-admin/ai-settings-panel";
 import { FeatureProfilesPanel } from "@/components/ai-admin/feature-profiles-panel";
+import { UserModelOptionsPanel } from "@/components/ai-admin/user-model-options-panel";
 import {
   Card,
   CardContent,
@@ -98,9 +99,10 @@ export default function AIAdminPage() {
       </div>
 
       <Tabs defaultValue="providers" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-3 gap-1 sm:grid-cols-6">
           <TabsTrigger value="providers">Providers</TabsTrigger>
           <TabsTrigger value="profiles">Profiles</TabsTrigger>
+          <TabsTrigger value="user-models">User models</TabsTrigger>
           <TabsTrigger value="models">Models</TabsTrigger>
           <TabsTrigger value="testing">Testing</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
@@ -127,6 +129,10 @@ export default function AIAdminPage() {
 
         <TabsContent value="profiles" className="space-y-4">
           <FeatureProfilesPanel />
+        </TabsContent>
+
+        <TabsContent value="user-models" className="space-y-4">
+          <UserModelOptionsPanel providers={providers} />
         </TabsContent>
 
         <TabsContent value="models" className="space-y-4">

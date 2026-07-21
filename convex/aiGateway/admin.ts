@@ -389,6 +389,9 @@ export const logGatewayEventInternal = internalMutation({
     promptTokens: v.optional(v.number()),
     completionTokens: v.optional(v.number()),
     costMicro: v.optional(v.number()),
+    routeKey: v.optional(v.string()),
+    requestedThinkingMode: v.optional(v.string()),
+    effectiveUserTier: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("ai_gateway_events", {

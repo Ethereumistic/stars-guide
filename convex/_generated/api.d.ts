@@ -13,6 +13,7 @@ import type * as ai from "../ai.js";
 import type * as aiGateway_admin from "../aiGateway/admin.js";
 import type * as aiGateway_runtime from "../aiGateway/runtime.js";
 import type * as aiGateway_streaming from "../aiGateway/streaming.js";
+import type * as aiGateway_userModelOptions from "../aiGateway/userModelOptions.js";
 import type * as aiQueries from "../aiQueries.js";
 import type * as analytics from "../analytics.js";
 import type * as analyticsInternal from "../analyticsInternal.js";
@@ -109,6 +110,7 @@ declare const fullApi: ApiFromModules<{
   "aiGateway/admin": typeof aiGateway_admin;
   "aiGateway/runtime": typeof aiGateway_runtime;
   "aiGateway/streaming": typeof aiGateway_streaming;
+  "aiGateway/userModelOptions": typeof aiGateway_userModelOptions;
   aiQueries: typeof aiQueries;
   analytics: typeof analytics;
   analyticsInternal: typeof analyticsInternal;

@@ -155,6 +155,12 @@ export async function streamAIGateway(ctx: any, args: {
   feature: string;
   messages: AIMessage[];
   callbacks?: StreamCallbacks;
+  route?: {
+    chain: ChainEntry[];
+    optionKey?: string;
+    reasoningEffort: ThinkingMode;
+    effectiveUserTier: string;
+  };
   overrides?: {
     providerId?: string;
     model?: string;
@@ -197,7 +203,14 @@ export async function streamAIGateway(ctx: any, args: {
   const configuredChain = parseChain(profile.chainJson);
   const chain = args.overrides?.providerId && args.overrides?.model
     ? [{ providerId: args.overrides.providerId, model: args.overrides.model }]
-    : configuredChain;
+    : args.route?.chain?.length
+      ? args.route.chain
+      : configuredChain;
+  const routeTelemetry = {
+    routeKey: args.route?.optionKey,
+    requestedThinkingMode: args.route?.reasoningEffort,
+    effectiveUserTier: args.route?.effectiveUserTier,
+  };
   if (chain.length === 0) {
     throw new Error(`AI feature profile "${args.feature}" has no valid model chain.`);
   }
@@ -223,7 +236,7 @@ export async function streamAIGateway(ctx: any, args: {
       await ctx.runMutation(logGatewayEventInternal, {
         featureKey: args.feature, mode: "stream", providerId: entry.providerId,
         model: entry.model, tier, status: "blocked", errorType: "provider_cooldown",
-        errorMessage: lastError,
+        errorMessage: lastError, ...routeTelemetry,
       });
       continue;
     }
@@ -233,7 +246,7 @@ export async function streamAIGateway(ctx: any, args: {
       await ctx.runMutation(logGatewayEventInternal, {
         featureKey: args.feature, mode: "stream", providerId: entry.providerId,
         model: entry.model, tier, status: "failure", errorType: "provider_unavailable",
-        errorMessage: lastError,
+        errorMessage: lastError, ...routeTelemetry,
       });
       continue;
     }
@@ -245,7 +258,7 @@ export async function streamAIGateway(ctx: any, args: {
       await ctx.runMutation(logGatewayEventInternal, {
         featureKey: args.feature, mode: "stream", providerId: provider.id,
         model: entry.model, tier, status: "failure", errorType: "auth",
-        errorMessage: lastError,
+        errorMessage: lastError, ...routeTelemetry,
       });
       continue;
     }
@@ -266,7 +279,7 @@ export async function streamAIGateway(ctx: any, args: {
         max_tokens: args.overrides?.maxTokens ?? profile.maxTokens,
         ...(typeof (args.overrides?.topP ?? profile.topP) === "number" ? { top_p: args.overrides?.topP ?? profile.topP } : {}),
         stream: true,
-      }, provider, args.overrides?.thinkingMode ?? profile.thinkingMode);
+      }, provider, args.overrides?.thinkingMode ?? args.route?.reasoningEffort ?? profile.thinkingMode);
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), args.overrides?.timeoutMs ?? profile.timeoutMs);
@@ -351,6 +364,7 @@ export async function streamAIGateway(ctx: any, args: {
         durationMs: Date.now() - fetchStartTime,
         promptTokens,
         completionTokens,
+        ...routeTelemetry,
       });
       await ctx.runMutation(recordProviderHealthInternal, {
         featureKey: args.feature,
@@ -373,6 +387,7 @@ export async function streamAIGateway(ctx: any, args: {
         errorType: classified.errorType,
         errorMessage: classified.message.slice(0, 2000),
         durationMs: Date.now() - fetchStartTime,
+        ...routeTelemetry,
       });
       await ctx.runMutation(recordProviderHealthInternal, {
         featureKey: args.feature,

@@ -664,12 +664,60 @@ export default defineSchema({
             v.literal("admin_ops"),
             v.literal("none"),
         )),
+        allowUserModelSelection: v.optional(v.boolean()),
         createdAt: v.number(),
         updatedAt: v.number(),
         updatedBy: v.optional(v.id("users")),
     })
         .index("by_feature_key", ["featureKey"])
         .index("by_enabled", ["enabled"]),
+
+    ai_user_model_options: defineTable({
+        featureKey: v.string(),
+        optionKey: v.string(),
+        label: v.string(),
+        description: v.optional(v.string()),
+        badge: v.optional(v.string()),
+        logoUrl: v.optional(v.string()),
+        enabled: v.boolean(),
+        showWhenLocked: v.boolean(),
+        allowedTiers: v.array(v.union(
+            v.literal("free"),
+            v.literal("popular"),
+            v.literal("premium"),
+        )),
+        defaultForTiers: v.array(v.union(
+            v.literal("free"),
+            v.literal("popular"),
+            v.literal("premium"),
+        )),
+        chain: v.array(v.object({
+            providerId: v.string(),
+            model: v.string(),
+        })),
+        allowedReasoningEfforts: v.array(v.union(
+            v.literal("auto"),
+            v.literal("disabled"),
+            v.literal("low"),
+            v.literal("medium"),
+            v.literal("high"),
+        )),
+        defaultReasoningEffort: v.union(
+            v.literal("auto"),
+            v.literal("disabled"),
+            v.literal("low"),
+            v.literal("medium"),
+            v.literal("high"),
+        ),
+        usageHint: v.optional(v.string()),
+        sortOrder: v.number(),
+        createdAt: v.number(),
+        updatedAt: v.number(),
+        updatedBy: v.optional(v.id("users")),
+    })
+        .index("by_feature_option", ["featureKey", "optionKey"])
+        .index("by_feature_enabled", ["featureKey", "enabled"])
+        .index("by_feature_order", ["featureKey", "sortOrder"]),
 
     ai_gateway_events: defineTable({
         featureKey: v.string(),
@@ -688,6 +736,9 @@ export default defineSchema({
         promptTokens: v.optional(v.number()),
         completionTokens: v.optional(v.number()),
         costMicro: v.optional(v.number()),
+        routeKey: v.optional(v.string()),
+        requestedThinkingMode: v.optional(v.string()),
+        effectiveUserTier: v.optional(v.string()),
         createdAt: v.number(),
     })
         .index("by_feature_created", ["featureKey", "createdAt"])
@@ -746,6 +797,15 @@ export default defineSchema({
         primaryModelUsed: v.optional(v.string()),
         // Was fallback triggered?
         usedFallback: v.optional(v.boolean()),
+        modelOptionKey: v.optional(v.string()),
+        modelRouteFallbackReason: v.optional(v.string()),
+        reasoningEffort: v.optional(v.union(
+            v.literal("auto"),
+            v.literal("disabled"),
+            v.literal("low"),
+            v.literal("medium"),
+            v.literal("high"),
+        )),
         birthChartDepth: v.optional(v.union(v.literal("core"), v.literal("full"))),
         starType: v.optional(v.union(v.literal("beveled"), v.literal("cursed"))), // Two pin tiers: cursed > beveled
         synastryPayload: v.optional(v.object({
@@ -976,6 +1036,14 @@ export default defineSchema({
             v.literal("B"),
             v.literal("C"),
             v.literal("D"),                   // D = hardcoded fallback
+        )),
+        requestedModelOptionKey: v.optional(v.string()),
+        requestedReasoningEffort: v.optional(v.union(
+            v.literal("auto"),
+            v.literal("disabled"),
+            v.literal("low"),
+            v.literal("medium"),
+            v.literal("high"),
         )),
         // Snapshot of the system prompt hash used for this response (observability)
         systemPromptHash: v.optional(v.string()),
