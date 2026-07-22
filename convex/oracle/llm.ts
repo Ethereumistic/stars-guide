@@ -1,7 +1,7 @@
 "use node";
 
 import { v } from "convex/values";
-import { action } from "../_generated/server";
+import { action, internalAction } from "../_generated/server";
 import { Id } from "../_generated/dataModel";
 import {
   parseTitleFromResponse,
@@ -14,7 +14,10 @@ import {
 import {
   type BirthChartDepth,
 } from "../../lib/oracle/features";
-import { serializeBirthChartForOracle } from "../../src/lib/birth-chart/report-context";
+import {
+  buildBirthChartContextArtifact,
+  serializeBirthChartForOracle,
+} from "../../src/lib/birth-chart/report-context";
 import {
   buildOracleBirthReportContext,
   type OracleBirthReportContextResult,
@@ -45,6 +48,7 @@ import {
   detectRefusal,
   OUTPUT_SAFETY_BLOCK_MESSAGE,
 } from "../../lib/oracle/responseSafety";
+import { executeDurableOracleGeneration } from "./turnExecution";
 
 const { api: apiRef, internal: internalRef } = require("../_generated/api") as any;
 
@@ -116,20 +120,38 @@ interface LLMResponse {
   debugModelUsed?: string | null;
 }
 
-export const invokeOracle = action({
-  args: {
-    sessionId: v.id("oracle_sessions"),
-    userQuestion: v.string(),
-    timezone: v.optional(v.string()),
-    debugModelOverride: v.optional(
-      v.object({
-        providerId: v.string(),
-        model: v.string(),
-      }),
-    ),
-  },
-  handler: async (ctx, args): Promise<LLMResponse> => {
+type OracleInvocationArgs = {
+  sessionId: Id<"oracle_sessions">;
+  userQuestion: string;
+  timezone?: string;
+  debugModelOverride?: { providerId: string; model: string };
+  durable?: any;
+};
+
+async function runOracleInvocation(ctx: any, args: OracleInvocationArgs): Promise<LLMResponse> {
     const actionStartTime = Date.now();
+    const persistHardcodedResponse = async (
+      content: string,
+      modelUsed: string,
+      safeCode: string,
+    ) => {
+      if (args.durable) {
+        await ctx.runMutation(
+          internalRef.oracle.streamPublisher.finalizeDeterministicBypass,
+          { turnId: args.durable.turn._id, content, modelUsed, safeCode },
+        );
+        await ctx.runMutation(internalRef.oracle.turns.chargeTurnQuota, {
+          turnId: args.durable.turn._id,
+        });
+        return;
+      }
+      await ctx.runMutation(apiRef.oracle.sessions.addMessage, {
+        sessionId: args.sessionId,
+        role: "assistant",
+        content,
+        fallbackTierUsed: "D",
+      });
+    };
 
     // ════════════════════════════════════════════════════════════════════════
     // PHASE 0: SAFETY GATES (unchanged from original)
@@ -155,12 +177,7 @@ export const invokeOracle = action({
         fallbackText?.value ??
         "The Oracle rests. Return soon. ->";
 
-      await ctx.runMutation(apiRef.oracle.sessions.addMessage, {
-        sessionId: args.sessionId,
-        role: "assistant",
-        content: offlineMessage,
-        fallbackTierUsed: "D",
-      });
+      await persistHardcodedResponse(offlineMessage, "kill_switch", "kill_switch");
 
       return {
         content: offlineMessage,
@@ -181,12 +198,7 @@ export const invokeOracle = action({
         crisisResponse?.value ??
         "I see you, and what you're carrying right now matters deeply. Please reach out to the Crisis Text Line - text HOME to 741741 - or call the 988 Suicide & Crisis Lifeline.";
 
-      await ctx.runMutation(apiRef.oracle.sessions.addMessage, {
-        sessionId: args.sessionId,
-        role: "assistant",
-        content: crisisText,
-        fallbackTierUsed: "D",
-      });
+      await persistHardcodedResponse(crisisText, "crisis_response", "crisis_response");
 
       return {
         content: crisisText,
@@ -199,9 +211,10 @@ export const invokeOracle = action({
     // PHASE 1: LOAD CONTEXT (unchanged from original)
     // ════════════════════════════════════════════════════════════════════════
 
-    const session = await ctx.runQuery(apiRef.oracle.sessions.getSessionWithMessages, {
-      sessionId: args.sessionId,
-    });
+    const session = args.durable?.session ?? await ctx.runQuery(
+      apiRef.oracle.sessions.getSessionWithMessages,
+      { sessionId: args.sessionId },
+    );
     if (!session) {
       throw new Error("Session not found");
     }
@@ -211,7 +224,7 @@ export const invokeOracle = action({
       {},
     );
 
-    const user = await ctx.runQuery(apiRef.users.current, {});
+    const user = args.durable?.user ?? await ctx.runQuery(apiRef.users.current, {});
     if (args.debugModelOverride && user?.role !== "admin") {
       throw new Error("Admin access is required for a debug model override");
     }
@@ -235,6 +248,10 @@ export const invokeOracle = action({
       const step = report?.onboardingStep;
 
       const addAssistant = async (content: string) => {
+        if (args.durable) {
+          await persistHardcodedResponse(content, "not_applicable", "report_onboarding");
+          return;
+        }
         await ctx.runMutation(apiRef.oracle.sessions.addMessage, {
           sessionId: args.sessionId,
           role: "assistant",
@@ -267,10 +284,14 @@ export const invokeOracle = action({
     }
     if (resolvedFeatureKey === "birth_chart_core" || resolvedFeatureKey === "birth_chart_full") {
       resolvedFeatureKey = "birth_chart";
-      await ctx.runMutation(apiRef.oracle.sessions.updateSessionFeature, {
-        sessionId: args.sessionId,
-        featureKey: "birth_chart",
-      });
+      await ctx.runMutation(
+        args.durable
+          ? internalRef.oracle.streamPublisher.patchTurnSession
+          : apiRef.oracle.sessions.updateSessionFeature,
+        args.durable
+          ? { turnId: args.durable.turn._id, featureKey: "birth_chart" }
+          : { sessionId: args.sessionId, featureKey: "birth_chart" },
+      );
       const legacyDepth: BirthChartDepth = session.featureKey === "birth_chart_full" ? "full" : "core";
       if (!session.birthChartDepth) {
         await ctx.runMutation(internalRef.oracle.sessions.updateSessionBirthChartDepth, {
@@ -284,8 +305,12 @@ export const invokeOracle = action({
     let hasJournalConsent = false;
     if (user?._id) {
       try {
-        const consent = await ctx.runQuery(apiRef.journal.consent.getConsent, {});
-        hasJournalConsent = consent?.oracleCanReadJournal === true;
+        if (args.durable) {
+          hasJournalConsent = args.durable.hasJournalConsent === true;
+        } else {
+          const consent = await ctx.runQuery(apiRef.journal.consent.getConsent, {});
+          hasJournalConsent = consent?.oracleCanReadJournal === true;
+        }
       } catch (e) {
         console.error("Journal consent check failed (non-blocking):", e);
       }
@@ -293,7 +318,8 @@ export const invokeOracle = action({
 
     // ── Determine if this is the first response ────────────────────────────
     const isFirstResponse = !session.messages.some(
-      (message: any) => message.role === "assistant",
+      (message: any) => message.role === "assistant"
+        && (!args.durable || String(message._id) !== String(args.durable.turn.assistantMessageId)),
     );
 
     // ════════════════════════════════════════════════════════════════════════
@@ -350,10 +376,14 @@ export const invokeOracle = action({
 
     // ── Persist auto-activated feature to session ──────────────────────────
     if (!session.featureKey && primaryIntent && primaryIntent.pipelineKey !== "generic_chat") {
-      await ctx.runMutation(apiRef.oracle.sessions.updateSessionFeature, {
-        sessionId: args.sessionId,
-        featureKey: primaryIntent.pipelineKey,
-      });
+      await ctx.runMutation(
+        args.durable
+          ? internalRef.oracle.streamPublisher.patchTurnSession
+          : apiRef.oracle.sessions.updateSessionFeature,
+        args.durable
+          ? { turnId: args.durable.turn._id, featureKey: primaryIntent.pipelineKey }
+          : { sessionId: args.sessionId, featureKey: primaryIntent.pipelineKey },
+      );
       // If birth_chart with depth, persist that too
       if (primaryIntent.pipelineKey === "birth_chart" && primaryIntent.metadata?.depth) {
         await ctx.runMutation(internalRef.oracle.sessions.updateSessionBirthChartDepth, {
@@ -592,6 +622,9 @@ export const invokeOracle = action({
 
     // Hash the system prompt for observability
     const systemPromptHash = simpleHash(systemPrompt);
+    const canonicalChartArtifact = user?.birthData?.chart
+      ? buildBirthChartContextArtifact(user.birthData)
+      : undefined;
     const evidenceBundle: OracleEvidenceBundle = {
       requestedAt: new Date().toISOString(),
       timezone: args.timezone || "UTC",
@@ -612,6 +645,47 @@ export const invokeOracle = action({
               body2: aspect.planet2,
               type: aspect.type,
             })),
+            placements: [
+              ...(canonicalChartArtifact?.ascendant
+                ? [{
+                    body: "ascendant",
+                    sign: canonicalChartArtifact.ascendant.signId,
+                    house: 1,
+                    degree: Number((canonicalChartArtifact.ascendant.longitude % 30).toFixed(2)),
+                    retrograde: false,
+                    dignity: null,
+                  }]
+                : []),
+              ...(canonicalChartArtifact?.placements.map((placement) => ({
+                body: placement.id,
+                sign: placement.signId,
+                house: placement.houseId,
+                degree: placement.degreeInSign,
+                retrograde: placement.retrograde,
+                dignity: placement.dignity,
+              })) ?? []),
+            ],
+            houseSignatures: canonicalChartArtifact?.houses.map((house) => ({
+              house: house.id,
+              sign: house.signId,
+            })),
+            chartRuler: canonicalChartArtifact?.derived.chartRuler
+              ? { body: canonicalChartArtifact.derived.chartRuler.rulerBodyId }
+              : undefined,
+            concentrations: canonicalChartArtifact?.evidence
+              .filter((item) => item.kind === "cluster")
+              .flatMap((item) => [
+                ...item.signIds.map((sign) => ({
+                  kind: "sign" as const,
+                  value: sign,
+                  bodies: item.bodyIds,
+                })),
+                ...item.houseIds.map((house) => ({
+                  kind: "house" as const,
+                  value: house,
+                  bodies: item.bodyIds,
+                })),
+              ]),
           }
         : undefined,
     };
@@ -641,20 +715,22 @@ export const invokeOracle = action({
     // Server-side quota gate — reject before making any LLM API calls
     if (user?._id) {
       try {
-        const quota = await ctx.runQuery(apiRef.oracle.quota.checkQuota, {});
+        const quota = await ctx.runQuery(
+          args.durable
+            ? internalRef.oracle.streamPublisher.checkTurnQuota
+            : apiRef.oracle.quota.checkQuota,
+          args.durable ? { turnId: args.durable.turn._id } : {},
+        );
         if (!quota.allowed) {
           // Return a quota-exceeded message instead of calling the LLM
           const exceededText = "You've reached your quota limit. Please try again later. ->";
-          await ctx.runMutation(apiRef.oracle.sessions.addMessage, {
-            sessionId: args.sessionId,
-            role: "assistant",
-            content: exceededText,
-            fallbackTierUsed: "D",
-          });
-          await ctx.runMutation(apiRef.oracle.sessions.updateSessionStatus, {
-            sessionId: args.sessionId,
-            status: "active",
-          });
+          await persistHardcodedResponse(exceededText, "quota_gate", "quota_gate");
+          if (!args.durable) {
+            await ctx.runMutation(apiRef.oracle.sessions.updateSessionStatus, {
+              sessionId: args.sessionId,
+              status: "active",
+            });
+          }
           return {
             content: exceededText,
             modelUsed: "quota_gate",
@@ -672,7 +748,10 @@ export const invokeOracle = action({
 
     // ── Conversation history ───────────────────────────────────────────────
     const allHistory = session.messages
-      .filter((message: any) => message.role === "user" || message.role === "assistant")
+      .filter((message: any) => (
+        (message.role === "user" || message.role === "assistant")
+        && (!args.durable || String(message._id) !== String(args.durable.turn.assistantMessageId))
+      ))
       .map((message: any) => ({
         role: message.role,
         content: message.content,
@@ -706,6 +785,7 @@ export const invokeOracle = action({
     const resolvedRoute = await ctx.runQuery(
       internalRef.aiGateway.userModelOptions.resolveOracleRouteInternal,
       {
+        userId: user._id,
         requestedOptionKey: session.modelOptionKey,
         requestedReasoningEffort: session.reasoningEffort,
       },
@@ -729,6 +809,137 @@ export const invokeOracle = action({
     // The provider router selects the best entry first; remaining entries follow.
     // ── Try providers with refusal recovery and output safety scanning ─────
     const prompt = { systemPrompt, userMessage };
+    if (args.durable) {
+      const latestTurn = await ctx.runQuery(
+        internalRef.oracle.streamPublisher.getTurnExecutionState,
+        { turnId: args.durable.turn._id },
+      );
+      if (latestTurn?.turn.status === "cancel_requested") {
+        throw new Error("Oracle turn was cancelled before provider invocation");
+      }
+      const durableResult = await executeDurableOracleGeneration(ctx, {
+        turnId: args.durable.turn._id,
+        sessionId: args.sessionId,
+        assistantMessageId: args.durable.turn.assistantMessageId,
+        prompt,
+        conversationHistory,
+        requestPlan,
+        evidence: evidenceBundle,
+        journalContext,
+        streamEnabled: config.modelSettings.streamEnabled,
+        rolloutMode: args.durable.turn.rolloutMode ?? "v2",
+        temperature: llmConfig.temperature,
+        topP: llmConfig.topP,
+        maxTokens: llmConfig.maxTokens,
+        route: {
+          chain: resolvedRoute.chain,
+          optionKey: resolvedRoute.optionKey,
+          reasoningEffort: resolvedRoute.reasoningEffort,
+          effectiveUserTier: resolvedRoute.effectiveTier,
+        },
+        debugModelOverride: effectiveDebugModelOverride,
+        pricingTable: Object.keys(pricingTable).length > 0 ? pricingTable : undefined,
+        actionStartTime,
+        promptBuildEndTime,
+        resumeSectionKeys: latestTurn?.turn.resumeSectionKeys,
+        existingPublishedSections: latestTurn?.sections
+          .filter((section: any) => section.status === "published" && section.content)
+          .map((section: any) => ({
+            key: section.key,
+            evidenceKeys: section.evidenceKeys ?? [],
+            content: section.content,
+          })),
+        initialSequence: latestTurn?.turn.lastSequence,
+        initialPersistedChars: latestTurn?.assistantMessage.content.length,
+        existingPersistenceWriteCount: latestTurn?.turn.persistenceWriteCount ?? 0,
+        existingMaxQueuedChars: latestTurn?.turn.maxQueuedChars ?? 0,
+        executionOrdinal: latestTurn?.turn.resumeCount ?? 0,
+      });
+      const finalState = await ctx.runQuery(
+        internalRef.oracle.streamPublisher.getTurnExecutionState,
+        { turnId: args.durable.turn._id },
+      );
+      if (finalState) {
+        const safetyResult = scanResponse(durableResult.content, journalContext);
+        const trace: OracleTurnTrace = {
+          version: "oracle-trace-v1",
+          requestPlan,
+          evidenceManifest: evidenceBundle.items.map((item) => ({
+            capability: item.capability,
+            label: item.label,
+            source: item.provenance.source,
+            version: item.provenance.version,
+            size: item.content.length,
+          })),
+          promptManifest: systemManifestBlocks.map((block) => ({
+            label: block.label,
+            version: "1",
+            priority: block.priority,
+            hash: simpleHash(block.content),
+          })),
+          userPromptManifest: finalUserBlocks.map((block) => ({
+            label: block.label,
+            version: "1",
+            size: block.content.length,
+            hash: simpleHash(block.content),
+          })),
+          interpretationManifest: birthChartReportContext && birthChartReportResult
+            ? [{
+                label: "birth_chart_report_insights",
+                source: "users.birthChartReport.structured",
+                version: `pipeline-${birthChartReportResult.pipelineVersion ?? "unknown"}/contract-${birthChartReportResult.contractVersion ?? "unknown"}`,
+                size: birthChartReportContext.length,
+                mode: birthChartReportResult.mode ?? undefined,
+                sourceFingerprintMatched: birthChartReportResult.sourceFingerprintMatched,
+                includedSections: birthChartReportResult.includedSections,
+              }]
+            : [],
+          providerAttempts: [{
+            provider: finalState.turn.providerId,
+            model: finalState.turn.model,
+            tier: finalState.turn.tier,
+            outcome: finalState.turn.status,
+          }],
+          violations: [],
+          repaired: finalState.turn.repairCount > 0,
+          safetyScan: {
+            blocked: safetyResult.blocked,
+            flags: safetyResult.flags,
+            reason: safetyResult.reason,
+            matches: safetyResult.matches,
+          },
+          streamingV2: {
+            turnId: String(finalState.turn._id),
+            status: finalState.turn.status,
+            rolloutMode: finalState.turn.rolloutMode ?? "v2",
+            stageTimeline: finalState.turn.stageTimeline ?? [],
+            providerAttemptCount: finalState.turn.providerAttemptCount,
+            repairCount: finalState.turn.repairCount,
+            resumeCount: finalState.turn.resumeCount,
+            persistenceWriteCount: finalState.turn.persistenceWriteCount ?? 0,
+            publishedChars: finalState.turn.publishedChars,
+            malformedProviderFrameCount: finalState.turn.malformedProviderFrameCount ?? 0,
+            droppedProviderFrameCount: finalState.turn.droppedProviderFrameCount ?? 0,
+            requiredSectionCount: finalState.turn.requiredSectionKeys?.length ?? 0,
+            publishedSectionCount: finalState.turn.publishedSectionKeys?.length ?? 0,
+            partial: finalState.turn.partial,
+            sectionProtocolFallback: finalState.turn.sectionProtocolFallback ?? false,
+            safeErrorCode: finalState.turn.safeErrorCode,
+            promptTokens: finalState.turn.promptTokens ?? 0,
+            completionTokens: finalState.turn.completionTokens ?? 0,
+            costUsdMicro: finalState.turn.costUsdMicro ?? 0,
+          },
+          createdAt: Date.now(),
+        };
+        await storeOracleTraceBestEffort(
+          ctx,
+          args.sessionId,
+          args.durable.turn.assistantMessageId,
+          trace,
+        );
+      }
+      return durableResult;
+    }
     // Natal interpretation is buffered until deterministic response-contract
     // and output-safety validation finish. This prevents an invented aspect or
     // incomplete full-chart draft from becoming user-visible before repair.
@@ -1086,6 +1297,41 @@ export const invokeOracle = action({
         ? debugModelUsed
         : null,
     };
+}
+
+const oracleInvocationArgs = {
+  sessionId: v.id("oracle_sessions"),
+  userQuestion: v.string(),
+  timezone: v.optional(v.string()),
+  debugModelOverride: v.optional(v.object({
+    providerId: v.string(),
+    model: v.string(),
+  })),
+};
+
+export const invokeOracle = action({
+  args: oracleInvocationArgs,
+  handler: async (ctx, args): Promise<LLMResponse> => runOracleInvocation(ctx, args),
+});
+
+export const invokeOracleTurnV2 = internalAction({
+  args: { turnId: v.id("oracle_turns") },
+  handler: async (ctx, args): Promise<LLMResponse> => {
+    const durable = await ctx.runQuery(
+      internalRef.oracle.streamPublisher.getTurnExecutionState,
+      { turnId: args.turnId },
+    );
+    if (!durable) throw new Error("Turn not found");
+    if (durable.turn.status !== "planning") {
+      throw new Error(`Turn is not claimed for planning (${durable.turn.status})`);
+    }
+    return await runOracleInvocation(ctx, {
+      sessionId: durable.turn.sessionId,
+      userQuestion: durable.userMessage.content,
+      timezone: durable.turn.timezone,
+      debugModelOverride: durable.turn.debugModelOverride,
+      durable,
+    });
   },
 });
 

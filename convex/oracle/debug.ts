@@ -1,7 +1,7 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAdmin } from "../lib/adminGuard";
-import { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import {
   parseProvidersConfig,
   parseModelChain,
@@ -10,6 +10,66 @@ import {
 import { scoreIntents } from "../../lib/oracle/intentRouter";
 import { buildOracleBirthReportContext } from "../../src/lib/birth-chart/oracle-report-context";
 import { fingerprintBirthChart } from "../../src/lib/birth-chart/report-context";
+
+function durableTurnTelemetry(
+  turn: Doc<"oracle_turns">,
+  sections: Doc<"oracle_turn_sections">[],
+  now = Date.now(),
+) {
+  const terminalAt = turn.completedAt ?? turn.failedAt ?? turn.cancelledAt
+    ?? (!turn.active ? turn.updatedAt : undefined);
+  const duration = (end: number | undefined, start: number | undefined) =>
+    end !== undefined && start !== undefined ? Math.max(0, end - start) : null;
+  const turnSections = sections.filter((section) => section.turnId === turn._id);
+  const failedSectionCount = turnSections.filter((section) => section.status === "failed").length;
+  const timeline = [
+    { key: "accepted", label: "Request accepted", at: turn.queuedAt },
+    { key: "action", label: "Action started", at: turn.actionStartedAt },
+    { key: "provider", label: "Provider started", at: turn.providerStartedAt },
+    { key: "connected", label: "Provider connected", at: turn.providerConnectedAt },
+    { key: "first_token", label: "Provider first token", at: turn.providerFirstTokenAt },
+    { key: "approved", label: "First approved content", at: turn.firstApprovedAt },
+    { key: "persisted", label: "First persisted content", at: turn.firstPersistedAt },
+    { key: "visible", label: "Client first visible", at: turn.firstClientVisibleAt },
+    { key: "validation", label: "Final validation / repair", at: turn.validationStartedAt },
+    { key: "terminal", label: `Terminal: ${turn.status}`, at: terminalAt },
+  ].filter((item): item is { key: string; label: string; at: number } => item.at !== undefined);
+  const providerToPersistedMs = duration(turn.firstPersistedAt, turn.providerFirstTokenAt);
+  const totalDurationMs = duration(terminalAt, turn.queuedAt);
+  const alerts: string[] = [];
+  if (turn.publicationMode === "guarded_batches" && (providerToPersistedMs ?? 0) > 1_500) {
+    alerts.push("provider_to_persisted_over_1500ms");
+  }
+  if (turn.active && now - turn.updatedAt > 11 * 60_000) alerts.push("stale_active_turn");
+  if (turn.partial) alerts.push("partial_turn");
+  if (turn.sectionProtocolFallback) alerts.push("section_protocol_fallback");
+  if (turn.repairCount > 1) alerts.push("repeated_repair");
+  if (
+    turn.persistenceWriteCount !== undefined
+    && totalDurationMs !== null
+    && turn.persistenceWriteCount > Math.max(3, Math.ceil(totalDurationMs / 200))
+  ) {
+    alerts.push("persistence_write_rate_over_5hz");
+  }
+  return {
+    timeline,
+    alerts,
+    actionQueueDelayMs: duration(turn.actionStartedAt, turn.queuedAt),
+    planningDurationMs: duration(turn.providerStartedAt, turn.actionStartedAt),
+    providerConnectDurationMs: duration(turn.providerConnectedAt, turn.providerStartedAt),
+    providerTtftMs: duration(turn.providerFirstTokenAt, turn.providerConnectedAt),
+    providerToApprovedMs: duration(turn.firstApprovedAt, turn.providerFirstTokenAt),
+    providerToPersistedMs,
+    approvedToPersistedMs: duration(turn.firstPersistedAt, turn.firstApprovedAt),
+    totalDurationMs,
+    lastProviderEventAgeMs: turn.lastProviderEventAt ? Math.max(0, now - turn.lastProviderEventAt) : null,
+    requiredSectionCount: turn.requiredSectionKeys?.length ?? 0,
+    publishedSectionCount: turn.publishedSectionKeys?.length ?? 0,
+    failedSectionCount,
+    malformedProviderFrameCount: turn.malformedProviderFrameCount ?? 0,
+    droppedProviderFrameCount: turn.droppedProviderFrameCount ?? 0,
+  };
+}
 
 /**
  * Oracle Debug Queries — Admin-only transparent inspection layer.
@@ -160,6 +220,15 @@ export const adminGetSessionDetail = query({
       .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
       .order("asc")
       .collect();
+    const durableTurns = await ctx.db
+      .query("oracle_turns")
+      .withIndex("by_session_created", (q) => q.eq("sessionId", sessionId))
+      .order("asc")
+      .collect();
+    const durableSections = await ctx.db
+      .query("oracle_turn_sections")
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+      .collect();
 
     const user = await ctx.db.get(session.userId);
     const isBirthChartReportSession =
@@ -299,6 +368,11 @@ export const adminGetSessionDetail = query({
         try { return { ...trace, trace: JSON.parse(trace.payload) }; }
         catch { return { ...trace, trace: null }; }
       }),
+      durableTurns: durableTurns.map((turn) => ({
+        ...turn,
+        telemetry: durableTurnTelemetry(turn, durableSections),
+      })),
+      durableSections,
       user: user
         ? {
             _id: user._id,
@@ -423,6 +497,7 @@ export const adminGetOracleStats = query({
     await requireAdmin(ctx);
 
     const sessions = await ctx.db.query("oracle_sessions").collect();
+    const recentDurableTurns = await ctx.db.query("oracle_turns").order("desc").take(500);
     const totalSessions = sessions.length;
     const activeSessions = sessions.filter((s) => s.status === "active").length;
     const completedSessions = sessions.filter((s) => s.status === "completed").length;
@@ -489,6 +564,50 @@ export const adminGetOracleStats = query({
 
     // Journal prompt suggestions
     const journalPrompts = allMessages.filter((m) => m.journalPrompt).length;
+    const now = Date.now();
+    const attemptedTurns = recentDurableTurns.filter((turn) => turn.providerAttemptCount > 0);
+    const terminalTurns = recentDurableTurns.filter((turn) => !turn.active);
+    const natalTurns = recentDurableTurns.filter((turn) => (turn.requiredSectionKeys?.length ?? 0) > 0);
+    const totalProviderAttempts = attemptedTurns.reduce((sum, turn) => sum + turn.providerAttemptCount, 0);
+    const malformedFrames = attemptedTurns.reduce(
+      (sum, turn) => sum + (turn.malformedProviderFrameCount ?? 0),
+      0,
+    );
+    const partialTurns = terminalTurns.filter((turn) => turn.partial).length;
+    const protocolFallbackTurns = natalTurns.filter((turn) => turn.sectionProtocolFallback).length;
+    const repeatedRepairTurns = recentDurableTurns.filter((turn) => turn.repairCount > 1).length;
+    const staleActiveTurns = recentDurableTurns.filter(
+      (turn) => turn.active && now - turn.updatedAt > 11 * 60_000,
+    ).length;
+    const slowProviderToPersistTurns = recentDurableTurns.filter((turn) =>
+      turn.publicationMode === "guarded_batches"
+      && turn.providerFirstTokenAt !== undefined
+      && turn.firstPersistedAt !== undefined
+      && turn.firstPersistedAt - turn.providerFirstTokenAt > 1_500
+    ).length;
+    const rate = (count: number, denominator: number) => denominator > 0 ? count / denominator : null;
+    const streamingV2 = {
+      sampleSize: recentDurableTurns.length,
+      activeTurns: recentDurableTurns.filter((turn) => turn.active).length,
+      staleActiveTurns,
+      partialRate: rate(partialTurns, terminalTurns.length),
+      malformedFrameRate: rate(malformedFrames, totalProviderAttempts),
+      sectionProtocolFallbackRate: rate(protocolFallbackTurns, natalTurns.length),
+      repeatedRepairRate: rate(repeatedRepairTurns, recentDurableTurns.length),
+      slowProviderToPersistTurns,
+      rolloutModes: recentDurableTurns.reduce<Record<string, number>>((counts, turn) => {
+        const mode = turn.rolloutMode ?? "v2";
+        counts[mode] = (counts[mode] ?? 0) + 1;
+        return counts;
+      }, {}),
+      thresholds: {
+        partialRate: 0.01,
+        malformedFrameRate: 0.005,
+        sectionProtocolFallbackRate: 0.05,
+        providerToPersistedMs: 1_500,
+        staleAfterMs: 11 * 60_000,
+      },
+    };
 
     return {
       totalSessions,
@@ -508,6 +627,7 @@ export const adminGetOracleStats = query({
       killSwitchResponses,
       fallbackResponses,
       journalPrompts,
+      streamingV2,
     };
   },
 });

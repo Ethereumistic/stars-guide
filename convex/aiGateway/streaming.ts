@@ -7,6 +7,14 @@ import {
   type LLMProvider,
   type ThinkingMode,
 } from "../lib/llmProvider";
+import { GatewayStreamDeadlines } from "./streamDeadlines";
+import { GatewayStreamProtocolDecoder } from "./streamProtocol";
+import type {
+  GatewayErrorCode,
+  GatewayStreamEvent,
+  StreamDecoderDiagnostics,
+  StreamWireProtocol,
+} from "../../src/lib/oracle/streaming/types";
 
 const getFeatureProfileInternal = makeFunctionReference<"query">(
   "aiGateway/admin:getFeatureProfileInternal",
@@ -35,12 +43,20 @@ type ChainEntry = {
   model: string;
 };
 
-type StreamCallbacks = {
+export type StreamCallbacks = {
   onStart?: (metadata: { providerId: string; model: string; tier: string; fetchStartTime: number }) => Promise<void> | void;
+  onConnected?: (metadata: { providerId: string; model: string; tier: string; connectedAt: number }) => Promise<void> | void;
   onToken?: (token: string) => Promise<void> | void;
   onReasoningToken?: (token: string) => Promise<void> | void;
+  /** Phase C path: bounded in-memory handling only. The gateway never awaits it. */
+  onEvent?: (event: GatewayStreamEvent) => void;
+  shouldCancel?: () => boolean | Promise<boolean>;
+  canFallbackAfterError?: (context: {
+    code: GatewayErrorCode;
+    rawContentReceived: boolean;
+  }) => boolean;
   onComplete?: (result: StreamAIGatewayResult) => Promise<void> | void;
-  onError?: (error: { message: string; providerId?: string; model?: string; tier?: string; partial: boolean }) => Promise<void> | void;
+  onError?: (error: { message: string; code: GatewayErrorCode; providerId?: string; model?: string; tier?: string; partial: boolean }) => Promise<void> | void;
 };
 
 export type StreamAIGatewayResult = {
@@ -52,9 +68,12 @@ export type StreamAIGatewayResult = {
   promptTokens?: number;
   completionTokens?: number;
   fetchStartTime: number;
+  providerConnectedTime?: number;
   firstTokenTime?: number;
   initialDecodeTime?: number;
   partial: boolean;
+  errorCode?: GatewayErrorCode;
+  diagnostics: StreamDecoderDiagnostics;
 };
 
 function tierForIndex(index: number): string {
@@ -93,31 +112,44 @@ function toRuntimeProvider(provider: {
   };
 }
 
-function classifyStreamError(error: unknown, emittedContent: boolean) {
-  const message = error instanceof Error ? error.message : String(error);
-  const lower = message.toLowerCase();
-  const retryable = !emittedContent && (
-    lower.includes("timeout") ||
-    lower.includes("abort") ||
-    lower.includes("fetch failed") ||
-    lower.includes("429") ||
-    lower.includes("500") ||
-    lower.includes("502") ||
-    lower.includes("503") ||
-    lower.includes("504") ||
-    lower.includes("empty")
-  );
-  const errorType =
-    lower.includes("api key") || lower.includes("unauthorized") || lower.includes("401")
-      ? "auth"
-      : lower.includes("400")
-        ? "bad_request"
-        : retryable
-          ? "retryable_stream_error"
-          : emittedContent
-            ? "partial_stream_error"
-            : "stream_error";
-  return { message, errorType, retryable };
+class GatewayTransportError extends Error {
+  constructor(
+    readonly code: GatewayErrorCode,
+    message: string,
+    readonly retryable: boolean,
+  ) {
+    super(message);
+    this.name = "GatewayTransportError";
+  }
+}
+
+function classifyStreamError(
+  error: unknown,
+  emittedContent: boolean,
+  deadlineCode?: GatewayErrorCode,
+): { message: string; code: GatewayErrorCode; retryable: boolean } {
+  if (error instanceof GatewayTransportError) {
+    return { message: error.message, code: error.code, retryable: error.retryable };
+  }
+  if (deadlineCode) {
+    return {
+      message: deadlineCode.replaceAll("_", " "),
+      code: deadlineCode,
+      retryable: deadlineCode !== "cancelled",
+    };
+  }
+  const raw = error instanceof Error ? error.message : String(error);
+  const lower = raw.toLowerCase();
+  const code: GatewayErrorCode = lower.includes("abort")
+    ? "cancelled"
+    : emittedContent
+      ? "partial_stream"
+      : "malformed_stream";
+  return {
+    message: code.replaceAll("_", " "),
+    code,
+    retryable: code !== "cancelled",
+  };
 }
 
 function applyThinkingMode(payload: any, provider: LLMProvider, thinkingMode: ThinkingMode): any {
@@ -134,21 +166,24 @@ function applyThinkingMode(payload: any, provider: LLMProvider, thinkingMode: Th
   return next;
 }
 
-async function readStreamChunk(
-  reader: ReadableStreamDefaultReader<Uint8Array>,
-  timeoutMs: number,
-): Promise<ReadableStreamReadResult<Uint8Array>> {
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      reader.read(),
-      new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error("LLM stream idle timeout")), timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timeoutId) clearTimeout(timeoutId);
+function protocolForResponse(response: Response, provider: LLMProvider): StreamWireProtocol {
+  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+  if (contentType.includes("ndjson") || contentType.includes("jsonl")) return "ndjson";
+  if (provider.type === "ollama" && contentType.includes("json")) return "ndjson";
+  return "sse";
+}
+
+function httpError(status: number): GatewayTransportError {
+  if (status === 401 || status === 403) {
+    return new GatewayTransportError("auth", `Provider authentication failed (${status})`, true);
   }
+  if (status === 429) {
+    return new GatewayTransportError("http_429", "Provider rate limited the request", true);
+  }
+  if (status >= 500) {
+    return new GatewayTransportError("http_5xx", `Provider failed (${status})`, true);
+  }
+  return new GatewayTransportError("http_4xx", `Provider rejected the request (${status})`, false);
 }
 
 export async function streamAIGateway(ctx: any, args: {
@@ -265,14 +300,32 @@ export async function streamAIGateway(ctx: any, args: {
 
     const fetchStartTime = Date.now();
     let fullContent = "";
-    let reasoning = "";
     let promptTokens: number | undefined;
     let completionTokens: number | undefined;
     let firstTokenTime: number | undefined;
+    let providerConnectedTime: number | undefined;
     let initialDecodeTime: number | undefined;
+    let diagnostics: StreamDecoderDiagnostics = {
+      malformedFrameCount: 0,
+      droppedFrameCount: 0,
+      reasoningCharCount: 0,
+      errorCategories: [],
+    };
+    let deadlines: GatewayStreamDeadlines | undefined;
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+    let cancellationTimer: ReturnType<typeof setInterval> | undefined;
+    let cancellationCheckPending = false;
     try {
+      const attemptStarted: GatewayStreamEvent = {
+        type: "attempt_started",
+        providerId: provider.id,
+        model: entry.model,
+        tier,
+        startedAt: fetchStartTime,
+      };
+      args.callbacks?.onEvent?.(attemptStarted);
       await args.callbacks?.onStart?.({ providerId: provider.id, model: entry.model, tier, fetchStartTime });
-      let payload = applyThinkingMode({
+      const payload = applyThinkingMode({
         model: entry.model,
         messages: args.messages,
         temperature: args.overrides?.temperature ?? profile.temperature,
@@ -281,78 +334,121 @@ export async function streamAIGateway(ctx: any, args: {
         stream: true,
       }, provider, args.overrides?.thinkingMode ?? args.route?.reasoningEffort ?? profile.thinkingMode);
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), args.overrides?.timeoutMs ?? profile.timeoutMs);
+      const overallDeadlineMs = Math.max(1, args.overrides?.timeoutMs ?? profile.timeoutMs);
+      deadlines = new GatewayStreamDeadlines({
+        connectDeadlineMs: Math.min(30_000, overallDeadlineMs),
+        idleDeadlineMs: Math.min(30_000, overallDeadlineMs),
+        overallDeadlineMs,
+      });
+      if (args.callbacks?.shouldCancel) {
+        cancellationTimer = setInterval(() => {
+          if (cancellationCheckPending || deadlines?.signal.aborted) return;
+          cancellationCheckPending = true;
+          void Promise.resolve(args.callbacks?.shouldCancel?.())
+            .then((cancelled) => {
+              if (cancelled) deadlines?.cancel();
+            })
+            .finally(() => {
+              cancellationCheckPending = false;
+            });
+        }, 500);
+      }
       const response = await fetch(buildProviderUrl(provider), {
         method: "POST",
         headers: buildProviderHeaders(provider, apiKey, "Stars.Guide Oracle Chat"),
         body: JSON.stringify(payload),
-        signal: controller.signal,
+        signal: deadlines.signal,
       });
-      clearTimeout(timeoutId);
+      providerConnectedTime = Date.now();
+      deadlines.markConnected();
+      await args.callbacks?.onConnected?.({
+        providerId: provider.id,
+        model: entry.model,
+        tier,
+        connectedAt: providerConnectedTime,
+      });
 
       if (!response.ok) {
-        throw new Error(`LLM stream error ${response.status}: ${(await response.text()).slice(0, 1000)}`);
+        throw httpError(response.status);
       }
       if (!response.body) {
-        throw new Error("No response body for stream");
+        throw new GatewayTransportError("empty_response", "Provider returned no response body", true);
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      while (true) {
-        const { done, value } = await readStreamChunk(reader, 15_000);
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed.startsWith("data: ")) continue;
-          const data = trimmed.slice(6);
-          if (data === "[DONE]") continue;
-          try {
-            const parsed = JSON.parse(data);
-            const delta = parsed.choices?.[0]?.delta ?? {};
-            const token = delta.content;
-            const reasoningToken = delta.reasoning ?? delta.thinking;
-            if (typeof reasoningToken === "string" && reasoningToken) {
-              reasoning += reasoningToken;
-              await args.callbacks?.onReasoningToken?.(reasoningToken);
+      reader = response.body.getReader();
+      const decoder = new GatewayStreamProtocolDecoder({
+        protocol: protocolForResponse(response, provider),
+      });
+      let terminalReceived = false;
+      const processEvents = async (events: GatewayStreamEvent[]) => {
+        for (const event of events) {
+          deadlines?.markActivity();
+          // Phase C consumers keep this callback synchronous and in-memory.
+          args.callbacks?.onEvent?.(event);
+          if (event.type === "text_delta") {
+            fullContent += event.text;
+            if (firstTokenTime === undefined) firstTokenTime = event.receivedAt;
+            if (initialDecodeTime === undefined && fullContent.length >= 200) {
+              initialDecodeTime = event.receivedAt;
             }
-            if (typeof token === "string" && token) {
-              fullContent += token;
-              if (firstTokenTime === undefined) firstTokenTime = Date.now();
-              if (initialDecodeTime === undefined && fullContent.length >= 200) initialDecodeTime = Date.now();
-              await args.callbacks?.onToken?.(token);
-            }
-            if (parsed.usage) {
-              promptTokens = parsed.usage.prompt_tokens;
-              completionTokens = parsed.usage.completion_tokens;
-            }
-          } catch {
-            // Ignore partial or provider-specific frames.
+            // Compatibility path only. V2 publisher consumers use onEvent.
+            await args.callbacks?.onToken?.(event.text);
+          } else if (event.type === "usage") {
+            promptTokens = event.promptTokens ?? promptTokens;
+            completionTokens = event.completionTokens ?? completionTokens;
+          } else if (event.type === "done") {
+            terminalReceived = true;
+          } else if (event.type === "error") {
+            throw new GatewayTransportError(
+              event.code,
+              event.code.replaceAll("_", " "),
+              event.retryable,
+            );
           }
         }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        await processEvents(decoder.push(value));
+        if (decoder.terminalReceived) {
+          terminalReceived = true;
+          await reader.cancel("provider_done").catch(() => undefined);
+          break;
+        }
       }
+      if (!decoder.terminalReceived) await processEvents(decoder.finish());
+      diagnostics = decoder.diagnostics;
 
       if (!fullContent) {
-        throw new Error("Empty content from stream");
+        throw new GatewayTransportError(
+          diagnostics.malformedFrameCount > 0 ? "malformed_stream" : "empty_response",
+          diagnostics.malformedFrameCount > 0 ? "Provider stream was malformed" : "Provider returned empty content",
+          true,
+        );
+      }
+      if (!terminalReceived) {
+        throw new GatewayTransportError(
+          "partial_stream",
+          "Provider stream ended before a terminal event",
+          true,
+        );
       }
 
-      const result = {
+      const result: StreamAIGatewayResult = {
         content: fullContent,
-        reasoning: reasoning || undefined,
         providerId: provider.id,
         model: entry.model,
         tier,
         promptTokens,
         completionTokens,
         fetchStartTime,
+        providerConnectedTime,
         firstTokenTime,
         initialDecodeTime: initialDecodeTime ?? Date.now(),
         partial: false,
+        diagnostics,
       };
       await ctx.runMutation(logGatewayEventInternal, {
         featureKey: args.feature,
@@ -375,7 +471,7 @@ export async function streamAIGateway(ctx: any, args: {
       await args.callbacks?.onComplete?.(result);
       return result;
     } catch (error) {
-      const classified = classifyStreamError(error, fullContent.length > 0);
+      const classified = classifyStreamError(error, fullContent.length > 0, deadlines?.abortCode);
       lastError = classified.message;
       await ctx.runMutation(logGatewayEventInternal, {
         featureKey: args.feature,
@@ -384,34 +480,65 @@ export async function streamAIGateway(ctx: any, args: {
         model: entry.model,
         tier,
         status: "failure",
-        errorType: classified.errorType,
+        errorType: classified.code,
         errorMessage: classified.message.slice(0, 2000),
         durationMs: Date.now() - fetchStartTime,
         ...routeTelemetry,
       });
-      await ctx.runMutation(recordProviderHealthInternal, {
-        featureKey: args.feature,
+      if (classified.code !== "cancelled") {
+        await ctx.runMutation(recordProviderHealthInternal, {
+          featureKey: args.feature,
+          providerId: provider.id,
+          model: entry.model,
+          success: false,
+          errorType: classified.code,
+          errorMessage: classified.message,
+        });
+      }
+      await args.callbacks?.onError?.({
+        message: classified.message,
+        code: classified.code,
         providerId: provider.id,
         model: entry.model,
-        success: false,
-        errorType: classified.errorType,
-        errorMessage: classified.message,
+        tier,
+        partial: fullContent.length > 0,
       });
-      await args.callbacks?.onError?.({ message: classified.message, providerId: provider.id, model: entry.model, tier, partial: fullContent.length > 0 });
-      if (fullContent.length > 0 || !classified.retryable) {
+      const canFallback = classified.retryable && (
+        args.callbacks?.canFallbackAfterError?.({
+          code: classified.code,
+          rawContentReceived: fullContent.length > 0,
+        }) ?? fullContent.length === 0
+      );
+      if (!canFallback) {
+        if (fullContent.length === 0) {
+          throw new GatewayTransportError(
+            classified.code,
+            classified.message,
+            false,
+          );
+        }
         return {
           content: fullContent,
-          reasoning: reasoning || undefined,
           providerId: provider.id,
           model: entry.model,
           tier,
           promptTokens,
           completionTokens,
           fetchStartTime,
+          providerConnectedTime,
           firstTokenTime,
           initialDecodeTime,
           partial: true,
+          errorCode: classified.code,
+          diagnostics,
         };
+      }
+    } finally {
+      if (cancellationTimer) clearInterval(cancellationTimer);
+      deadlines?.dispose();
+      if (reader) {
+        await reader.cancel().catch(() => undefined);
+        reader.releaseLock();
       }
     }
   }

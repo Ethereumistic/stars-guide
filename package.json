@@ -41,7 +41,7 @@
     "cloudflared": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "convex": "^1.31.7",
+    "convex": "^1.32.0",
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
     "lucide-react": "^0.563.0",
@@ -70,6 +70,7 @@
     "zustand": "^5.0.10"
   },
   "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
     "@eslint/eslintrc": "3.3.3",
     "@tailwindcss/postcss": "4.1.18",
     "@types/node": "25.1.0",
@@ -77,6 +78,7 @@
     "@types/react": "19.2.10",
     "@types/react-dom": "19.2.3",
     "@types/tz-lookup": "^6.1.2",
+    "convex-test": "^0.0.54",
     "eslint": "9.39.2",
     "eslint-config-next": "16.1.4",
     "tailwindcss": "4.1.18",
@@ -88,6 +90,9 @@
   },
   "private": true,
   "scripts": {
+    "test": "vitest run && tsx --test lib/oracle/responseSafety.test.ts src/lib/oracle/astroIntel.test.ts && tsx scripts/oracle/cli.ts test",
+    "test:vitest": "vitest run",
+    "test:node": "tsx --test lib/oracle/responseSafety.test.ts src/lib/oracle/astroIntel.test.ts",
     "oracle:test": "tsx scripts/oracle/cli.ts test",
     "oracle:plan": "tsx scripts/oracle/cli.ts plan",
     "oracle:simulate": "tsx scripts/oracle/cli.ts simulate",

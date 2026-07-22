@@ -11,6 +11,8 @@ This is the current implementation map for Oracle. Treat code as source of truth
 | Composer | `src/components/oracle/input/` |
 | Layout, sidebar, admin debug panel | `src/app/(app)/oracle/layout.tsx`, `src/components/oracle/` |
 | Main LLM action | `convex/oracle/llm.ts` |
+| Durable turn runner | `convex/oracle/turns.ts`, `convex/oracle/turnRunner.ts`, `convex/oracle/turnExecution.ts` |
+| Guarded publisher and transport | `convex/oracle/streamPublisher.ts`, `src/lib/oracle/streaming/`, `convex/aiGateway/streaming.ts` |
 | Sessions and messages | `convex/oracle/sessions.ts` |
 | Settings and providers | `convex/oracle/settings.ts`, `convex/oracle/upsertProviders.ts`, `src/lib/oracle/providers.ts` |
 | Provider routing | `convex/oracle/providerRouter.ts` |
@@ -25,12 +27,15 @@ Root `lib/oracle/*` is partly compatibility re-exports for Convex imports. The r
 
 ## User Flow
 
-1. `/oracle/new` checks quota and kill-switch state, then creates an Oracle session with the composer's opaque model-option key and reasoning effort.
-2. `convex/oracle/sessions.ts` resolves access from the authenticated user's current tier, stores the effective preference and fallback reason on the session, and writes the raw per-turn request metadata to the first user message.
-3. The app navigates to `/oracle/chat/[sessionId]`.
-4. The chat page calls `api.oracle.llm.invokeOracle` unless the path is metadata-only, such as storing a generated binaural beat message.
-5. Convex reactive queries stream message state back into the chat UI.
-6. The final assistant message stores response content plus model, fallback tier, token/cost, timing, optional journal prompt, optional binaural params, and rating metadata.
+1. `/oracle/new` checks quota and kill-switch state, then calls `createSessionWithTurn` with the composer's opaque model-option key and reasoning effort.
+2. The mutation resolves access from the authenticated user's current tier and atomically stores the session, user message, assistant placeholder, and queued durable turn before scheduling its runner.
+3. The app navigates to `/oracle/chat/[sessionId]`; `getSessionConversation` reactively returns the transcript, relevant turns, approved section rows, and one active turn.
+4. The scheduled runner claims the turn once and invokes `invokeOracleTurnV2`. Because Convex does not propagate browser auth to scheduled functions, internal route resolution receives the user ID already bound to the ownership-checked turn.
+5. A stable user-ID bucket selects live V2, shadow validation with buffered publication, or buffered rollback; missing rollout settings select buffered mode. The UI renders persisted lifecycle stages and approved content, requests cancellation through `requestStop`, creates linked full retries through `retryTurn`, and reopens eligible validated-section turns through `resumeIncompleteTurn` for missing keys only.
+6. The browser records first visible approved content once through an ownership-checked mutation; this timestamp is observability only and never changes lifecycle state.
+7. The final assistant message stores response content plus model, fallback tier, token/cost, timing, optional journal prompt, optional binaural params, and rating metadata. A bounded five-minute maintenance cron terminalizes turns older than the liveness window without calling or retrying a model.
+
+Historical messages without turn linkage remain readable. A legacy final unanswered user message can be migrated idempotently; deterministic binaural storage and Birth Chart Report onboarding do not create Oracle LLM turns.
 
 ## `invokeOracle` Flow
 
@@ -78,18 +83,20 @@ For Oracle, `ai_user_model_options` can expose curated choices to selected subsc
 
 The AI Gateway walks the resolved chain in order, applies provider health/cooldown behavior, and records route telemetry. Admin debug overrides can force a provider/model for a request, but the server rejects them for non-admin users and never persists them globally.
 
+Durable turns persist a bounded stage timeline and sanitized counters. `/admin/oracle/debug` derives queue, planning, connect, TTFT, approved, persisted, visible, validation, and terminal milestones without storing raw prompt/context in the timeline.
+
 ## Quota Path
 
 Quota is cost-based and uses microdollars. `convex/oracle/quota.ts` checks fixed burst and weekly windows using `quota_burst_*`, `quota_weekly_*`, `quota_burst_window_ms`, and `quota_weekly_window_ms`. `convex/oracle/pricing.ts` maps models to token prices.
 
-Quota is checked before main LLM calls and incremented after a successful first assistant response. Crisis, kill-switch, and hardcoded onboarding paths do not consume quota.
+Quota is checked before main LLM calls. Terminal executions charge only the cost not already charged for that turn, so later missing-section Resume work is accounted without double-charging earlier attempts. Crisis, kill-switch, and hardcoded onboarding paths do not consume quota.
 
 ## Safety Invariants
 
 - Crisis detection is hardcoded in `convex/oracle/llm.ts` and runs before model calls.
-- `ORACLE_SAFETY_RULES` is prepended before all pipeline blocks.
+- A compact `ORACLE_SAFETY_RULES` block is prepended before all pipeline blocks; it does not duplicate the full server crisis/output mechanisms in model context.
 - User text is sanitized before prompt insertion.
-- Output safety scanning runs before a response is accepted.
+- Output safety scanning runs before every publishable batch/section and the final assembled response.
 - Blocked output evidence is retained only in admin-authorized turn traces; the user-visible message is replaced in place with safe copy.
 - Admin settings can alter copy, soul, providers, models, and quota values, but must not weaken server-enforced safety behavior.
 - Journal context requires both pipeline demand and server-side consent.

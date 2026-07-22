@@ -53,6 +53,9 @@ export default function OracleSettingsPage() {
   const [fallbackResponse, setFallbackResponse] = React.useState("");
   const [crisisResponse, setCrisisResponse] = React.useState("");
   const [oracleEnabled, setOracleEnabled] = React.useState(true);
+  const [streamingV2Enabled, setStreamingV2Enabled] = React.useState(false);
+  const [streamingV2RolloutPercent, setStreamingV2RolloutPercent] = React.useState(0);
+  const [streamingV2ShadowPercent, setStreamingV2ShadowPercent] = React.useState(0);
   const [confirmKillSwitch, setConfirmKillSwitch] = React.useState("");
   const [showKillSwitchDialog, setShowKillSwitchDialog] = React.useState(false);
   const [quotaValues, setQuotaValues] = React.useState<Record<string, string>>({
@@ -75,6 +78,9 @@ export default function OracleSettingsPage() {
     setFallbackResponse(get("fallback_response_text") ?? "");
     setCrisisResponse(get("crisis_response_text") ?? "");
     setOracleEnabled(get("kill_switch") !== "true");
+    setStreamingV2Enabled(get("oracle_streaming_v2_enabled") === "true");
+    setStreamingV2RolloutPercent(Number(get("oracle_streaming_v2_rollout_percent") ?? "0"));
+    setStreamingV2ShadowPercent(Number(get("oracle_streaming_v2_shadow_percent") ?? "0"));
     setQuotaValues({
       free: get("quota_limit_free") ?? "5",
       popular: get("quota_limit_popular") ?? "5",
@@ -343,6 +349,38 @@ export default function OracleSettingsPage() {
                   }}
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/50 bg-card/50">
+            <CardHeader>
+              <CardTitle className="text-base">Streaming V2 rollout</CardTitle>
+              <CardDescription>
+                Stable user-ID cohorts control progressive publication. Turning V2 off is the one-setting rollback to buffered publication; safety, consent, quota, and durable lifecycle remain server-enforced.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-black/15 p-4">
+                <div><Label htmlFor="streaming-v2-enabled">V2 progressive publication</Label><p className="mt-1 text-xs text-muted-foreground">Disabled cohorts still finish through the durable buffered path.</p></div>
+                <Switch id="streaming-v2-enabled" checked={streamingV2Enabled} onCheckedChange={setStreamingV2Enabled} />
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2"><Label htmlFor="streaming-v2-rollout">Live rollout percent</Label><Input id="streaming-v2-rollout" type="number" min={0} max={100} value={streamingV2RolloutPercent} onChange={(event) => setStreamingV2RolloutPercent(Math.min(100, Math.max(0, Number(event.target.value))))} /><p className="text-xs text-muted-foreground">Users below this deterministic bucket receive progressive V2 publication.</p></div>
+                <div className="space-y-2"><Label htmlFor="streaming-v2-shadow">Shadow percent</Label><Input id="streaming-v2-shadow" type="number" min={0} max={100} value={streamingV2ShadowPercent} onChange={(event) => setStreamingV2ShadowPercent(Math.min(100, Math.max(0, Number(event.target.value))))} /><p className="text-xs text-muted-foreground">The next cohort runs V2 parsing and validation but publishes only after finalization.</p></div>
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  onClick={() => saveBatch([
+                    { key: "oracle_streaming_v2_enabled", value: String(streamingV2Enabled), valueType: "boolean", label: "Oracle Streaming V2 Enabled", group: "operations", description: "One-setting progressive-publication rollback control" },
+                    { key: "oracle_streaming_v2_rollout_percent", value: String(Math.floor(streamingV2RolloutPercent)), valueType: "number", label: "Oracle Streaming V2 Rollout Percent", group: "operations", description: "Deterministic percentage receiving progressive V2 publication" },
+                    { key: "oracle_streaming_v2_shadow_percent", value: String(Math.floor(streamingV2ShadowPercent)), valueType: "number", label: "Oracle Streaming V2 Shadow Percent", group: "operations", description: "Deterministic percentage running V2 validation with buffered publication" },
+                  ], "streaming_v2_rollout", "Streaming V2 rollout saved")}
+                  disabled={savingKey === "streaming_v2_rollout" || streamingV2RolloutPercent + streamingV2ShadowPercent > 100}
+                >
+                  <Save className="mr-2 h-4 w-4" />Save rollout
+                </Button>
+              </div>
+              {streamingV2RolloutPercent + streamingV2ShadowPercent > 100 && <p className="text-xs text-amber-400">Live and shadow cohorts cannot exceed 100% combined.</p>}
             </CardContent>
           </Card>
 

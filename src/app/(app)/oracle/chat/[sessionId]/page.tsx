@@ -20,13 +20,13 @@ import {
     CircleDot,
     CircleHelp,
     CircleX,
+    ArrowDown,
 } from "lucide-react";
 import { GiCursedStar, GiScrollUnfurled } from "react-icons/gi";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { OracleInput } from "@/components/oracle/input/oracle-input";
 import { useOracleComposerPreferences } from "@/components/oracle/input/use-oracle-composer-preferences";
-import type { ReasoningEffort } from "@/lib/ai/inference-preferences";
 import type { OracleQuotaSnapshot } from "@/components/oracle/quota-meter";
 import { BirthReportQuestionnaire } from "@/components/oracle/birth-report/BirthReportQuestionnaire";
 import { BinauralBeatHistoryCard } from "@/components/oracle/input/binaural-beat-history-card";
@@ -42,7 +42,14 @@ import { useOracleStore } from "@/store/use-oracle-store";
 import { OracleChartBubble } from "@/components/oracle/input/oracle-chart-bubble";
 import { SynastryChartBubble } from "@/components/oracle/input/synastry-chart-bubble";
 import { useUserStore } from "@/store/use-user-store";
-import { useLoadingMessage } from "@/hooks/use-loading-message";
+import { OracleAssistantMessage } from "./_components/oracle-assistant-message";
+import { OracleSectionStream } from "./_components/oracle-section-stream";
+import { OracleTurnStatus } from "./_components/oracle-turn-status";
+import { OracleTurnError } from "./_components/oracle-turn-error";
+import { useOracleTurnController } from "./_hooks/use-oracle-turn-controller";
+import { useSmartChatScroll } from "./_hooks/use-smart-chat-scroll";
+import type { OracleConversationView } from "./_types";
+import { isTerminalTurn } from "./_types";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -53,24 +60,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const getAudioUrlRef = makeFunctionReference<"query", { storageId: Id<"_storage"> }, string | null>("oracle/sessions:getAudioUrl");
-type OracleSessionMessage = {
-    _id: Id<"oracle_messages">;
-    role: "user" | "assistant";
-    content: string;
-    createdAt: number;
-    rating?: "positive" | "negative";
-    outcome?: "resonant" | "not_relevant" | "not_yet_known";
-    watchReviewAt?: number;
-    [key: string]: unknown;
-};
-type OracleSessionView = {
-    featureKey?: string;
-    modelOptionKey?: string;
-    reasoningEffort?: ReasoningEffort;
-    status: "active" | "completed";
-    messages: OracleSessionMessage[];
-};
-const getSessionWithMessagesRef = makeFunctionReference<"query", { sessionId: Id<"oracle_sessions"> }, OracleSessionView | null>("oracle/sessions:getSessionWithMessages");
+const getSessionConversationRef = makeFunctionReference<"query", { sessionId: Id<"oracle_sessions"> }, OracleConversationView | null>("oracle/sessions:getSessionConversation");
 const getCurrentUserRef = makeFunctionReference<"query", Record<string, never>, any>("users:current");
 const checkQuotaRef = makeFunctionReference<"query", Record<string, never>, OracleQuotaSnapshot>("oracle/quota:checkQuota");
 const setMessageOutcomeRef = makeFunctionReference<"mutation", { messageId: Id<"oracle_messages">; outcome?: "resonant" | "not_relevant" | "not_yet_known" }, null>("oracle/feedback:setMessageOutcome");
@@ -80,7 +70,15 @@ const updateSessionFeatureRef = makeFunctionReference<"mutation", any, any>("ora
 const updateBirthChartDepthRef = makeFunctionReference<"mutation", any, any>("oracle/sessions:setSessionBirthChartDepth");
 const rateMessageRef = makeFunctionReference<"mutation", any, any>("oracle/sessions:rateMessage");
 const unrateMessageRef = makeFunctionReference<"mutation", any, any>("oracle/sessions:unrateMessage");
-const invokeOracleRef = makeFunctionReference<"action", any, any>("oracle/llm:invokeOracle");
+const ensureTurnForUnansweredMessageRef = makeFunctionReference<"mutation", {
+    sessionId: Id<"oracle_sessions">;
+    clientRequestId: string;
+    timezone?: string;
+}, unknown>("oracle/turns:ensureTurnForUnansweredMessage");
+const recordFirstClientVisibleRef = makeFunctionReference<"mutation", {
+    turnId: Id<"oracle_turns">;
+    timestamp: number;
+}, { recorded: boolean; timestamp: number }>("oracle/turns:recordFirstClientVisible");
 const submitBirthReportQuestionnaireRef = makeFunctionReference<"action", any, any>("birthChartReport/queue:submitReportQuestionnaire");
 const enqueueBirthReportRef = makeFunctionReference<"action", { priority?: number }, any>("birthChartReport/queue:enqueueMyReportGeneration");
 const ensureBirthReportOnboardingRef = makeFunctionReference<"mutation", { sessionId: Id<"oracle_sessions"> }, { repaired: boolean }>("birthChartReport/queue:ensureMyReportOnboarding");
@@ -310,23 +308,20 @@ export default function OracleChatPage() {
     const params = useParams();
     const router = useRouter();
     const sessionId = params.sessionId as Id<"oracle_sessions">;
-    const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const [inputValue, setInputValue] = useState("");
     const [copied, setCopied] = useState<string | null>(null);
     const [shared, setShared] = useState<string | null>(null);
     const [ratingOverrides, setRatingOverrides] = useState<Record<string, "positive" | "negative" | "none">>({});
-    const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null);
     const [nowMs, setNowMs] = useState(() => Date.now());
     const [dismissedReportReadyForSession, setDismissedReportReadyForSession] = useState<string | null>(null);
     const { user } = useUserStore();
-    const hasInvokedRef = useRef(false);
-    const initialLoadDoneRef = useRef(false);
+    const legacyMigrationStartedRef = useRef(false);
     const reportOnboardingRepairStartedRef = useRef(false);
+    const recordedVisibleTurnIdsRef = useRef(new Set<string>());
 
     const {
         state,
-        isStreaming,
         selectedFeatureKey,
         birthChartDepth,
         setSessionId,
@@ -334,21 +329,14 @@ export default function OracleChatPage() {
         setBirthChartDepth,
         clearSelectedFeature,
         setConversationActive,
-        setIsStreaming,
         timezone,
         debugModelOverride,
-        setDebugLastMetrics,
         setUsageOpen,
         setUpgradeOpen,
-        setDebugDebugModelUsed,
         setDebugClientTiming,
-        setDebugPromptTokens,
-        setDebugCompletionTokens,
     } = useOracleStore();
 
-    const loadingMessage = useLoadingMessage(isStreaming);
-
-    const sessionData = useQuery(getSessionWithMessagesRef, { sessionId });
+    const sessionData = useQuery(getSessionConversationRef, { sessionId });
     const composerPreferences = useOracleComposerPreferences({
         modelOptionKey: sessionData?.modelOptionKey,
         reasoningEffort: sessionData?.reasoningEffort,
@@ -365,9 +353,20 @@ export default function OracleChatPage() {
     const setMessageOutcomeMutation = useMutation(setMessageOutcomeRef);
     const toggleWatchItemMutation = useMutation(toggleWatchItemRef);
     const ensureBirthReportOnboarding = useMutation(ensureBirthReportOnboardingRef);
-    const invokeOracle = useAction(invokeOracleRef);
+    const ensureTurnForUnansweredMessage = useMutation(ensureTurnForUnansweredMessageRef);
+    const recordFirstClientVisible = useMutation(recordFirstClientVisibleRef);
     const submitBirthReportQuestionnaire = useAction(submitBirthReportQuestionnaireRef);
     const enqueueBirthReport = useAction(enqueueBirthReportRef);
+    const turnController = useOracleTurnController({
+        sessionId,
+        activeTurn: sessionData?.activeTurn ?? null,
+        timezone,
+        debugModelOverride,
+    });
+    const contentVersion = sessionData
+        ? `${sessionData.messages.length}:${sessionData.activeTurn?.lastSequence ?? 0}:${sessionData.activeTurn?.status ?? "idle"}`
+        : "loading";
+    const smartScroll = useSmartChatScroll(contentVersion);
 
     useEffect(() => {
         if (sessionData === null) {
@@ -389,102 +388,84 @@ export default function OracleChatPage() {
     }, [sessionData, currentUser, sessionId, ensureBirthReportOnboarding]);
 
     useEffect(() => {
-        if (!sessionData || !sessionData.messages) return;
-
-        if ((sessionData.status === "active" || sessionData.status === "completed") && !initialLoadDoneRef.current) {
-            initialLoadDoneRef.current = true;
-            setSessionId(sessionId);
-            setConversationActive();
-        } else if (state === "oracle_responding" && !initialLoadDoneRef.current) {
-            initialLoadDoneRef.current = true;
-            setSessionId(sessionId);
-        }
-    }, [sessionData?.status, sessionData?.featureKey, sessionId, setConversationActive, setSessionId, state]);
+        if (!sessionData) return;
+        setSessionId(sessionId);
+        setConversationActive();
+    }, [sessionData, sessionId, setConversationActive, setSessionId]);
 
     useEffect(() => {
-        if (!sessionData?.messages || !pendingUserMessage) return;
+        if (!sessionData?.messages || !turnController.pendingContent) return;
         const found = sessionData.messages.some(
-            (m) => m.role === "user" && m.content === pendingUserMessage
+            (m) => m.role === "user" && m.content === turnController.pendingContent
         );
-        if (found) setPendingUserMessage(null);
-    }, [sessionData?.messages?.length, pendingUserMessage]);
+        if (found) turnController.clearPendingContent();
+    }, [sessionData?.messages, turnController]);
 
-    // Track first content appearing for client-side TTFT measurement
     useEffect(() => {
-        if (!isStreaming || !sessionData?.messages) return;
+        const activeTurn = sessionData?.activeTurn;
+        if (!activeTurn) return;
         const currentState = useOracleStore.getState().debugClientTiming;
-        if (!currentState.requestStartMs || currentState.firstContentMs) return; // Already captured or not started
-        // Find the last assistant message that has content
-        const lastAssistant = [...sessionData.messages].reverse().find((m: any) => m.role === "assistant");
-        if (lastAssistant && lastAssistant.content && lastAssistant.content.length > 0) {
+        const assistant = sessionData.messages.find((message) => message._id === activeTurn.assistantMessageId);
+        if (!currentState.requestStartMs || currentState.requestStartMs !== activeTurn.createdAt) {
             setDebugClientTiming({
-                requestStartMs: currentState.requestStartMs,
+                requestStartMs: activeTurn.createdAt,
+                firstContentMs: assistant?.content ? Date.now() : null,
+                completeMs: null,
+            });
+        } else if (!currentState.firstContentMs && assistant?.content) {
+            setDebugClientTiming({
+                requestStartMs: activeTurn.createdAt,
                 firstContentMs: Date.now(),
-                completeMs: currentState.completeMs,
+                completeMs: null,
             });
         }
-    }, [sessionData?.messages, isStreaming]);
+    }, [sessionData?.activeTurn, sessionData?.messages, setDebugClientTiming]);
 
     useEffect(() => {
-        if (state !== "oracle_responding" || !sessionId || !sessionData) return;
-        if (hasInvokedRef.current) return;
-
-        const userMessages = sessionData.messages.filter((m) => m.role === "user");
-        const lastUserMessage = userMessages[userMessages.length - 1];
-        if (!lastUserMessage) return;
-
-        const assistantCount = sessionData.messages.filter((m) => m.role === "assistant").length;
-        const isDedicatedReportSession = sessionData.featureKey === "birth_chart_report"
-            || String(currentUser?.birthChartReport?.oracleSessionId ?? "") === String(sessionId);
-        const reportOnboardingActive = Boolean(
-            isDedicatedReportSession && currentUser?.birthData && currentUser.birthChartReport?.status !== "completed",
-        );
-        if (!reportOnboardingActive && assistantCount >= userMessages.length) {
-            setConversationActive();
-            return;
-        }
-
-        hasInvokedRef.current = true;
-
-        const callOracle = async () => {
-            setIsStreaming(true);
-            // Track client-side timing
-            const requestStartMs = Date.now();
-            setDebugClientTiming({ requestStartMs, firstContentMs: null, completeMs: null });
-            // Small delay to let React state settle before streaming begins
-            await new Promise((resolve) => setTimeout(resolve, 50));
-
-            try {
-                const result = await invokeOracle({
-                    sessionId,
-                    userQuestion: lastUserMessage.content,
-                    timezone,
-                    ...(debugModelOverride ? { debugModelOverride } : {}),
-                });
-                // Capture server-side timing metrics and token counts
-                if (result) {
-                    setDebugLastMetrics(result.timingMetrics ?? null);
-                    setDebugDebugModelUsed(result.debugModelUsed ?? null);
-                    setDebugPromptTokens(result.promptTokens ?? null);
-                    setDebugCompletionTokens(result.completionTokens ?? null);
-                }
-                // Track client completion time
-                setDebugClientTiming({ requestStartMs, firstContentMs: useOracleStore.getState().debugClientTiming.firstContentMs, completeMs: Date.now() });
-            } catch (error) {
-                console.error("Oracle invocation failed:", error);
-            } finally {
-                setIsStreaming(false);
-                setConversationActive();
-                hasInvokedRef.current = false;
-            }
-        };
-
-        callOracle();
-    }, [state, sessionId, sessionData?.messages?.length, sessionData, currentUser?.birthData, currentUser?.birthChartReport?.status, invokeOracle, setConversationActive, setIsStreaming, debugModelOverride, setDebugLastMetrics, setDebugDebugModelUsed, setDebugClientTiming]);
+        if (!sessionData) return;
+        const turn = [...sessionData.turns].reverse().find((candidate) => {
+            if (candidate.firstClientVisibleAt !== undefined) return false;
+            const message = sessionData.messages.find((item) => item._id === candidate.assistantMessageId);
+            const hasPublishedSection = sessionData.sections.some(
+                (section) => section.turnId === candidate._id && section.status === "published" && Boolean(section.content),
+            );
+            return Boolean(message?.content) || hasPublishedSection;
+        });
+        if (!turn || recordedVisibleTurnIdsRef.current.has(String(turn._id))) return;
+        recordedVisibleTurnIdsRef.current.add(String(turn._id));
+        void recordFirstClientVisible({ turnId: turn._id, timestamp: Date.now() }).catch(() => {
+            recordedVisibleTurnIdsRef.current.delete(String(turn._id));
+        });
+    }, [recordFirstClientVisible, sessionData]);
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [sessionData?.messages?.length, isStreaming, pendingUserMessage]);
+        if (!sessionData?.turns.length) return;
+        const latestTurn = sessionData.turns[sessionData.turns.length - 1];
+        if (!isTerminalTurn(latestTurn)) return;
+        const timing = useOracleStore.getState().debugClientTiming;
+        if (timing.requestStartMs !== latestTurn.createdAt || timing.completeMs) return;
+        setDebugClientTiming({
+            requestStartMs: latestTurn.createdAt,
+            firstContentMs: timing.firstContentMs,
+            completeMs: latestTurn.completedAt ?? latestTurn.failedAt ?? latestTurn.cancelledAt ?? latestTurn.updatedAt,
+        });
+    }, [sessionData?.turns, setDebugClientTiming]);
+
+    useEffect(() => {
+        if (!sessionData || sessionData.activeTurn || legacyMigrationStartedRef.current) return;
+        const lastMessage = sessionData.messages[sessionData.messages.length - 1];
+        const dedicatedReport = sessionData.featureKey === "birth_chart_report";
+        if (!lastMessage || lastMessage.role !== "user" || isBinauralBeatMessage(lastMessage.content) || dedicatedReport) return;
+        legacyMigrationStartedRef.current = true;
+        void ensureTurnForUnansweredMessage({
+            sessionId,
+            clientRequestId: crypto.randomUUID(),
+            timezone,
+        }).catch((error) => {
+            legacyMigrationStartedRef.current = false;
+            console.error("Failed to migrate the unanswered Oracle message:", error);
+        });
+    }, [ensureTurnForUnansweredMessage, sessionData, sessionId, timezone]);
 
     useEffect(() => {
         if (!currentUser?.birthData || currentUser.birthChartReport?.status === "completed") return;
@@ -566,39 +547,16 @@ export default function OracleChatPage() {
         }
     }, []);
 
-    const handleTryAgain = useCallback(async () => {
-        if (isStreaming || state === "oracle_responding") return;
-        const messages = sessionData?.messages;
-        if (!messages) return;
-        const userMessages = messages.filter(m => m.role === "user");
-        const lastUserMsg = userMessages[userMessages.length - 1];
-        if (!lastUserMsg) return;
-
-        setIsStreaming(true);
-        const requestStartMs = Date.now();
-        setDebugClientTiming({ requestStartMs, firstContentMs: null, completeMs: null });
-        await new Promise(resolve => setTimeout(resolve, 50));
-
+    const handleRecover = useCallback(async (turn: NonNullable<OracleConversationView["activeTurn"]>) => {
         try {
-            const result = await invokeOracle({
-                sessionId,
-                userQuestion: lastUserMsg.content,
-                timezone,
-                ...(debugModelOverride ? { debugModelOverride } : {}),
-            });
-            if (result) {
-                setDebugLastMetrics(result.timingMetrics ?? null);
-                setDebugDebugModelUsed(result.debugModelUsed ?? null);
-                setDebugPromptTokens(result.promptTokens ?? null);
-                setDebugCompletionTokens(result.completionTokens ?? null);
+            const result = await turnController.recover(turn);
+            if (result?.existingActive && result.sessionId !== sessionId) {
+                router.push(`/oracle/chat/${result.sessionId}`);
             }
-            setDebugClientTiming({ requestStartMs, firstContentMs: useOracleStore.getState().debugClientTiming.firstContentMs, completeMs: Date.now() });
         } catch (error) {
-            console.error("Try again failed:", error);
-        } finally {
-            setIsStreaming(false);
+            console.error("Oracle recovery failed:", error);
         }
-    }, [isStreaming, state, sessionData, sessionId, invokeOracle, timezone, debugModelOverride, setIsStreaming, setDebugClientTiming, setDebugLastMetrics, setDebugDebugModelUsed, setDebugPromptTokens, setDebugCompletionTokens]);
+    }, [router, sessionId, turnController]);
 
     const handleFeatureSelect = useCallback(async (featureKey: OracleFeatureKey) => {
         if (!isImplementedFeature(featureKey)) return;
@@ -639,54 +597,30 @@ export default function OracleChatPage() {
 
     const handleSendFollowUp = useCallback(async () => {
         const content = inputValue.trim() || getFeatureDefaultPrompt(selectedFeatureKey);
-        if (!content || isStreaming) return;
+        if (!content || turnController.busy) return;
 
         setInputValue("");
-        setPendingUserMessage(content);
 
-        // Dismiss the feature import card in the input area (local UI only).
         // Do NOT clear the session feature — the chart bubble in chat must persist.
-        if (selectedFeatureKey) {
-            clearSelectedFeature();
-        }
-
-        await addMessageMutation({
-            sessionId,
-            role: "user",
-            content,
-            modelOptionKey: composerPreferences.modelOptionKey,
-            reasoningEffort: composerPreferences.reasoningEffort,
-        });
-
-        setIsStreaming(true);
-        // Track client-side timing
-        const requestStartMs = Date.now();
-        setDebugClientTiming({ requestStartMs, firstContentMs: null, completeMs: null });
-        // Small delay to let React state settle before streaming begins
-        await new Promise((resolve) => setTimeout(resolve, 50));
 
         try {
-            const result = await invokeOracle({
-                sessionId,
-                userQuestion: content,
-                timezone,
-                ...(debugModelOverride ? { debugModelOverride } : {}),
+            const result = await turnController.begin({
+                content,
+                modelOptionKey: composerPreferences.modelOptionKey,
+                reasoningEffort: composerPreferences.reasoningEffort,
             });
-            // Capture server-side timing metrics and token counts
-            if (result) {
-                setDebugLastMetrics(result.timingMetrics ?? null);
-                setDebugDebugModelUsed(result.debugModelUsed ?? null);
-                setDebugPromptTokens(result.promptTokens ?? null);
-                setDebugCompletionTokens(result.completionTokens ?? null);
+            if (!result) {
+                setInputValue(content);
+            } else if (result.existingActive && result.sessionId !== sessionId) {
+                router.push(`/oracle/chat/${result.sessionId}`);
+            } else if (selectedFeatureKey) {
+                clearSelectedFeature();
             }
-            // Track client completion time
-            setDebugClientTiming({ requestStartMs, firstContentMs: useOracleStore.getState().debugClientTiming.firstContentMs, completeMs: Date.now() });
         } catch (error) {
-            console.error("Follow-up Oracle call failed:", error);
-        } finally {
-            setIsStreaming(false);
+            setInputValue(content);
+            console.error("Failed to begin the Oracle turn:", error);
         }
-    }, [inputValue, selectedFeatureKey, isStreaming, sessionId, addMessageMutation, invokeOracle, setIsStreaming, debugModelOverride, setDebugLastMetrics, setDebugDebugModelUsed, setDebugClientTiming, clearSelectedFeature, composerPreferences.modelOptionKey, composerPreferences.reasoningEffort]);
+    }, [inputValue, selectedFeatureKey, turnController, clearSelectedFeature, composerPreferences.modelOptionKey, composerPreferences.reasoningEffort, router, sessionId]);
 
     const reportStatus = currentUser?.birthChartReport?.status;
     const reportOnboardingStep = currentUser?.birthChartReport?.onboardingStep;
@@ -712,12 +646,11 @@ export default function OracleChatPage() {
     );
 
     const handleReportQuestionnaireSubmit = useCallback(async (answers: any) => {
-        if (isStreaming || state === "oracle_responding") return;
+        if (turnController.busy) return;
         const content = "I’m ready — show me what stands out in my chart.";
-        setPendingUserMessage(content);
         await addMessageMutation({ sessionId, role: "user", content });
         await submitBirthReportQuestionnaire({ answers, sessionId, priority: 2 });
-    }, [isStreaming, state, addMessageMutation, sessionId, submitBirthReportQuestionnaire]);
+    }, [turnController.busy, addMessageMutation, sessionId, submitBirthReportQuestionnaire]);
 
     const handleDismissReportReady = useCallback(() => {
         setDismissedReportReadyForSession(String(sessionId));
@@ -744,7 +677,7 @@ export default function OracleChatPage() {
         );
     }
 
-    // Single source of truth: Convex reactive data + optimistic pending message
+    // Single source of truth: Convex reactive data plus the mutation-pending user bubble.
     const serverMessages = sessionData.messages.map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
@@ -759,10 +692,13 @@ export default function OracleChatPage() {
         watchReviewAt: (m as any).watchReviewAt as number | undefined,
         journalPrompt: (m as any).journalPrompt as string | undefined,
         modelUsed: (m as any).modelUsed as string | undefined,
+        turnId: m.turnId,
+        streamProtocolVersion: m.streamProtocolVersion,
     }));
-    const allMessages = pendingUserMessage && !serverMessages.some(m => m.role === "user" && m.content === pendingUserMessage)
-        ? [...serverMessages, { role: "user" as const, content: pendingUserMessage, createdAt: Date.now(), _id: undefined as Id<"oracle_messages"> | undefined, rating: undefined as "positive" | "negative" | undefined, journalPrompt: undefined as string | undefined }]
+    const allMessages = turnController.pendingContent && !serverMessages.some(m => m.role === "user" && m.content === turnController.pendingContent)
+        ? [...serverMessages, { role: "user" as const, content: turnController.pendingContent, createdAt: Date.now(), _id: undefined as Id<"oracle_messages"> | undefined, rating: undefined as "positive" | "negative" | undefined, journalPrompt: undefined as string | undefined, turnId: undefined, streamProtocolVersion: undefined }]
         : serverMessages;
+    const turnById = new Map(sessionData.turns.map((turn) => [String(turn._id), turn]));
 
     // Show birth chart bubble in chat when session was created with birth chart feature.
     // Key off sessionData.featureKey (persisted), NOT selectedFeatureKey (ephemeral UI state)
@@ -800,23 +736,23 @@ export default function OracleChatPage() {
     }
 
     // Determine input bar state
-    const isBusyOrQuotaBlocked = isStreaming || state === "oracle_responding" || !!quotaExhausted;
+    const isBusyOrQuotaBlocked = turnController.busy || !!quotaExhausted;
     const isInputDisabled = isBusyOrQuotaBlocked || reportQuestionnaireActive || reportGenerating;
     const inputPlaceholder = reportQuestionnaireActive
         ? "Answer the report questions above…"
         : reportGenerating
             ? "Your report is being crafted…"
-            : isStreaming || state === "oracle_responding"
-        ? "Oracle is speaking..."
+            : turnController.busy
+        ? "Oracle is working on this reading…"
         : quotaExhausted
             ? "Quota exhausted"
             : "Ask a follow-up...";
 
     return (
-        <div className="flex-1 flex flex-col overflow-hidden z-10">
+        <div className="relative flex-1 flex flex-col overflow-hidden z-10">
             {/* Messages area */}
-            <div className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin scrollbar-thumb-white/10">
-                <div className="max-w-3xl mx-auto space-y-6">
+            <div ref={smartScroll.viewportRef} className="flex-1 overflow-y-auto px-4 py-6 scrollbar-thin scrollbar-thumb-white/10">
+                <div ref={smartScroll.contentRef} className="max-w-3xl mx-auto space-y-6">
                     {renderedMessages.map((msg, i) => {
                         if ((msg as any).role === "synastry-bubble") {
                             return (
@@ -885,33 +821,21 @@ export default function OracleChatPage() {
                                 ) : msg.role === "assistant" ? (() => {
                                     const isLastAssistant = i === renderedMessages.length - 1 ||
                                         !renderedMessages.slice(i + 1).some(m => m.role === "assistant");
-                                    const isStreamingThis = isLastAssistant && isStreaming;
-                                    const isEmpty = !msg.content;
-
+                                    const turn = msg.turnId ? turnById.get(String(msg.turnId)) : undefined;
+                                    const turnSections = turn
+                                        ? sessionData.sections.filter((section) => section.turnId === turn._id)
+                                        : [];
+                                    const isStreamingThis = Boolean(turn?.active);
+                                    const terminalWithContent = Boolean(msg.content) && (!turn || isTerminalTurn(turn));
+                                    const rendersValidatedSections = Boolean(
+                                        turn?.publicationMode === "validated_sections" && turnSections.some((section) => section.content),
+                                    );
                                     // Binaural params from message metadata (deterministic generation)
                                     const beatParams = !isStreamingThis ? (msg as any).binauralParams as (BinauralBeatParams & { rationale?: any }) | undefined : undefined;
 
                                     // Empty streaming message → show loading dots
-                                    if (isStreamingThis && isEmpty) {
-                                        return (
-                                            <div className="flex items-center gap-3 py-4">
-                                                <GiCursedStar className="w-4 h-4 text-galactic animate-spin shrink-0" style={{ animationDuration: "3s" }} />
-                                                <div className="flex items-center gap-2">
-                                                    <div className="flex gap-1">
-                                                        <span className="w-2 h-2 rounded-full bg-galactic/50 animate-bounce" style={{ animationDelay: "0ms" }} />
-                                                        <span className="w-2 h-2 rounded-full bg-galactic/50 animate-bounce" style={{ animationDelay: "150ms" }} />
-                                                        <span className="w-2 h-2 rounded-full bg-galactic/50 animate-bounce" style={{ animationDelay: "300ms" }} />
-                                                    </div>
-                                                    <span className="text-sm text-white/40 italic">{loadingMessage}</span>
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-
                                     // Normal or streaming-with-content assistant message
-                                    const displayContent = isStreamingThis
-                                        ? msg.content
-                                        : msg.content;
+                                    const displayContent = msg.content;
                                     const shouldFakeStreamOnboarding = !isStreamingThis
                                         && (msg as any).modelUsed === "birth_chart_report_onboarding"
                                         && Date.now() - msg.createdAt < 120_000
@@ -926,10 +850,27 @@ export default function OracleChatPage() {
 
                                     return (
                                         <div className="flex-1 min-w-0 py-2">
-                                            {shouldFakeStreamOnboarding ? (
+                                            {rendersValidatedSections && turn ? (
+                                                <OracleSectionStream turn={turn} sections={turnSections} />
+                                            ) : shouldFakeStreamOnboarding ? (
                                                 <FakeStreamingOnboardingMessage content={displayContent} />
-                                            ) : (
-                                                <AssistantMessageContent content={displayContent} isStreamingThis={isStreamingThis} />
+                                            ) : displayContent ? (
+                                                <OracleAssistantMessage content={displayContent} growing={isStreamingThis} />
+                                            ) : null}
+                                            {turn?.active && (
+                                                <OracleTurnStatus
+                                                    turn={turn}
+                                                    sections={turnSections}
+                                                    stopping={turnController.stopMutationPending}
+                                                    onStop={() => void turnController.stop()}
+                                                />
+                                            )}
+                                            {turn && isTerminalTurn(turn) && (
+                                                <OracleTurnError
+                                                    turn={turn}
+                                                    recovering={turnController.recoveryMutationPending}
+                                                    onRecover={() => void handleRecover(turn)}
+                                                />
                                             )}
                                             {(msg as any).audioUrl ? (
                                                 <div className="mt-4">
@@ -953,7 +894,7 @@ export default function OracleChatPage() {
                                                 </div>
                                             ) : null}
                                             {/* Actions — visible on last response, hover-visible on earlier ones */}
-                                            {!isStreamingThis && (
+                                            {terminalWithContent && (
                                                 <div className={
                                                     isLastAssistant
                                                         ? "flex items-center gap-1 mt-3 opacity-100 transition-opacity duration-200"
@@ -1055,16 +996,6 @@ export default function OracleChatPage() {
                                                     </button>
 
                                                     {/* Try again — only on latest response */}
-                                                    {isLastAssistant && (
-                                                        <button
-                                                            onClick={handleTryAgain}
-                                                            className="text-white/20 hover:text-white/50 transition-colors p-1"
-                                                            aria-label="Try again"
-                                                        >
-                                                            <RotateCcw className="w-3.5 h-3.5" />
-                                                        </button>
-                                                    )}
-
                                                     {/* Separator + Journal about this */}
                                                     {msg.journalPrompt && (
                                                         <>
@@ -1101,32 +1032,31 @@ export default function OracleChatPage() {
                         );
                     })}
 
-                    {/* Fallback loading: shown while isStreaming but before the streaming message appears in Convex */}
-                    <AnimatePresence>
-                        {isStreaming && renderedMessages[renderedMessages.length - 1]?.role !== "assistant" && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0 }}
-                                className="flex items-center gap-3 py-4"
-                                aria-label="Oracle is consulting the stars"
-                            >
-                                <GiCursedStar className="w-4 h-4 text-galactic animate-spin shrink-0" style={{ animationDuration: "3s" }} />
-                                <div className="flex items-center gap-2">
-                                    <div className="flex gap-1">
-                                        <span className="w-2 h-2 rounded-full bg-galactic/50 animate-bounce" style={{ animationDelay: "0ms" }} />
-                                        <span className="w-2 h-2 rounded-full bg-galactic/50 animate-bounce" style={{ animationDelay: "150ms" }} />
-                                        <span className="w-2 h-2 rounded-full bg-galactic/50 animate-bounce" style={{ animationDelay: "300ms" }} />
-                                    </div>
-                                    <span className="text-sm text-white/40 italic">{loadingMessage}</span>
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-
-                    <div ref={messagesEndRef} />
+                    <div ref={smartScroll.bottomRef} />
                 </div>
             </div>
+
+            <AnimatePresence>
+                {smartScroll.showJumpToLatest && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 4 }}
+                        className="pointer-events-none absolute inset-x-0 bottom-28 z-20 flex justify-center"
+                    >
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={smartScroll.jumpToLatest}
+                            className="pointer-events-auto rounded-full border-white/12 bg-background/90 px-3 text-xs text-white/70 shadow-xl backdrop-blur-xl hover:border-galactic/25 hover:bg-background hover:text-white"
+                        >
+                            <ArrowDown className="mr-1.5 size-3.5" aria-hidden="true" />
+                            Jump to latest
+                        </Button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Input bar OR Quota Exhausted Banner at bottom */}
             <div className="shrink-0 p-4 bg-linear-to-t from-background via-background/95 to-transparent">
@@ -1191,7 +1121,7 @@ export default function OracleChatPage() {
                             {reportQuestionnaireActive && (
                                 <div className="mb-3">
                                     <BirthReportQuestionnaire
-                                        disabled={isStreaming || state === "oracle_responding"}
+                                        disabled={turnController.busy}
                                         onSubmit={handleReportQuestionnaireSubmit}
                                     />
                                 </div>

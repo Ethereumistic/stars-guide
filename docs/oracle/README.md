@@ -12,6 +12,7 @@ Use this folder as a compact navigation layer. The current source of truth is st
 - `OPERATIONS_AND_DEBUG.md` - admin settings, providers, quota, debug panels, and troubleshooting.
 - `ORACLE_EXPERIENCE_AUDIT.md` - product-quality audit of birth chart, report, cosmic weather, synastry, retention, and evaluation gaps.
 - `ORACLE_COMPOSER_REDESIGN_PLAN.md` - implementation plan for the expanding composer, model/effort access, dictation, and `/admin/ai` routing controls.
+- `ORACLE_STREAMING_V2_IMPLEMENTATION_PLAN.md` - production handoff for durable turns, guarded streaming, validated natal sections, cancellation, recovery, observability, testing, and rollout.
 
 ## Source Of Truth
 
@@ -23,12 +24,13 @@ Use this folder as a compact navigation layer. The current source of truth is st
 
 ## Current Core Flow
 
-1. A session is created by `convex/oracle/sessions.ts`.
-2. The chat page calls `api.oracle.llm.invokeOracle`.
-3. `convex/oracle/llm.ts` loads session, user, settings, consent, and pipeline data.
+1. A model-backed session and its first durable turn are created atomically by `convex/oracle/turns.ts`; follow-ups use the same module's `beginTurn` mutation.
+2. The chat subscribes through `oracle/sessions:getSessionConversation` and does not invoke the model from a browser effect.
+3. The scheduled runner claims the turn once, then `convex/oracle/llm.ts` loads the stored message, session, user, settings, consent, and pipeline data.
 4. Intent routing maps the message to one or more pipelines from `src/lib/oracle/pipelines/`.
 5. Pipelines contribute system prompt blocks and user message blocks.
-6. `invokeOracle` prepends hardcoded safety rules, checks quota, selects providers, streams, scans output, persists the result, and updates quota/timing/session metadata.
+6. The V2 action prepends a compact hardcoded safety reminder, checks quota, selects providers, streams through server-enforced guarded publication, persists approved content/lifecycle state, and updates quota/timing/session metadata.
+7. Each turn records its fail-closed rollout cohort, bounded stage timeline, distinct connection/TTFT/approval/persistence milestones, sanitized stream counters, and best-effort first client-visible timestamp. Eligible validated-section Resume requests only missing keys on the same turn. A bounded cron terminalizes stale active turns without generating or retrying content.
 
 ## Current Pipelines
 

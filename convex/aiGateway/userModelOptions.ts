@@ -340,13 +340,14 @@ export async function resolveOracleRouteForUser(
 
 export const resolveOracleRouteInternal = internalQuery({
   args: {
+    userId: v.id("users"),
     requestedOptionKey: v.optional(v.string()),
     requestedReasoningEffort: v.optional(reasoningEffort),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-    const user = await ctx.db.get(userId);
+    // Scheduled/internal functions intentionally do not inherit browser auth.
+    // The caller supplies the user ID already bound to the durable turn.
+    const user = await ctx.db.get(args.userId);
     if (!user) throw new Error("User not found");
     return await resolveOracleRouteForUser(
       ctx,

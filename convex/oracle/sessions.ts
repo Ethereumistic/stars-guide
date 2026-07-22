@@ -293,6 +293,90 @@ export const addMessage = mutation({
     },
 });
 
+/**
+ * Phase D conversation subscription. One authenticated query returns the
+ * transcript plus the durable lifecycle rows needed to render it, avoiding a
+ * client query per message or section.
+ */
+export const getSessionConversation = query({
+    args: { sessionId: v.id("oracle_sessions") },
+    handler: async (ctx, { sessionId }) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) return null;
+
+        const session = await ctx.db.get(sessionId);
+        if (!session || session.userId !== userId) return null;
+
+        const [messages, turnDocs] = await Promise.all([
+            ctx.db
+                .query("oracle_messages")
+                .withIndex("by_session_created", (q) => q.eq("sessionId", sessionId))
+                .order("asc")
+                .collect(),
+            ctx.db
+                .query("oracle_turns")
+                .withIndex("by_session_created", (q) => q.eq("sessionId", sessionId))
+                .order("asc")
+                .collect(),
+        ]);
+
+        const messageTurnIds = new Set(
+            messages.flatMap((message) => message.turnId ? [String(message.turnId)] : []),
+        );
+        const relevantTurns = turnDocs.filter((turn) => messageTurnIds.has(String(turn._id)));
+        const sectionGroups = await Promise.all(
+            relevantTurns.map((turn) => ctx.db
+                .query("oracle_turn_sections")
+                .withIndex("by_turn_ordinal", (q) => q.eq("turnId", turn._id))
+                .order("asc")
+                .collect()),
+        );
+
+        const turns = relevantTurns.map((turn) => ({
+            _id: turn._id,
+            userMessageId: turn.userMessageId,
+            assistantMessageId: turn.assistantMessageId,
+            retryOfTurnId: turn.retryOfTurnId,
+            status: turn.status,
+            active: turn.active,
+            publicationMode: turn.publicationMode,
+            protocolVersion: turn.protocolVersion,
+            currentSectionKey: turn.currentSectionKey,
+            requiredSectionKeys: turn.requiredSectionKeys,
+            publishedSectionKeys: turn.publishedSectionKeys,
+            lastSequence: turn.lastSequence,
+            publishedChars: turn.publishedChars,
+            partial: turn.partial,
+            safeErrorCode: turn.safeErrorCode,
+            safeErrorMessage: turn.safeErrorMessage,
+            createdAt: turn.createdAt,
+            updatedAt: turn.updatedAt,
+            completedAt: turn.completedAt,
+            failedAt: turn.failedAt,
+            cancelledAt: turn.cancelledAt,
+        }));
+        const sections = sectionGroups.flat().map((section) => ({
+            _id: section._id,
+            turnId: section.turnId,
+            key: section.key,
+            ordinal: section.ordinal,
+            title: section.title,
+            status: section.status,
+            content: section.content,
+            publishedAt: section.publishedAt,
+            updatedAt: section.updatedAt,
+        }));
+
+        return {
+            ...session,
+            messages,
+            turns,
+            sections,
+            activeTurn: turns.find((turn) => turn.active) ?? null,
+        };
+    },
+});
+
 export const patchModelRouteResolution = internalMutation({
     args: {
         sessionId: v.id("oracle_sessions"),

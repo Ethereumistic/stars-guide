@@ -61,6 +61,21 @@ export interface OracleEvidenceBundle {
   natalChart?: {
     availableEntities: string[];
     storedAspects: Array<{ body1: string; body2: string; type: string }>;
+    placements?: Array<{
+      body: string;
+      sign: string;
+      house?: number | null;
+      degree?: number;
+      retrograde?: boolean;
+      dignity?: string | null;
+    }>;
+    houseSignatures?: Array<{ house: number; sign: string }>;
+    chartRuler?: { body: string };
+    concentrations?: Array<{
+      kind: "sign" | "house";
+      value: string | number;
+      bodies: string[];
+    }>;
   };
 }
 
@@ -84,6 +99,27 @@ export interface OracleTurnTrace {
   providerAttempts: Array<{ provider?: string; model?: string; tier?: string; durationMs?: number; outcome: string }>;
   violations: OracleResponseViolation[];
   repaired: boolean;
+  streamingV2?: {
+    turnId: string;
+    status: string;
+    rolloutMode: "v2" | "shadow" | "buffered";
+    stageTimeline: Array<{ stage: string; at: number }>;
+    providerAttemptCount: number;
+    repairCount: number;
+    resumeCount: number;
+    persistenceWriteCount: number;
+    publishedChars: number;
+    malformedProviderFrameCount: number;
+    droppedProviderFrameCount: number;
+    requiredSectionCount: number;
+    publishedSectionCount: number;
+    partial: boolean;
+    sectionProtocolFallback: boolean;
+    safeErrorCode?: string;
+    promptTokens: number;
+    completionTokens: number;
+    costUsdMicro: number;
+  };
   /**
    * Output scanner evidence. Raw blocked text is retained only in this
    * admin-authorized trace so a safety intervention can be diagnosed.

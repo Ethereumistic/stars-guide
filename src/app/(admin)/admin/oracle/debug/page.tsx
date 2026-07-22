@@ -131,6 +131,10 @@ function formatMs(ms: number): string {
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
+function formatRate(rate: number | null | undefined): string {
+  return rate == null ? "—" : `${(rate * 100).toFixed(rate < 0.01 ? 2 : 1)}%`;
+}
+
 function formatCostMicro(costMicro: number | null | undefined): string {
   if (costMicro == null) return "—";
   const dollars = costMicro / 1_000_000;
@@ -915,6 +919,35 @@ export default function OracleDebugPage() {
           </section>
         )}
 
+        {stats?.streamingV2 && (
+          <Card className="border-white/[0.07] bg-[#0d1018] shadow-none">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm"><Activity className="h-4 w-4 text-violet-300" />Streaming V2 health</CardTitle>
+              <CardDescription>Latest {stats.streamingV2.sampleSize} durable turns; thresholds are review signals, not lifecycle controls.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
+              {[
+                { label: "Partial rate", value: formatRate(stats.streamingV2.partialRate), alert: (stats.streamingV2.partialRate ?? 0) > stats.streamingV2.thresholds.partialRate },
+                { label: "Malformed frames", value: formatRate(stats.streamingV2.malformedFrameRate), alert: (stats.streamingV2.malformedFrameRate ?? 0) > stats.streamingV2.thresholds.malformedFrameRate },
+                { label: "Natal fallback", value: formatRate(stats.streamingV2.sectionProtocolFallbackRate), alert: (stats.streamingV2.sectionProtocolFallbackRate ?? 0) > stats.streamingV2.thresholds.sectionProtocolFallbackRate },
+                { label: "Repeated repair", value: formatRate(stats.streamingV2.repeatedRepairRate), alert: false },
+                { label: "Slow persistence", value: stats.streamingV2.slowProviderToPersistTurns, alert: stats.streamingV2.slowProviderToPersistTurns > 0 },
+                { label: "Stale active", value: stats.streamingV2.staleActiveTurns, alert: stats.streamingV2.staleActiveTurns > 0 },
+              ].map((metric) => (
+                <div key={metric.label} className="rounded-lg border border-white/[0.06] bg-black/15 p-3">
+                  <p className="text-[9px] uppercase tracking-wider text-muted-foreground">{metric.label}</p>
+                  <p className={`mt-2 font-mono text-lg ${metric.alert ? "text-amber-300" : "text-emerald-300"}`}>{metric.value}</p>
+                </div>
+              ))}
+              <div className="flex flex-wrap gap-2 pt-1 sm:col-span-2 xl:col-span-6">
+                {Object.entries(stats.streamingV2.rolloutModes).map(([mode, count]) => (
+                  <Badge key={mode} variant="outline" className="font-mono text-[10px]">{mode}: {String(count)}</Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Cross-tier production release gate */}
         <Card className="overflow-hidden border-white/[0.07] bg-[#0d1018] shadow-none">
           <CardHeader className="pb-3">
@@ -1276,6 +1309,52 @@ export default function OracleDebugPage() {
                           </div>
                         );
                       })}
+                    </CardContent>
+                  </Card>
+                )}
+                {d.durableTurns?.length > 0 && (
+                  <Card className="border-violet-400/20 bg-violet-400/[0.035]">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2 text-sm"><Activity className="h-4 w-4 text-violet-300" />Durable turn timeline</CardTitle>
+                      <CardDescription>Persisted server milestones, client visibility, counters, rollout cohort, and review thresholds.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {d.durableTurns.map((turn: any, turnIndex: number) => (
+                        <div key={turn._id} className="rounded-xl border border-white/[0.07] bg-black/15 p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs font-medium">Turn {turnIndex + 1}</span>
+                              <Badge variant="outline" className="font-mono text-[10px]">{turn.status}</Badge>
+                              <Badge variant="outline" className="font-mono text-[10px]">{turn.rolloutMode ?? "v2"} / bucket {turn.rolloutBucket ?? "legacy"}</Badge>
+                            </div>
+                            <span className="font-mono text-[10px] text-muted-foreground">{turn._id}</span>
+                          </div>
+                          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                            {turn.telemetry.timeline.map((milestone: { key: string; label: string; at: number }, index: number) => (
+                              <div key={milestone.key} className="relative rounded-lg border border-white/[0.06] bg-black/15 px-3 py-2.5">
+                                <div className="flex items-center gap-2"><span className="grid h-5 w-5 place-items-center rounded-full bg-violet-400/10 font-mono text-[9px] text-violet-200">{index + 1}</span><span className="text-[10px] text-muted-foreground">{milestone.label}</span></div>
+                                <p className="mt-1.5 font-mono text-[10px]">{formatTimestamp(milestone.at)}</p>
+                                <p className="mt-0.5 font-mono text-[9px] text-muted-foreground">+{formatMs(milestone.at - turn.queuedAt)}</p>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] sm:grid-cols-4 lg:grid-cols-8">
+                            <span>Queue {turn.telemetry.actionQueueDelayMs != null ? formatMs(turn.telemetry.actionQueueDelayMs) : "—"}</span>
+                            <span>TTFT {turn.telemetry.providerTtftMs != null ? formatMs(turn.telemetry.providerTtftMs) : "—"}</span>
+                            <span>Approved gap {turn.telemetry.providerToApprovedMs != null ? formatMs(turn.telemetry.providerToApprovedMs) : "—"}</span>
+                            <span>Persist gap {turn.telemetry.approvedToPersistedMs != null ? formatMs(turn.telemetry.approvedToPersistedMs) : "—"}</span>
+                            <span>Writes {turn.persistenceWriteCount ?? 0}</span>
+                            <span>Chars {turn.publishedChars ?? 0}</span>
+                            <span>Frames {turn.telemetry.malformedProviderFrameCount}/{turn.telemetry.droppedProviderFrameCount}</span>
+                            <span>Cost {formatCostMicro(turn.costUsdMicro)}</span>
+                          </div>
+                          {turn.telemetry.alerts.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-1.5">
+                              {turn.telemetry.alerts.map((alert: string) => <Badge key={alert} className="bg-amber-400/10 text-amber-200">{alert}</Badge>)}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </CardContent>
                   </Card>
                 )}

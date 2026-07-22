@@ -84,11 +84,30 @@ type CreateOracleSessionArgs = Record<string, unknown> & {
   };
 };
 
+type CreateSessionWithTurnResult = {
+  sessionId: Id<"oracle_sessions">;
+  turnId: Id<"oracle_turns">;
+  userMessageId: Id<"oracle_messages">;
+  assistantMessageId: Id<"oracle_messages">;
+  reused: boolean;
+  existingActive: boolean;
+};
+
 const createOracleSessionRef = makeFunctionReference<
   "mutation",
   CreateOracleSessionArgs,
   Id<"oracle_sessions">
 >("oracle/sessions:createSession");
+
+const createSessionWithTurnRef = makeFunctionReference<
+  "mutation",
+  CreateOracleSessionArgs & {
+    clientRequestId: string;
+    timezone?: string;
+    debugModelOverride?: { providerId: string; model: string };
+  },
+  CreateSessionWithTurnResult
+>("oracle/turns:createSessionWithTurn");
 
 const getCurrentUserForReportBootstrapRef = makeFunctionReference<
   "query",
@@ -164,6 +183,7 @@ export default function OracleNewPage() {
   const reportBootstrapStartedRef = useRef(false);
   const { user } = useUserStore();
   const [isStartingBirthReport, setIsStartingBirthReport] = useState(false);
+  const [beginMutationPending, setBeginMutationPending] = useState(false);
 
   const {
     pendingQuestion,
@@ -175,7 +195,6 @@ export default function OracleNewPage() {
     setBirthChartDepth,
     clearSelectedFeature,
     setSessionId,
-    setOracleResponding,
     setQuota,
     setSynastryChartB,
     setSynastryRelationship,
@@ -183,6 +202,7 @@ export default function OracleNewPage() {
     clearSynastryChartB,
     setUsageOpen,
     setUpgradeOpen,
+    debugModelOverride,
   } = useOracleStore();
 
   const composerPreferences = useOracleComposerPreferences();
@@ -195,6 +215,7 @@ export default function OracleNewPage() {
   const isOracleOffline = killSwitch?.value === "true";
 
   const createSession = useMutation(createOracleSessionRef);
+  const createSessionWithTurn = useMutation(createSessionWithTurnRef);
   const createBirthChartReportSession = useMutation(createBirthChartReportSessionRef);
 
   useEffect(() => {
@@ -268,7 +289,7 @@ export default function OracleNewPage() {
 
         setSessionId(newSessionId);
         router.push(`/oracle/chat/${newSessionId}`);
-        // Do NOT call setOracleResponding — beat messages don't invoke Oracle AI
+        // Beat messages are deterministic metadata and do not create an Oracle turn.
       } catch (error) {
         console.error("Failed to create session for binaural beat:", error);
       }
@@ -281,18 +302,23 @@ export default function OracleNewPage() {
       pendingQuestion.trim() || getFeatureDefaultPrompt(selectedFeatureKey);
     if (!questionText) return;
     if (quota && !quota.allowed) return;
+    if (beginMutationPending) return;
 
     // For synastry, validate that chart B and relationship are set
     if (isSynastryFeature(selectedFeatureKey) && (!synastryData?.chartB || !synastryData?.relationship)) {
       return; // Don't submit — UI shows validation
     }
 
+    setBeginMutationPending(true);
     try {
-      const sessionId = await createSession({
+      const result = await createSessionWithTurn({
         featureKey: selectedFeatureKey ?? undefined,
         questionText,
+        clientRequestId: crypto.randomUUID(),
+        timezone,
         modelOptionKey: composerPreferences.modelOptionKey,
         reasoningEffort: composerPreferences.reasoningEffort,
+        ...(debugModelOverride ? { debugModelOverride } : {}),
         synastryPayload: isSynastryFeature(selectedFeatureKey) && synastryData?.chartB && synastryData?.relationship
           ? {
               chartB: synastryData.chartB,
@@ -305,28 +331,34 @@ export default function OracleNewPage() {
           : undefined,
       });
 
-      // Dismiss the feature import card before navigating
-      clearSelectedFeature();
+      if (!result.existingActive) {
+        clearSelectedFeature();
+        setPendingQuestion("");
+        trackOracleChat();
+      }
 
-      setSessionId(sessionId);
-      setOracleResponding();
-      trackOracleChat();
-      router.push(`/oracle/chat/${sessionId}`);
+      setSessionId(result.sessionId);
+      router.push(`/oracle/chat/${result.sessionId}`);
     } catch (error) {
       console.error("Failed to create Oracle session:", error);
+    } finally {
+      setBeginMutationPending(false);
     }
   }, [
     pendingQuestion,
     selectedFeatureKey,
     synastryData,
     quota,
-    createSession,
+    createSessionWithTurn,
     setSessionId,
-    setOracleResponding,
+    setPendingQuestion,
     router,
     clearSelectedFeature,
     composerPreferences.modelOptionKey,
     composerPreferences.reasoningEffort,
+    timezone,
+    debugModelOverride,
+    beginMutationPending,
   ]);
 
   const currentTier = (user?.tier ?? "free") as "free" | "popular" | "premium";
@@ -430,7 +462,7 @@ export default function OracleNewPage() {
                 onValueChange={setPendingQuestion}
                 onSubmit={handleSubmit}
                 placeholder={quotaExhausted ? "Oracle access is resting…" : "Ask the stars anything..."}
-                disabled={quotaExhausted}
+                disabled={quotaExhausted || beginMutationPending}
                 canSubmit={Boolean((pendingQuestion.trim() || selectedFeatureKey) && (isSynastryFeature(selectedFeatureKey) ? synastryData?.chartB && synastryData?.relationship : true))}
                 featureKey={selectedFeatureKey}
                 onFeatureSelect={handleFeatureSelect}

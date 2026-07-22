@@ -47,7 +47,7 @@ export function Logo({
     const logomark = icon ? (
         <GiStarSwirl
             className={cn(
-                "text-primary shrink-0 transition-all duration-300",
+                "text-white shrink-0 transition-all duration-300",
                 iconSizes[size],
             )}
         />

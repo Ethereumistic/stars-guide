@@ -38,7 +38,6 @@ import {
 } from "@/components/ui/tooltip";
 import {
   useOracleStore,
-  type TimingMetrics,
   type DebugModelOverride,
 } from "@/store/use-oracle-store";
 import {
@@ -71,13 +70,18 @@ type DebugSessionData = {
   modelRouteFallbackReason?: string;
   reasoningEffort?: string;
   messages: DebugSessionMessage[];
+  activeTurn: {
+    status: string;
+    active: boolean;
+    createdAt: number;
+  } | null;
 };
 
 const getDebugSessionRef = makeFunctionReference<
   "query",
   { sessionId: string },
   DebugSessionData | null
->("oracle/sessions:getSessionWithMessages");
+>("oracle/sessions:getSessionConversation");
 
 const getDebugProvidersRef = makeFunctionReference<
   "query",
@@ -171,12 +175,7 @@ export function OracleDebugPanel() {
   const setDebugOpen = useOracleStore((s) => s.setDebugOpen);
   const debugModelOverride = useOracleStore((s) => s.debugModelOverride);
   const setDebugModelOverride = useOracleStore((s) => s.setDebugModelOverride);
-  const debugLastMetrics = useOracleStore((s) => s.debugLastMetrics);
-  const debugDebugModelUsed = useOracleStore((s) => s.debugDebugModelUsed);
   const debugClientTiming = useOracleStore((s) => s.debugClientTiming);
-  const debugPromptTokens = useOracleStore((s) => s.debugPromptTokens);
-  const debugCompletionTokens = useOracleStore((s) => s.debugCompletionTokens);
-  const isStreaming = useOracleStore((s) => s.isStreaming);
   const sessionId = useOracleStore((s) => s.sessionId);
 
   // Fetch current session messages for token data
@@ -203,40 +202,25 @@ export function OracleDebugPanel() {
     return messages.length > 0 ? messages[messages.length - 1] : null;
   }, [sessionData?.messages]);
 
-  // Primary source: message document fields; fallback: Zustand store from action result
-  const promptTokens = lastAssistantMsg?.promptTokens ?? debugPromptTokens ?? null;
-  const completionTokens = lastAssistantMsg?.completionTokens ?? debugCompletionTokens ?? null;
+  const promptTokens = lastAssistantMsg?.promptTokens ?? null;
+  const completionTokens = lastAssistantMsg?.completionTokens ?? null;
   const totalTokens =
     promptTokens !== null && completionTokens !== null
       ? promptTokens + completionTokens
       : null;
 
   // Determine if a request is active (streaming or waiting for first content)
-  const requestActive = isStreaming || (
-    debugClientTiming.requestStartMs !== null &&
-    debugClientTiming.completeMs === null
-  );
+  const requestActive = Boolean(sessionData?.activeTurn?.active);
+  const requestStartMs = sessionData?.activeTurn?.createdAt ?? debugClientTiming.requestStartMs;
 
   // Live elapsed timer from when SEND was pressed
   const liveElapsedMs = useLiveElapsed(
-    requestActive ? debugClientTiming.requestStartMs : null,
+    requestActive ? requestStartMs : null,
   );
 
-  // Server timing from message data (primary source) or store (fallback)
+  // Durable message timing is the only server metric source after the V2 cutover.
   const serverTiming = React.useMemo(() => {
-    // Start with store-based timing (from action return) as the base
-    const storeTiming = debugLastMetrics
-      ? {
-          promptBuildMs: debugLastMetrics.promptBuildMs ?? null,
-          requestQueueMs: debugLastMetrics.requestQueueMs ?? null,
-          ttftMs: debugLastMetrics.ttftMs ?? null,
-          initialDecodeMs: debugLastMetrics.initialDecodeMs ?? null,
-          totalMs: debugLastMetrics.totalMs ?? null,
-        }
-      : null;
-
-    // Message document fields take priority (reliable, persisted)
-    const msgTiming = lastAssistantMsg
+    return lastAssistantMsg
       ? {
           promptBuildMs: (lastAssistantMsg as any).timingPromptBuildMs ?? null,
           requestQueueMs: (lastAssistantMsg as any).timingRequestQueueMs ?? null,
@@ -245,19 +229,7 @@ export function OracleDebugPanel() {
           totalMs: (lastAssistantMsg as any).timingTotalMs ?? null,
         }
       : null;
-
-    // Merge: message fields override store fields when available
-    if (msgTiming || storeTiming) {
-      return {
-        promptBuildMs: msgTiming?.promptBuildMs ?? storeTiming?.promptBuildMs ?? null,
-        requestQueueMs: msgTiming?.requestQueueMs ?? storeTiming?.requestQueueMs ?? null,
-        ttftMs: msgTiming?.ttftMs ?? storeTiming?.ttftMs ?? null,
-        initialDecodeMs: msgTiming?.initialDecodeMs ?? storeTiming?.initialDecodeMs ?? null,
-        totalMs: msgTiming?.totalMs ?? storeTiming?.totalMs ?? null,
-      };
-    }
-    return null;
-  }, [lastAssistantMsg, debugLastMetrics]);
+  }, [lastAssistantMsg]);
 
   // Compute server timing display values with live fallback during streaming
   const serverTimingDisplay = React.useMemo(() => {
@@ -281,11 +253,10 @@ export function OracleDebugPanel() {
     };
   }, [serverTiming, requestActive, liveElapsedMs]);
 
-  // Debug model used from message (primary) or store (fallback)
+  // Debug model use is persisted on the assistant message.
   const activeDebugModelUsed = React.useMemo(() => {
-    const msgModel = (lastAssistantMsg as any)?.debugModelUsed ?? null;
-    return msgModel || debugDebugModelUsed;
-  }, [lastAssistantMsg, debugDebugModelUsed]);
+    return (lastAssistantMsg as any)?.debugModelUsed ?? null;
+  }, [lastAssistantMsg]);
 
   // Model override state
   const [selectedProvider, setSelectedProvider] = React.useState<string>("");
@@ -409,9 +380,9 @@ export function OracleDebugPanel() {
             <span className="text-xs font-semibold text-galactic tracking-wide uppercase">
               Oracle Debug
             </span>
-            {isStreaming && (
+            {sessionData?.activeTurn?.active && (
               <Badge className="text-[9px] px-1.5 py-0 bg-emerald-500/20 text-emerald-400 border-emerald-500/30 animate-pulse">
-                STREAMING
+                {sessionData.activeTurn.status.toUpperCase()}
               </Badge>
             )}
             {debugModelOverride && (

@@ -1024,6 +1024,9 @@ export default defineSchema({
     // 15. ORACLE MESSAGES (Individual messages in a session)
     oracle_messages: defineTable({
         sessionId: v.id("oracle_sessions"),
+        // Streaming V2 linkage is optional so historical messages remain valid.
+        turnId: v.optional(v.id("oracle_turns")),
+        streamProtocolVersion: v.optional(v.string()),
         role: v.union(
             v.literal("user"),
             v.literal("assistant"),           // Oracle's response
@@ -1081,6 +1084,150 @@ export default defineSchema({
             searchField: "content",
             filterFields: ["role"],
         }),
+
+    // ORACLE STREAMING V2 — durable, single-flight generation lifecycle.
+    oracle_turns: defineTable({
+        userId: v.id("users"),
+        sessionId: v.id("oracle_sessions"),
+        userMessageId: v.id("oracle_messages"),
+        assistantMessageId: v.id("oracle_messages"),
+        clientRequestId: v.string(),
+        retryOfTurnId: v.optional(v.id("oracle_turns")),
+        status: v.union(
+            v.literal("queued"),
+            v.literal("planning"),
+            v.literal("connecting"),
+            v.literal("generating"),
+            v.literal("validating"),
+            v.literal("repairing"),
+            v.literal("retrying"),
+            v.literal("cancel_requested"),
+            v.literal("complete"),
+            v.literal("incomplete"),
+            v.literal("failed"),
+            v.literal("cancelled"),
+        ),
+        active: v.boolean(),
+        publicationMode: v.union(
+            v.literal("guarded_batches"),
+            v.literal("validated_sections"),
+            v.literal("buffered"),
+        ),
+        rolloutMode: v.optional(v.union(
+            v.literal("v2"),
+            v.literal("shadow"),
+            v.literal("buffered"),
+        )),
+        rolloutBucket: v.optional(v.number()),
+        protocolVersion: v.literal("oracle-stream-v2"),
+        timezone: v.optional(v.string()),
+        modelOptionKey: v.optional(v.string()),
+        reasoningEffort: v.optional(v.union(
+            v.literal("auto"),
+            v.literal("disabled"),
+            v.literal("low"),
+            v.literal("medium"),
+            v.literal("high"),
+        )),
+        debugModelOverride: v.optional(v.object({
+            providerId: v.string(),
+            model: v.string(),
+        })),
+        currentSectionKey: v.optional(v.string()),
+        requiredSectionKeys: v.optional(v.array(v.string())),
+        publishedSectionKeys: v.optional(v.array(v.string())),
+        resumeSectionKeys: v.optional(v.array(v.string())),
+        lastSequence: v.number(),
+        publishedChars: v.number(),
+        partial: v.boolean(),
+        providerId: v.optional(v.string()),
+        model: v.optional(v.string()),
+        tier: v.optional(v.string()),
+        providerAttemptCount: v.number(),
+        repairCount: v.number(),
+        resumeCount: v.number(),
+        promptTokens: v.optional(v.number()),
+        completionTokens: v.optional(v.number()),
+        costUsdMicro: v.optional(v.number()),
+        accountedUsageKeys: v.optional(v.array(v.string())),
+        quotaChargedAt: v.optional(v.number()),
+        quotaChargedCostUsdMicro: v.optional(v.number()),
+        safeErrorCode: v.optional(v.string()),
+        safeErrorMessage: v.optional(v.string()),
+        stopRequestedAt: v.optional(v.number()),
+        createdAt: v.number(),
+        queuedAt: v.number(),
+        actionStartedAt: v.optional(v.number()),
+        providerStartedAt: v.optional(v.number()),
+        providerConnectedAt: v.optional(v.number()),
+        providerFirstTokenAt: v.optional(v.number()),
+        firstSectionCompletedAt: v.optional(v.number()),
+        firstApprovedAt: v.optional(v.number()),
+        firstPersistedAt: v.optional(v.number()),
+        firstClientVisibleAt: v.optional(v.number()),
+        lastProviderEventAt: v.optional(v.number()),
+        validationStartedAt: v.optional(v.number()),
+        persistenceWriteCount: v.optional(v.number()),
+        maxQueuedChars: v.optional(v.number()),
+        malformedProviderFrameCount: v.optional(v.number()),
+        droppedProviderFrameCount: v.optional(v.number()),
+        sectionProtocolFallback: v.optional(v.boolean()),
+        stageTimeline: v.optional(v.array(v.object({
+            stage: v.union(
+                v.literal("queued"),
+                v.literal("planning"),
+                v.literal("connecting"),
+                v.literal("generating"),
+                v.literal("validating"),
+                v.literal("repairing"),
+                v.literal("retrying"),
+                v.literal("cancel_requested"),
+                v.literal("complete"),
+                v.literal("incomplete"),
+                v.literal("failed"),
+                v.literal("cancelled"),
+            ),
+            at: v.number(),
+        }))),
+        completedAt: v.optional(v.number()),
+        failedAt: v.optional(v.number()),
+        cancelledAt: v.optional(v.number()),
+        updatedAt: v.number(),
+    })
+        .index("by_session_created", ["sessionId", "createdAt"])
+        .index("by_session_active", ["sessionId", "active"])
+        .index("by_user_active", ["userId", "active"])
+        .index("by_active_updated", ["active", "updatedAt"])
+        .index("by_client_request", ["userId", "clientRequestId"])
+        .index("by_user_message", ["userMessageId"])
+        .index("by_assistant_message", ["assistantMessageId"]),
+
+    oracle_turn_sections: defineTable({
+        turnId: v.id("oracle_turns"),
+        sessionId: v.id("oracle_sessions"),
+        key: v.string(),
+        ordinal: v.number(),
+        title: v.string(),
+        status: v.union(
+            v.literal("pending"),
+            v.literal("receiving"),
+            v.literal("validating"),
+            v.literal("published"),
+            v.literal("repairing"),
+            v.literal("failed"),
+        ),
+        // Rejected model output is never stored here; content is approved-only.
+        content: v.optional(v.string()),
+        evidenceKeys: v.optional(v.array(v.string())),
+        violationCodes: v.optional(v.array(v.string())),
+        attemptCount: v.number(),
+        startedAt: v.optional(v.number()),
+        publishedAt: v.optional(v.number()),
+        updatedAt: v.number(),
+    })
+        .index("by_turn_ordinal", ["turnId", "ordinal"])
+        .index("by_turn_key", ["turnId", "key"])
+        .index("by_session", ["sessionId", "ordinal"]),
 
     oracle_turn_traces: defineTable({
         sessionId: v.id("oracle_sessions"),

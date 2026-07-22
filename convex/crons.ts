@@ -47,6 +47,15 @@ crons.interval(
     { limit: 1 },
 );
 
+// Make abandoned durable Oracle turns terminal without automatically invoking
+// another model. Explicit user Retry/Resume remains the only recovery trigger.
+crons.interval(
+    "recover-stale-oracle-turns",
+    { minutes: 5 },
+    internal.oracle.turns.recoverStaleTurns,
+    {},
+);
+
 // ─── SCHEDULED NOTIFICATIONS ─────────────────────────────────────────────
 // Check for campaigns due for delivery every minute.
 crons.interval(
