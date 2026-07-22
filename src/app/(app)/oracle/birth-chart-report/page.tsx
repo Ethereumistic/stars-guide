@@ -9,6 +9,7 @@ import { BirthChartReportRenderer } from "@/components/oracle/BirthChartReportRe
 import { BirthChartReportV2Renderer } from "@/components/oracle/BirthChartReportV2Renderer";
 import { BirthChartReportExperience } from "@/components/oracle/BirthChartReportExperience";
 import type { StoredBirthData } from "@/lib/birth-chart/types";
+import { BIRTH_CHART_REPORT_VERSION } from "@/lib/birth-chart/report-version";
 import { Loader2, Printer, RefreshCw, Sparkles } from "lucide-react";
 
 type LegacyStructuredReport = ComponentProps<typeof BirthChartReportV2Renderer>["report"];
@@ -22,8 +23,6 @@ type ReportRecord = {
   version?: number;
 };
 type ReportEnvelope = { report: ReportRecord | null; birthData: StoredBirthData | null };
-
-const CURRENT_REPORT_PIPELINE_VERSION = 6;
 
 const getMyBirthChartReportRef = makeFunctionReference<"query", Record<string, never>, ReportEnvelope | null>("birthChartReport/queue:getMyReport");
 const createReportSessionRef = makeFunctionReference<"mutation", Record<string, never>, string>("oracle/sessions:createBirthChartReportSession");
@@ -81,7 +80,7 @@ export default function BirthChartReportPage() {
 
   const structured = report.structured;
   const legacy = !isV3(structured);
-  const needsCopyRefresh = (report.version ?? 0) < CURRENT_REPORT_PIPELINE_VERSION;
+  const needsCopyRefresh = (report.version ?? 0) < BIRTH_CHART_REPORT_VERSION;
   return (
     <main className="flex-1 overflow-y-auto bg-transparent text-white print:bg-white print:text-black">
       <style>{`@media print { .no-print { display: none !important; } .birth-chart-report { color: #111 !important; box-shadow: none !important; } .birth-chart-report * { border-color: #ddd !important; } main { background: white !important; } }`}</style>
@@ -94,7 +93,7 @@ export default function BirthChartReportPage() {
           <BirthChartReportRenderer markdown={report.markdown} />
         ) : null}
         <div className="no-print mt-8 flex flex-wrap justify-center gap-3 border-t border-white/8 pt-8">
-          {(legacy || needsCopyRefresh) && <Button onClick={() => void enqueueReport({ priority: 2 })} variant="outline" className="gap-2 rounded-xl border-violet-300/20 bg-violet-300/[0.04] text-violet-100/70"><RefreshCw className="size-4" /> {legacy ? "Upgrade visual report" : "Refresh full report copy"}</Button>}
+          {(legacy || needsCopyRefresh) && <Button onClick={() => void enqueueReport({ priority: 2 })} variant="outline" className="gap-2 rounded-xl border-violet-300/20 bg-violet-300/[0.04] text-violet-100/70"><RefreshCw className="size-4" /> {legacy ? "Upgrade visual report" : "Upgrade report insights"}</Button>}
           <Button onClick={() => window.print()} variant="outline" className="gap-2 rounded-xl border-white/15 bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white"><Printer className="size-4" /> Save as PDF</Button>
         </div>
       </div>

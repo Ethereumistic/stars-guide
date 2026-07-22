@@ -15,6 +15,10 @@ import {
   type BirthChartDepth,
 } from "../../lib/oracle/features";
 import { serializeBirthChartForOracle } from "../../src/lib/birth-chart/report-context";
+import {
+  buildOracleBirthReportContext,
+  type OracleBirthReportContextResult,
+} from "../../src/lib/birth-chart/oracle-report-context";
 import { BIRTH_CHART_REPORT_WELCOME } from "../birthChartReport/onboarding";
 import {
   buildTimespaceContext,
@@ -308,6 +312,12 @@ export const invokeOracle = action({
     // current sky and, when available, a deterministic natal overlay.
     const requestPlan = planOracleRequest(args.userQuestion, {
       hasBirthData: Boolean(user?.birthData),
+      availableNatalEntities: user?.birthData?.chart
+        ? [
+            ...(user.birthData.chart.ascendant ? ["ascendant"] : []),
+            ...user.birthData.chart.planets.map((planet: { id: string }) => planet.id),
+          ]
+        : undefined,
       hasJournalConsent,
       hasSynastryPayload: Boolean((session as any).synastryPayload),
       explicitFeatureKey: resolvedFeatureKey ?? null,
@@ -365,11 +375,22 @@ export const invokeOracle = action({
     const expandedJournal = activePipelines.some((p) => p.dataRequirements.expandedJournalBudget);
     const needsTimespace = activePipelines.some((p) => p.dataRequirements.needsTimespace);
     const needsSynastryData = activePipelines.some((p) => p.dataRequirements.needsSynastryData);
+    const needsBirthChartReportContext = activePipelines.some((p) => p.dataRequirements.needsBirthChartReportContext);
 
     // Gather birth data ONLY if a pipeline needs it
     let birthData: string | null = null;
+    let birthChartReportContext: string | null = null;
+    let birthChartReportResult: OracleBirthReportContextResult | null = null;
     if (needsBirth && user?.birthData) {
       birthData = serializeBirthChartForOracle(user.birthData);
+      if (needsBirthChartReportContext) {
+        birthChartReportResult = buildOracleBirthReportContext({
+          birthData: user.birthData,
+          report: user.birthChartReport,
+          question: args.userQuestion,
+        });
+        birthChartReportContext = birthChartReportResult.context;
+      }
     }
 
     // Gather journal context (if any pipeline needs it and consent exists)
@@ -461,7 +482,7 @@ export const invokeOracle = action({
       }
     }
 
-    console.log(`[Oracle] Data gathered: birthDataLen=${birthData?.length ?? 0} journalLen=${journalContext?.length ?? 0} timespaceLen=${timespaceContext?.length ?? 0} featureInjection=${featureInjection ? 'yes' : 'no'} synastry=${synastryData ? 'yes' : 'no'}`);
+    console.log(`[Oracle] Data gathered: birthDataLen=${birthData?.length ?? 0} reportContextLen=${birthChartReportContext?.length ?? 0} reportContext=${birthChartReportResult?.reason ?? 'not_requested'} journalLen=${journalContext?.length ?? 0} timespaceLen=${timespaceContext?.length ?? 0} featureInjection=${featureInjection ? 'yes' : 'no'} synastry=${synastryData ? 'yes' : 'no'}`);
 
     // ════════════════════════════════════════════════════════════════════════
     // PHASE 4: BUILD PROMPT (pipeline-driven)
@@ -474,6 +495,7 @@ export const invokeOracle = action({
       featureKey: resolvedFeatureKey ?? null,
       birthChartDepth: session.birthChartDepth ?? (primaryIntent?.metadata?.depth as BirthChartDepth | null) ?? null,
       birthData,
+      birthChartReportContext,
       journalContext,
       timespaceContext,
       soulDoc: config.soulDoc,
@@ -498,11 +520,7 @@ export const invokeOracle = action({
 
     // Build the final system prompt
     // Safety rules are ALWAYS first (prepended, not a pipeline concern)
-    const systemPromptParts: string[] = [
-      ORACLE_SAFETY_RULES,                                                    // Always first, hardcoded
-    ];
-
-    systemPromptParts.push([
+    const responseContractContent = [
       "[SERVER-AUTHORITATIVE RESPONSE CONTRACT]",
       `Goals: ${requestPlan.goals.join(", ")}`,
       `Required capabilities: ${requestPlan.requiredCapabilities.join(", ")}`,
@@ -515,39 +533,39 @@ export const invokeOracle = action({
       requestPlan.responseContract.practicalSafety
         ? "Include concise practical safety conditions (real weather/conditions, equipment, training, fatigue, and local advisories as relevant). Astrology must never replace real-world safety checks."
         : "Use calibrated, non-deterministic astrological language.",
+      requestPlan.responseContract.requiresFullNatalCoverage
+        ? `This is an explicit full-chart request. Address every available canonical entity at least once: ${requestPlan.responseContract.requiredNatalEntities.join(", ")}. Grouping is allowed, omission is not.`
+        : requestPlan.responseContract.requiredNatalEntities.length
+          ? `Explicitly address the requested natal entities: ${requestPlan.responseContract.requiredNatalEntities.join(", ")}.`
+          : "Cover only the natal entities relevant to the question.",
+      "Do not create aspects from raw degree proximity. Call a natal aspect only when it appears in the canonical stored aspect inventory.",
       "Never ask for evidence that appears later in this prompt. Distinguish collective sky evidence from personal natal contacts.",
       "[END SERVER-AUTHORITATIVE RESPONSE CONTRACT]",
-    ].join("\n"));
-
-    if (confirmedMemoryContext) systemPromptParts.push(confirmedMemoryContext);
-
-    for (const block of allSystemBlocks) {
-      if (block.content) {
-        systemPromptParts.push(block.content);
-      }
-    }
+    ].join("\n");
+    const systemManifestBlocks: SystemPromptBlock[] = [
+      { label: "hardcoded_safety_rules", content: ORACLE_SAFETY_RULES, priority: 1000 },
+      { label: "server_response_contract", content: responseContractContent, priority: 990 },
+      ...(confirmedMemoryContext
+        ? [{ label: "confirmed_user_memory", content: confirmedMemoryContext, priority: 98 }]
+        : []),
+      ...allSystemBlocks.filter((block) => Boolean(block.content)),
+    ];
 
     // Title directive on first response only
     if (isFirstResponse) {
-      systemPromptParts.push(ORACLE_TITLE_DIRECTIVE);
+      systemManifestBlocks.push({ label: "title_directive", content: ORACLE_TITLE_DIRECTIVE, priority: 20 });
     }
 
     // Journal prompt directive on first response when journal context is present
     if (isFirstResponse && journalContext) {
-      systemPromptParts.push(JOURNAL_PROMPT_DIRECTIVE);
+      systemManifestBlocks.push({ label: "journal_prompt_directive", content: JOURNAL_PROMPT_DIRECTIVE, priority: 19 });
     }
 
-    const systemPrompt = systemPromptParts.join("\n\n");
+    const systemPrompt = systemManifestBlocks.map((block) => block.content).join("\n\n");
 
     // Build the user message
     const sanitizedQuestion = sanitizeUserQuestion(args.userQuestion);
-    const userMessageParts: string[] = [];
-
-    for (const block of allUserBlocks) {
-      if (block.content) {
-        userMessageParts.push(block.content);
-      }
-    }
+    const finalUserBlocks: UserMessageBlock[] = allUserBlocks.filter((block) => Boolean(block.content));
     // Required evidence follows the typed capability plan, not the winning
     // legacy pipeline. generic_chat may be the right conversational mode while
     // the answer still requires natal evidence and a personal transit overlay.
@@ -555,14 +573,20 @@ export const invokeOracle = action({
       block.label === "birth_chart_data",
     );
     if (!natalAlreadyInjected && requestPlan.requiredCapabilities.includes("natal_chart")) {
-      if (birthData) userMessageParts.push(`[CANONICAL NATAL CHART — CAPABILITY EVIDENCE]\n${birthData}`);
+      if (birthData) finalUserBlocks.push({
+        label: "canonical_natal_capability_evidence",
+        content: `[CANONICAL NATAL CHART — CAPABILITY EVIDENCE]\n${birthData}`,
+      });
     }
     if (directCurrentSkyQuestion) {
-      userMessageParts.push("[ANSWER MODE: INTERPRETED CURRENT SKY]\nThe server has supplied exact current planetary, retrograde, Moon-phase, and aspect evidence in CURRENT SPACE-TIME. Translate the strongest 2-4 signals for a non-expert. Do not dump every position, and do not say you lack current data. Explain what the pattern may feel like collectively, what is most useful, what to watch for, and one practical move. Clearly separate calculated fact from astrological interpretation.");
+      finalUserBlocks.push({
+        label: "interpreted_current_sky_mode",
+        content: "[ANSWER MODE: INTERPRETED CURRENT SKY]\nThe server has supplied exact current planetary, retrograde, Moon-phase, and aspect evidence in CURRENT SPACE-TIME. Translate the strongest 2-4 signals for a non-expert. Do not dump every position, and do not say you lack current data. Explain what the pattern may feel like collectively, what is most useful, what to watch for, and one practical move. Clearly separate calculated fact from astrological interpretation.",
+      });
     }
-    userMessageParts.push(sanitizedQuestion);
+    finalUserBlocks.push({ label: "sanitized_user_question", content: sanitizedQuestion });
 
-    const userMessage = userMessageParts.join("\n\n");
+    const userMessage = finalUserBlocks.map((block) => block.content).join("\n\n");
 
     const promptBuildEndTime = Date.now();
 
@@ -577,6 +601,19 @@ export const invokeOracle = action({
         ...(timespaceContext && user?.birthData?.chart && requestPlan.requiredCapabilities.includes("personal_transits") ? [{ capability: "personal_transits" as const, label: "transit_to_natal_overlay", content: timespaceContext, provenance: { source: "oracle-timespace", version: "1", calculatedAt: new Date().toISOString(), timezone: args.timezone || "UTC" } }] : []),
       ],
       warnings: requestPlan.unavailableCapabilities.map((item) => `${item.capability}:${item.reason}`),
+      natalChart: user?.birthData?.chart
+        ? {
+            availableEntities: [
+              ...(user.birthData.chart.ascendant ? ["ascendant"] : []),
+              ...user.birthData.chart.planets.map((planet: { id: string }) => planet.id),
+            ],
+            storedAspects: user.birthData.chart.aspects.map((aspect: { planet1: string; planet2: string; type: string }) => ({
+              body1: aspect.planet1,
+              body2: aspect.planet2,
+              type: aspect.type,
+            })),
+          }
+        : undefined,
     };
 
     // ════════════════════════════════════════════════════════════════════════
@@ -692,10 +729,16 @@ export const invokeOracle = action({
     // The provider router selects the best entry first; remaining entries follow.
     // ── Try providers with refusal recovery and output safety scanning ─────
     const prompt = { systemPrompt, userMessage };
+    // Natal interpretation is buffered until deterministic response-contract
+    // and output-safety validation finish. This prevents an invented aspect or
+    // incomplete full-chart draft from becoming user-visible before repair.
+    const requiresValidatedPublication = requestPlan.requiredCapabilities.includes("natal_chart")
+      && requestPlan.temporalScope === "none";
     let result: Awaited<ReturnType<typeof callGatewayStreaming>> | null = null;
     let usedProviderId: string | null = null;
     let usedModel: string | null = null;
     let usedTier: string | null = null;
+    let acceptedSystemPromptHash = systemPromptHash;
     try {
         let attemptResult = await callGatewayStreaming(
           ctx,
@@ -707,6 +750,7 @@ export const invokeOracle = action({
           { actionStartTime, promptBuildEndTime },
           resolvedRoute,
           effectiveDebugModelOverride,
+          !requiresValidatedPublication,
         );
 
         if (!attemptResult) {
@@ -717,18 +761,12 @@ export const invokeOracle = action({
         let contractViolations = validateOracleResponse(attemptResult.contentWithoutTitle, requestPlan, evidenceBundle);
         const repairableViolations = contractViolations.filter((violation) => violation.severity === "error");
         let responseRepaired = false;
-        // A streamed candidate is already visible and persisted. Destructive
-        // post-publication repair creates flicker, deletes useful content, and
-        // can turn a recoverable quality issue into a hard fallback. Only an
-        // unpublished candidate may be repaired synchronously.
+        // Natal candidates are buffered and can be repaired before publication.
+        // Other streamed candidates retain the existing non-destructive path.
         if (repairableViolations.length && !attemptResult.messageId) {
           console.warn(`[Oracle] Pre-publication response contract violations: ${repairableViolations.map((item) => item.code).join(", ")}; repairing.`);
-          if (attemptResult.messageId) {
-            await ctx.runMutation(internalRef.oracle.sessions.deleteMessage, {
-              messageId: attemptResult.messageId,
-            });
-          }
           const repairSystemPrompt = `${systemPrompt}\n\n${buildRepairInstruction(repairableViolations)}`;
+          const repairSystemPromptHash = simpleHash(repairSystemPrompt);
           const repaired = await callGatewayStreaming(
             ctx,
             {
@@ -738,10 +776,11 @@ export const invokeOracle = action({
             { ...llmConfig, temperature: 0 },
             conversationHistory,
             args.sessionId,
-            simpleHash(repairSystemPrompt),
+            repairSystemPromptHash,
             { actionStartTime, promptBuildEndTime },
             resolvedRoute,
             effectiveDebugModelOverride,
+            !requiresValidatedPublication,
           );
           const repairedViolations = repaired ? validateOracleResponse(repaired.contentWithoutTitle, requestPlan, evidenceBundle) : repairableViolations;
           if (repaired && repairedViolations.some((item) => item.severity === "error") && repaired.messageId) {
@@ -755,6 +794,7 @@ export const invokeOracle = action({
           attemptResult = repaired;
           contractViolations = repairedViolations;
           responseRepaired = true;
+          acceptedSystemPromptHash = repairSystemPromptHash;
         }
         if (repairableViolations.length && attemptResult.messageId) {
           console.warn(`[Oracle] Streamed response retained despite contract violations: ${repairableViolations.map((item) => item.code).join(", ")}`);
@@ -764,7 +804,19 @@ export const invokeOracle = action({
           version: "oracle-trace-v1",
           requestPlan,
           evidenceManifest: evidenceBundle.items.map((item) => ({ capability: item.capability, label: item.label, source: item.provenance.source, version: item.provenance.version, size: item.content.length })),
-          promptManifest: allSystemBlocks.map((block) => ({ label: block.label, version: "1", priority: block.priority, hash: simpleHash(block.content) })),
+          promptManifest: systemManifestBlocks.map((block) => ({ label: block.label, version: "1", priority: block.priority, hash: simpleHash(block.content) })),
+          userPromptManifest: finalUserBlocks.map((block) => ({ label: block.label, version: "1", size: block.content.length, hash: simpleHash(block.content) })),
+          interpretationManifest: birthChartReportContext && birthChartReportResult
+            ? [{
+                label: "birth_chart_report_insights",
+                source: "users.birthChartReport.structured",
+                version: `pipeline-${birthChartReportResult.pipelineVersion ?? "unknown"}/contract-${birthChartReportResult.contractVersion ?? "unknown"}`,
+                size: birthChartReportContext.length,
+                mode: birthChartReportResult.mode ?? undefined,
+                sourceFingerprintMatched: birthChartReportResult.sourceFingerprintMatched,
+                includedSections: birthChartReportResult.includedSections,
+              }]
+            : [],
           providerAttempts: [{ provider: attemptResult.providerId, model: attemptResult.model, tier: attemptResult.tier, outcome: "accepted" }],
           violations: contractViolations,
           repaired: responseRepaired,
@@ -832,6 +884,16 @@ export const invokeOracle = action({
             modelUsed: "safety_blocked",
             fallbackTier: "D",
           };
+        }
+
+        if (!attemptResult.messageId) {
+          attemptResult.messageId = await publishBufferedOracleResult(
+            ctx,
+            args.sessionId,
+            attemptResult,
+            acceptedSystemPromptHash,
+            { actionStartTime, promptBuildEndTime },
+          );
         }
 
         if (attemptResult.messageId) {
@@ -1040,7 +1102,43 @@ type OracleStreamResult = {
   firstTokenTime?: number;
   initialDecodeTime?: number;
   messageId?: Id<"oracle_messages">;
+  journalPrompt?: string;
 };
+
+async function publishBufferedOracleResult(
+  ctx: any,
+  sessionId: Id<"oracle_sessions">,
+  result: OracleStreamResult,
+  systemPromptHash?: string,
+  timingContext?: { actionStartTime: number; promptBuildEndTime: number },
+): Promise<Id<"oracle_messages">> {
+  const messageId = await ctx.runMutation(
+    internalRef.oracle.sessions.createStreamingMessage,
+    { sessionId },
+  );
+  const now = Date.now();
+  await ctx.runMutation(internalRef.oracle.sessions.finalizeStreamingMessage, {
+    messageId,
+    sessionId,
+    content: result.contentWithoutTitle,
+    modelUsed: `${result.providerId}/${result.model}`,
+    promptTokens: result.promptTokens,
+    completionTokens: result.completionTokens,
+    fallbackTierUsed: result.tier,
+    systemPromptHash,
+    journalPrompt: result.journalPrompt,
+    ...(timingContext
+      ? {
+          timingPromptBuildMs: timingContext.promptBuildEndTime - timingContext.actionStartTime,
+          timingRequestQueueMs: (result.fetchStartTime ?? now) - timingContext.promptBuildEndTime,
+          timingTtftMs: result.firstTokenTime ? result.firstTokenTime - (result.fetchStartTime ?? timingContext.promptBuildEndTime) : 0,
+          timingInitialDecodeMs: result.initialDecodeTime ? result.initialDecodeTime - (result.firstTokenTime ?? result.fetchStartTime ?? timingContext.promptBuildEndTime) : 0,
+          timingTotalMs: now - timingContext.actionStartTime,
+        }
+      : {}),
+  });
+  return messageId;
+}
 
 async function storeOracleTraceBestEffort(
   ctx: any,
@@ -1076,6 +1174,7 @@ async function callGatewayStreaming(
     effectiveTier: string;
   },
   debugOverride?: { providerId: string; model: string },
+  publishDuringGeneration = true,
 ): Promise<OracleStreamResult | null> {
   let messageId: Id<"oracle_messages"> | undefined;
   let fullContent = "";
@@ -1110,6 +1209,7 @@ async function callGatewayStreaming(
       },
       callbacks: {
         onStart: async ({ providerId, model, tier, fetchStartTime }) => {
+          if (!publishDuringGeneration) return;
           if (!messageId) {
             messageId = await ctx.runMutation(
               internalRef.oracle.sessions.createStreamingMessage,
@@ -1127,7 +1227,7 @@ async function callGatewayStreaming(
         onToken: async (token) => {
           fullContent += token;
           const now = Date.now();
-          if (messageId && (lastFlushTime === 0 || now - lastFlushTime >= minFlushIntervalMs)) {
+          if (publishDuringGeneration && messageId && (lastFlushTime === 0 || now - lastFlushTime >= minFlushIntervalMs)) {
             await ctx.runMutation(internalRef.oracle.sessions.updateStreamingContent, {
               messageId,
               content: fullContent,
@@ -1140,13 +1240,13 @@ async function callGatewayStreaming(
     });
 
     fullContent = gatewayResult.content;
-    if (!messageId || !fullContent) {
+    if (!fullContent || (publishDuringGeneration && !messageId)) {
       if (messageId) {
         await ctx.runMutation(internalRef.oracle.sessions.deleteMessage, { messageId });
       }
       return null;
     }
-    if (fullContent !== lastFlushedContent) {
+    if (publishDuringGeneration && messageId && fullContent !== lastFlushedContent) {
       await ctx.runMutation(internalRef.oracle.sessions.updateStreamingContent, {
         messageId,
         content: fullContent,
@@ -1155,21 +1255,23 @@ async function callGatewayStreaming(
 
     const { title, contentWithoutTitle } = parseTitleFromResponse(fullContent);
     const { journalPrompt, contentWithoutPrompt } = parseJournalPromptFromResponse(contentWithoutTitle);
-    await ctx.runMutation(internalRef.oracle.sessions.updateStreamingContent, {
-      messageId,
-      content: contentWithoutPrompt,
-    });
-    await ctx.runMutation(internalRef.oracle.sessions.finalizeStreamingMessage, {
-      messageId,
-      sessionId,
-      content: contentWithoutPrompt,
-      modelUsed: `${gatewayResult.providerId}/${gatewayResult.model}`,
-      promptTokens: gatewayResult.promptTokens,
-      completionTokens: gatewayResult.completionTokens,
-      fallbackTierUsed: gatewayResult.tier,
-      systemPromptHash,
-      journalPrompt: journalPrompt ?? undefined,
-    });
+    if (publishDuringGeneration && messageId) {
+      await ctx.runMutation(internalRef.oracle.sessions.updateStreamingContent, {
+        messageId,
+        content: contentWithoutPrompt,
+      });
+      await ctx.runMutation(internalRef.oracle.sessions.finalizeStreamingMessage, {
+        messageId,
+        sessionId,
+        content: contentWithoutPrompt,
+        modelUsed: `${gatewayResult.providerId}/${gatewayResult.model}`,
+        promptTokens: gatewayResult.promptTokens,
+        completionTokens: gatewayResult.completionTokens,
+        fallbackTierUsed: gatewayResult.tier,
+        systemPromptHash,
+        journalPrompt: journalPrompt ?? undefined,
+      });
+    }
 
     return {
       content: fullContent,
@@ -1184,6 +1286,7 @@ async function callGatewayStreaming(
       firstTokenTime: gatewayResult.firstTokenTime,
       initialDecodeTime: gatewayResult.initialDecodeTime ?? Date.now(),
       messageId,
+      journalPrompt: journalPrompt ?? undefined,
     };
   } catch (error) {
     if (messageId && !fullContent) {

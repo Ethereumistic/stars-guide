@@ -20,11 +20,23 @@ import type {
 } from "../pipelineTypes";
 import { getBirthChartDepthInstructions } from "../featureContext";
 
+const BIRTH_CHART_REPORT_USE_POLICY = [
+  "[BIRTH CHART REPORT USE POLICY]",
+  "The canonical natal chart is the sole authority for placements, houses, aspects, dignities, rulers, nodes, points, and calculated patterns.",
+  "When VALIDATED BIRTH CHART REPORT INSIGHTS are present, use them as a prior interpretive lens for continuity, prioritization, personalization, and deeper synthesis.",
+  "Do not copy the report verbatim or treat its prose as new chart evidence. Every factual chart claim must still be supported by canonical natal evidence.",
+  "If report prose conflicts with canonical evidence, silently discard the conflicting prose and interpret from canonical evidence.",
+  "Profiling answers guide tone and emphasis only. They are not facts, diagnoses, predictions, or chart evidence.",
+  "For a broad reading, build on the report's strongest validated themes while still covering every canonical entity required by the response contract.",
+  "[END BIRTH CHART REPORT USE POLICY]",
+].join("\n");
+
 export const birthChartPipeline: OraclePipeline = {
   key: "birth_chart",
 
   dataRequirements: {
     needsBirthData: true, // This pipeline injects the chart
+    needsBirthChartReportContext: true,
     needsJournalContext: true, // Journal adds emotional depth to readings
     expandedJournalBudget: false,
     needsTimespace: true,
@@ -54,6 +66,13 @@ export const birthChartPipeline: OraclePipeline = {
       priority: 95,
       label: `birth_chart_depth_${depth}`,
     });
+    if (ctx.birthChartReportContext) {
+      systemBlocks.push({
+        content: BIRTH_CHART_REPORT_USE_POLICY,
+        priority: 94,
+        label: "birth_chart_report_use_policy",
+      });
+    }
 
     // Timespace
     if (ctx.timespaceContext) {
@@ -83,6 +102,12 @@ export const birthChartPipeline: OraclePipeline = {
         content: `[BIRTH CHART DATA]\n${ctx.birthData}`,
         label: "birth_chart_data",
       });
+      if (ctx.birthChartReportContext) {
+        userBlocks.push({
+          content: ctx.birthChartReportContext,
+          label: "birth_chart_report_insights",
+        });
+      }
     } else {
       systemBlocks.push({
         content: [

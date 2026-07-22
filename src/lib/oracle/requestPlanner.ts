@@ -2,10 +2,39 @@ import { ORACLE_CAPABILITY_REGISTRY, type OracleCapabilityKey, type OracleGoal, 
 
 export interface OraclePlanningContext {
   hasBirthData: boolean;
+  availableNatalEntities?: string[];
   hasJournalConsent: boolean;
   hasSynastryPayload?: boolean;
   explicitFeatureKey?: string | null;
   classifier?: OracleRequestPlan["classifier"];
+}
+
+const FULL_NATAL_REQUEST = /\b(?:full|fully|whole|overall|entire|complete|everything|all placements|every single|0\s*(?:to|-)\s*100|birth chart report|chart overview)\b/i;
+const NATAL_ENTITY_ALIASES: Array<{ id: string; label: string; aliases: string[] }> = [
+  { id: "ascendant", label: "Ascendant", aliases: ["ascendant", "rising"] },
+  { id: "sun", label: "Sun", aliases: ["sun"] },
+  { id: "moon", label: "Moon", aliases: ["moon"] },
+  { id: "mercury", label: "Mercury", aliases: ["mercury"] },
+  { id: "venus", label: "Venus", aliases: ["venus"] },
+  { id: "mars", label: "Mars", aliases: ["mars"] },
+  { id: "jupiter", label: "Jupiter", aliases: ["jupiter"] },
+  { id: "saturn", label: "Saturn", aliases: ["saturn"] },
+  { id: "uranus", label: "Uranus", aliases: ["uranus"] },
+  { id: "neptune", label: "Neptune", aliases: ["neptune"] },
+  { id: "pluto", label: "Pluto", aliases: ["pluto"] },
+  { id: "north_node", label: "North Node", aliases: ["north node"] },
+  { id: "south_node", label: "South Node", aliases: ["south node"] },
+  { id: "part_of_fortune", label: "Part of Fortune", aliases: ["part of fortune", "fortune"] },
+  { id: "chiron", label: "Chiron", aliases: ["chiron"] },
+];
+
+function natalCoverageContract(question: string, availableNatalEntities?: string[]) {
+  const full = FULL_NATAL_REQUEST.test(question);
+  const available = new Set(availableNatalEntities ?? []);
+  const selected = full
+    ? NATAL_ENTITY_ALIASES.filter((entity) => !availableNatalEntities || available.has(entity.id))
+    : NATAL_ENTITY_ALIASES.filter((entity) => entity.aliases.some((alias) => new RegExp(`\\b${alias.replace(/ /g, "\\s+")}\\b`, "i").test(question)));
+  return { requiresFullNatalCoverage: full, requiredNatalEntities: selected.map((entity) => entity.label) };
 }
 
 const unique = <T,>(items: T[]) => [...new Set(items)];
@@ -14,7 +43,8 @@ function temporalScope(question: string): OracleTemporalScope {
   if (/\b(today|tonight|this (?:morning|afternoon|evening|day)|good day for)\b/i.test(question)) return "today";
   if (/\b(now|currently|right now|current sky|cosmic weather|planetary weather)\b/i.test(question)) return "current";
   if (/\b(yesterday|ago|last (?:night|week|month))\b/i.test(question)) return "historical";
-  if (/\b(?:between|from)\s+\S+\s+(?:and|to)\s+\S+|\bnext (?:week|month|\d+ days)\b/i.test(question)) return "date_range";
+  const isRatingScale = /\b(?:from\s+)?0\s*(?:to|-)\s*100\b/i.test(question);
+  if (!isRatingScale && /\b(?:between|from)\s+\S+\s+(?:and|to)\s+\S+|\bnext (?:week|month|\d+ days)\b/i.test(question)) return "date_range";
   return "none";
 }
 
@@ -65,6 +95,9 @@ export function planOracleRequest(question: string, context: OraclePlanningConte
 
   const required = expandDependencies(unique([...explicit, ...inferred]));
   const unavailable: OracleRequestPlan["unavailableCapabilities"] = [];
+  const natalCoverage = scope === "none" && required.includes("natal_chart") && !required.includes("synastry")
+    ? natalCoverageContract(question, context.availableNatalEntities)
+    : { requiresFullNatalCoverage: false, requiredNatalEntities: [] };
   const unresolved: string[] = [];
   for (const capability of required) {
     const manifest = ORACLE_CAPABILITY_REGISTRY[capability];
@@ -79,6 +112,11 @@ export function planOracleRequest(question: string, context: OraclePlanningConte
     explicitCapabilities: unique(explicit), inferredCapabilities: unique(inferred), requiredCapabilities: required,
     optionalCapabilities: [], unavailableCapabilities: unavailable, forbiddenCapabilities: [], unresolvedRequirements: unique(unresolved),
     deterministicRuleMatches: unique(matches), classifier: context.classifier ?? { source: "none" },
-    responseContract: { mustCompareAllOptions: entities.length > 1 || goals.includes("compare"), mustRecommend: goals.includes("recommend"), practicalSafety: /\b(?:ride|riding|motorbike|motorcycle|diving|dive|hike|climb|drive|swim)\b/i.test(question) },
+    responseContract: {
+      mustCompareAllOptions: entities.length > 1 || goals.includes("compare"),
+      mustRecommend: goals.includes("recommend"),
+      practicalSafety: /\b(?:ride|riding|motorbike|motorcycle|diving|dive|hike|climb|drive|swim)\b/i.test(question),
+      ...natalCoverage,
+    },
   };
 }

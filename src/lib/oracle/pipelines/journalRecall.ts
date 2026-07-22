@@ -33,6 +33,7 @@ export const journalRecallPipeline: OraclePipeline = {
 
   dataRequirements: {
     needsBirthData: false, // Journal recall doesn't need chart data by default
+    needsBirthChartReportContext: false,
     needsJournalContext: true, // Obviously needs journal
     expandedJournalBudget: true, // Doubled budget for Cosmic Recall
     needsTimespace: true,

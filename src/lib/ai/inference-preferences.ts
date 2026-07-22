@@ -40,9 +40,18 @@ export type UserModelOptionPolicy = {
   enabled: boolean;
   allowedTiers: UserTier[];
   defaultForTiers: UserTier[];
+  restrictReasoningEfforts?: boolean;
   allowedReasoningEfforts: ReasoningEffort[];
   defaultReasoningEffort: ReasoningEffort;
 };
+
+export function effectiveReasoningEfforts(
+  option: Pick<UserModelOptionPolicy, "restrictReasoningEfforts" | "allowedReasoningEfforts">,
+): ReasoningEffort[] {
+  return option.restrictReasoningEfforts
+    ? option.allowedReasoningEfforts
+    : [...REASONING_EFFORTS];
+}
 
 export function resolveUserModelPolicy<T extends UserModelOptionPolicy>(
   options: T[],
@@ -80,7 +89,7 @@ export function resolveUserModelPolicy<T extends UserModelOptionPolicy>(
     option,
     reasoningEffort: normalizeReasoningEffort(
       requestedReasoningEffort,
-      option.allowedReasoningEfforts,
+      effectiveReasoningEfforts(option),
       option.defaultReasoningEffort,
     ),
     fallbackReason: requestedAllowed

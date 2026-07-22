@@ -34,7 +34,7 @@ Important `oracle_settings` keys include:
 
 Provider API keys are not stored in settings. Provider config stores environment variable names used by server code to read secrets.
 
-Provider definitions and feature model chains live in `ai_providers` and `ai_feature_profiles` and are edited only at `/admin/ai`. Oracle's optional user-facing choices live in `ai_user_model_options`; use the **User models** tab to assign tier access, per-tier defaults, reasoning efforts, and ordered fallback chains. The removed provider/model keys may still appear in migrated databases or read-only debug snapshots, but they are not runtime inputs.
+Provider definitions and feature model chains live in `ai_providers` and `ai_feature_profiles` and are edited only at `/admin/ai`. Oracle's optional user-facing choices live in `ai_user_model_options`; use the **User models** tab to assign tier access, per-tier defaults, reasoning efforts, and ordered fallback chains. Reasoning effort is user-selectable across all five levels by default; enable **Restrict choices** only for a route that cannot support particular effort values. The removed provider/model keys may still appear in migrated databases or read-only debug snapshots, but they are not runtime inputs.
 
 ## Provider Routing
 
@@ -52,7 +52,11 @@ Known drift: `src/app/(admin)/admin/oracle/settings/page.tsx` still contains old
 
 ## Debugging A Response
 
-Start with `/admin/oracle/debug` for stored session/message history, model/tier usage, timing fields, provider chain, and safety/kill-switch stats. When output scanning intervenes, the Messages tab shows an admin-only quarantine card containing the exact rule IDs, matched fragments, reason, and original model response. Older traces created before this evidence was added cannot recover already-deleted output.
+Start with `/admin/oracle/debug` for stored session/message history, model/tier usage, timing fields, provider chain, and safety/kill-switch stats. The Prompt Assembly tab shows execution-time system/user prompt manifests and the report interpretation manifest when they were recorded. These contain labels, versions, sizes, and hashes—not sensitive prompt contents. The expandable prompt preview is reconstructed from current code/settings and is explicitly not historical evidence.
+
+The User & Birth tab shows Birth Chart Report eligibility, reason, pipeline/contract versions, current and stored chart fingerprints, selection mode, and included sections. A normal natal answer remains valid when the report is ineligible because canonical birth data is independent. `pipeline_version_stale`, fingerprint mismatch, invalid structured contract, or legacy pattern semantics explain why the interpretation layer was omitted.
+
+When output scanning intervenes, the Messages tab shows an admin-only quarantine card containing the exact rule IDs, matched fragments, reason, and original model response. Older traces created before this evidence was added cannot recover already-deleted output.
 
 Use the in-app debug panel when reproducing a live chat issue. It shows:
 
@@ -78,7 +82,11 @@ Use `/admin/oracle/safety` when testing `scanResponse` behavior against candidat
 | Unexpected model | session model-option key, current user tier, per-tier default, feature-profile fallback, provider config, debug override, and gateway events |
 | Missing journal context | pipeline requirements plus server-side journal consent |
 | Missing birth context | active pipeline data requirements |
+| Missing report interpretation layer | User & Birth → report eligibility reason, pipeline version 7, contract v3, and matching source fingerprints |
+| Omitted planet/point in a full-chart answer | trace request-plan `requiredNatalEntities` and response-contract violations |
+| Invented natal aspect | trace violations for `unsupported_natal_aspect`; compare against canonical stored aspects |
 | Binaural playback issue | stored/generated beat params and browser Web Audio path |
+
 ## Production Evaluation Gate
 
 Run `oracle/evaluation:runProductionEvaluation` as an authenticated admin before changing the Oracle soul, safety-adjacent prompt behavior, or the production model chain. The action runs the versioned fixed suite against every configured `oracle_chat` tier and stores the complete latest result in the `evaluation_latest` Oracle setting. Release only when the returned top-level `passed` value is `true`; provider errors are failures, not skipped cases.

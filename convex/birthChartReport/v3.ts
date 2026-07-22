@@ -221,6 +221,44 @@ const GENERIC = /\b(embrace your journey|trust the universe|step into your power
 // This is an editorial signal, not a semantic proof. Keep it broad enough to
 // avoid penalizing useful imperative wording from different model families.
 const ACTION = /\b(write|note|track|ask|say|schedule|choose|wait|pause|name|list|review|record|try|set|check|compare|notice|count|walk|breathe|leave|return|create|identify|select|observe|reflect|map|share|speak|tell|give|make|keep|use|place|put|release|stretch|sit|stand|reach|turn|slow|stop|start|focus|mark|circle|draft|send|move|step|hold|touch|drink|close|open|repeat|read|answer|decide)\b/i;
+const PEREGRINE_ASPECT_CONFLATION = /\bperegrine\b.{0,120}\b(?:aspect|unaspected|un-aspected)\b|\b(?:aspect|unaspected|un-aspected)\b.{0,120}\bperegrine\b/i;
+const UNSUPPORTED_ASPECT_ISOLATION = /\black(?:s|ing)?\s+(?:major[-\s]?)?aspect support\b/i;
+const INFLATED_OR_DETERMINISTIC = /\b(?:psychic|destined|guaranteed|inevitable|always right|never wrong)\b/i;
+
+/**
+ * Blocking semantic-integrity checks that protect both the human report and
+ * the report's later use as Oracle interpretation context.
+ */
+export function getBirthChartReportV3IntegrityIssues(
+  report: BirthChartReportV3,
+  context?: BirthChartContextArtifact,
+): string[] {
+  const issues: string[] = [];
+  const prose = JSON.stringify({
+    identity: report.identity,
+    meaning: report.chartSignature.meaning,
+    gift: report.chartSignature.gift,
+    watchFor: report.chartSignature.watchFor,
+    themes: report.themes,
+    compass: report.compass,
+    toolkit: report.toolkit,
+  });
+  if (report.chartSignature.pattern.id.startsWith("peregrine:")) {
+    issues.push("Legacy peregrine pattern semantics are prohibited; use an unaspected pattern and keep dignity separate");
+  }
+  if (PEREGRINE_ASPECT_CONFLATION.test(prose)) {
+    issues.push("Peregrine dignity must not be defined as or conflated with aspect isolation");
+  }
+  if (UNSUPPORTED_ASPECT_ISOLATION.test(prose)) {
+    issues.push("Claims that a planet or cluster lacks major-aspect support require a server-supplied unaspected pattern");
+  }
+  const inflated = prose.match(INFLATED_OR_DETERMINISTIC);
+  if (inflated) issues.push(`Inflated or deterministic language is prohibited: ${inflated[0]}`);
+  if (context && !context.derived.patterns.some((pattern) => pattern.id === report.chartSignature.pattern.id)) {
+    issues.push("Chart signature no longer matches a server-detected pattern");
+  }
+  return issues;
+}
 
 export function getBirthChartReportV3QualityIssues(report: BirthChartReportV3): string[] {
   const issues: string[] = [];

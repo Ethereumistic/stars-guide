@@ -78,9 +78,9 @@ import {
 } from "@/lib/oracle/promptBuilder";
 import { ORACLE_SAFETY_RULES } from "@/lib/oracle/safetyRules";
 import {
-  buildUniversalBirthContext,
   getBirthChartDepthInstructions,
 } from "@/lib/oracle/featureContext";
+import { serializeBirthChartForOracle } from "@/lib/birth-chart/report-context";
 import {
   ORACLE_FEATURES,
   classifyOracleToolIntent,
@@ -217,7 +217,7 @@ function reconstructPrompt(
   // Birth context
   let birthContextPreview: string | null = null;
   if (user?.birthData) {
-    birthContextPreview = buildUniversalBirthContext(user.birthData);
+    birthContextPreview = serializeBirthChartForOracle(user.birthData);
   }
 
   // Feature injection
@@ -236,7 +236,12 @@ function reconstructPrompt(
   }
 
   // Intent classification
-  const question = userQuestion ?? messages?.filter((m: any) => m.role === "user").pop()?.content ?? "";
+  const messageList = messages ?? [];
+  const lastUserIndex = userQuestion == null
+    ? messageList.findLastIndex((message: any) => message.role === "user")
+    : messageList.length;
+  const priorMessages = messageList.slice(0, Math.max(0, lastUserIndex));
+  const question = userQuestion ?? messageList[lastUserIndex]?.content ?? "";
   const hasBirthData = Boolean(user?.birthData);
   const hasJournalConsent = journalConsent?.oracleCanReadJournal === true;
 
@@ -256,13 +261,16 @@ function reconstructPrompt(
   }
 
   // Build prompt
-  const isFirstResponse = !messages?.some((m: any) => m.role === "assistant");
+  const isFirstResponse = !priorMessages.some((message: any) => message.role === "assistant");
   const hasJournalCtx = journalConsent?.oracleCanReadJournal === true;
+  const reportContextPreview = featureKey === "birth_chart"
+    ? user?.birthChartReport?.oracleContextPreview ?? null
+    : null;
 
   const prompt = buildPrompt({
     soulDoc,
     featureInjection: featureInjection || null,
-    birthContext: birthContextPreview || null,
+    birthContext: [birthContextPreview, reportContextPreview].filter(Boolean).join("\n\n") || null,
     userQuestion: question,
     isFirstResponse,
     journalContext: hasJournalCtx ? "[JOURNAL CONTEXT]\n(Journal context would be assembled server-side when consent is granted)" : null,
@@ -333,9 +341,16 @@ function reconstructPrompt(
   const userBlocks: { label: string; content: string; tokens: number }[] = [];
   if (birthContextPreview) {
     userBlocks.push({
-      label: "Birth Chart Data (universal — always injected)",
+      label: "Canonical Birth Chart Data (pipeline-gated)",
       content: birthContextPreview,
       tokens: countApproxTokens(birthContextPreview),
+    });
+  }
+  if (reportContextPreview) {
+    userBlocks.push({
+      label: "Validated Report Insights (subordinate interpretation layer)",
+      content: reportContextPreview,
+      tokens: countApproxTokens(reportContextPreview),
     });
   }
   userBlocks.push({
@@ -345,7 +360,7 @@ function reconstructPrompt(
   });
 
   // Conversation history
-  const historyMessages = (messages ?? [])
+  const historyMessages = priorMessages
     .filter((m: any) => m.role === "user" || m.role === "assistant")
     .map((m: any) => ({
       role: m.role,
@@ -852,6 +867,9 @@ export default function OracleDebugPage() {
   const blockedSafetyTraces = (d?.traces ?? []).filter(
     (storedTrace) => storedTrace.trace?.safetyScan?.blocked,
   );
+  const recordedPromptTrace = [...(d?.traces ?? [])].reverse().find(
+    (storedTrace) => storedTrace.trace?.promptManifest || storedTrace.trace?.userPromptManifest,
+  )?.trace;
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -1356,6 +1374,29 @@ export default function OracleDebugPage() {
               <TabsContent value="prompt" className="space-y-5">
                 {reconstructedPrompt ? (
                   <>
+                    {recordedPromptTrace && (
+                      <Card className="border-emerald-500/20 bg-emerald-500/[0.04]">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="flex items-center gap-2 text-sm">
+                            <Shield className="h-4 w-4 text-emerald-300" />
+                            Recorded prompt and interpretation manifests
+                          </CardTitle>
+                          <CardDescription>
+                            Persisted at execution time. Hashes and sizes verify what was assembled without storing sensitive prompt contents.
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <pre className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words rounded bg-black/30 p-3 font-mono text-[10px] text-emerald-100/70">
+                            {JSON.stringify({
+                              system: recordedPromptTrace.promptManifest ?? [],
+                              user: recordedPromptTrace.userPromptManifest ?? [],
+                              interpretations: recordedPromptTrace.interpretationManifest ?? [],
+                            }, null, 2)}
+                          </pre>
+                        </CardContent>
+                      </Card>
+                    )}
+
                     {/* Summary bar */}
                     <Card className="border-border/30 bg-card/40">
                       <CardContent className="p-5">
@@ -1482,8 +1523,11 @@ export default function OracleDebugPage() {
                     <div>
                       <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                         <FileText className="h-4 w-4 text-galactic" />
-                        Full Assembled Prompts (Raw)
+                        Current prompt preview (reconstructed, not historical)
                       </h3>
+                      <p className="mb-3 text-xs text-muted-foreground">
+                        This preview uses current code and settings. Use the recorded manifests above as the historical execution evidence.
+                      </p>
                       <Accordion type="single" collapsible>
                         <AccordionItem value="system">
                           <AccordionTrigger className="text-xs">
@@ -1678,6 +1722,30 @@ export default function OracleDebugPage() {
                         </div>
                       </CardContent>
                     </Card>
+
+                    {reportTelemetry && (
+                      <Card className="border-violet-500/20 bg-violet-500/[0.04]">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="flex items-center gap-2 text-sm">
+                            <Sparkles className="h-4 w-4 text-violet-300" />
+                            Birth Chart Report → Oracle eligibility
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3 text-xs">
+                          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                            <div><span className="text-muted-foreground">Eligible</span><p className={reportTelemetry.oracleContextEligible ? "text-emerald-400" : "text-amber-400"}>{reportTelemetry.oracleContextEligible ? "Yes" : "No"}</p></div>
+                            <div><span className="text-muted-foreground">Reason</span><p className="font-mono">{reportTelemetry.oracleContextEligibilityReason}</p></div>
+                            <div><span className="text-muted-foreground">Pipeline / contract</span><p className="font-mono">v{reportTelemetry.version ?? "—"} / v{reportTelemetry.contractVersion ?? "—"}</p></div>
+                            <div><span className="text-muted-foreground">Mode</span><p className="font-mono">{reportTelemetry.oracleContextMode ?? "—"}</p></div>
+                          </div>
+                          <div><span className="text-muted-foreground">Included sections</span><p className="font-mono">{reportTelemetry.oracleContextIncludedSections?.join(", ") || "—"}</p></div>
+                          <div className="grid gap-2 md:grid-cols-2">
+                            <div><span className="text-muted-foreground">Stored fingerprint</span><p className="break-all font-mono text-[10px]">{reportTelemetry.sourceChartFingerprint ?? "—"}</p></div>
+                            <div><span className="text-muted-foreground">Current fingerprint</span><p className="break-all font-mono text-[10px]">{reportTelemetry.currentChartFingerprint ?? "—"}</p></div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
 
                     {/* Journal Consent */}
                     <Card className="border-border/30 bg-card/40">

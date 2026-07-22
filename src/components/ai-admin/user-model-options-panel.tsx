@@ -17,6 +17,7 @@ import { ModelChainBuilder } from "@/components/ai-admin/model-chain-builder";
 import { ModelOptionLogo } from "@/components/ai/model-option-logo";
 import type { ProviderConfig } from "@/lib/oracle/providers";
 import {
+  effectiveReasoningEfforts,
   REASONING_EFFORTS,
   REASONING_EFFORT_LABELS,
   USER_TIERS,
@@ -41,6 +42,7 @@ type EditableOption = {
   allowedTiers: UserTier[];
   defaultForTiers: UserTier[];
   chain: ModelChainEntry[];
+  restrictReasoningEfforts: boolean;
   allowedReasoningEfforts: ReasoningEffort[];
   defaultReasoningEffort: ReasoningEffort;
   usageHint?: string;
@@ -59,6 +61,7 @@ function cleanOption(option: any, index: number): EditableOption {
     allowedTiers: option.allowedTiers,
     defaultForTiers: option.defaultForTiers,
     chain: option.chain,
+    restrictReasoningEfforts: option.restrictReasoningEfforts ?? false,
     allowedReasoningEfforts: option.allowedReasoningEfforts,
     defaultReasoningEffort: option.defaultReasoningEffort,
     usageHint: option.usageHint,
@@ -103,6 +106,7 @@ export function UserModelOptionsPanel({ providers }: { providers: ProviderConfig
   const dirty = JSON.stringify(draft) !== persisted;
   const selectedIndex = draft.findIndex((option) => option.optionKey === selectedKey);
   const selected = selectedIndex >= 0 ? draft[selectedIndex] : null;
+  const selectableEfforts = selected ? effectiveReasoningEfforts(selected) : [];
 
   const patchSelected = (patch: Partial<EditableOption>) => {
     if (selectedIndex < 0) return;
@@ -164,6 +168,7 @@ export function UserModelOptionsPanel({ providers }: { providers: ProviderConfig
       allowedTiers: ["popular", "premium"],
       defaultForTiers: [],
       chain: [{ providerId: providers[0]?.id ?? "", model: "" }],
+      restrictReasoningEfforts: false,
       allowedReasoningEfforts: ["auto", "low", "medium", "high"],
       defaultReasoningEffort: "auto",
       sortOrder: draft.length,
@@ -338,15 +343,28 @@ export function UserModelOptionsPanel({ providers }: { providers: ProviderConfig
               </div>
 
               <div className="rounded-xl border border-white/10 bg-black/10 p-4">
-                <div className="flex items-center gap-2"><Brain className="size-4 text-galactic" /><Label>Reasoning effort</Label></div>
-                <div className="mt-3 flex flex-wrap gap-3">
-                  {REASONING_EFFORTS.map((effort) => (
-                    <label key={effort} className="flex items-center gap-2 text-sm"><Checkbox checked={selected.allowedReasoningEfforts.includes(effort)} onCheckedChange={(value) => toggleEffort(effort, value === true)} />{REASONING_EFFORT_LABELS[effort]}</label>
-                  ))}
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2"><Brain className="size-4 text-galactic" /><Label>Reasoning effort</Label></div>
+                    <p className="mt-1 text-xs text-muted-foreground">Users can choose any effort unless this route needs a compatibility limit.</p>
+                  </div>
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Switch checked={selected.restrictReasoningEfforts} onCheckedChange={(checked) => patchSelected({ restrictReasoningEfforts: checked })} />
+                    Restrict choices
+                  </label>
                 </div>
+                {selected.restrictReasoningEfforts ? (
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    {REASONING_EFFORTS.map((effort) => (
+                      <label key={effort} className="flex items-center gap-2 text-sm"><Checkbox checked={selected.allowedReasoningEfforts.includes(effort)} onCheckedChange={(value) => toggleEffort(effort, value === true)} />{REASONING_EFFORT_LABELS[effort]}</label>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 rounded-lg border border-galactic/15 bg-galactic/[0.06] px-3 py-2 text-xs text-white/60">All five effort levels are available in the Oracle composer.</p>
+                )}
                 <div className="mt-4 flex flex-wrap gap-2">
                   <span className="mr-1 self-center text-xs text-muted-foreground">Default</span>
-                  {selected.allowedReasoningEfforts.map((effort) => (
+                  {selectableEfforts.map((effort) => (
                     <Button key={effort} type="button" size="sm" variant={selected.defaultReasoningEffort === effort ? "default" : "outline"} onClick={() => patchSelected({ defaultReasoningEffort: effort })} className="h-7 gap-1.5 text-xs">
                       {selected.defaultReasoningEffort === effort && <Check className="size-3" />}{REASONING_EFFORT_LABELS[effort]}
                     </Button>

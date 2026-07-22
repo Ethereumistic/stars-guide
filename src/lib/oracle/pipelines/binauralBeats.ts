@@ -30,6 +30,7 @@ export const binauralBeatsPipeline: OraclePipeline = {
 
   dataRequirements: {
     needsBirthData: false,
+    needsBirthChartReportContext: false,
     needsJournalContext: false,
     expandedJournalBudget: false,
     needsTimespace: true,

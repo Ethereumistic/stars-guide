@@ -77,7 +77,7 @@ describe("personal transit intelligence", () => {
     const context = buildTimespaceContext("UTC", question, chart([planet("sun", 10)]));
     assert.equal(context.hasIntent, true);
     assert.match(context.context, /Current planetary positions:/);
-    assert.match(context.context, /CURRENT PERSONAL TRANSIT INTELLIGENCE/);
+    assert.match(context.context, /PERSONAL TRANSIT INTELLIGENCE/);
     assert.match(context.context, /Never claim current transit or cosmic-weather data is unavailable/);
   });
 
@@ -186,19 +186,24 @@ describe("Oracle experience prompt contracts", () => {
     assert.match(DEFAULT_ORACLE_SOUL, /useful action or decision rule/);
   });
 
-  it("keeps the concise human report separate from Oracle chart context", () => {
+  it("adds validated report insights as a subordinate interpretation layer", () => {
     const prompt = buildReportSystemPrompt();
     assert.match(prompt, /concise, premium reading experience for a human/);
     assert.match(prompt, /Use only evidence IDs listed in APPROVED EVIDENCE/);
-    assert.match(prompt, /observable action and a trigger or cadence/);
+    assert.match(prompt, /observable practice/);
+    assert.match(prompt, /include a trigger or cadence/);
     const blocks = birthChartPipeline.buildPromptBlocks({
       userQuestion: "What pattern matters?", timezone: "UTC", isFirstResponse: false,
       featureKey: "birth_chart", birthChartDepth: "core", birthData: "deterministic chart",
+      birthChartReportContext: "[VALIDATED BIRTH CHART REPORT INSIGHTS]\nbounded insights",
       journalContext: null, timespaceContext: null,
       soulDoc: "soul", featureInjection: null, rawBirthData: null, synastryData: null,
     });
-    assert.doesNotMatch(blocks.systemBlocks.map((block) => block.content).join("\n"), /BIRTH CHART REPORT/);
-    assert.match(blocks.userBlocks.map((block) => block.content).join("\n"), /deterministic chart/);
+    assert.match(blocks.systemBlocks.map((block) => block.content).join("\n"), /canonical natal chart is the sole authority/i);
+    const userContext = blocks.userBlocks.map((block) => block.content).join("\n");
+    assert.match(userContext, /deterministic chart/);
+    assert.match(userContext, /VALIDATED BIRTH CHART REPORT INSIGHTS/);
+    assert.ok(userContext.indexOf("deterministic chart") < userContext.indexOf("VALIDATED BIRTH CHART REPORT INSIGHTS"));
   });
 
   it("requires relationship guidance without mind-reading or compatibility scores", () => {

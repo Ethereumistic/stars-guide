@@ -42,12 +42,27 @@ export interface OracleRequestPlan {
   unresolvedRequirements: string[];
   deterministicRuleMatches: string[];
   classifier?: { source: "gateway" | "regex" | "none"; raw?: unknown; confidence?: number; fallbackReason?: string };
-  responseContract: { mustCompareAllOptions: boolean; mustRecommend: boolean; practicalSafety: boolean };
+  responseContract: {
+    mustCompareAllOptions: boolean;
+    mustRecommend: boolean;
+    practicalSafety: boolean;
+    requiresFullNatalCoverage: boolean;
+    requiredNatalEntities: string[];
+  };
 }
 
 export interface EvidenceProvenance { source: string; version: string; calculatedAt: string; timezone?: string }
 export interface OracleEvidenceItem { capability: OracleCapabilityKey; label: string; content: string; provenance: EvidenceProvenance }
-export interface OracleEvidenceBundle { requestedAt: string; timezone: string; items: OracleEvidenceItem[]; warnings: string[] }
+export interface OracleEvidenceBundle {
+  requestedAt: string;
+  timezone: string;
+  items: OracleEvidenceItem[];
+  warnings: string[];
+  natalChart?: {
+    availableEntities: string[];
+    storedAspects: Array<{ body1: string; body2: string; type: string }>;
+  };
+}
 
 export interface OracleResponseViolation { code: string; message: string; severity: "error" | "warning" }
 
@@ -56,6 +71,16 @@ export interface OracleTurnTrace {
   requestPlan: OracleRequestPlan;
   evidenceManifest: Array<{ capability: OracleCapabilityKey; label: string; source: string; version: string; size: number }>;
   promptManifest: Array<{ label: string; version: string; priority: number; hash: string }>;
+  userPromptManifest?: Array<{ label: string; version: string; size: number; hash: string }>;
+  interpretationManifest?: Array<{
+    label: string;
+    source: string;
+    version: string;
+    size: number;
+    mode?: string;
+    sourceFingerprintMatched?: boolean;
+    includedSections?: string[];
+  }>;
   providerAttempts: Array<{ provider?: string; model?: string; tier?: string; durationMs?: number; outcome: string }>;
   violations: OracleResponseViolation[];
   repaired: boolean;

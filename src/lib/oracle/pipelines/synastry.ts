@@ -35,6 +35,7 @@ export const synastryPipeline: OraclePipeline = {
 
   dataRequirements: {
     needsBirthData: true, // User's own chart is required
+    needsBirthChartReportContext: false,
     needsJournalContext: false, // Synastry doesn't need journal context
     expandedJournalBudget: false,
     needsTimespace: true,

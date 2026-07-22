@@ -257,7 +257,7 @@ export function detectChartPatterns(birthData: StoredBirthData): DetectedChartPa
   const connected = new Set(aspects.flatMap((aspect) => [aspect.planet1, aspect.planet2]));
   for (const planet of planets.filter((item) => !connected.has(item.id))) {
     patterns.push({
-      id: `peregrine:${planet.id}`, kind: "structural", name: `Peregrine ${title(planet.id)}`, rarity: "Rare",
+      id: `unaspected:${planet.id}`, kind: "structural", name: `Unaspected ${title(planet.id)}`, rarity: "Rare",
       definition: `${title(planet.id)} forms no stored major aspect to another core planet.`,
       mechanics: "Without a major-aspect circuit, this function can feel highly independent, alternating between quiet and unusually direct expression.",
       ...details(planets, [planet.id]), evidenceIds: [`placement:${planet.id}`], confidence: "exact",

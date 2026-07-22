@@ -45,6 +45,8 @@ export type ModelHint = "fast" | "smart" | "creative";
 export interface PipelineDataRequirements {
   /** Needs the user's birth chart data */
   needsBirthData: boolean;
+  /** Needs a matching, validated human-report interpretation layer */
+  needsBirthChartReportContext: boolean;
   /** Needs journal context (requires consent check) */
   needsJournalContext: boolean;
   /** If needsJournalContext, use expanded budget */
@@ -125,6 +127,8 @@ export interface PipelineContext {
   birthChartDepth: "core" | "full" | null;
   /** Birth data context string (pre-built by orchestrator, only if a pipeline needs it) */
   birthData: string | null;
+  /** Compact, fingerprint-validated interpretation context from the durable report */
+  birthChartReportContext: string | null;
   /** Raw birth data object (always available if user has it, for internal computation like binaural personalization) */
   rawBirthData: unknown | null;
   /** Journal context string (pre-built by orchestrator, consent-gated) */

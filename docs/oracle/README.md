@@ -8,7 +8,7 @@ Use this folder as a compact navigation layer. The current source of truth is st
 - `00-MASTER-WIRING-GUIDE.md` - compact, current wiring map.
 - `ORACLE_ARCHITECTURE.md` - flow, server contracts, safety, quota, and provider path.
 - `ORACLE_FEATURES.md` - feature keys, pipelines, and data-gating matrix.
-- `BIRTH_CHART_REPORT.md` - separate deterministic Oracle natal context and human report pipeline.
+- `BIRTH_CHART_REPORT.md` - canonical natal authority plus the fingerprint-gated human-report interpretation layer.
 - `OPERATIONS_AND_DEBUG.md` - admin settings, providers, quota, debug panels, and troubleshooting.
 - `ORACLE_EXPERIENCE_AUDIT.md` - product-quality audit of birth chart, report, cosmic weather, synastry, retention, and evaluation gaps.
 - `ORACLE_COMPOSER_REDESIGN_PLAN.md` - implementation plan for the expanding composer, model/effort access, dictation, and `/admin/ai` routing controls.

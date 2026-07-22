@@ -1,15 +1,15 @@
 # Birth Chart System: Human Report and Oracle Context
 
-> Implementation reference for contract v3 / pipeline version 5. Updated 2026-07-13.
+> Implementation reference for contract v3 / pipeline version 7. Updated 2026-07-22.
 
 ## Product decision
 
-The system now has two deliberately separate products:
+The system has two artifacts with an explicit authority boundary:
 
-1. **Oracle natal context** is a deterministic, server-built translation of `users.birthData`. It is created on demand, only for Oracle capabilities that require natal evidence. It never reads the human report and never waits for report generation.
+1. **Oracle canonical natal context** is a deterministic, server-built translation of `users.birthData`. It is created on demand only for capabilities that require natal evidence and is the sole authority for chart facts.
 2. **The human Birth Chart Report** is a concise, visual, one-time reading artifact. An LLM writes interpretations against server-approved evidence IDs, while chart facts, named patterns, visual identity, and source integrity remain deterministic.
 
-This removes the previous circular dependency where a long LLM report acted as both the user experience and Oracle memory.
+For a birth-chart pipeline, Oracle may also receive a compact, query-aware subset of a completed pipeline-v7 structured report. This is a subordinate interpretation layer for continuity, prioritization, and personalization—not a second source of placements or aspects. Missing, stale, malformed, legacy-semantic, or fingerprint-mismatched reports are silently excluded, so report generation never gates Oracle.
 
 ```mermaid
 flowchart LR
@@ -21,6 +21,8 @@ flowchart LR
   E --> F
   F --> G["Validated report v3"]
   G --> H["Visual field guide"]
+  G --> I["Eligibility + fingerprint gate"]
+  I -. "bounded query-aware insights" .-> C
   H -. "user chooses a prompt" .-> C
 ```
 
@@ -51,11 +53,18 @@ nodal_axis
 The Oracle path has these guarantees:
 
 - normal Oracle conversations do not require a completed human report;
-- report status, Markdown, and structured report JSON are never injected into Oracle prompts;
+- report Markdown, visual identity, follow-up prompts, and the full stored JSON are never injected;
+- only a bounded subset of a completed pipeline-v7/contract-v3 report with matching top-level and structured source fingerprints is eligible;
+- canonical birth data is injected first and always wins any conflict with report prose;
+- full-chart requests create a completeness contract for every available canonical entity, including nodes, Chiron, and Part of Fortune;
+- natal aspect claims are checked against stored canonical aspects and repaired or rejected when unsupported;
+- non-temporal natal answers are buffered until response-contract and output-safety validation pass, so a rejected draft is never published;
 - report generation failure cannot block Oracle;
 - changing the human report does not change canonical chart context;
 - journal context remains independently consent-gated on the server;
 - hardcoded Oracle crisis and response-safety rules remain unchanged.
+
+The bounded report block includes identity, relevant validated themes/signature, relevant compass areas, selected toolkit practices, and the two onboarding answers as tone/emphasis only. Broad requests receive the full bounded interpretation set; narrow requests receive only matching evidence-backed sections. Every major answer claim must still cite canonical evidence.
 
 The dedicated report session is the only session that activates report onboarding. This keeps the questionnaire in the familiar Oracle UI without turning it into a global product gate.
 
@@ -74,7 +83,9 @@ Supported exact or strongly derived patterns include:
 - Bundle, Bowl, Locomotive, and Splash chart shapes when geometry passes a conservative threshold;
 - element/modality singletons;
 - traditional mutual reception;
-- peregrine core planets with no stored major aspect.
+- unaspected core planets with no stored major aspect.
+
+`Peregrine` remains a dignity concept. It is never inferred from the absence of a stored aspect, and report validation blocks legacy content that conflates the two meanings.
 
 If no named configuration is available, the tightest stored major aspect becomes a clearly labeled personal signature. Patterns that require unavailable minor aspects, such as Yods or Thor's Hammer, are not claimed.
 
@@ -105,7 +116,7 @@ The LLM returns `evidenceIds`, not free-form evidence objects. During validation
 
 The validator strictly enforces exact section counts and keys, three distinct themes, four focused Oracle prompts, approved evidence IDs, an existing server-detected `patternId`, and valid practice cadence values. Field lengths are editorial copy budgets: concise-but-substantive text is accepted and over-budget text is deterministically trimmed, so a harmless length miss cannot fail an otherwise sound report or trigger a paid repair call.
 
-Structural and chart-integrity validation is blocking in v3. Editorial checks for generic language, observable-action wording, and total prose budget request one repair pass, but remain advisories afterward because they are heuristic rather than proof of an invalid report. A repaired artifact is saved when it passes the strict schema and chart-evidence boundary; only another structural failure enters the durable job retry path.
+Structural, chart-integrity, and semantic-integrity validation is blocking in v3. The semantic gate rejects legacy `peregrine:` pattern IDs, dignity/aspect conflation, unsupported “lacks aspect support” wording, and inflated deterministic claims. Editorial checks for generic language, observable-action wording, and total prose budget request one repair pass, but remain advisories afterward because they are heuristic rather than proof of an invalid report. A repaired artifact is saved when it passes the strict schema and chart-evidence boundary; only another blocking failure enters the durable job retry path.
 
 ## Generation and persistence
 
@@ -120,7 +131,7 @@ Structural and chart-integrity validation is blocking in v3. Editorial checks fo
 7. Render concise Markdown deterministically as an archival fallback.
 8. Persist only if the current chart fingerprint still matches the generation source.
 
-Stored `version` is pipeline version `5`; structured `meta.version` is contract version `3`. `sourceChartFingerprint` links the artifact to its canonical input.
+Stored `version` is pipeline version `7`; structured `meta.version` is contract version `3`. `sourceChartFingerprint` links the artifact to its canonical input. Version 7 is the minimum Oracle-eligible report version because it includes corrected unaspected semantics and the bounded interpretation contract.
 
 ## Visual experience
 
@@ -160,9 +171,9 @@ Reliability rules:
 ## Migration and compatibility
 
 - Existing v2 structured reports and Markdown remain readable.
-- Existing completed reports no longer influence Oracle.
-- Users can choose **Upgrade visual report** to generate contract v3.
-- A completed v3 report cannot be enqueued again through the ordinary action.
+- Existing v2 reports and pre-v7 v3 reports remain readable but are not Oracle-eligible.
+- Users can choose **Upgrade visual report** to generate the current pipeline version; queue eligibility compares the stored pipeline version with version 7.
+- A completed current-version report cannot be enqueued again through the ordinary action.
 - No destructive database migration is required; new fields are optional.
 
 ## Key files
@@ -171,6 +182,8 @@ Reliability rules:
 | --- | --- |
 | Canonical chart storage | `convex/schema.ts`, `convex/users.ts` |
 | Deterministic chart artifact and evidence | `src/lib/birth-chart/report-context.ts` |
+| Bounded Oracle report eligibility and selection | `src/lib/birth-chart/oracle-report-context.ts` |
+| Shared report pipeline version | `src/lib/birth-chart/report-version.ts` |
 | Pattern detection | `src/lib/birth-chart/patterns.ts` |
 | Human report contract and Markdown fallback | `convex/birthChartReport/v3.ts` |
 | Human report prompts | `convex/birthChartReport/prompts.ts` |

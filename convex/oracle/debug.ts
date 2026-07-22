@@ -8,6 +8,8 @@ import {
   tierForIndex,
 } from "../../lib/oracle/providers";
 import { scoreIntents } from "../../lib/oracle/intentRouter";
+import { buildOracleBirthReportContext } from "../../src/lib/birth-chart/oracle-report-context";
+import { fingerprintBirthChart } from "../../src/lib/birth-chart/report-context";
 
 /**
  * Oracle Debug Queries — Admin-only transparent inspection layer.
@@ -164,7 +166,7 @@ export const adminGetSessionDetail = query({
       user?.birthChartReport?.oracleSessionId === sessionId ||
       session.featureKey === "birth_chart_report" ||
       session.primaryModelUsed === "birth_chart_report_onboarding";
-    const report = isBirthChartReportSession ? user?.birthChartReport : undefined;
+    const report = user?.birthChartReport;
 
     // Older report sessions predate per-report execution telemetry. Expose the
     // currently configured route as context, but never claim it was recorded.
@@ -280,6 +282,16 @@ export const adminGetSessionDetail = query({
       journalConsent = null;
     }
 
+    const lastUserQuestion = [...messages].reverse().find((message) => message.role === "user")?.content ?? "";
+    const reportContextResult = user?.birthData && report
+      ? buildOracleBirthReportContext({
+          birthData: user.birthData,
+          report,
+          question: lastUserQuestion,
+        })
+      : null;
+    const currentChartFingerprint = user?.birthData ? fingerprintBirthChart(user.birthData) : null;
+
     return {
       session: debugSession,
       messages,
@@ -299,7 +311,17 @@ export const adminGetSessionDetail = query({
             birthChartReport: report
               ? {
                   status: report.status,
+                  version: report.version ?? null,
+                  contractVersion: report.structured?.meta?.version ?? null,
                   generatedAt: report.generatedAt ?? null,
+                  sourceChartFingerprint: report.sourceChartFingerprint ?? null,
+                  currentChartFingerprint,
+                  sourceFingerprintMatched: reportContextResult?.sourceFingerprintMatched ?? false,
+                  oracleContextEligible: reportContextResult?.eligible ?? false,
+                  oracleContextEligibilityReason: reportContextResult?.reason ?? "canonical_birth_data_or_report_missing",
+                  oracleContextMode: reportContextResult?.mode ?? null,
+                  oracleContextIncludedSections: reportContextResult?.includedSections ?? [],
+                  oracleContextPreview: reportContextResult?.context ?? null,
                   generationProviderId: report.generationProviderId ?? null,
                   generationModel: report.generationModel ?? null,
                   generationTier: report.generationTier ?? null,

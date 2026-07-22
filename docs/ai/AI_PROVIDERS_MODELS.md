@@ -113,6 +113,7 @@ The centralized AI Infrastructure admin page at `/admin/ai` has six tabs: Provid
 - Accepts an optional public HTTPS CDN logo for each choice; the composer keeps its built-in icon as the load/error fallback.
 - Assigns availability and exactly one default for each of `free`, `popular`, and `premium`.
 - Restricts the reasoning efforts each choice supports and defines its default effort.
+- By default all reasoning efforts are selectable; compatibility restrictions are an explicit per-route opt-in.
 - Uses a structured ordered chain builder backed by existing provider configurations.
 - Saves the complete configuration atomically, validates it server-side, and enables user selection with a separate rollout switch.
 - Can seed an initial `Automatic` option from the existing `oracle_chat` feature profile.

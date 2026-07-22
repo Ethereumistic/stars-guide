@@ -1,8 +1,9 @@
 import type { Doc } from "../_generated/dataModel";
 import { buildBirthChartContextArtifact } from "../../src/lib/birth-chart/report-context";
+import { BIRTH_CHART_REPORT_VERSION } from "../../src/lib/birth-chart/report-version";
 
 /** Persistence/pipeline version. The human-facing JSON contract is meta.version 3. */
-export const BIRTH_CHART_REPORT_VERSION = 6;
+export { BIRTH_CHART_REPORT_VERSION };
 
 export type BirthChartReportProfiling = NonNullable<
   NonNullable<Doc<"users">["birthChartReport"]>["profilingAnswers"]
@@ -38,6 +39,8 @@ export function buildReportSystemPrompt(profiling?: BirthChartReportProfiling): 
     "- Start every practice instruction with a concrete imperative verb such as Write, Name, Schedule, Ask, Compare, Notice, Create, or Choose; include a trigger or cadence.",
     "- Oracle prompts must be specific enough to produce a focused follow-up reading.",
     "- Use profile answers only to choose emphasis. Never quote private context or treat it as chart evidence.",
+    "- Essential dignity and aspect connectivity are different concepts. 'Peregrine' is a dignity status; 'unaspected' means no stored major aspect. Never define one as the other.",
+    "- Never claim that a planet or cluster lacks major-aspect support when the approved evidence inventory contains aspects involving it.",
     "- Avoid: chosen, destined, guaranteed, psychic, old soul, limitless, 'trust the universe', diagnostic claims, and deterministic predictions.",
     "- No medical, legal, financial, or crisis guidance.",
     "[END STARS.GUIDE HUMAN BIRTH CHART REPORT — CONTRACT V3]",

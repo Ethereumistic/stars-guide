@@ -14,6 +14,7 @@ import {
 } from "./v2";
 import {
   getBirthChartReportV3QualityIssues,
+  getBirthChartReportV3IntegrityIssues,
   renderBirthChartReportV3Markdown,
   validateAndHydrateBirthChartReportV3,
 } from "./v3";
@@ -84,7 +85,10 @@ export async function generateAndSaveReport(ctx: ActionCtx, userId: Id<"users">)
       chartContext,
       preferredName,
     );
-    const issues = getBirthChartReportV3QualityIssues(structured);
+    const issues = [
+      ...getBirthChartReportV3IntegrityIssues(structured, chartContext),
+      ...getBirthChartReportV3QualityIssues(structured),
+    ];
     if (issues.length) repairReason = issues.join("\n");
   } catch (validationError) {
     repairReason = validationError instanceof Error ? validationError.message : "Invalid structured report";
@@ -138,6 +142,10 @@ export async function generateAndSaveReport(ctx: ActionCtx, userId: Id<"users">)
       chartContext,
       preferredName,
     );
+    const repairedIntegrityIssues = getBirthChartReportV3IntegrityIssues(structured, chartContext);
+    if (repairedIntegrityIssues.length) {
+      throw new Error(`Repaired report failed semantic integrity: ${repairedIntegrityIssues.join("; ")}`);
+    }
     const repairedIssues = getBirthChartReportV3QualityIssues(structured);
     if (repairedIssues.length) {
       // These checks are deliberately heuristic. The repaired artifact has

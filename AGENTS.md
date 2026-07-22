@@ -1,15 +1,16 @@
 # AGENTS.md - stars-guide
 
-Astrology education web app at stars.guide. The main product surface is the Oracle AI chat.
+State of the art astrology education web app at stars.guide. The main product surface is the Oracle AI chat.
 
 ## Must Follow
 
-- Use `pnpm` for package commands and dependency work. Do not use npm/yarn for installs.
-- Do not run `pnpm dev`, `pnpm build`, `pnpm deploy`, `pnpm preview`, `pnpm lint`, or `pnpm check` unless the user asks.
+- Use `vp` for package commands and dependency work. Do not use npm/yarn for installs.
+- Do not run `vp dev`, `vp build`, `vp deploy`, `vp preview`, `vp lint`, or `vp check` unless the user asks.
 - Do not edit generated/build output: `convex/_generated/`, `env.d.ts`, `.next/`, `.open-next/`, `.wrangler/`, `tsconfig.tsbuildinfo`.
 - Do not edit lockfiles unless the task intentionally changes dependencies.
 - Convex actions cannot use `ctx.db`; use `ctx.runQuery` / `ctx.runMutation`.
 - Keep Oracle safety rules hardcoded and server-enforced. Admin settings must not be able to override crisis/safety behavior.
+- Use shadcn-ui components for UI elements.
 
 ## Stack Snapshot
 
@@ -68,8 +69,8 @@ Astrology education web app at stars.guide. The main product surface is the Orac
 
 ## Build And Deploy Notes
 
-- Standard Next build: `pnpm build`.
-- Cloudflare build/deploy path: `opennextjs-cloudflare build` / `pnpm deploy`.
+- Standard Next build: `vp build`.
+- Cloudflare build/deploy path: `opennextjs-cloudflare build` / `vp deploy`.
 - Cloudflare deploys need OpenNext output, not only a plain Next build.
 - Production config is split between `.env.local` for local development and `wrangler.jsonc` vars for Worker deploys.
 

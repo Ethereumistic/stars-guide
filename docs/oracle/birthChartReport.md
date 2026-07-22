@@ -1,4 +1,4 @@
-> **Legacy database fixture (pipeline version 4 / structured contract 2).** New reports use pipeline version 5 and structured contract 3. Oracle no longer consumes this artifact.
+> **Legacy database fixture (pipeline version 4 / structured contract 2).** New reports use pipeline version 7 and structured contract 3. Only a bounded subset of an eligible v7 report may guide Oracle interpretation; this legacy artifact is never injected.
 
 {
   completionTokens: 8724,

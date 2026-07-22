@@ -23,6 +23,7 @@ export const genericChatPipeline: OraclePipeline = {
 
   dataRequirements: {
     needsBirthData: false, // ← THIS IS THE FIX FOR THE LOBOTOMIZATION
+    needsBirthChartReportContext: false,
     needsJournalContext: true, // Journal is additive, not directive
     expandedJournalBudget: false,
     needsTimespace: true,

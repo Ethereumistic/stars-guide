@@ -91,8 +91,9 @@ export default defineSchema({
         })),
 
         // --- Human-facing Birth Chart Report ---
-        // This generated reading is a product artifact for the user. Oracle
-        // context is translated directly from birthData and never reads this.
+        // Oracle may consume a bounded subset of a completed, current-version,
+        // fingerprint-matched structured report as an interpretation layer.
+        // Canonical chart facts always come directly from birthData.
         birthChartReport: v.optional(v.object({
             status: v.union(
                 v.literal("pending"),
@@ -695,6 +696,7 @@ export default defineSchema({
             providerId: v.string(),
             model: v.string(),
         })),
+        restrictReasoningEfforts: v.optional(v.boolean()),
         allowedReasoningEfforts: v.array(v.union(
             v.literal("auto"),
             v.literal("disabled"),

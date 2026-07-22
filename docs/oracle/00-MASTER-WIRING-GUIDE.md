@@ -76,7 +76,7 @@ The actual implementation is in `convex/oracle/llm.ts`.
 | Pipeline | Trigger/source | Birth data | Journal context | Timespace | Synastry payload | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | `generic_chat` | fallback/default | no | yes, if consented | yes | no | Does not inject birth data, but can include journal context. |
-| `birth_chart` | manual feature or chart intent | yes | yes, if consented | yes | no | Prefers completed Birth Chart Report, uses raw chart as reference. |
+| `birth_chart` | manual feature or chart intent | yes | yes, if consented | yes | no | Canonical chart is authoritative; may add a bounded pipeline-v7, fingerprint-matched report interpretation layer. |
 | `journal_recall` | manual feature or journal intent | no by default | yes, expanded | yes | no | Can compose with birth chart when multiple intents are active. |
 | `synastry` | manual feature or relationship/chart comparison intent | yes | no | yes | yes | Uses role/name labels, not user-facing "Chart A/B" language. |
 | `binaural_beats` | manual feature or sound/frequency intent | raw data only for personalization | no | yes | no | Generates deterministic beat params; browser Web Audio handles playback. |

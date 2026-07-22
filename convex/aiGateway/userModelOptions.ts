@@ -3,7 +3,10 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { internalQuery, mutation, query } from "../_generated/server";
 import { requireAdmin } from "../lib/adminGuard";
 import {
+  effectiveReasoningEfforts,
   minimumRequiredTier,
+  normalizeReasoningEffort,
+  REASONING_EFFORTS,
   resolveUserModelPolicy,
   type ModelChainEntry,
   type ReasoningEffort,
@@ -37,6 +40,7 @@ const modelOptionInput = v.object({
   allowedTiers: v.array(userTier),
   defaultForTiers: v.array(userTier),
   chain: v.array(chainEntry),
+  restrictReasoningEfforts: v.optional(v.boolean()),
   allowedReasoningEfforts: v.array(reasoningEffort),
   defaultReasoningEffort: reasoningEffort,
   usageHint: v.optional(v.string()),
@@ -54,6 +58,7 @@ type ModelOptionInput = {
   allowedTiers: UserTier[];
   defaultForTiers: UserTier[];
   chain: ModelChainEntry[];
+  restrictReasoningEfforts?: boolean;
   allowedReasoningEfforts: ReasoningEffort[];
   defaultReasoningEffort: ReasoningEffort;
   usageHint?: string;
@@ -107,6 +112,7 @@ function normalizeOption(option: ModelOptionInput, index: number): ModelOptionIn
       providerId: entry.providerId.trim(),
       model: entry.model.trim(),
     })),
+    restrictReasoningEfforts: option.restrictReasoningEfforts ?? false,
     sortOrder: Number.isFinite(option.sortOrder) ? option.sortOrder : index,
   };
 }
@@ -169,10 +175,11 @@ function validateOptions(
       }
       duplicateRows.add(rowKey);
     }
-    if (option.allowedReasoningEfforts.length === 0) {
+    const effectiveEfforts = effectiveReasoningEfforts(option);
+    if (option.restrictReasoningEfforts && effectiveEfforts.length === 0) {
       throw new ConvexError({ field: "allowedReasoningEfforts", optionKey: option.optionKey, message: "Choose at least one reasoning effort." });
     }
-    if (!option.allowedReasoningEfforts.includes(option.defaultReasoningEffort)) {
+    if (!effectiveEfforts.includes(option.defaultReasoningEffort)) {
       throw new ConvexError({ field: "defaultReasoningEffort", optionKey: option.optionKey, message: "Default effort must be one of the allowed efforts." });
     }
     for (const tier of option.defaultForTiers) {
@@ -233,7 +240,7 @@ export const getComposerCapabilities = query({
           description: "Oracle chooses the best available model.",
           badge: "Default",
           available: true,
-          allowedReasoningEfforts: [profile?.thinkingMode ?? "auto"],
+          allowedReasoningEfforts: [...REASONING_EFFORTS],
           defaultReasoningEffort: profile?.thinkingMode ?? "auto",
         }],
       };
@@ -259,7 +266,7 @@ export const getComposerCapabilities = query({
         requiredTier: option.allowedTiers.includes(tier)
           ? undefined
           : minimumRequiredTier(option.allowedTiers as UserTier[]),
-        allowedReasoningEfforts: option.allowedReasoningEfforts,
+        allowedReasoningEfforts: effectiveReasoningEfforts(option),
         defaultReasoningEffort: option.defaultReasoningEffort,
         usageHint: option.usageHint,
       })),
@@ -290,7 +297,11 @@ export async function resolveOracleRouteForUser(
     source: "feature_default" as const,
     optionKey: undefined,
     chain: profileChain,
-    reasoningEffort: profile.thinkingMode as ReasoningEffort,
+    reasoningEffort: normalizeReasoningEffort(
+      requestedReasoningEffort,
+      [...REASONING_EFFORTS],
+      profile.thinkingMode as ReasoningEffort,
+    ),
     effectiveTier: tier,
     fallbackReason: reason,
   });
@@ -440,7 +451,8 @@ export const seedFromOracleProfile = mutation({
       allowedTiers: ["free", "popular", "premium"],
       defaultForTiers: ["free", "popular", "premium"],
       chain,
-      allowedReasoningEfforts: [profile.thinkingMode],
+      restrictReasoningEfforts: false,
+      allowedReasoningEfforts: [...REASONING_EFFORTS],
       defaultReasoningEffort: profile.thinkingMode,
       sortOrder: 0,
       createdAt: now,

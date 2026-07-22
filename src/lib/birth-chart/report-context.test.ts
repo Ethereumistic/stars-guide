@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { StoredBirthData } from "./types";
 import { detectChartPatterns } from "./patterns";
 import { buildBirthChartContextArtifact, serializeBirthChartForOracle } from "./report-context";
-import { getBirthChartReportV3QualityIssues, validateAndHydrateBirthChartReportV3 } from "../../../convex/birthChartReport/v3";
+import { buildOracleBirthReportContext } from "./oracle-report-context";
+import { BIRTH_CHART_REPORT_VERSION } from "./report-version";
+import { getBirthChartReportV3IntegrityIssues, getBirthChartReportV3QualityIssues, validateAndHydrateBirthChartReportV3 } from "../../../convex/birthChartReport/v3";
 
 const planet = (id: string, signId: string, houseId: number, longitude: number) => ({ id, signId, houseId, longitude, retrograde: false, dignity: null });
 
@@ -52,6 +54,8 @@ describe("deterministic birth chart context", () => {
   it("detects exact geometric patterns from stored aspects", () => {
     const patterns = detectChartPatterns(birthData);
     expect(patterns.some((pattern) => pattern.name === "T-Square" && pattern.confidence === "exact")).toBe(true);
+    expect(patterns.some((pattern) => pattern.id.startsWith("peregrine:"))).toBe(false);
+    expect(patterns.some((pattern) => pattern.id === "unaspected:mercury" && pattern.name === "Unaspected Mercury")).toBe(true);
   });
 
   it("builds stable approved evidence and an Oracle context with no human report", () => {
@@ -91,5 +95,67 @@ describe("deterministic birth chart context", () => {
 
     report.chartSignature.practice.instruction = "Clarity may become available when the moment feels less pressured.";
     expect(getBirthChartReportV3QualityIssues(report)).toContain("Practice 1 needs an observable action");
+  });
+
+  it("blocks dignity/aspect conflation and inflated deterministic report prose", () => {
+    const { context, raw } = makeRawReport();
+    const report = validateAndHydrateBirthChartReportV3(raw, context, "Ari");
+    report.identity.oneSentence = "Mercury is peregrine, meaning it is unaspected and therefore gives guaranteed psychic accuracy.";
+
+    const issues = getBirthChartReportV3IntegrityIssues(report, context);
+    expect(issues).toEqual(expect.arrayContaining([
+      expect.stringContaining("Peregrine dignity"),
+      expect.stringContaining("guaranteed"),
+    ]));
+  });
+
+  it("injects only a current, fingerprint-matched structured report", () => {
+    const { context, raw } = makeRawReport();
+    const structured = validateAndHydrateBirthChartReportV3(raw, context, "Ari");
+    const eligible = buildOracleBirthReportContext({
+      birthData,
+      question: "Please analyze my full chart from 0 to 100",
+      report: {
+        status: "completed",
+        version: BIRTH_CHART_REPORT_VERSION,
+        sourceChartFingerprint: context.sourceFingerprint,
+        structured,
+        profilingAnswers: { reportFocus: ["career", "relationships"], tonePreference: "direct" },
+      },
+    });
+
+    expect(eligible).toMatchObject({
+      eligible: true,
+      reason: "eligible",
+      mode: "full",
+      sourceFingerprintMatched: true,
+    });
+    expect(eligible.includedSections).toEqual(expect.arrayContaining(["identity", "chartSignature", "themes", "compass", "toolkit"]));
+    expect(eligible.context).toContain("bounded prior interpretation");
+    expect(eligible.context).not.toContain("oraclePrompts");
+
+    const stale = buildOracleBirthReportContext({
+      birthData,
+      question: "What matters?",
+      report: {
+        status: "completed",
+        version: BIRTH_CHART_REPORT_VERSION - 1,
+        sourceChartFingerprint: context.sourceFingerprint,
+        structured,
+      },
+    });
+    expect(stale).toMatchObject({ eligible: false, reason: "pipeline_version_stale", context: null });
+
+    const mismatched = buildOracleBirthReportContext({
+      birthData,
+      question: "What matters?",
+      report: {
+        status: "completed",
+        version: BIRTH_CHART_REPORT_VERSION,
+        sourceChartFingerprint: "different-chart",
+        structured,
+      },
+    });
+    expect(mismatched).toMatchObject({ eligible: false, reason: "source_fingerprint_mismatch", context: null });
   });
 });

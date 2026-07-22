@@ -27,7 +27,7 @@ Whenever the language model is asked to perform the arithmetic itself, quality a
 
 - Birth-chart mentor mode requires every meaningful pattern to state the pattern, earliest activation cue, usable edge, and a decision rule or testable action.
 - Newly generated report signatures have separately validated `recognitionCue`, `failureMode`, `decisionRule`, and `experiment` fields; older saved reports remain compatible.
-- **Implemented:** When a durable report exists and the user asks about explicit planets, signs, houses, nodes, or aspects, Oracle injects a deterministic focused slice plus the report. Broad synthesis, mixed pipelines, and synastry still receive the full chart.
+- **Implemented:** Birth-chart pipelines always receive deterministic canonical chart context and may receive a bounded, query-aware subset of a current, fingerprint-matched structured report as a subordinate interpretation layer. Broad natal requests retain full canonical coverage; synastry does not inherit this report layer.
 - **Implemented:** Explicit resonant/not-relevant feedback forms a bounded private memory of up to twelve recent evaluations. It is reversible, treated as untrusted interpretation context, and prohibited from becoming chart evidence or objective fact.
 
 ### Target experience

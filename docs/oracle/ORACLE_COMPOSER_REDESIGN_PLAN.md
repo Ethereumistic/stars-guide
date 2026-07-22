@@ -261,6 +261,7 @@ Add a structured table rather than placing another large JSON document inside `a
   allowedTiers: Array<"free" | "popular" | "premium">,
   defaultForTiers: Array<"free" | "popular" | "premium">,
   chain: Array<{ providerId: string; model: string }>,
+  restrictReasoningEfforts?: boolean,      // false/absent means all efforts are user-selectable
   allowedReasoningEfforts: Array<"auto" | "disabled" | "low" | "medium" | "high">,
   defaultReasoningEffort: "auto" | "disabled" | "low" | "medium" | "high",
   usageHint?: string,
