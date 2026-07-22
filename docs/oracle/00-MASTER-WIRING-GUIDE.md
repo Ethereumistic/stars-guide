@@ -117,8 +117,10 @@ Related tables/systems:
 - Quota is checked server-side before main LLM calls and charged incrementally/idempotently after terminal provider work, including repair and Resume attempts.
 - Journal context requires both pipeline demand and server-side consent.
 - Birth data is included only when at least one active pipeline requests it.
+- Explicit current-message exclusions override stored/session context; “do not use my birth chart or journal” prevents those pipelines from activating.
 - User question text is sanitized before entering the final prompt.
 - Output is scanned before being accepted.
+- Ordinary response-contract quality misses are observable but non-blocking. Hardcoded output-safety matches and canonical natal contradictions remain publication blockers.
 - A blocked streamed message is replaced in place; its original output and exact scanner rule are visible only to admins through `/admin/oracle/debug`.
 - Provider API keys are not stored in the DB; provider config stores env var names.
 - Admin debug model override is request-local, server-authorized, and never persisted to Oracle settings. Non-admin overrides are rejected.

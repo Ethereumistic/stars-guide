@@ -34,7 +34,7 @@ Phase D's local suite also covers the ownership-checked conversation subscriptio
 
 Phase E adds deterministic coverage for auth-independent stored-user route resolution, stable rollout bucketing and buffered rollback, once-only ownership-checked client-visible timing, and stale-turn maintenance that preserves partial approved content without invoking a model. The admin timeline and rollout settings still require authenticated browser acceptance in a permitted running environment.
 
-The Streaming V2 scenario set covers full natal contract enforcement, valid framed sections, invented-aspect rejection, malformed-protocol fallback, partial sections, ordinary guarded batches, journal-consent positive/denied controls, and a non-natal negative control. These are deterministic lower-layer checks; they do not replace the ten-scenario authenticated browser matrix.
+The Streaming V2 scenario set covers full natal contract enforcement, valid framed sections, invented-aspect rejection, malformed-protocol fallback, partial sections, ordinary guarded batches, journal-consent positive/denied controls, and a non-natal negative control. The negative control uses the exact regression prompt “Explain in five short paragraphs how astrologers use symbols as an educational language. Do not use my birth chart or journal,” proving explicit context exclusions override available account data. These deterministic lower-layer checks do not replace the ten-scenario authenticated browser matrix.
 
 ## Capability behavior
 

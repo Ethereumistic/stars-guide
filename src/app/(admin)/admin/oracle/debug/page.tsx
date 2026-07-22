@@ -101,6 +101,20 @@ type EvaluationRun = {
   passed: boolean;
   releaseThreshold: number;
   tierSummaries: Array<{ tier: string; providerId: string; model: string; score: number; passed: boolean; casesPassed: number; casesTotal: number }>;
+  results: Array<{
+    tier: string;
+    providerId: string;
+    model: string;
+    caseId: string;
+    category: string;
+    score: number;
+    passed: boolean;
+    evidenceHits?: number;
+    evidenceExpected?: number;
+    dimensions?: Record<string, number>;
+    content?: string;
+    error?: string;
+  }>;
 };
 const runProductionEvaluationRef = makeFunctionReference<"action", Record<string, never>, EvaluationRun>("oracle/evaluation:runProductionEvaluation");
 const getLatestEvaluationRef = makeFunctionReference<"query", Record<string, never>, EvaluationRun | null>("oracle/evaluationStore:getLatestRun");
@@ -980,6 +994,41 @@ export default function OracleDebugPage() {
                       </div>
                     ))}
                   </div>
+                  {!displayedEvaluationRun.passed && (
+                    <div className="space-y-2 rounded-lg border border-red-500/15 bg-red-500/[0.04] p-3">
+                      <p className="text-xs font-medium text-red-200">Failed release cases</p>
+                      <div className="grid gap-2 md:grid-cols-2">
+                        {displayedEvaluationRun.results.filter((result) => !result.passed).map((result) => (
+                          <div key={`${result.tier}/${result.caseId}`} className="rounded-md border border-white/10 bg-black/15 px-3 py-2 text-xs">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline" className="font-mono text-[10px]">Tier {result.tier}</Badge>
+                              <span className="font-medium">{result.caseId}</span>
+                              <span className="text-muted-foreground">{result.category} В· score {result.score}</span>
+                            </div>
+                            {typeof result.evidenceHits === "number" && typeof result.evidenceExpected === "number" && (
+                              <p className="mt-1 text-muted-foreground">Evidence {result.evidenceHits}/{result.evidenceExpected}</p>
+                            )}
+                            {result.dimensions && (
+                              <p className="mt-1 text-muted-foreground">
+                                Failed dimensions: {Object.entries(result.dimensions).filter(([, value]) => value < 1).map(([key]) => key).join(", ") || "none"}
+                              </p>
+                            )}
+                            {result.error && <p className="mt-1 text-red-300">{result.error}</p>}
+                            {result.content && (
+                              <Collapsible className="mt-2">
+                                <CollapsibleTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px]">Inspect synthetic response</Button>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                  <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded-md border border-white/10 bg-black/25 p-2 text-[11px] leading-relaxed text-muted-foreground">{result.content}</pre>
+                                </CollapsibleContent>
+                              </Collapsible>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </CardContent>
@@ -1351,6 +1400,12 @@ export default function OracleDebugPage() {
                           {turn.telemetry.alerts.length > 0 && (
                             <div className="mt-3 flex flex-wrap gap-1.5">
                               {turn.telemetry.alerts.map((alert: string) => <Badge key={alert} className="bg-amber-400/10 text-amber-200">{alert}</Badge>)}
+                            </div>
+                          )}
+                          {turn.safeErrorCode && (
+                            <div className="mt-3 rounded-md border border-red-500/20 bg-red-500/[0.05] px-3 py-2 text-[10px] text-red-200">
+                              <span className="font-mono">{turn.safeErrorCode}</span>
+                              {turn.safeErrorMessage && <span className="ml-2 text-red-200/75">{turn.safeErrorMessage}</span>}
                             </div>
                           )}
                         </div>

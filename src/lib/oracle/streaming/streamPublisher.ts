@@ -1,6 +1,7 @@
 import { parseJournalPromptFromResponse, parseTitleFromResponse } from "../../../../lib/oracle/promptBuilder";
 import { scanResponse } from "../responseSafety";
 import {
+  blockingOracleResponseViolations,
   validateCanonicalNatalClaims,
   validateOracleResponse,
 } from "../responseValidator";
@@ -227,16 +228,22 @@ export class OracleStreamPublisher {
     if (!safety.safe) {
       throw new OraclePublicationError("output_safety_blocked");
     }
-    const finalViolations = errorViolations(
-      validateOracleResponse(content, this.options.requestPlan, this.options.evidence),
-    );
-    this.mutableViolations.push(...finalViolations);
+    const allFinalViolations = errorViolations([
+      ...validateOracleResponse(content, this.options.requestPlan, this.options.evidence),
+      ...(this.options.requestPlan.requiredCapabilities.includes("natal_chart")
+        ? validateCanonicalNatalClaims(content, this.options.evidence)
+        : []),
+    ]);
+    this.mutableViolations.push(...allFinalViolations);
+    const blockingFinalViolations = this.options.mode === "validated_sections"
+      ? allFinalViolations
+      : blockingOracleResponseViolations(allFinalViolations);
 
     const requiredKeys = this.options.sectionPlan?.sections.map((section) => section.key) ?? [];
     const missingKeys = requiredKeys.filter((key) => !this.publishedSections.has(key));
-    const complete = !partial && missingKeys.length === 0 && finalViolations.length === 0;
+    const complete = !partial && missingKeys.length === 0 && blockingFinalViolations.length === 0;
     if (!complete && !partial && this.options.mode !== "validated_sections") {
-      throw new OraclePublicationError("response_contract_failed", finalViolations);
+      throw new OraclePublicationError("response_contract_failed", blockingFinalViolations);
     }
 
     try {
@@ -300,9 +307,13 @@ export class OracleStreamPublisher {
         requiredNatalEntities: [],
       },
     };
-    const contradictions = errorViolations(
-      validateOracleResponse(candidate, incrementalPlan, this.options.evidence),
-    );
+    const incrementalViolations = errorViolations([
+      ...validateOracleResponse(candidate, incrementalPlan, this.options.evidence),
+      ...(incrementalPlan.requiredCapabilities.includes("natal_chart")
+        ? validateCanonicalNatalClaims(candidate, this.options.evidence)
+        : []),
+    ]);
+    const contradictions = blockingOracleResponseViolations(incrementalViolations);
     if (contradictions.length > 0) {
       this.mutableViolations.push(...contradictions);
       this.fatalError = new OraclePublicationError("response_contract_failed", contradictions);

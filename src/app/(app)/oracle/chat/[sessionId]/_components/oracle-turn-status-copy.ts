@@ -7,11 +7,11 @@ export function getOracleTurnStatusCopy(
   const currentSection = sections.find((section) => section.key === turn.currentSectionKey);
   switch (turn.status) {
     case "queued": return "Preparing your reading…";
-    case "planning": return "Gathering the relevant chart context…";
+    case "planning": return "Understanding your question…";
     case "connecting": return "Connecting to Oracle…";
     case "generating": return currentSection ? `Writing your ${currentSection.title} section…` : "Writing your reading…";
-    case "validating": return "Checking this against your chart…";
-    case "repairing": return "Rechecking a chart detail…";
+    case "validating": return "Checking the response…";
+    case "repairing": return "Refining the response…";
     case "retrying": return "The connection flickered—reconnecting…";
     case "cancel_requested": return "Stopping…";
     case "incomplete": return "The response was interrupted.";

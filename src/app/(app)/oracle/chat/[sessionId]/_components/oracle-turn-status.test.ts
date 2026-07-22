@@ -23,6 +23,9 @@ function turn(status: OracleConversationTurn["status"], currentSectionKey?: stri
 describe("Oracle turn stage copy", () => {
   it("maps persisted lifecycle stages to honest accessible copy", () => {
     expect(getOracleTurnStatusCopy(turn("queued"), [])).toBe("Preparing your reading…");
+    expect(getOracleTurnStatusCopy(turn("planning"), [])).toBe("Understanding your question…");
+    expect(getOracleTurnStatusCopy(turn("validating"), [])).toBe("Checking the response…");
+    expect(getOracleTurnStatusCopy(turn("repairing"), [])).toBe("Refining the response…");
     expect(getOracleTurnStatusCopy(turn("retrying"), [])).toBe("The connection flickered—reconnecting…");
     expect(getOracleTurnStatusCopy(turn("cancel_requested"), [])).toBe("Stopping…");
     expect(getOracleTurnStatusCopy(turn("incomplete"), [])).toBe("The response was interrupted.");

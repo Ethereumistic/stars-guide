@@ -19,6 +19,18 @@ describe("Oracle request planner", () => {
     expect(plan.responseContract.requiresFullNatalCoverage).toBe(false);
     expect(plan.responseContract.requiredNatalEntities).toEqual([]);
   });
+  it("treats explicit birth-chart and journal opt-outs as forbidden data capabilities", () => {
+    const plan = planOracleRequest(
+      "Explain symbols as an educational language. Do not use my birth chart or journal.",
+      { hasBirthData: true, hasJournalConsent: true, explicitFeatureKey: "birth_chart" },
+    );
+    expect(plan.requiredCapabilities).toEqual(["general_conversation"]);
+    expect(plan.forbiddenCapabilities).toEqual(expect.arrayContaining(["natal_chart", "journal_recall"]));
+    expect(plan.goals).toEqual(["inform"]);
+    expect(plan.entities).toEqual([]);
+    expect(plan.responseContract.mustCompareAllOptions).toBe(false);
+    expect(plan.responseContract.requiresFullNatalCoverage).toBe(false);
+  });
   it("detects the reported unacceptable response", () => {
     const plan = planOracleRequest("is it a good day for a motorbike ride or diving? which one should i pick and why", { hasBirthData: true, hasJournalConsent: false });
     const evidence = { requestedAt: new Date(0).toISOString(), timezone: "UTC", warnings: [], items: [{ capability: "personal_transits" as const, label: "transits", content: "evidence", provenance: { source: "test", version: "1", calculatedAt: new Date(0).toISOString() } }] };

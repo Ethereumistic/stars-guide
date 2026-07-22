@@ -3,7 +3,11 @@
 import type { ActionCtx } from "../_generated/server";
 import { makeFunctionReference } from "convex/server";
 import type { IntentRouterResult } from "../../src/lib/oracle/pipelineTypes";
-import { scoreIntents } from "../../src/lib/oracle/intentRouter";
+import {
+  pipelineIsExcluded,
+  scoreIntents,
+} from "../../src/lib/oracle/intentRouter";
+import { detectExplicitCapabilityExclusions } from "../../src/lib/oracle/requestPlanner";
 import {
   buildIntentRouterPrompt,
   mapLLMIntentsToScoredIntents,
@@ -36,14 +40,15 @@ export async function scoreIntentsWithGateway(ctx: ActionCtx, params: {
   currentFeatureKey: string | null;
 }): Promise<IntentRouterResult> {
   const fallback = () => scoreIntents(params);
+  const excluded = new Set(detectExplicitCapabilityExclusions(params.question));
 
   if (params.currentFeatureKey) {
     return fallback();
   }
 
   const { systemPrompt, userMessage } = buildIntentRouterPrompt(params.question, {
-    birthChart: true,
-    journalRecall: params.hasJournalConsent,
+    birthChart: !excluded.has("natal_chart"),
+    journalRecall: params.hasJournalConsent && !excluded.has("journal_recall"),
     binauralBeats: true,
     synastry: params.hasBirthData,
   });
@@ -71,7 +76,10 @@ export async function scoreIntentsWithGateway(ctx: ActionCtx, params: {
     }
 
     const mapped = mapLLMIntentsToScoredIntents(parsed, params.hasBirthData);
-    const gated = mapped.filter((intent) => intent.pipelineKey !== "journal_recall" || params.hasJournalConsent);
+    const gated = mapped.filter((intent) => {
+      if (pipelineIsExcluded(intent.pipelineKey, excluded)) return false;
+      return intent.pipelineKey !== "journal_recall" || params.hasJournalConsent;
+    });
     const filtered = gated
       .filter((intent) => intent.confidence >= CONFIDENCE_THRESHOLD)
       .sort((a, b) => b.confidence - a.confidence);

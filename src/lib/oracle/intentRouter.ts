@@ -27,9 +27,18 @@ import {
   parseIntentRouterResponse,
   mapLLMIntentsToScoredIntents,
 } from "./intentRouterPrompt";
+import { detectExplicitCapabilityExclusions } from "./requestPlanner";
 
 /** Minimum confidence score to activate a pipeline */
 const CONFIDENCE_THRESHOLD = 0.5;
+
+export function pipelineIsExcluded(
+  pipelineKey: PipelineKey,
+  excluded: ReadonlySet<string>,
+): boolean {
+  return (pipelineKey === "birth_chart" && excluded.has("natal_chart"))
+    || (pipelineKey === "journal_recall" && excluded.has("journal_recall"));
+}
 
 /**
  * Map an OracleFeatureKey from a session to a PipelineKey.
@@ -75,11 +84,12 @@ export function scoreIntents(params: {
   currentFeatureKey: string | null;
 }): IntentRouterResult {
   const { question, hasBirthData, hasJournalConsent, currentFeatureKey } = params;
+  const excluded = new Set(detectExplicitCapabilityExclusions(question));
 
   // ── Score each pipeline independently ────────────────────────────────────
   const intents: ScoredIntent[] = [];
 
-  if (BIRTH_CHART_INTENT_PATTERNS.some((p) => p.test(question))) {
+  if (!excluded.has("natal_chart") && BIRTH_CHART_INTENT_PATTERNS.some((p) => p.test(question))) {
     const isFull = DEPTH_SIGNAL_FULL_PATTERNS.some((p) => p.test(question));
     const baseConfidence = isFull ? 0.9 : 0.7;
     intents.push({
@@ -90,7 +100,7 @@ export function scoreIntents(params: {
     });
   }
 
-  if (hasJournalConsent && JOURNAL_RECALL_PATTERNS.some((p) => p.test(question))) {
+  if (!excluded.has("journal_recall") && hasJournalConsent && JOURNAL_RECALL_PATTERNS.some((p) => p.test(question))) {
     intents.push({
       pipelineKey: "journal_recall",
       confidence: 0.8,
@@ -126,7 +136,7 @@ export function scoreIntents(params: {
     const sessionPipeline = currentFeatureKey
       ? featureKeyToPipelineKey(currentFeatureKey)
       : null;
-    if (sessionPipeline) {
+    if (sessionPipeline && !pipelineIsExcluded(sessionPipeline, excluded)) {
       const metadata: Record<string, unknown> = {};
       if (currentFeatureKey === "birth_chart_full") metadata.depth = "full";
       if (currentFeatureKey === "birth_chart_core") metadata.depth = "core";
@@ -193,6 +203,7 @@ export async function scoreIntentsWithLLM(params: {
   modelChain: ModelChainEntry[];
 }): Promise<IntentRouterResult> {
   const { question, hasBirthData, hasJournalConsent, currentFeatureKey, providers, modelChain } = params;
+  const excluded = new Set(detectExplicitCapabilityExclusions(question));
 
   // ── Try LLM-based classification ────────────────────────────────────────
   const llmResult = await callIntentRouterLLM(question, hasBirthData, hasJournalConsent, providers, modelChain);
@@ -204,6 +215,7 @@ export async function scoreIntentsWithLLM(params: {
     if (mappedIntents.length > 0) {
       // Apply journal consent gate: filter out journal_recall if no consent
       const gatedIntents = mappedIntents.filter((intent) => {
+        if (pipelineIsExcluded(intent.pipelineKey, excluded)) return false;
         if (intent.pipelineKey === "journal_recall" && !hasJournalConsent) {
           return false;
         }

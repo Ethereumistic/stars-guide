@@ -1,6 +1,6 @@
 # Oracle Streaming V2 — Production Implementation Plan
 
-Status: Local A-E implementation is complete; the full Definition of Done is not met until authenticated browser acceptance, production evaluation, and staged rollout execution pass  
+Status: Local A-E implementation and the production evaluation gate are complete; shadow observation is active at 100% with live V2 at 0%. The full Definition of Done remains open pending the separate non-admin browser matrix and staged live rollout observation windows.
 Scope: Oracle chat generation, guarded publication, natal response validation, persistence, recovery, UI, observability, tests, and rollout  
 Primary incident evidence: local Oracle session `ks7ajdbv7np9a18zbprbr2wadn8b0wmy`
 
@@ -8,10 +8,21 @@ Primary incident evidence: local Oracle session `ks7ajdbv7np9a18zbprbr2wadn8b0wm
 
 - Phase A: shared types, tolerant SSE/NDJSON protocol decoder, deadline owner, deterministic section plan/parser, canonical natal claim validators, and pure tests are implemented.
 - Phase B: durable turn/section schema, atomic begin/create/migrate/stop/retry/resume APIs, one-winner claim, lifecycle transitions, and incremental idempotent turn quota accounting are implemented. Legacy client entry points remain intact.
-- Phase C: the live gateway uses the Phase A decoder and full-lifetime deadlines; the scheduled runner is auth-independent and loads the linked stored user message; guarded batches and validated natal sections publish through a single-flight writer; partials, cancellation, provider fallback, targeted section repair, one automatic missing-section resume, explicit missing-key-only Resume, and placeholder finalization are persisted.
-- Phase D: new model-backed sessions and follow-ups use `createSessionWithTurn` / `beginTurn`; the chat subscribes once through `getSessionConversation`; persisted stages, validated sections, Stop, linked Retry, same-turn Resume, reload/second-tab safety, and smart scrolling are rendered from server state. Zustand no longer owns generation state, while deterministic binaural and Birth Chart Report onboarding paths remain separate. Browser acceptance is not claimed because it has not been executed in a permitted authenticated environment.
-- Phase E: scheduled route resolution uses the user ID bound to the durable turn; turns persist bounded stage timelines, fail-closed rollout cohorts, distinct provider-start/connected/first-token timestamps, distinct approval/persistence timing, client-visible timing, frame counters, and publication metrics; `/admin/oracle/debug` shows per-turn milestones plus fleet thresholds; a five-minute bounded maintenance job terminalizes stale turns without invoking a model; and admin settings expose deterministic live/shadow/buffered rollout controls. Production evaluation and the staged 1% → 10% → 50% → 100% rollout have not been executed from this workspace.
+- Phase C: the live gateway uses the Phase A decoder and full-lifetime deadlines; the scheduled runner is auth-independent and loads the linked stored user message; guarded batches and validated natal sections publish through a single-flight writer; partials, cancellation, provider fallback, targeted section repair, one automatic missing-section resume, explicit missing-key-only Resume, and placeholder finalization are persisted. Ordinary-response quality-contract misses remain observable but no longer replace benign prose; hardcoded output safety and canonical natal contradictions remain blocking.
+- Phase D: new model-backed sessions and follow-ups use `createSessionWithTurn` / `beginTurn`; the chat subscribes once through `getSessionConversation`; persisted stages, validated sections, Stop, linked Retry, same-turn Resume, reload/second-tab safety, and smart scrolling are rendered from server state. Zustand no longer owns generation state, while deterministic binaural and Birth Chart Report onboarding paths remain separate. One authenticated admin/internal shadow regression has passed; the required ten-scenario matrix with a separate non-admin customer identity is still pending.
+- Phase E: scheduled route resolution uses the user ID bound to the durable turn; turns persist bounded stage timelines, fail-closed rollout cohorts, distinct provider-start/connected/first-token timestamps, distinct approval/persistence timing, client-visible timing, frame counters, and publication metrics; `/admin/oracle/debug` shows per-turn milestones plus fleet thresholds; a five-minute bounded maintenance job terminalizes stale turns without invoking a model; and admin settings expose deterministic live/shadow/buffered rollout controls. The production evaluation gate passed on 2026-07-22. Shadow mode is active at 100% with live V2 at 0%; the one-setting rollback was exercised and restored. The 1% → 10% → 50% → 100% live rollout has not started.
 - Deterministic no-provider exits use a narrow `planning -> complete` bypass mutation because no provider lifecycle stage is truthful for kill-switch, crisis, quota, or hardcoded report-onboarding copy. The mutation is internal, accepts only the linked placeholder, records a safe code, performs no provider accounting, and is covered by runner tests.
+- Explicit data exclusions in the user's current message override both regex and gateway intent classification. For example, “Do not use my birth chart or journal” prevents those pipelines and contexts even when the session or account has them available.
+
+### Operational evidence (2026-07-22)
+
+- Production evaluation: passed for both configured tiers, 100/100 and 7/7 cases each.
+- Final shadow acceptance session: `ks737wsgdt6bv86cwhc2ys2wax8b1sv3`; turn `rx79d8gajetaz157gycjhzz39d8b1v8r`.
+- Exact regression prompt: “Explain in five short paragraphs how astrologers use symbols as an educational language. Do not use my birth chart or journal.”
+- Result: five visible paragraphs, `generic_chat`, zero capability mismatches, no contract error, one final persistence write, and no birth-chart or journal context in the selected capability path.
+- Timeline evidence: provider connected and first token were distinct; first approval preceded first persistence; the turn completed in shadow cohort bucket 43 with one persistence write and zero capability mismatches.
+- Rollback drill: settings were changed to disabled/0/0, persisted after reload, and the completed answer remained readable. Shadow-only settings were then restored to enabled/0/100.
+- Remaining release gates: the full ten-scenario browser matrix using a dedicated non-admin identity, followed by the 1%, 10%, 50%, and 100% live observation windows.
 
 ## 1. Outcome
 
@@ -959,7 +970,7 @@ Gate: refresh, second-tab, scroll, stop, and recovery browser scenarios pass.
 - Add flags, shadow mode, dashboards/thresholds, and docs.
 - Execute staged rollout.
 
-Local implementation is complete. The final bullet is an operational deployment activity and remains intentionally unclaimed until an authenticated permitted environment passes the browser matrix, the production evaluation gate, and an observation window at each configured cohort.
+Local implementation is complete. Production evaluation, shadow activation, one authenticated admin/internal regression, and rollback have been exercised. The final bullet remains incomplete until the dedicated non-admin browser matrix passes and each live cohort completes its observation window.
 
 Gate: production evaluation passes; rollout metrics satisfy budgets.
 
@@ -1009,7 +1020,7 @@ Do not edit generated output, build output, or lockfiles unless a dependency cha
 
 The work is complete only when all of the following are true:
 
-Current release status: the local implementation and deterministic suites cover the code-level items below, but this Definition of Done remains open. The authenticated ten-scenario browser matrix, production evaluation gate, observation windows, staged rollout, and exercised rollback have not been completed. Do not describe Streaming V2 as production-ready until those release gates pass.
+Current release status: the local implementation, deterministic suites, production evaluation gate, shadow regression, and rollback drill pass, but this Definition of Done remains open. The authenticated ten-scenario browser matrix with a separate non-admin persona and the staged live observation windows have not been completed. Do not describe Streaming V2 as production-ready until those release gates pass.
 
 - The blanket natal publication buffer is gone from the V2 path.
 - A full natal response visibly progresses section by section while preserving canonical accuracy.

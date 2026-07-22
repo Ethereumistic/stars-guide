@@ -10,6 +10,9 @@ export interface OraclePlanningContext {
 }
 
 const FULL_NATAL_REQUEST = /\b(?:full|fully|whole|overall|entire|complete|everything|all placements|every single|0\s*(?:to|-)\s*100|birth chart report|chart overview)\b/i;
+const CONTEXT_OPT_OUT = /\b(?:(?:do not|don't|never)\s+(?:use|include|reference|access|read|draw\s+from)|without(?:\s+(?:using|including|referencing|accessing|reading))?)\b/i;
+const NATAL_CONTEXT_REFERENCE = /\b(?:birth\s*chart|natal\s*chart|my\s+chart|my\s+placements?|my\s+houses?|my\s+aspects?)\b/i;
+const JOURNAL_CONTEXT_REFERENCE = /\b(?:my\s+)?(?:journal|journal entries|entries)\b/i;
 const NATAL_ENTITY_ALIASES: Array<{ id: string; label: string; aliases: string[] }> = [
   { id: "ascendant", label: "Ascendant", aliases: ["ascendant", "rising"] },
   { id: "sun", label: "Sun", aliases: ["sun"] },
@@ -38,6 +41,24 @@ function natalCoverageContract(question: string, availableNatalEntities?: string
 }
 
 const unique = <T,>(items: T[]) => [...new Set(items)];
+
+export function detectExplicitCapabilityExclusions(question: string): OracleCapabilityKey[] {
+  const clauses = question.split(/[.!?;]+/);
+  const excluded: OracleCapabilityKey[] = [];
+  if (clauses.some((clause) => CONTEXT_OPT_OUT.test(clause) && NATAL_CONTEXT_REFERENCE.test(clause))) excluded.push("natal_chart");
+  if (clauses.some((clause) => CONTEXT_OPT_OUT.test(clause) && JOURNAL_CONTEXT_REFERENCE.test(clause))) excluded.push("journal_recall");
+  return excluded;
+}
+
+function withoutExplicitContextExclusionClauses(question: string): string {
+  return question
+    .split(/[.!?;]+/)
+    .filter((clause) => !(
+      CONTEXT_OPT_OUT.test(clause)
+      && (NATAL_CONTEXT_REFERENCE.test(clause) || JOURNAL_CONTEXT_REFERENCE.test(clause))
+    ))
+    .join(". ");
+}
 
 function temporalScope(question: string): OracleTemporalScope {
   if (/\b(today|tonight|this (?:morning|afternoon|evening|day)|good day for)\b/i.test(question)) return "today";
@@ -68,32 +89,39 @@ function expandDependencies(capabilities: OracleCapabilityKey[]) {
 
 export function planOracleRequest(question: string, context: OraclePlanningContext): OracleRequestPlan {
   const scope = temporalScope(question);
-  const entities = extractOptions(question);
+  const entities = extractOptions(withoutExplicitContextExclusionClauses(question));
   const matches: string[] = [];
   const goals: OracleGoal[] = [];
   const explicit: OracleCapabilityKey[] = [];
   const inferred: OracleCapabilityKey[] = [];
+  const forbidden = detectExplicitCapabilityExclusions(question);
+  const forbidsNatal = forbidden.includes("natal_chart");
+  const forbidsJournal = forbidden.includes("journal_recall");
   if (entities.length || /\b(compare|versus|vs\.?|which (?:one )?should|which (?:is )?better)\b/i.test(question)) { goals.push("compare"); matches.push("comparison"); }
   if (/\b(which (?:one )?should i (?:pick|choose)|what should i (?:pick|choose|do)|recommend|best option)\b/i.test(question)) { goals.push("recommend"); matches.push("recommendation"); }
-  if (/\b(journal|entries|cosmic recall)\b/i.test(question)) { goals.push("recall"); explicit.push("journal_recall"); matches.push("journal_explicit"); }
+  if (/\b(journal|entries|cosmic recall)\b/i.test(question) && !forbidsJournal) { goals.push("recall"); explicit.push("journal_recall"); matches.push("journal_explicit"); }
   if (/\b(binaural|frequency|soundscape|meditation audio)\b/i.test(question)) { goals.push("generate_audio"); explicit.push("binaural_beats"); matches.push("binaural_explicit"); }
   if (/\b(synastry|compatible|compatibility|our charts|relationship chart)\b/i.test(question)) { goals.push("interpret"); explicit.push("synastry"); matches.push("synastry_explicit"); }
-  if (/\b(birth|natal|my chart|my placements?|my houses?|my aspects?)\b/i.test(question)) { goals.push("interpret"); explicit.push("natal_chart"); matches.push("natal_explicit"); }
+  if (/\b(birth|natal|my chart|my placements?|my houses?|my aspects?)\b/i.test(question) && !forbidsNatal) { goals.push("interpret"); explicit.push("natal_chart"); matches.push("natal_explicit"); }
   if (/\b(transit|current sky|cosmic weather|planetary weather|retrograde|moon phase)\b/i.test(question)) { goals.push("interpret"); explicit.push("cosmic_weather"); matches.push("sky_explicit"); }
   if (scope !== "none") { inferred.push("cosmic_weather"); matches.push(`temporal_${scope}`); }
   if (scope !== "none") {
-    inferred.push("personal_transits");
-    matches.push(context.hasBirthData ? "temporal_personalization" : "temporal_personalization_unavailable");
+    if (!forbidsNatal) {
+      inferred.push("personal_transits");
+      matches.push(context.hasBirthData ? "temporal_personalization" : "temporal_personalization_unavailable");
+    } else {
+      matches.push("temporal_personalization_forbidden");
+    }
   }
   if (!goals.length) goals.push("inform");
   inferred.push("general_conversation");
 
-  if (context.explicitFeatureKey === "birth_chart") explicit.push("natal_chart");
+  if (context.explicitFeatureKey === "birth_chart" && !forbidsNatal) explicit.push("natal_chart");
   if (context.explicitFeatureKey === "synastry") explicit.push("synastry");
-  if (context.explicitFeatureKey === "journal_recall") explicit.push("journal_recall");
+  if (context.explicitFeatureKey === "journal_recall" && !forbidsJournal) explicit.push("journal_recall");
   if (context.explicitFeatureKey === "binaural_beats") explicit.push("binaural_beats");
 
-  const required = expandDependencies(unique([...explicit, ...inferred]));
+  const required = expandDependencies(unique([...explicit, ...inferred])).filter((capability) => !forbidden.includes(capability));
   const unavailable: OracleRequestPlan["unavailableCapabilities"] = [];
   const natalCoverage = scope === "none" && required.includes("natal_chart") && !required.includes("synastry")
     ? natalCoverageContract(question, context.availableNatalEntities)
@@ -110,7 +138,7 @@ export function planOracleRequest(question: string, context: OraclePlanningConte
   return {
     version: "oracle-planner-v1", goals: unique(goals), temporalScope: scope, entities,
     explicitCapabilities: unique(explicit), inferredCapabilities: unique(inferred), requiredCapabilities: required,
-    optionalCapabilities: [], unavailableCapabilities: unavailable, forbiddenCapabilities: [], unresolvedRequirements: unique(unresolved),
+    optionalCapabilities: [], unavailableCapabilities: unavailable, forbiddenCapabilities: forbidden, unresolvedRequirements: unique(unresolved),
     deterministicRuleMatches: unique(matches), classifier: context.classifier ?? { source: "none" },
     responseContract: {
       mustCompareAllOptions: entities.length > 1 || goals.includes("compare"),

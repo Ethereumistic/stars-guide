@@ -43,6 +43,8 @@ Streaming V2 rollout is deterministic by user ID. `oracle_streaming_v2_enabled=f
 
 The customer chat derives busy state from the subscribed active turn, not browser-local streaming state. Refreshes and second tabs attach to the same turn; leaving the page does not cancel it. Stop is explicit. Retry creates a linked full turn, while Resume reopens the same incomplete validated-section turn, preserves approved rows, and requests only its missing deterministic keys.
 
+The current user message is authoritative for data exclusions. Phrases such as “do not use my birth chart or journal” suppress those pipelines and contexts even when a prior session feature, account birth data, or journal consent exists. Ordinary quality-contract misses such as formatting, optional calibration, or recommendation wording are retained in traces for review but do not replace benign output. Hardcoded output-safety matches and canonical natal contradictions remain blocking.
+
 Provider definitions and feature model chains live in `ai_providers` and `ai_feature_profiles` and are edited only at `/admin/ai`. Oracle's optional user-facing choices live in `ai_user_model_options`; use the **User models** tab to assign tier access, per-tier defaults, reasoning efforts, and ordered fallback chains. Reasoning effort is user-selectable across all five levels by default; enable **Restrict choices** only for a route that cannot support particular effort values. The removed provider/model keys may still appear in migrated databases or read-only debug snapshots, but they are not runtime inputs.
 
 ## Provider Routing
@@ -89,7 +91,7 @@ Use `/admin/oracle/safety` when testing `scanResponse` behavior against candidat
 | --- | --- |
 | Oracle returns offline copy | `kill_switch` and `fallback_response_text` |
 | User gets crisis copy | crisis regexes in `convex/oracle/llm.ts` and `crisis_response_text` |
-| Streamed answer changes to recalibration copy | Messages → Output safety evidence in `/admin/oracle/debug`; inspect rule ID, matched fragment, and quarantined response |
+| Streamed answer changes to recalibration copy | Inspect the durable turn `safeErrorCode`. For `output_safety_blocked`, use Messages → Output safety evidence and inspect the exact rule/match. For `response_contract_failed`, confirm the request actually selected a natal capability and inspect canonical contradiction codes; ordinary advisory contract misses should not block publication. |
 | Dedicated report session stays pending | Report `onboardingStep`, origin session ownership, and questionnaire submission/job state |
 | Quota blocks too early | burst/weekly budget settings and `oracle_quota_usage` cost fields |
 | Unexpected model | session model-option key, current user tier, per-tier default, feature-profile fallback, provider config, debug override, and gateway events |

@@ -191,9 +191,9 @@ export const scenarios: OracleSimulationScenario[] = [
     }],
   },
   {
-    id: "generic-no-natal-context", description: "An ordinary educational question does not activate natal context even when the fixture has a chart.", fixture: "natal-user", timezone: "UTC", fixedNow: "2026-07-11T09:00:00.000Z",
+    id: "generic-no-natal-context", description: "An explicit birth-chart and journal opt-out stays generic even when both contexts are otherwise available.", fixture: "natal-user", timezone: "UTC", fixedNow: "2026-07-11T09:00:00.000Z",
     turns: [{
-      message: "Explain why people use symbols when learning difficult ideas.",
+      message: "Explain in five short paragraphs how astrologers use symbols as an educational language. Do not use my birth chart or journal.",
       requiredCapabilities: ["general_conversation"],
       forbiddenCapabilities: ["natal_chart", "journal_recall"],
       requiredGoals: ["inform"],

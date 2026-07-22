@@ -130,6 +130,81 @@ describe("OracleStreamPublisher", () => {
     expect(writes.every((content) => !content.includes("magnesium"))).toBe(true);
   });
 
+  it("keeps benign ordinary prose visible when only structural contract checks miss", async () => {
+    const writes: string[] = [];
+    const publisher = new OracleStreamPublisher({
+      mode: "guarded_batches",
+      requestPlan: {
+        ...genericPlan,
+        goals: ["compare", "recommend"],
+        entities: ["motorbike", "diving"],
+        responseContract: {
+          ...genericPlan.responseContract,
+          mustCompareAllOptions: true,
+          mustRecommend: true,
+          practicalSafety: true,
+        },
+      },
+      dependencies: {
+        persistSnapshot: async (snapshot) => { writes.push(snapshot.content); },
+      },
+    });
+    publisher.handleEvent({
+      type: "text_delta",
+      text: "Symbols help learners compress difficult ideas into memorable patterns and revisit them from several angles.\n\n",
+      receivedAt: 1,
+    });
+    const result = await publisher.finalize();
+    expect(result.complete).toBe(true);
+    expect(result.violations.map((violation) => violation.code)).toEqual(expect.arrayContaining([
+      "option_missing",
+      "recommendation_missing",
+      "practical_safety_missing",
+    ]));
+    expect(writes.at(-1)).toContain("Symbols help learners");
+  });
+
+  it("does not compare educational examples with an unrelated personal chart", async () => {
+    const writes: string[] = [];
+    const publisher = new OracleStreamPublisher({
+      mode: "guarded_batches",
+      requestPlan: genericPlan,
+      evidence,
+      dependencies: {
+        persistSnapshot: async (snapshot) => { writes.push(snapshot.content); },
+      },
+    });
+    publisher.handleEvent({
+      type: "text_delta",
+      text: "For example, Sun is in Taurus can symbolize steadiness in an educational exercise.\n\n",
+      receivedAt: 1,
+    });
+
+    const result = await publisher.finalize();
+    expect(result.complete).toBe(true);
+    expect(result.violations).toEqual([]);
+    expect(writes.at(-1)).toContain("educational exercise");
+  });
+
+  it("still blocks an ordinary batch that contradicts canonical natal facts", async () => {
+    const writes: string[] = [];
+    const publisher = new OracleStreamPublisher({
+      mode: "guarded_batches",
+      requestPlan: natalPlan,
+      evidence,
+      dependencies: {
+        persistSnapshot: async (snapshot) => { writes.push(snapshot.content); },
+      },
+    });
+    publisher.handleEvent({
+      type: "text_delta",
+      text: "Your Sun is in Taurus, which gives the chart a fixed center.\n\n",
+      receivedAt: 1,
+    });
+    await expect(publisher.finalize()).rejects.toMatchObject({ code: "response_contract_failed" });
+    expect(writes).toEqual([]);
+  });
+
   it("publishes a valid natal frame and withholds a contradictory one", async () => {
     const published: Array<{ status: string; content: string }> = [];
     const writes: string[] = [];

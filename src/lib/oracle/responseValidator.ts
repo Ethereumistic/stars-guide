@@ -16,11 +16,11 @@ const DIRECT_ASPECT = new RegExp(`\\b(${BODY_PATTERN})\\s+(?:is\\s+|forms?\\s+(?
 const PAIRED_ASPECT = new RegExp(`\\b(${BODY_PATTERN})\\s*(?:and|&|[-–—])\\s*(?:your\\s+)?(${BODY_PATTERN})\\s+(?:forms?\\s+)?(?:an?\\s+)?(conjunct(?:ion)?|oppos(?:e|es|ed|ite|ition)|square|trine|sextile)\\b`, "gi");
 const COLOCATED_ASPECT = new RegExp(`\\b(${BODY_PATTERN}).{0,36}\\b(?:sitting\\s+right\\s+on|right\\s+on)\\s+(?:the\\s+|your\\s+)?(${BODY_PATTERN})\\b`, "gi");
 const PLACEMENT_BODY_PATTERN = `${BODY_PATTERN}|Ascendant|Rising`;
-const SIGN_CLAIM = new RegExp(`\\b(${PLACEMENT_BODY_PATTERN})\\s+(?:is\\s+)?(?:placed\\s+)?in\\s+(${SIGN_PATTERN})\\b`, "gi");
-const HOUSE_CLAIM = new RegExp(`\\b(${PLACEMENT_BODY_PATTERN})\\s+(?:is\\s+|sits?\\s+|placed\\s+)?(?:in\\s+(?:${SIGN_PATTERN})\\s+)?(?:in\\s+)?(?:the\\s+)?(?:House\\s+(\\d{1,2})|(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth)\\s+house)\\b`, "gi");
-const MOTION_CLAIM = new RegExp(`\\b(${PLACEMENT_BODY_PATTERN})\\s+(?:is\\s+|was\\s+)?(retrograde|direct)\\b|\\b(retrograde|direct)\\s+(${PLACEMENT_BODY_PATTERN})\\b`, "gi");
-const DIGNITY_CLAIM = new RegExp(`\\b(${PLACEMENT_BODY_PATTERN})\\s+(?:is\\s+|was\\s+)?(?:in\\s+(?:its\\s+)?)?(domicile|exaltation|exalted|detriment|fall|fallen|peregrine)\\b`, "gi");
-const DEGREE_CLAIM = new RegExp(`\\b(${PLACEMENT_BODY_PATTERN})\\s+(?:is\\s+)?(?:at\\s+)(\\d{1,2}(?:\\.\\d+)?)\\s*(?:\\u00b0|degrees?)`, "gi");
+const SIGN_CLAIM = new RegExp(`\\b(?:your\\s+)?(${PLACEMENT_BODY_PATTERN})\\s+(?:is\\s+)?(?:placed\\s+)?in\\s+(${SIGN_PATTERN})\\b`, "gi");
+const HOUSE_CLAIM = new RegExp(`\\b(?:your\\s+)?(${PLACEMENT_BODY_PATTERN})\\s+(?:is\\s+|sits?\\s+|placed\\s+)?(?:in\\s+(?:${SIGN_PATTERN})\\s+)?(?:in\\s+)?(?:the\\s+)?(?:House\\s+(\\d{1,2})|(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth)\\s+house)\\b`, "gi");
+const MOTION_CLAIM = new RegExp(`\\b(?:your\\s+)?(${PLACEMENT_BODY_PATTERN})\\s+(?:is\\s+|was\\s+)?(retrograde|direct)\\b|\\b(retrograde|direct)\\s+(?:your\\s+)?(${PLACEMENT_BODY_PATTERN})\\b`, "gi");
+const DIGNITY_CLAIM = new RegExp(`\\b(?:your\\s+)?(${PLACEMENT_BODY_PATTERN})\\s+(?:is\\s+|was\\s+)?(?:in\\s+(?:its\\s+)?)?(domicile|exaltation|exalted|detriment|fall|fallen|peregrine)\\b`, "gi");
+const DEGREE_CLAIM = new RegExp(`\\b(?:your\\s+)?(${PLACEMENT_BODY_PATTERN})\\s+(?:is\\s+)?(?:at\\s+)(\\d{1,2}(?:\\.\\d+)?)\\s*(?:\\u00b0|degrees?)`, "gi");
 const HOUSE_SIGN_CLAIM = new RegExp(`\\b(?:House\\s+(\\d{1,2})|(?:the\\s+)?(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth)\\s+house)\\s+(?:is\\s+|has\\s+|begins\\s+in\\s+|is\\s+in\\s+)?(${SIGN_PATTERN})\\b`, "gi");
 const REVERSE_HOUSE_SIGN_CLAIM = new RegExp(`\\b(${SIGN_PATTERN})\\s+(?:is\\s+)?(?:on|rules)\\s+(?:the\\s+)?(?:House\\s+(\\d{1,2})|(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth)\\s+house)\\b`, "gi");
 const CHART_RULER_CLAIM = new RegExp(`\\b(${PLACEMENT_BODY_PATTERN})\\s+(?:is\\s+|as\\s+)?(?:your\\s+|the\\s+)?chart\\s+ruler\\b|\\b(${PLACEMENT_BODY_PATTERN})\\s+rules\\s+(?:your\\s+|the\\s+)?chart\\b`, "gi");
@@ -314,6 +314,29 @@ export function validateOracleResponse(content: string, plan: OracleRequestPlan,
     }
   }
   return violations;
+}
+
+const BLOCKING_RESPONSE_CONTRACT_CODES = new Set([
+  "contradictory_natal_sign",
+  "contradictory_natal_house",
+  "contradictory_natal_motion",
+  "contradictory_natal_dignity",
+  "contradictory_natal_degree",
+  "contradictory_house_signature",
+  "unsupported_chart_ruler",
+  "unsupported_natal_concentration",
+  "unsupported_natal_aspect",
+]);
+
+/**
+ * Only canonical-fact contradictions block ordinary publication. Missing
+ * structure, advice, calibration, or optional evidence remains observable for
+ * quality review but must not replace a benign answer with fallback copy.
+ */
+export function blockingOracleResponseViolations(
+  violations: OracleResponseViolation[],
+): OracleResponseViolation[] {
+  return violations.filter((violation) => BLOCKING_RESPONSE_CONTRACT_CODES.has(violation.code));
 }
 
 export function buildRepairInstruction(violations: OracleResponseViolation[]) {
