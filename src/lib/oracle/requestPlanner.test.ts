@@ -3,6 +3,48 @@ import { planOracleRequest } from "./requestPlanner";
 import { validateOracleResponse } from "./responseValidator";
 
 describe("Oracle request planner", () => {
+  it("plans the reported misspelled binaural request as an audio capability", () => {
+    const plan = planOracleRequest(
+      "generate me a binarual beat for today's weather and call it smth cool",
+      { hasBirthData: true, hasJournalConsent: false },
+    );
+
+    expect(plan.goals).toContain("generate_audio");
+    expect(plan.explicitCapabilities).toContain("binaural_beats");
+    expect(plan.requiredCapabilities).toEqual(expect.arrayContaining([
+      "binaural_beats",
+      "cosmic_weather",
+      "general_conversation",
+    ]));
+    expect(plan.deterministicRuleMatches).toContain("binaural_explicit");
+  });
+
+  it("keeps a direct collective cosmic-weather request free of natal data", () => {
+    const plan = planOracleRequest("tell me the cosmic weather atm", {
+      hasBirthData: true,
+      hasJournalConsent: false,
+      explicitFeatureKey: "birth_chart",
+    });
+
+    expect(plan.requiredCapabilities).toEqual(["cosmic_weather", "general_conversation"]);
+    expect(plan.requiredCapabilities).not.toContain("personal_transits");
+    expect(plan.requiredCapabilities).not.toContain("natal_chart");
+    expect(plan.deterministicRuleMatches).not.toContain("temporal_personalization");
+  });
+
+  it("still adds a natal overlay when the user explicitly asks for personal transits", () => {
+    const plan = planOracleRequest("How are the current transits affecting me?", {
+      hasBirthData: true,
+      hasJournalConsent: false,
+    });
+
+    expect(plan.requiredCapabilities).toEqual(expect.arrayContaining([
+      "cosmic_weather",
+      "personal_transits",
+      "natal_chart",
+    ]));
+  });
+
   it("composes today's sky with natal transits for decision support", () => {
     const plan = planOracleRequest("is it a good day for a motorbike ride or diving? which one should i pick and why", { hasBirthData: true, hasJournalConsent: false });
     expect(plan.goals).toEqual(expect.arrayContaining(["compare", "recommend"]));

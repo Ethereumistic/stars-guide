@@ -4,10 +4,14 @@ import type { ActionCtx } from "../_generated/server";
 import { makeFunctionReference } from "convex/server";
 import type { IntentRouterResult } from "../../src/lib/oracle/pipelineTypes";
 import {
+  hasExplicitDeterministicIntent,
   pipelineIsExcluded,
   scoreIntents,
 } from "../../src/lib/oracle/intentRouter";
-import { detectExplicitCapabilityExclusions } from "../../src/lib/oracle/requestPlanner";
+import {
+  detectExplicitCapabilityExclusions,
+  isCosmicWeatherRequest,
+} from "../../src/lib/oracle/requestPlanner";
 import {
   buildIntentRouterPrompt,
   mapLLMIntentsToScoredIntents,
@@ -41,9 +45,14 @@ export async function scoreIntentsWithGateway(ctx: ActionCtx, params: {
 }): Promise<IntentRouterResult> {
   const fallback = () => scoreIntents(params);
   const excluded = new Set(detectExplicitCapabilityExclusions(params.question));
+  const deterministic = fallback();
 
-  if (params.currentFeatureKey) {
-    return fallback();
+  if (
+    params.currentFeatureKey
+    || isCosmicWeatherRequest(params.question)
+    || hasExplicitDeterministicIntent(deterministic)
+  ) {
+    return deterministic;
   }
 
   const { systemPrompt, userMessage } = buildIntentRouterPrompt(params.question, {

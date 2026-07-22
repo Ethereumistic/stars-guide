@@ -38,6 +38,6 @@ The Streaming V2 scenario set covers full natal contract enforcement, valid fram
 
 ## Capability behavior
 
-Temporal requests activate `cosmic_weather`. They also resolve the `personal_transits` dependency graph; with canonical natal data this supplies the code-calculated overlay, while without natal data the plan records the unavailable capability and continues from collective sky evidence.
+Temporal requests activate `cosmic_weather`. Collective current-sky and cosmic-weather questions stay collective and do not read natal data. Explicit personal-transit wording and time-sensitive recommendation requests resolve the `personal_transits` dependency graph; with canonical natal data this supplies the code-calculated overlay, while without natal data the plan records the unavailable capability and continues from collective sky evidence.
 
 Capability manifests are TypeScript contracts. Markdown can document or provide prompt guidance, but it does not grant data access or define safety behavior.

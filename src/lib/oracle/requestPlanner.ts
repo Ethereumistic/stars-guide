@@ -1,4 +1,5 @@
 import { ORACLE_CAPABILITY_REGISTRY, type OracleCapabilityKey, type OracleGoal, type OracleRequestPlan, type OracleTemporalScope } from "./capabilities";
+import { isBinauralBeatRequest } from "./features";
 
 export interface OraclePlanningContext {
   hasBirthData: boolean;
@@ -13,6 +14,8 @@ const FULL_NATAL_REQUEST = /\b(?:full|fully|whole|overall|entire|complete|everyt
 const CONTEXT_OPT_OUT = /\b(?:(?:do not|don't|never)\s+(?:use|include|reference|access|read|draw\s+from)|without(?:\s+(?:using|including|referencing|accessing|reading))?)\b/i;
 const NATAL_CONTEXT_REFERENCE = /\b(?:birth\s*chart|natal\s*chart|my\s+chart|my\s+placements?|my\s+houses?|my\s+aspects?)\b/i;
 const JOURNAL_CONTEXT_REFERENCE = /\b(?:my\s+)?(?:journal|journal entries|entries)\b/i;
+const COSMIC_WEATHER_REFERENCE = /\b(?:transits?|current sky|cosmic weather|planetary weather|retrograde|moon phase)\b/i;
+const PERSONAL_TIMING_REFERENCE = /\b(?:my|personal)\s+(?:current\s+)?transits?\b|\b(?:transits?|current sky|cosmic weather|planetary weather|planets?)\b.{0,60}\b(?:affect|impact|influence)\s+(?:me|my)\b|\b(?:affecting|impacting|influencing)\s+(?:me|my)\b|\b(?:for me|in my (?:birth\s+|natal\s+)?chart)\b|\bwhat\s+should\s+i\s+(?:do|focus|expect|watch|look)\b/i;
 const NATAL_ENTITY_ALIASES: Array<{ id: string; label: string; aliases: string[] }> = [
   { id: "ascendant", label: "Ascendant", aliases: ["ascendant", "rising"] },
   { id: "sun", label: "Sun", aliases: ["sun"] },
@@ -42,6 +45,15 @@ function natalCoverageContract(question: string, availableNatalEntities?: string
 
 const unique = <T,>(items: T[]) => [...new Set(items)];
 
+/**
+ * A self-contained sky/weather question belongs in generic chat even when a
+ * session previously used the birth-chart feature. Personal transit evidence
+ * is selected separately by the request plan when the wording asks for it.
+ */
+export function isCosmicWeatherRequest(question: string): boolean {
+  return COSMIC_WEATHER_REFERENCE.test(question);
+}
+
 export function detectExplicitCapabilityExclusions(question: string): OracleCapabilityKey[] {
   const clauses = question.split(/[.!?;]+/);
   const excluded: OracleCapabilityKey[] = [];
@@ -62,7 +74,7 @@ function withoutExplicitContextExclusionClauses(question: string): string {
 
 function temporalScope(question: string): OracleTemporalScope {
   if (/\b(today|tonight|this (?:morning|afternoon|evening|day)|good day for)\b/i.test(question)) return "today";
-  if (/\b(now|currently|right now|current sky|cosmic weather|planetary weather)\b/i.test(question)) return "current";
+  if (/\b(now|currently|right now|current sky|current transits?|cosmic weather|planetary weather)\b/i.test(question)) return "current";
   if (/\b(yesterday|ago|last (?:night|week|month))\b/i.test(question)) return "historical";
   const isRatingScale = /\b(?:from\s+)?0\s*(?:to|-)\s*100\b/i.test(question);
   if (!isRatingScale && /\b(?:between|from)\s+\S+\s+(?:and|to)\s+\S+|\bnext (?:week|month|\d+ days)\b/i.test(question)) return "date_range";
@@ -100,12 +112,16 @@ export function planOracleRequest(question: string, context: OraclePlanningConte
   if (entities.length || /\b(compare|versus|vs\.?|which (?:one )?should|which (?:is )?better)\b/i.test(question)) { goals.push("compare"); matches.push("comparison"); }
   if (/\b(which (?:one )?should i (?:pick|choose)|what should i (?:pick|choose|do)|recommend|best option)\b/i.test(question)) { goals.push("recommend"); matches.push("recommendation"); }
   if (/\b(journal|entries|cosmic recall)\b/i.test(question) && !forbidsJournal) { goals.push("recall"); explicit.push("journal_recall"); matches.push("journal_explicit"); }
-  if (/\b(binaural|frequency|soundscape|meditation audio)\b/i.test(question)) { goals.push("generate_audio"); explicit.push("binaural_beats"); matches.push("binaural_explicit"); }
+  if (isBinauralBeatRequest(question)) { goals.push("generate_audio"); explicit.push("binaural_beats"); matches.push("binaural_explicit"); }
   if (/\b(synastry|compatible|compatibility|our charts|relationship chart)\b/i.test(question)) { goals.push("interpret"); explicit.push("synastry"); matches.push("synastry_explicit"); }
   if (/\b(birth|natal|my chart|my placements?|my houses?|my aspects?)\b/i.test(question) && !forbidsNatal) { goals.push("interpret"); explicit.push("natal_chart"); matches.push("natal_explicit"); }
-  if (/\b(transit|current sky|cosmic weather|planetary weather|retrograde|moon phase)\b/i.test(question)) { goals.push("interpret"); explicit.push("cosmic_weather"); matches.push("sky_explicit"); }
+  const hasExplicitCosmicWeatherRequest = isCosmicWeatherRequest(question);
+  if (hasExplicitCosmicWeatherRequest) { goals.push("interpret"); explicit.push("cosmic_weather"); matches.push("sky_explicit"); }
   if (scope !== "none") { inferred.push("cosmic_weather"); matches.push(`temporal_${scope}`); }
-  if (scope !== "none") {
+  const requestsPersonalTiming = PERSONAL_TIMING_REFERENCE.test(question)
+    || goals.includes("recommend")
+    || (context.explicitFeatureKey === "birth_chart" && !hasExplicitCosmicWeatherRequest);
+  if (scope !== "none" && requestsPersonalTiming) {
     if (!forbidsNatal) {
       inferred.push("personal_transits");
       matches.push(context.hasBirthData ? "temporal_personalization" : "temporal_personalization_unavailable");
@@ -116,7 +132,7 @@ export function planOracleRequest(question: string, context: OraclePlanningConte
   if (!goals.length) goals.push("inform");
   inferred.push("general_conversation");
 
-  if (context.explicitFeatureKey === "birth_chart" && !forbidsNatal) explicit.push("natal_chart");
+  if (context.explicitFeatureKey === "birth_chart" && !forbidsNatal && !hasExplicitCosmicWeatherRequest) explicit.push("natal_chart");
   if (context.explicitFeatureKey === "synastry") explicit.push("synastry");
   if (context.explicitFeatureKey === "journal_recall" && !forbidsJournal) explicit.push("journal_recall");
   if (context.explicitFeatureKey === "binaural_beats") explicit.push("binaural_beats");

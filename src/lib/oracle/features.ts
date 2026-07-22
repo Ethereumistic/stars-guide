@@ -260,11 +260,11 @@ export const BINAURAL_INTENT_PATTERNS: RegExp[] = [
   /\b(brown|pink|white)\s+(noise|sound)\b.*\b(here|chat|play|please|pls|for\s+me)\b/i,
   /\bdeep\s+sleep\s+(noise|sound|audio|tone)\b/i,
   // Explicit generation requests (with optional pronoun: "generate me a beat", "make me a beat")
-  /\b(generate|create|make|craft|compose)\s+(me\s+)?(a\s+)?(binaural\s+)?beat/i,
+  /\b(generate|create|make|craft|compose)\s+(me\s+)?(a\s+)?((?:binaural|binarual)\s+)?beat/i,
   /\b(generate|create|make)\s+(me\s+)?(a\s+)?(sound|frequency|tone|audio)\s+(for|tuned|aligned)/i,
 
   // Binaural-specific keywords
-  /\bbinaural\b.*\b(for|tuned|aligned|my|generate|create|me)\b/i,
+  /\b(?:binaural|binarual)\b.*\b(for|tuned|aligned|my|generate|create|me)\b/i,
   /\b(frequency|frequencies)\s+(for|tuned|aligned|to\s+my)\b/i,
 
   // Intent + frequency/beat combination
@@ -272,7 +272,7 @@ export const BINAURAL_INTENT_PATTERNS: RegExp[] = [
   /\b(beat|beats|tone|tones)\s+(for|to\s+help|to\s+aid)\s+(sleep|meditation|focus|concentration|relaxation)\b/i,
 
   // Astrological + frequency crossover
-  /\bbinaural\b.*\b(my\s+)?(chart|sign|birth|sun|moon|rising|placement|element)\b/i,
+  /\b(?:binaural|binarual)\b.*\b(my\s+)?(chart|sign|birth|sun|moon|rising|placement|element)\b/i,
   /\b(frequency|sound|beat)\s+(for|aligned|tuned)\s+.*\b(sign|chart|moon|sun|mercury|venus|mars|retrograde|transit)\b/i,
 
   // "Sound healing" / "frequency healing" style requests
@@ -280,8 +280,13 @@ export const BINAURAL_INTENT_PATTERNS: RegExp[] = [
   /\b(sleep\s+frequency|meditation\s+frequency|focus\s+frequency)\b/i,
 
   // Direct binaural beat reference ("a binaural beat", "binaural beats")
-  /\bbinaural\s+beat/i,
+  /\b(?:binaural|binarual)\s+beats?\b/i,
 ]
+
+/** Shared explicit capability check used by routing and request planning. */
+export function isBinauralBeatRequest(question: string): boolean {
+  return BINAURAL_INTENT_PATTERNS.some((pattern) => pattern.test(question))
+}
 
 /**
  * Regex patterns for Cosmic Recall (journal search intent).
@@ -362,7 +367,7 @@ export function classifyOracleToolIntent(
   }
 
   // 4. Binaural beats — sound/frequency intent
-  if (BINAURAL_INTENT_PATTERNS.some((p) => p.test(question))) {
+  if (isBinauralBeatRequest(question)) {
     return { featureKey: "binaural_beats", reason: "binaural_intent" }
   }
 

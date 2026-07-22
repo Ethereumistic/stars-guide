@@ -102,6 +102,22 @@ describe("personal transit intelligence", () => {
     assert.match(context.context, /Never claim current transit or cosmic-weather data is unavailable/);
   });
 
+  it("keeps collective cosmic weather free of a stored natal overlay", () => {
+    const question = "tell me the cosmic weather atm";
+    assert.equal(isDirectCurrentSkyQuestion(question), true);
+    const context = buildTimespaceContext(
+      "UTC",
+      question,
+      chart([planet("sun", 10)]),
+      null,
+      true,
+      false,
+    );
+    assert.match(context.context, /Current planetary positions:/);
+    assert.doesNotMatch(context.context, /PERSONAL TRANSIT INTELLIGENCE/);
+    assert.doesNotMatch(context.context, /Personal transit overlay: unavailable/);
+  });
+
   it("calculates a transit-to-natal aspect and identifies an applying trend", () => {
     const natal = chart([planet("sun", 10)]);
     const current = weather([["Saturn", "Aries", 12]]);

@@ -19,7 +19,7 @@ import {
   BIRTH_CHART_INTENT_PATTERNS,
   DEPTH_SIGNAL_FULL_PATTERNS,
   JOURNAL_RECALL_PATTERNS,
-  BINAURAL_INTENT_PATTERNS,
+  isBinauralBeatRequest,
   SYNASTRY_INTENT_PATTERNS,
 } from "./features";
 import {
@@ -27,7 +27,7 @@ import {
   parseIntentRouterResponse,
   mapLLMIntentsToScoredIntents,
 } from "./intentRouterPrompt";
-import { detectExplicitCapabilityExclusions } from "./requestPlanner";
+import { detectExplicitCapabilityExclusions, isCosmicWeatherRequest } from "./requestPlanner";
 
 /** Minimum confidence score to activate a pipeline */
 const CONFIDENCE_THRESHOLD = 0.5;
@@ -108,7 +108,7 @@ export function scoreIntents(params: {
     });
   }
 
-  if (BINAURAL_INTENT_PATTERNS.some((p) => p.test(question))) {
+  if (isBinauralBeatRequest(question)) {
     intents.push({
       pipelineKey: "binaural_beats",
       confidence: 0.85,
@@ -123,6 +123,17 @@ export function scoreIntents(params: {
       confidence: 0.85,
       reason: "synastry_intent",
       metadata: { hasBirthData },
+    });
+  }
+
+  // Cosmic weather is fulfilled by generic chat plus deterministic timespace
+  // evidence. Mark it as an actual match so a stale session feature cannot
+  // fall through and reactivate the birth-chart pipeline.
+  if (intents.length === 0 && isCosmicWeatherRequest(question)) {
+    intents.push({
+      pipelineKey: "generic_chat",
+      confidence: 1,
+      reason: "cosmic_weather_intent",
     });
   }
 
@@ -162,6 +173,17 @@ export function scoreIntents(params: {
     hasMatch: true,
     primary: filtered[0],
   };
+}
+
+/**
+ * Explicit deterministic feature requests must win over a fallible semantic
+ * classifier so capability side effects (such as storing beat params) run.
+ */
+export function hasExplicitDeterministicIntent(result: IntentRouterResult): boolean {
+  return result.intents.some((intent) =>
+    intent.pipelineKey !== "generic_chat"
+    && intent.reason !== "session_feature_fallback",
+  );
 }
 
 // ── LLM-based scoring (primary path) ────────────────────────────────────────
@@ -204,6 +226,11 @@ export async function scoreIntentsWithLLM(params: {
 }): Promise<IntentRouterResult> {
   const { question, hasBirthData, hasJournalConsent, currentFeatureKey, providers, modelChain } = params;
   const excluded = new Set(detectExplicitCapabilityExclusions(question));
+  const deterministic = scoreIntents({ question, hasBirthData, hasJournalConsent, currentFeatureKey });
+
+  if (currentFeatureKey || isCosmicWeatherRequest(question) || hasExplicitDeterministicIntent(deterministic)) {
+    return deterministic;
+  }
 
   // ── Try LLM-based classification ────────────────────────────────────────
   const llmResult = await callIntentRouterLLM(question, hasBirthData, hasJournalConsent, providers, modelChain);

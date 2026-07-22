@@ -128,6 +128,31 @@ type OracleInvocationArgs = {
   durable?: any;
 };
 
+async function runPipelineAfterResponseHooks(
+  ctx: any,
+  pipelines: OraclePipeline[],
+  response: string,
+  pipelineCtx: PipelineContext,
+  messageId: Id<"oracle_messages">,
+): Promise<void> {
+  for (const pipeline of pipelines) {
+    if (!pipeline.afterResponse) continue;
+    try {
+      const actions: PostResponseAction[] = pipeline.afterResponse(response, pipelineCtx);
+      for (const action of actions) {
+        if (action.type === "store_binaural_params") {
+          await ctx.runMutation(internalRef.oracle.sessions.patchMessageBinauralParams, {
+            messageId,
+            binauralParams: action.payload,
+          });
+        }
+      }
+    } catch (error) {
+      console.error(`Pipeline ${pipeline.key} afterResponse hook failed:`, error);
+    }
+  }
+}
+
 async function runOracleInvocation(ctx: any, args: OracleInvocationArgs): Promise<LLMResponse> {
     const actionStartTime = Date.now();
     const persistHardcodedResponse = async (
@@ -440,18 +465,17 @@ async function runOracleInvocation(ctx: any, args: OracleInvocationArgs): Promis
     let timespaceContext: string | null = null;
     if (needsTimespace) {
       try {
+        const includePersonalTransits = requestPlan.requiredCapabilities.includes("personal_transits");
         const previousVisitedAt = user?._id
           ? await ctx.runQuery(internalRef.oracle.sessions.getPreviousOracleVisit, { userId: user._id, currentSessionId: args.sessionId })
           : null;
         const tsResult = buildTimespaceContext(
           args.timezone || "UTC",
           args.userQuestion,
-          // Timespace owns its own natal-overlay gate. A temporal question may
-          // correctly route to generic chat, but it must still receive the
-          // user's canonical chart for deterministic transit-to-natal math.
-          user?.birthData ?? null,
+          includePersonalTransits ? user?.birthData ?? null : null,
           previousVisitedAt,
           requestPlan.requiredCapabilities.includes("cosmic_weather"),
+          includePersonalTransits,
         );
         timespaceContext = tsResult.context;
       } catch (e) {
@@ -622,7 +646,7 @@ async function runOracleInvocation(ctx: any, args: OracleInvocationArgs): Promis
 
     // Hash the system prompt for observability
     const systemPromptHash = simpleHash(systemPrompt);
-    const canonicalChartArtifact = user?.birthData?.chart
+    const canonicalChartArtifact = birthData && user?.birthData?.chart
       ? buildBirthChartContextArtifact(user.birthData)
       : undefined;
     const evidenceBundle: OracleEvidenceBundle = {
@@ -634,7 +658,7 @@ async function runOracleInvocation(ctx: any, args: OracleInvocationArgs): Promis
         ...(timespaceContext && user?.birthData?.chart && requestPlan.requiredCapabilities.includes("personal_transits") ? [{ capability: "personal_transits" as const, label: "transit_to_natal_overlay", content: timespaceContext, provenance: { source: "oracle-timespace", version: "1", calculatedAt: new Date().toISOString(), timezone: args.timezone || "UTC" } }] : []),
       ],
       warnings: requestPlan.unavailableCapabilities.map((item) => `${item.capability}:${item.reason}`),
-      natalChart: user?.birthData?.chart
+      natalChart: birthData && user?.birthData?.chart
         ? {
             availableEntities: [
               ...(user.birthData.chart.ascendant ? ["ascendant"] : []),
@@ -937,6 +961,19 @@ async function runOracleInvocation(ctx: any, args: OracleInvocationArgs): Promis
           args.durable.turn.assistantMessageId,
           trace,
         );
+
+        // The durable V2 executor returns before the legacy post-processing
+        // block below. Run capability side effects against its existing
+        // assistant placeholder after successful terminal publication.
+        if (finalState.turn.status === "complete") {
+          await runPipelineAfterResponseHooks(
+            ctx,
+            activePipelines,
+            durableResult.content,
+            pipelineCtx,
+            args.durable.turn.assistantMessageId,
+          );
+        }
       }
       return durableResult;
     }
@@ -1262,22 +1299,14 @@ async function runOracleInvocation(ctx: any, args: OracleInvocationArgs): Promis
     }
 
     // ── Pipeline afterResponse hooks ───────────────────────────────────────
-    for (const pipeline of activePipelines) {
-      if (pipeline.afterResponse) {
-        try {
-          const actions = pipeline.afterResponse(result.contentWithoutTitle, pipelineCtx);
-          for (const action of actions) {
-            if (action.type === "store_binaural_params" && result.messageId) {
-              await ctx.runMutation(internalRef.oracle.sessions.patchMessageBinauralParams, {
-                messageId: result.messageId,
-                binauralParams: action.payload,
-              });
-            }
-          }
-        } catch (e) {
-          console.error(`Pipeline ${pipeline.key} afterResponse hook failed:`, e);
-        }
-      }
+    if (result.messageId) {
+      await runPipelineAfterResponseHooks(
+        ctx,
+        activePipelines,
+        result.contentWithoutTitle,
+        pipelineCtx,
+        result.messageId,
+      );
     }
 
     // ── Update session status ──────────────────────────────────────────────

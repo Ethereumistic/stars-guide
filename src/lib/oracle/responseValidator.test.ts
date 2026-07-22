@@ -57,6 +57,14 @@ describe("validateCanonicalNatalClaims", () => {
     );
   });
 
+  it("does not validate explicitly current-sky placements as natal claims", () => {
+    expect(validateCanonicalNatalClaims(
+      "Current sky: Mercury is in Cancer and Mars is direct today.",
+      evidence,
+    )).toEqual([]);
+    expect(codes("Current sky context. Your Mercury is in Cancer.")).toContain("contradictory_natal_sign");
+  });
+
   it("covers every supported natal entity alias for sign and house contradictions", () => {
     const bodies = [
       "Ascendant",

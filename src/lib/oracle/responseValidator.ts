@@ -72,6 +72,13 @@ function claimIsNegated(content: string, index: number): boolean {
   );
 }
 
+function claimIsCollectiveTransit(content: string, index: number, claim: string): boolean {
+  if (/^\s*(?:your|natal)\b/i.test(claim)) return false;
+  return /\b(?:current(?:ly)?|right\s+now|today|transit(?:ing)?|sky|cosmic\s+weather|planetary\s+weather)\b/i.test(
+    content.slice(Math.max(0, index - 60), index),
+  );
+}
+
 function addUniqueViolation(
   violations: OracleResponseViolation[],
   violation: OracleResponseViolation,
@@ -134,7 +141,7 @@ export function validateCanonicalNatalClaims(
   );
 
   for (const match of content.matchAll(SIGN_CLAIM)) {
-    if (claimIsNegated(content, match.index ?? 0)) continue;
+    if (claimIsNegated(content, match.index ?? 0) || claimIsCollectiveTransit(content, match.index ?? 0, match[0])) continue;
     const placement = placements.get(normalizeBody(match[1]));
     if (placement && normalizeSign(match[2]) !== normalizeSign(placement.sign)) {
       addUniqueViolation(violations, {
@@ -146,7 +153,7 @@ export function validateCanonicalNatalClaims(
   }
 
   for (const match of content.matchAll(HOUSE_CLAIM)) {
-    if (claimIsNegated(content, match.index ?? 0)) continue;
+    if (claimIsNegated(content, match.index ?? 0) || claimIsCollectiveTransit(content, match.index ?? 0, match[0])) continue;
     const placement = placements.get(normalizeBody(match[1]));
     const claimedHouse = parseHouse(match[2], match[3]);
     if (
@@ -165,7 +172,7 @@ export function validateCanonicalNatalClaims(
   }
 
   for (const match of content.matchAll(MOTION_CLAIM)) {
-    if (claimIsNegated(content, match.index ?? 0)) continue;
+    if (claimIsNegated(content, match.index ?? 0) || claimIsCollectiveTransit(content, match.index ?? 0, match[0])) continue;
     const body = match[1] ?? match[4];
     const motion = (match[2] ?? match[3]).toLowerCase();
     const placement = placements.get(normalizeBody(body));
@@ -182,7 +189,7 @@ export function validateCanonicalNatalClaims(
   }
 
   for (const match of content.matchAll(DIGNITY_CLAIM)) {
-    if (claimIsNegated(content, match.index ?? 0)) continue;
+    if (claimIsNegated(content, match.index ?? 0) || claimIsCollectiveTransit(content, match.index ?? 0, match[0])) continue;
     const placement = placements.get(normalizeBody(match[1]));
     if (placement && normalizeDignity(match[2]) !== normalizeDignity(placement.dignity ?? "none")) {
       addUniqueViolation(violations, {
@@ -194,7 +201,7 @@ export function validateCanonicalNatalClaims(
   }
 
   for (const match of content.matchAll(DEGREE_CLAIM)) {
-    if (claimIsNegated(content, match.index ?? 0)) continue;
+    if (claimIsNegated(content, match.index ?? 0) || claimIsCollectiveTransit(content, match.index ?? 0, match[0])) continue;
     const placement = placements.get(normalizeBody(match[1]));
     const claimedDegree = Number(match[2]);
     if (

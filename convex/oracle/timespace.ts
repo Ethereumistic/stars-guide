@@ -324,6 +324,7 @@ export function hasTechnologyDisruptionIntent(question: string): boolean {
 
 const DIRECT_CURRENT_SKY_PATTERNS: RegExp[] = [
   /\b(what('s|\s+is)\s+(the\s+)?current\s+sky|current\s+(sky|planetary\s+positions?|transits?|cosmic\s+weather))\b/i,
+  /\b(?:cosmic|planetary)\s+weather\b.*\b(?:atm|at\s+the\s+moment|now|currently|right\s+now)\b/i,
   /\b(what|which)\s+(planets?\s+)?(is|are)\s+(currently\s+|right\s+now\s+)?retrograde\b/i,
   /\b(what('s|\s+is)\s+retrograde|retrogrades?\s+(right\s+now|currently|today))\b/i,
 ];
@@ -473,6 +474,7 @@ export function buildTimespaceContext(
   birthData?: StoredBirthData | null,
   previousVisitedAt?: number | null,
   forceCosmicWeather = false,
+  includePersonalTransits = Boolean(birthData?.chart),
 ): TimespaceContext {
   const now = new Date();
   const hasIntent = forceCosmicWeather || hasTimespaceIntent(question);
@@ -494,7 +496,7 @@ export function buildTimespaceContext(
       blocks.push("");
       blocks.push(formatTechnologyMercuryDiagnostic(snapshot));
     }
-    if (birthData?.chart) {
+    if (includePersonalTransits && birthData?.chart) {
       const forecastSnapshots: DatedSnapshot[] = [];
       const sampleIntervalMs = 6 * 60 * 60 * 1000;
       for (let offsetMs = 0; offsetMs <= 14 * 24 * 60 * 60 * 1000; offsetMs += sampleIntervalMs) {
@@ -529,7 +531,7 @@ export function buildTimespaceContext(
           blocks.push("[END CHANGE SINCE LAST ORACLE VISIT]");
         }
       }
-    } else {
+    } else if (includePersonalTransits) {
       blocks.push("");
       blocks.push("Personal transit overlay: unavailable because no canonical natal chart is stored for this user. State this limitation only if the answer specifically requires a natal comparison; the current collective sky data above is still available.");
     }
